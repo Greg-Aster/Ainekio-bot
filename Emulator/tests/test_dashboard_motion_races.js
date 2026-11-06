@@ -16,7 +16,7 @@ const requests = [];
 const windowListeners = new Map();
 let gamepads = [];
 const context = { console, URLSearchParams, AbortController, navigator:{getGamepads(){return gamepads;}}, localStorage:{getItem(){return null;}},
-  document:{getElementById:node, querySelector:node, querySelectorAll(){return [];}},
+  document:{getElementById:node, querySelector:node, querySelectorAll(selector){return selector === '[data-motion-system="freestyle"]' ? [node('freestyle-panel'),node('training-library')] : [];}},
   window:{addEventListener(type,fn){windowListeners.set(type,fn);},clearTimeout(){}},
   fetch(url,opts){return new Promise((resolve,reject)=>requests.push({url,body:JSON.parse(opts.body),resolve:(seq)=>resolve({ok:true,status:200,json:async()=>typeof seq === "object" ? seq : ({seq})}),reject}));}
 };
@@ -227,7 +227,7 @@ async function run() {
   const beforeEdit=requests.length;
   node('motion-speed').value='2';await node('motion-speed').fire('input');
   assert.equal(requests.length,beforeEdit,'editing speed must not send movement or save');
-  node('motion-system').value='library';
+  node('motion-system').checked=false;
   const wave=api.sendNamedMotion('emote','wave','Wave sent');
   assert.equal(requests.at(-1).body.params.playback_rate,2);
   assert.equal(requests.at(-1).body.robot_id,'speed-b');requests.at(-1).resolve(2002);await wave;
@@ -443,20 +443,30 @@ async function run() {
 
   api.select('motion-a');
   api.updateMotionSystem({motion_systems:{'motion-a':'freestyle'}});
-  assert.equal(node('motion-system').value,'freestyle');
-  node('motion-system').value='library';node('motion-system').fire('change');
+  assert.equal(node('motion-system').checked,true);
+  assert.equal(node('named-poses-emotes').hidden,true,'Freestyle hides the legacy named-motion buttons');
+  assert.equal(node('freestyle-panel').hidden,false);
+  assert.equal(node('training-library').hidden,false);
+  node('motion-system').checked=false;
+  const saveMotion=node('motion-system').fire('change');
+  assert.equal(node('named-poses-emotes').hidden,false,'Legacy buttons appear immediately when selected');
+  assert.equal(node('freestyle-panel').hidden,true,'Legacy hides generated motion controls');
+  assert.equal(node('training-library').hidden,true,'Legacy hides Freestyle training examples');
   api.updateMotionSystem({motion_systems:{'motion-a':'freestyle'}});
-  assert.equal(node('motion-system').value,'library','poll must preserve an unsaved selection');
-  const saveMotion=node('motion-system-form').fire('submit');
+  assert.equal(node('motion-system').checked,false,'poll must preserve a selection while its automatic save is pending');
+  assert.equal(node('named-poses-emotes').hidden,false,'Polling retains visibility of the selected legacy mode');
   assert.equal(requests.at(-1).url,'/api/motion-system');
   assert.deepEqual(requests.at(-1).body,{system:'library',robot_id:'motion-a'});
   const savingMotion=requests.at(-1);
   api.select('motion-b');api.updateMotionSystem({motion_systems:{'motion-b':'freestyle'}});
   savingMotion.resolve({robot_id:'motion-a',system:'library'});await saveMotion;
-  assert.equal(node('motion-system').value,'freestyle','old save must not change the new robot');
+  assert.equal(node('motion-system').checked,true,'old save must not change the new robot');
+  assert.equal(node('named-poses-emotes').hidden,true,'Robot changes restore visibility for that robot mode');
+  assert.equal(node('freestyle-panel').hidden,false);
+  assert.equal(node('training-library').hidden,false);
   api.select('motion-c');api.updateMotionSystem({});
-  assert.equal(node('motion-system').value,'freestyle');
-  console.log('Motion selector: saved status, unsaved edits, per-robot save and delayed replies passed.');
+  assert.equal(node('motion-system').checked,true);
+  console.log('Motion switch: automatic persistence on change, pending selection and selected-robot reply handling passed.');
 
 }
 run().catch(error=>{console.error(error);process.exitCode=1;});

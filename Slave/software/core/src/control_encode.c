@@ -52,6 +52,17 @@ static void append_i32(json_writer_t *writer, int32_t value)
     append_bytes(writer, buffer, (size_t)length);
 }
 
+static void append_u64(json_writer_t *writer, uint64_t value)
+{
+    char buffer[24];
+    const int length = snprintf(buffer, sizeof(buffer), "%" PRIu64, value);
+    if (length <= 0 || (size_t)length >= sizeof(buffer)) {
+        writer->failed = true;
+        return;
+    }
+    append_bytes(writer, buffer, (size_t)length);
+}
+
 static void append_float(json_writer_t *writer, float value)
 {
     if (!isfinite(value)) {
@@ -318,6 +329,7 @@ size_t ainekio_encode_status(
         append_literal(&writer, ",\"width\":"); append_u32(&writer, capture->width);
         append_literal(&writer, ",\"height\":"); append_u32(&writer, capture->height);
         append_literal(&writer, ",\"exposure_us\":"); append_u32(&writer, capture->exposure_us);
+        append_literal(&writer, ",\"max_exposure_us\":"); append_u32(&writer, capture->max_exposure_us);
         append_literal(&writer, ",\"gain_x16\":"); append_u32(&writer, capture->gain_x16);
         append_literal(&writer, ",\"settle_ms\":"); append_u32(&writer, capture->settle_ms);
         append_literal(&writer, ",\"settled\":"); append_literal(&writer, capture->settled ? "true}" : "false}");
@@ -388,6 +400,8 @@ size_t ainekio_encode_camera_meta(
     uint32_t counter_base,
     ainekio_camera_origin_t origin,
     uint32_t origin_id,
+    uint64_t frame_completed_us,
+    uint32_t boot_id,
     char *output,
     size_t capacity
 )
@@ -396,7 +410,7 @@ size_t ainekio_encode_camera_meta(
     static const char *const origins[] = {"", "request", "action", "audio"};
     if ((unsigned int)resolution >=
             sizeof(resolutions) / sizeof(resolutions[0]) ||
-        fps > 15U ||
+        fps > 15U || frame_completed_us > INT64_MAX ||
         (unsigned int)origin >= sizeof(origins) / sizeof(origins[0]) ||
         (origin == AINEKIO_CAMERA_ORIGIN_NONE && origin_id != 0U) ||
         ((origin == AINEKIO_CAMERA_ORIGIN_REQUEST ||
@@ -412,6 +426,12 @@ size_t ainekio_encode_camera_meta(
     append_u32(&writer, origin == AINEKIO_CAMERA_ORIGIN_NONE ? fps : 0U);
     append_literal(&writer, ",\"counter_base\":");
     append_u32(&writer, counter_base);
+    if (frame_completed_us) {
+        append_literal(&writer, ",\"frame_completed_us\":");
+        append_u64(&writer, frame_completed_us);
+        append_literal(&writer, ",\"boot_id\":");
+        append_u32(&writer, boot_id);
+    }
     if (origin != AINEKIO_CAMERA_ORIGIN_NONE) {
         append_literal(&writer, ",\"origin\":\"");
         append_literal(&writer, origins[origin]);

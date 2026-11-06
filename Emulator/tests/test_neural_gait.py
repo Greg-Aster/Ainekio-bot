@@ -60,14 +60,254 @@ class VirtualGatewayTests(unittest.IsolatedAsyncioTestCase):
         await self.session.telemetry()
         return output
 
-    async def begin(self):
-        await self.session.start_walk({"dir":"fwd","steps":0,"speed":100})
+    async def begin(self, *, learning_trial=False):
+        if learning_trial:
+            self.session.walk = await self.session.connection.send_command(
+                {"t":"intent", "name":"walk", "dir":"fwd", "steps":0, "speed":100},
+                received_at=self.session.gateway.clock(), learning_trial=True)
+            self.session.walk_connection = self.session.connection
+            await self.session.connection.wait_acknowledged(self.session.walk, timeout=None)
+            self.session.started_us = self.now
+        else:
+            await self.session.start_walk({"dir":"fwd","steps":0,"speed":100})
         for _ in range(10):
             await self.advance()
             if self.session.observation_ready:
                 break
         self.assertTrue(self.session.observation_ready)
         return await self.session.observation()
+
+    async def test_rendered_jpeg_uses_real_camera_transport_and_metric_owner(self):
+        import asyncio
+        from unittest.mock import patch
+        import cv2
+        calls = []
+        # Only network inference is a fixture. Real framing, camera ownership,
+        # timestamp association and gateway delivery execute below.
+        def process(worker, robot, epoch, counter, received, jpeg, timestamp, config, attitude=None):
+            calls.append((jpeg, config, attitude))
+            return dict(available=False, robotId=robot, epoch=epoch, frameCounter=counter,
+                receivedAtMonotonic=received, source="test-image-worker", reason="test fixture",
+                depthSpatial={"available":False})
+        profile = dict(resolution="VGA", capture_hz=1, max_frame_age_s=1.,
+            processing=dict(mode="moge-open3d", resolution_level=0))
+        with patch("gateway.depth_motion.DepthMotion.process", process):
+            await self.session.enable_camera(profile)
+            await self.session.telemetry()
+            jpeg=cv2.imencode('.jpg', self.np.zeros((32,32,3),dtype=self.np.uint8))[1].tobytes()
+            await self.session.camera_frame(dict(counter=17,jpeg=jpeg,completed_us=self.now),profile)
+            async def delivered():
+                while not self.session.camera.locomotion_measurement(self.session.robot_id).get('frameCurrent'):
+                    await asyncio.sleep(.005)
+            await asyncio.wait_for(delivered(),5)
+        self.assertEqual(calls[0][0],jpeg)
+        self.assertEqual(calls[0][2]['frame_completed_us'],self.now)
+        self.assertEqual(calls[0][1]['mode'],'moge-open3d')
+        measurement=self.session.gateway.locomotion_measurement(self.session.robot_id)
+        self.assertEqual(measurement['source'],'test-image-worker')
+        self.assertFalse(measurement['available'])
+        self.assertNotIn('position',measurement)
+
+    async def test_virtual_body_reconnect_preserves_camera_owner_and_retires_old_walk(self):
+        from unittest.mock import AsyncMock, Mock
+        camera=Mock()
+        camera.configure_depth=AsyncMock()
+        camera.aclose=AsyncMock()
+        self.session.camera=camera
+        self.session.client.environment['depth_camera']={'processing':{'mode':'moge-open3d'}}
+        await self.begin()
+        old_epoch=self.session.robot.epoch
+        old_gateway=self.session.gateway
+        # This test reuses the executor; a training environment replaces it
+        # after closing the old device. Transport identity/lifecycle is real.
+        await self.session.reconnect_body(self.executor)
+        self.assertIs(self.session.gateway,old_gateway)
+        self.assertIs(self.session.camera,camera)
+        self.assertGreater(self.session.robot.epoch,old_epoch)
+        self.assertIsNone(self.session.walk)
+        camera.aclose.assert_not_awaited()
+        camera.configure_depth.assert_awaited_once()
+        self.feed(self.pose)
+        await self.begin()
+
+    def physical_inference(self, *, resist_cancel=False):
+        """Use the existing pending inference fixture with a physical actor identity."""
+        import asyncio
+        from copy import deepcopy
+        from gateway.neural_gait.contract import HISTORY_SCHEMA
+        self.session.client.environment['observation_schema'] = HISTORY_SCHEMA
+        self.inference_requests = []
+        original = self.session.client.call
+        async def call(path, payload=None):
+            if path == '/status?history=0':
+                return {**await original(path, payload), 'kind':'physical-redq'}
+            self.inference_requests.append(deepcopy(payload))
+            if not resist_cancel:
+                return await original(path, payload)
+            task = asyncio.create_task(original(path, payload))
+            try:
+                return await asyncio.shield(task)
+            except asyncio.CancelledError:
+                # A remote inference can finish after its original caller retires.
+                return await task
+        self.session.client.call = call
+
+    async def test_physical_trial_records_exact_inputs_and_device_consumed_action(self):
+        import base64
+        import zlib
+        self.physical_inference()
+        diagnostics = []
+        self.session.gateway.subscribe_diagnostics(diagnostics.append)
+        observed = await self.begin(learning_trial=True)
+        state = self.session.connection.neural_walk
+        request = self.inference_requests[-1]
+        self.assertTrue(state.learning_trial)
+        self.assertTrue(request['explore'])
+        self.assertEqual(request['model_id'], state.model_id)
+        self.assertEqual(request['checkpoint_id'], state.checkpoint_id)
+        feedback_revision = self.session.gateway.body_sensor_observation(self.session.robot_id)['feedback']['revision']
+        first_action = [.2, 0., 0.]*4
+        admitted = await self.session.action(first_action)
+        self.assertEqual(admitted['consumed_sample'], 0, 'Native ACK must not become a learned execution transition')
+        row = next(row for row in diagnostics if row.get('event') == 'neural_gait' and 'action' in row)
+        self.assertTrue(row['learning_trial'])
+        self.assertEqual((row['walk'], row['revision'], row['feedback_revision']),
+                         (self.session.walk, 0, feedback_revision))
+        self.assertEqual(row['consumed_sample'], 0)
+        self.assertIsInstance(row['observation_received_at'], (int, float))
+        source = self.session.gateway.body_sensor_observation(self.session.robot_id)
+        self.assertIsInstance(source['received_at'], str, 'Display receipt time remains ISO formatted')
+        self.assertEqual(row['observation_received_at'], source['received_monotonic_s'])
+        packed = row['policy_observation']
+        self.assertEqual(packed['encoding'], 'float32-le-zlib-base64')
+        self.assertEqual(packed['schema'], observed['schema'])
+        self.np.testing.assert_array_equal(
+            self.np.frombuffer(zlib.decompress(base64.b64decode(packed['values'])), dtype='<f4'),
+            self.np.asarray(vector(observed), dtype=self.np.float32))
+
+        for _ in range(100):
+            await self.advance()
+            observed = await self.session.observation()
+            if observed['previous_action'] == first_action:
+                break
+            await self.session.action(first_action)
+        self.assertEqual(observed['previous_action'], first_action)
+        consumed = self.session.connection.neural_walk.consumed
+        self.assertGreater(consumed, 0)
+        await self.session.action([-.2, 0., 0.]*4)
+        row = [row for row in diagnostics if row.get('event') == 'neural_gait' and 'action' in row][-1]
+        self.assertEqual(row['consumed_sample'], consumed)
+        self.assertGreater(row['sample'], consumed)
+        self.np.testing.assert_array_equal(
+            self.np.frombuffer(zlib.decompress(base64.b64decode(row['policy_observation']['values'])), dtype='<f4'),
+            self.np.asarray(vector(observed), dtype=self.np.float32))
+
+    async def test_physical_final_sensor_snapshot_survives_no_next_policy_target(self):
+        from unittest.mock import patch
+        from gateway.neural_gait.physical import measured_transition
+        self.physical_inference()
+        diagnostics = []
+        self.session.gateway.subscribe_diagnostics(diagnostics.append)
+        await self.begin(learning_trial=True)
+        for _ in range(100):
+            await self.session.action([.2, 0., 0.]*4)
+            first = [r for r in diagnostics if r.get('event') == 'neural_gait' and 'action' in r][-1]
+            await self.advance()
+            if self.session.connection.neural_walk.consumed == first['sample']:
+                break
+            await self.session.observation()
+        self.assertEqual(self.session.connection.neural_walk.consumed, first['sample'])
+        # The existing body-event boundary reports a known failure on a real
+        # native sensor packet; this is protocol coverage, not a physical fall.
+        event = self.session.gateway.body_events.event(self.session.robot_id,
+            self.session.connection.epoch, 'tipped', {'motion':{'sequence':self.session.walk}})
+        with patch.object(self.session.gateway.body_events, 'observe', return_value=[event]):
+            await self.advance()
+        final = next(r for r in diagnostics if r.get('outcome') == 'failure')
+        self.assertNotIn('action', final)
+        self.assertNotIn('sample', final)
+        self.assertEqual(final['consumed_sample'], first['sample'])
+        self.assertEqual(final['observation_received_at'], self.now/1e6)
+        self.assertEqual(final['observation_device_us'], self.now)
+        self.assertEqual(final['outcome_evidence']['event_id'], event['event_id'])
+        transition, evidence = measured_transition(first, final, [])
+        self.assertEqual(transition[4], 0.)
+        self.assertFalse(evidence['visual_complete'])
+        self.assertIsNone(evidence['displacement_body_m'])
+        self.assertEqual(len([r for r in diagnostics if 'action' in r]), first['sample'],
+                         'Final observation recording must not generate another target')
+        self.assertIsNotNone(self.session.connection.neural_walk,
+                             'Recording a failure must not introduce a movement stop')
+        await self.session.stop(release=True)
+        self.assertEqual(diagnostics[-1]['outcome'], 'truncated')
+
+    async def test_physical_exploration_belongs_only_to_explicit_walk(self):
+        self.physical_inference()
+        await self.begin(learning_trial=True)
+        original = self.session.walk
+        self.assertTrue(self.inference_requests[-1]['explore'])
+        await self.session.update_walk({'dir':'fwd', 'steps':0, 'speed':70})
+        await self.session.observation()
+        self.assertEqual(self.session.connection.neural_walk.sequence, original)
+        self.assertTrue(self.inference_requests[-1]['explore'], 'Steering retains the original trial owner')
+        stop = await self.session.stop(release=True)
+        await self.session.connection.wait_acknowledged(stop, timeout=None)
+        await self.advance()
+        await self.begin()
+        self.assertFalse(self.session.connection.neural_walk.learning_trial)
+        self.assertFalse(self.inference_requests[-1]['explore'], 'An ordinary deployed Walk is deterministic')
+        self.assertNotEqual(self.session.walk, original)
+
+    async def test_physical_trial_late_inference_and_queued_targets_cannot_outlive_owner(self):
+        import asyncio
+        from unittest.mock import patch
+        self.physical_inference(resist_cancel=True)
+        commands = []
+        async def record(command):
+            commands.append(command)
+        self.session.gateway.subscribe_commands(record)
+        for transition in ('stop', 'release', 'replacement'):
+            for phase in ('inference', 'queued_target'):
+                with self.subTest(transition=transition, phase=phase):
+                    await self.begin(learning_trial=True)
+                    original = self.session.walk
+                    producer = self.session.connection.neural_walk.task
+                    async def retire():
+                        if transition == 'replacement':
+                            return await self.session.command('walk', {'dir':'fwd', 'steps':0, 'speed':100})
+                        return await self.session.stop(release=transition == 'release')
+                    if phase == 'queued_target':
+                        target_waiting = asyncio.Event()
+                        send = self.session.connection.send_command
+                        async def observed_send(command, **kwargs):
+                            if command.get('t') == 'walk_target' and command.get('walk') == original:
+                                target_waiting.set()
+                            return await send(command, **kwargs)
+                        with patch.object(self.session.connection, 'send_command', side_effect=observed_send):
+                            await self.session.connection._send_lock.acquire()
+                            try:
+                                retiring = asyncio.create_task(retire())
+                                await asyncio.sleep(0)
+                                self.session.client.respond([.2, 0., 0.]*4)
+                                await asyncio.wait_for(target_waiting.wait(), 2)
+                                self.assertFalse(retiring.done())
+                            finally:
+                                self.session.connection._send_lock.release()
+                            replacement = await retiring
+                    else:
+                        replacement = await retire()
+                        self.session.client.respond([.2, 0., 0.]*4)
+                    await self.session.connection.wait_acknowledged(replacement, timeout=None)
+                    await self.advance()
+                    await asyncio.wait_for(asyncio.gather(producer, return_exceptions=True), 2)
+                    if transition == 'replacement':
+                        self.assertEqual(self.session.connection.neural_walk.sequence, replacement)
+                        self.assertFalse(self.session.connection.neural_walk.learning_trial)
+                    else:
+                        self.assertIsNone(self.session.connection.neural_walk)
+                    self.assertFalse(any(row['t'] == 'walk_target' and row['walk'] == original
+                                         for row in commands))
+                    self.assertEqual(self.session.connection.completed[original]['t'], 'cancelled')
 
     async def test_real_body_control_transport_preserves_admission_consumption_and_finish(self):
         import asyncio
@@ -185,12 +425,15 @@ class VirtualGatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(original, self.session.connection.pending,
                       "A producer failure must not manufacture physical completion")
 
+
     async def test_fall_event_uses_existing_recovery_bridge_and_real_target_execution(self):
         import asyncio
         from gateway.neural_gait.virtual import VirtualWalkEnded
         generated = []
+        recovery_states=[]
         async def generate(endpoint, request):
             generated.append(request)
+            recovery_states.append(self.session.gateway.body_sensor_observation(self.session.robot_id)["events"])
             return {"program":[{"name":"move", "arguments":{
                 "joint":"front_right_shoulder", "angle_deg":8,
                 "reference":"current", "speed_pct":50}}]}
@@ -225,6 +468,9 @@ class VirtualGatewayTests(unittest.IsolatedAsyncioTestCase):
             if jobs and jobs[-1]["state"] in ("completed","error","superseded"):
                 break
         self.assertEqual(len(generated),1, recovery.status())
+        self.assertTrue(recovery_states[0]['tipped'])
+        self.assertTrue(recovery_states[0]['recovering'])
+        self.assertIsNone(recovery_states[0]['slip'])
         self.assertEqual(generated[0]["event"]["type"],"tipped")
         self.assertEqual(generated[0]["observation"]["action"]["seq"],original)
         job = list(recovery.jobs.values())[-1]
@@ -433,6 +679,27 @@ class ObservationTests(unittest.TestCase):
     "Use build/gait-training-env for physics and checkpoint tests",
 )
 class PhysicsTests(unittest.TestCase):
+
+    def test_geometry_action_domain_preserves_old_scales_and_expands_new_physical_runs(self):
+        from dataclasses import asdict
+        import numpy as np
+        from gateway.neural_gait.environment import EnvironmentConfig
+        from gateway.neural_gait.native import BodyModel
+        from gateway.neural_gait.physical import physical_environment
+        config = EnvironmentConfig(robot=robot_fixture())
+        model = BodyModel(config.robot)
+        self.addCleanup(model.close)
+        expected = model.foot_action_scale(config.reference_joint_deg, config.target_limits_deg)
+        np.testing.assert_array_equal(config.foot_action_scale_mm, expected)
+        self.assertGreater(expected[0], 53.808)
+        self.assertTrue(np.isfinite(expected).all())
+        old = EnvironmentConfig(robot=robot_fixture(), foot_action_scale_mm=[30.,20.,30.])
+        restored = EnvironmentConfig(**asdict(old))
+        self.assertEqual(restored.foot_action_scale_mm, [30.,20.,30.])
+        # Creating a NEW physical learner must not inherit the old search box.
+        physical = physical_environment(asdict(restored))
+        np.testing.assert_array_equal(physical['foot_action_scale_mm'], expected)
+        self.assertEqual(restored.foot_action_scale_mm, [30.,20.,30.])
 
     def test_sac_actor_transfers_to_history_ppo_and_value_warmup_preserves_it(self):
         import hashlib
@@ -4070,3 +4337,164 @@ class GuidedTeacherTests(unittest.TestCase):
         self.assertEqual(cycle_rows(3., 50, 800), [450, 600])
         with self.assertRaises(ValueError):
             cycle_rows(2.5, 50, 400)
+
+
+class NativeDemonstrationTests(unittest.TestCase):
+    def test_full_cycle_labels_use_native_calibration_fit_before_foot_encoding(self):
+        from types import SimpleNamespace
+        import numpy as np
+        from gateway.neural_gait.native import BodyModel, derive_foot_action_scale
+        from gateway.neural_gait.server import Runtime
+        from gateway.neural_gait.contract import PENDING_SCHEMA, ObservationHistory
+        robot = robot_fixture()
+        # Synthetic horn offsets make the rear-right native swing cross the
+        # installed PWM limits. These are fixture values, not captured hardware.
+        robot['calibration'][4]['home_us'] = 765
+        robot['calibration'][5]['home_us'] = 1900
+        reference = [0, 3.46, -21.63] * 4
+        limits = [[-180, 180]] * 12
+        environment = dict(robot=robot, reference_joint_deg=reference,
+            target_limits_deg=limits, foot_action_scale_mm=derive_foot_action_scale(robot, reference, limits),
+            joint_speed_deg_s=60/.11, observation_schema=PENDING_SCHEMA)
+        direct = BodyModel(robot)
+        self.addCleanup(direct.close)
+        direct.walk_configure(speed_deg_s=60/.11, heading_enabled=False, balance_enabled=False)
+        command = dict(t='intent', name='walk', dir='fwd', steps=0, speed=100)
+        self.assertTrue(direct.walk_accept({**command, 'seq':1}, 1000000))
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Runtime(directory)
+            self.addCleanup(runtime.collection_end, 'robot', 'first')
+            runtime.kind, runtime.model_id, runtime.checkpoint_id = 'physical-redq', 'abc', 'checkpoint'
+            runtime.environment = environment
+            runtime.model = SimpleNamespace(metadata={'pending_input_dim':14})
+            source = ObservationTests().source()
+            for name, angle in zip(JOINTS, reference):
+                source['joints'][name]['commanded_model_deg'] = angle
+            history = ObservationHistory()
+            fitted_count = 0
+            for step in range(661):
+                now = 1000000 + round(step * 1000000 / 33)
+                source['feedback']['device_us'] = now
+                current = observation(source, environment, [.05,0,0], history=history, pending_actions=[])
+                request = dict(source='native-c',robot_id='robot',owner='first',device_us=now,
+                    command=command,gateway_instance='gateway',epoch=1,walk=1)
+                actual = runtime.infer(current,explore=True,demonstration=request)
+                expected = direct.walk_tick(now,reference)
+                raw, target = expected['nominal_angles'], expected['balanced_angles']
+                fitted_count += int(np.max(np.abs(raw-target)) > .01)
+                np.testing.assert_array_equal(actual['demonstration']['nominal_joint_deg'],raw)
+                np.testing.assert_array_equal(actual['demonstration']['target_joint_deg'],target)
+                # Offline label correction must select the fitted goal, not
+                # the separately ramped and PWM-quantized execution frame.
+                np.testing.assert_array_equal(direct.target(raw,reference,60/.11,1.)[1],target)
+                offsets = np.asarray(actual['requested_foot_offset_mm']).reshape(4,3)
+                decoded = direct.foot_target(offsets,reference,target,60/.11,1.)
+                self.assertEqual(decoded['fit'],1.)
+                np.testing.assert_allclose(decoded['nominal_goal_angles'],target,atol=.001)
+            self.assertGreater(fitted_count,0)
+
+    def test_real_observation_clock_native_targets_updates_and_owner_cleanup(self):
+        from types import SimpleNamespace
+        import numpy as np
+        from gateway.neural_gait.native import BodyModel, derive_foot_action_scale
+        from gateway.neural_gait.server import Runtime
+        from gateway.neural_gait.contract import PENDING_SCHEMA, ObservationHistory
+        robot = robot_fixture()
+        reference = [0, 3.46, -21.63] * 4
+        limits = [[-90, 90]] * 12
+        environment = dict(robot=robot, reference_joint_deg=reference,
+            target_limits_deg=limits, foot_action_scale_mm=derive_foot_action_scale(robot, reference, limits),
+            joint_speed_deg_s=60/.11, observation_schema=PENDING_SCHEMA)
+        direct = BodyModel(robot)
+        self.addCleanup(direct.close)
+        direct.walk_configure(speed_deg_s=60/.11, heading_enabled=False, balance_enabled=False)
+        command = dict(t='intent', name='walk', dir='fwd', steps=0, speed=100)
+        self.assertTrue(direct.walk_accept({**command, 'seq':1}, 1000000))
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Runtime(directory)
+            runtime.kind, runtime.model_id, runtime.checkpoint_id = 'physical-redq', 'abc', 'checkpoint'
+            runtime.environment = environment
+            runtime.model = SimpleNamespace(metadata={'pending_input_dim':14})
+            source = ObservationTests().source()
+            for name, angle in zip(JOINTS, reference):
+                source['joints'][name]['commanded_model_deg'] = angle
+            history = ObservationHistory()
+            requests = []
+            for now in (1000000, 1017000, 1081000, 1200000, 1430000, 1800000):
+                source['feedback']['device_us'] = now
+                current = observation(source, environment, [.05,0,0], history=history, pending_actions=[])
+                request = dict(source='native-c',robot_id='robot',owner='first',device_us=now,command=command, gateway_instance='gateway',epoch=1,walk=1)
+                actual = runtime.infer(current, explore=True, model_id='abc',checkpoint_id='checkpoint',demonstration=request)
+                expected = direct.walk_tick(now, reference)
+                np.testing.assert_array_equal(actual['demonstration']['nominal_joint_deg'],expected['nominal_angles'])
+                self.assertEqual(actual['demonstration']['phase'], expected['phase'])
+                self.assertEqual(actual['demonstration']['device_us'], now)
+                self.assertFalse(actual['demonstration']['heading_enabled'])
+                self.assertFalse(actual['demonstration']['balance_enabled'])
+                self.assertFalse(actual['exploration'])
+                offsets = np.asarray(actual['requested_foot_offset_mm']).reshape(4,3)
+                fitted = direct.foot_target(offsets,reference,expected['balanced_angles'],60/.11,1.)
+                np.testing.assert_allclose(fitted['nominal_goal_angles'],expected['balanced_angles'],atol=.03)
+                np.testing.assert_array_equal(actual['demonstration']['target_joint_deg'],expected['balanced_angles'])
+                self.assertEqual(actual['demonstration']['label_contract'],'native-c-calibrated-target-v1')
+                requests.append(actual)
+            self.assertGreater(np.ptp([x['demonstration']['phase']for x in requests]),0)
+            command = {**command,'speed':50,'forward':-100,'turn':0}
+            direct.walk_accept({**command,'seq':2,'update':1},1800000)
+            request['command'] = command
+            actual = runtime.infer(current, explore=True,demonstration=request)
+            np.testing.assert_array_equal(actual['demonstration']['nominal_joint_deg'],direct.walk_tick(1800000,reference)['nominal_angles'])
+            old_native = runtime.demonstrations['robot']['native']
+            old_request = dict(request)
+            request.update(owner='replacement',walk=2)
+            runtime.infer(current, explore=True,demonstration=request)
+            self.assertIsNone(old_native.state)
+            replacement = runtime.demonstrations['robot']['native']
+            with self.assertRaisesRegex(ValueError,'retired Walk'):
+                runtime.infer(current,explore=True,demonstration=old_request)
+            self.assertIs(runtime.demonstrations['robot']['native'],replacement)
+            self.assertFalse(runtime.collection_end('robot','first')['retired'])
+            self.assertTrue(runtime.collection_end('robot','replacement')['retired'])
+            self.assertIsNone(runtime.demonstrations['robot']['native'])
+            with self.assertRaisesRegex(ValueError,'retired Walk'):
+                runtime.infer(current,explore=True,demonstration=request)
+            with self.assertRaisesRegex(ValueError,'explicit collection'):
+                runtime.infer(current,demonstration=request)
+
+    def test_imitation_training_uses_existing_subprocess_lifecycle(self):
+        from unittest.mock import patch
+        from gateway.neural_gait.server import Runtime
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'abc';path.mkdir()
+            (path/'manifest.json').write_text(json.dumps({'kind':'physical-redq'}))
+            runtime=Runtime(directory)
+            with patch('gateway.neural_gait.server.subprocess.Popen') as popen:
+                runtime.physical_train(dict(model_id='abc',updates=10,recordings=['/actual'],method='imitation'))
+                command=popen.call_args.args[0]
+                self.assertIn('--imitate',command)
+                self.assertNotIn('--fit-all',command)
+                self.assertEqual(command[command.index('--recordings')+1],'/actual')
+                runtime.physical_train(dict(model_id='abc',updates=10,recordings=['/actual'],
+                    method='imitation',fit_all=True))
+                self.assertIn('--fit-all',popen.call_args.args[0])
+                self.assertIn('--imitate',popen.call_args.args[0])
+                for invalid in ('true',1,None):
+                    with self.assertRaisesRegex(ValueError,'must be a boolean'):
+                        runtime.physical_train(dict(model_id='abc',updates=10,recordings=['/actual'],
+                            method='imitation',fit_all=invalid))
+                with self.assertRaisesRegex(ValueError,'only to imitation'):
+                    runtime.physical_train(dict(model_id='abc',updates=10,recordings=['/actual'],fit_all=True))
+                self.assertEqual(popen.call_count,2)
+
+    def test_legacy_physical_creation_uses_existing_training_process(self):
+        from unittest.mock import patch
+        from gateway.neural_gait.server import Runtime
+        from Emulator.tests.test_physical_gait import environment
+        with tempfile.TemporaryDirectory() as root:
+            runtime = Runtime(root)
+            with patch('gateway.neural_gait.server.subprocess.Popen') as popen:
+                result = runtime.physical_create(dict(environment=environment()))
+                command = popen.call_args.args[0]
+                self.assertEqual(command[command.index('--algorithm')+1], 'REDQ')
+                self.assertFalse(result['movement_started'])
+                self.assertIsNone(runtime.model_id)

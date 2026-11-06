@@ -23,7 +23,7 @@ class GeneratorTests(unittest.TestCase):
         self.assertNotIn('reassess', (INSTRUCTIONS + COMPLETION_INSTRUCTIONS).lower())
         validator = Draft202012Validator(encoding.schema(argument_schema))
         self.assertFalse(validator.is_valid([['reassess']]))
-        self.assertTrue(validator.is_valid([['move', 9, 20, 'current', 50]]))
+        self.assertTrue(validator.is_valid([['move', 9, 20, 'current', 50, 0]]))
 
     def test_sync_requests_resolve_adapter_paths_and_report_missing_adapters(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -49,6 +49,25 @@ class GeneratorTests(unittest.TestCase):
             self.assertEqual([p['lora'] for p in payloads],[[{'id':4,'scale':1}],[{'id':9,'scale':1}]])
             self.assertEqual(len(payloads),2)
             self.assertEqual(generator._payload('base request')['lora'],[])
+
+    def test_joint_target_schemas_preserve_matching_pairs_in_named_and_compact_calls(self):
+        from jsonschema import Draft202012Validator
+        from experiments.freestyle.motion_space import TOOLS
+        from experiments.freestyle.compact_wire import ProgramEncoding
+        from experiments.freestyle.runtime import JOINTS
+        for name,field,minimum in [('pose','angles_deg',0)]:
+            tool=next(t for t in TOOLS if t['name']==name)
+            named=Draft202012Validator(argument_schema(tool))
+            encoding=ProgramEncoding([tool]);compact_validator=Draft202012Validator(encoding.schema(argument_schema))
+            for count in range(minimum,13):
+                args={'joints':list(JOINTS[:count]),'angles_deg':[-216.3]*count,'reference':'absolute','speed_pct':50,'taper_deg':0}
+                self.assertTrue(named.is_valid(args),(name,count))
+                self.assertTrue(compact_validator.is_valid(encoding.encode([{'name':name,'arguments':args}])))
+                for different in range(13):
+                    if different==count:continue
+                    invalid=dict(args);invalid[field]=args[field][:different] if different<count else args[field]+[args[field][0] if args[field] else 0]*(different-count)
+                    self.assertFalse(named.is_valid(invalid),(name,count,different))
+                    self.assertFalse(compact_validator.is_valid(encoding.encode([{'name':name,'arguments':invalid}])),(name,count,different))
 
     def test_feedback_domain_uses_each_servo_mapping_and_never_invents_missing_calibration(self):
         joint={'id':7,'calibrated':True,'points':[{'pulse_us':500},{'pulse_us':1650},{'pulse_us':2800}]}
@@ -211,7 +230,7 @@ class AsyncGeneratorTests(unittest.IsolatedAsyncioTestCase):
         from experiments.freestyle.program import compile_motion
         from jsonschema import validate
         operation={'name':'oscillate','arguments':{'joint':JOINTS[9],
-                   'amplitude_deg':10,'cycles':2,'speed_pct':50}}
+                   'amplitude_deg':10,'cycles':2,'speed_pct':50,'taper_deg':0}}
         program=[operation]
         class Client:
             profile='test'

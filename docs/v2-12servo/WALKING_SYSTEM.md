@@ -121,8 +121,17 @@ turning, tilt, acceleration and tracking. Forward, backward, turning and Run are
 its categories. Its profile includes duty, sweep, phase, lift, landing and body
 shape; it retains separate Walk/Run contexts and camera/calibration signatures.
 This is a compact policy/parameter optimizer, separate from the host neural
-policy. Fresh online neural training uses PPO; historical SAC artifacts retain
-their recorded algorithm.
+policy. The current Pupper work runs the complete upstream ROS controller and
+network against Ainekio's existing virtual Body Control/P4 hardware, with CAD
+geometry, native feedback/IMU processing and rendered JPEGs through actual MoGe.
+This is not physically qualified walking. The existing Pupper trainer now imports
+all original policy layers, retains its 36 × 20 observation history and appends
+297 current Ainekio sensor features, including actual image-derived estimates
+and validity, with zero initial added weights. The rejected partial-layer
+initializer is removed. The same upstream ROS controller supports its complete
+RTNeural exports; the existing body executor owns calibrated travel. Historical
+SAC/PPO/REDQ and partial-adapter artifacts remain loadable. See the current
+status and source comparison at the top of the [gait journal](GAIT_RESEARCH_JOURNAL.md).
 
 The neural experiment must reuse the existing recorder/history and hardware
 configuration at the handoff. Existing policy upload, enable/amount, export,
@@ -253,14 +262,15 @@ completion remains owned by the existing goal system, not a neural cycle count.
 
 2. **Native corrections and physical mapping.** The host branch of
    `body.c:motion_frame` runs `ainekio_v2_nominal_foot_pose`,
-   `ainekio_v2_walk_host_heading`, `balance_frame`, calibrated fitting and joint
-   ramping before the existing PCA output. Shared nominal conversion constructs
-   foot anchors for leveling. Physical order remains rear-left, rear-right,
+   calibrated fitting and joint ramping before
+   the existing PCA output. The learned policy owns moving balance and yaw: host targets
+   bypass native leveling and heading correction.
+   Native walking and stationary balance retain their saved settings and owner.
+   Physical order remains rear-left, rear-right,
    front-left, front-right. Saved native phase-based learned residuals remain
    applied only to native gaits: their phase/profile signature does not describe
-   host-generated motion. Heading and balance switches retain their existing
-   owners. Connected training runs this same body branch, including the selected
-   balance/heading configuration; historical direct-math runs did not necessarily
+   host-generated motion. The heading switch continues to control native walking.
+   Connected training runs this same body branch; historical direct-math runs did not necessarily
    do so and remain identified by their artifact configuration.
 
 3. **Finish, measured arrival and cancellation.** Speed-zero updates retain the
@@ -280,12 +290,87 @@ completion remains owned by the existing goal system, not a neural cycle count.
    shared policy projection. The producer uses the device-consumed requested
    action as `previous_action`, not the most recently sent or fitted target.
    The v5 observation history belongs to the original Walk and survives steering
-   updates. Preview is non-executing and begins with empty history. Both v4-depth
-   and v5-history preview/execution use the existing camera's depth projection;
+   updates. Physical `v6-pending` retains those 1,562 static coordinates and adds
+   every sent request not yet observed consumed as an ordered, variable-length
+   sequence: twelve normalized actions, source-device age and signed send time
+   relative to sensor receipt. The actor and critics encode the complete sequence;
+   no command queue cap or inference wait is added. A send after sensor receipt
+   can already be known at the next decision; ACKs are not physical consumption.
+   Preview is non-executing and begins with empty sensor history, but includes an
+   active Walk's pending requests. All v4-depth, v5-history and v6-pending
+   preview/execution use the existing camera's depth projection;
    valid depth does not require successful odometry. Depth demand is asynchronous
    and released when the producer exits. The normal 50 Hz body output does not
    wait for a host inference round trip. Simulation does not establish physical
    network delay/jitter, bus timing, or inference latency on Q6A.
+
+   `neural_gait.physical --migrate-pending` explicitly upgrades a physical v5
+   learner without selecting or training it. It reconstructs causal requests
+   from recordings, verifies the original replay values unchanged, and retains
+   replay slots, import identities, optimizer state and RNG. Zero-expanded input
+   weights initially preserve existing predictions. The atomic learner checkpoint
+   owns migration/publication intent; interrupted sidecar publication resumes from
+   it. Older immutable actors retain their own schema and remain selectable.
+   Missing causal recordings fail migration rather than inventing empty requests.
+
+   Default policy-based physical learning trials use the author's NumPy
+   [pink-noise-rl 2.0.1](https://github.com/martius-lab/pink-noise-rl) Gaussian
+   exploration process. One independent twelve-channel process belongs to each
+   `NeuralWalk`, survives steering updates and ends with that operation. The
+   existing walking source profile accepts `exploration_buffer_steps` (default
+   1,000); this FFT buffer renews continuously and is not a target hold or trial
+   duration. Each inference receives the next explicit noise sample and applies
+   the learned mean, standard deviation and tanh unchanged. The recording retains
+   that sample and profile provenance. Ordinary deterministic execution and REDQ
+   minibatch training remain unchanged. This replaces independent collection noise
+   without reducing target rate, foot range or servo speed; physical improvement
+   still requires measurement.
+
+   The existing authenticated `/api/neural-gait` `physical-trial` operation
+   accepts `collection_policy:"native-c"` for demonstration collection (default:
+   `"policy"`). The same Walk producer runs the production C gait generator at
+   actual received observation timestamps and requested direction/speed. It
+   encodes the generator's calibrated joint target through production FK into
+   the run's foot-action domain. Teacher heading, balance and learned corrections
+   are disabled; physical P4 correction and feedback ownership remain unchanged.
+   No simulated observations or collection noise enter these demonstrations.
+   Stop/Release/replacement retire the teacher, including rejecting stale requests
+   from a previous Walk after its replacement.
+
+   Authoritative `neural.jsonl` rows retain the actual original policy inputs,
+   pending requests, actions and execution evidence. Their `demonstration` field
+   records `source:"native-c"`, command/device time, raw `nominal_joint_deg`,
+   calibrated `target_joint_deg` and
+   `label_contract:"native-c-calibrated-target-v1"`. Raw native generator poses
+   can exceed installed calibration; they are provenance, not executable labels.
+   The existing `physical-train` operation accepts `method:"imitation"` with
+   model/recording selection and update count, launching a finite supervised batch
+   through the same trainer lifecycle. Its default remains `"reinforcement"`.
+   Imitation needs no fabricated distance reward, and agreement with teacher
+   targets is not physical qualification.
+   Optional `fit_all:true` selects all usable rows for imitation training rather
+   than reserving a holdout; the default is `false`. No held-out score is claimed
+   in this mode, and an independent physical actor trial is still required.
+
+   Physical depth odometry now retains SIFT/depth landmarks but estimates only
+   translation with known camera rotation (the established known-rotation
+   absolute-pose problem implemented by [OpenGV p2p](https://laurentkneip.github.io/opengv/namespaceopengv_1_1absolute__pose.html)).
+   The free-rotation PnP path is removed. Existing P4 fused quaternions are
+   interpolated at each frame's device-clock CSI transfer-completion timestamp,
+   using the matching boot and connection epoch and configured upright-pixel
+   camera-to-body transform. Camera completion is not exposure midpoint; residual
+   readout/timing offset is not calibrated. The existing camera freshness window
+   bounds the body-owned IMU history, retaining one preceding bracket sample.
+   Metric demand activates that history; release clears it. A queued frame owns
+   its copied interpolation evidence, unaffected by later history pruning.
+   Missing timestamp, attitude bracket or mounting transform makes pose unavailable
+   through the existing tracking-loss path while image recognition and depth grids
+   continue. Pose intervals use device completion times; gateway receipt remains
+   separately identified for freshness. No latest-attitude substitution or free-PnP
+   fallback invents a measurement. IMU orientation agreement is an imposed input,
+   not independent validation; MoGe metric scale and physical displacement still
+   need independent measurement. Legacy receipt-only recordings cannot be relabeled
+   as capture-aligned evidence.
 
 5. **Events and recovery.** `body.c:output_step` calls the existing fourth-wire
    no-progress detector and reports `servo_stall` with joint and command identity.

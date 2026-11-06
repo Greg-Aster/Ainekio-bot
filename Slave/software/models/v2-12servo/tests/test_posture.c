@@ -166,7 +166,7 @@ static void airborne_landing_keeps_horizontal_anchors(void)
     ainekio_v2_walk_pose_t stand,raised;
     assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&stand));
     float desired[4][3]={{0}},applied[4][3],fit[4];double anchors[4][3];desired[2][2]=15;
-    assert(ainekio_v2_nominal_foot_pose(&stand.frame,(const float (*)[3])desired,NULL,NULL,
+    assert(ainekio_v2_nominal_foot_pose(&stand.frame,(const float (*)[3])desired,NULL,NULL,NULL,
         &raised,anchors,applied,fit));
     ainekio_v2_posture_t p;double level[3]={0};
     assert(ainekio_v2_posture_begin_landing(&p,&raised.frame,&stand.frame,level));

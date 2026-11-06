@@ -51,6 +51,7 @@ static uint8_t fps = 2;
 static ainekio_camera_resolution_t resolution = AINEKIO_CAMERA_VGA;
 static ainekio_camera_resolution_t snapshot_resolution = AINEKIO_CAMERA_AUTO;
 static ainekio_camera_capture_t last_capture;
+static uint32_t max_exposure_us, minimum_exposure_us;
 static uint32_t generation, frame_counter;
 static uint64_t session;
 
@@ -58,6 +59,7 @@ typedef struct {
     int fd;
     bool streaming;
     unsigned width, height, hts, vts, pclk;
+    uint32_t requested_max_exposure_us, applied_max_exposure_us;
     void *buffers[CAMERA_BUFFERS];
     size_t lengths[CAMERA_BUFFERS];
 } capture_device_t;
@@ -142,6 +144,9 @@ static int select_format(capture_device_t *device, unsigned width, unsigned heig
      * HTS and VTS, so using its tline/hts fields would misreport shutter time. */
     if (!device->pclk || read_word(device->fd, 0x380c, &device->hts) ||
         read_word(device->fd, 0x380e, &device->vts)) return -1;
+    xSemaphoreTake(state_lock, portMAX_DELAY);
+    minimum_exposure_us = ((uint64_t)device->hts * 1000000ULL + device->pclk - 1) / device->pclk;
+    xSemaphoreGive(state_lock);
     struct v4l2_format format = {.type = V4L2_BUF_TYPE_VIDEO_CAPTURE, .fmt.pix = {
         .width = width, .height = height, .pixelformat = V4L2_PIX_FMT_RGB565}};
     if (ioctl(device->fd, VIDIOC_S_FMT, &format) || format.fmt.pix.width != width ||
@@ -167,7 +172,15 @@ static int select_format(capture_device_t *device, unsigned width, unsigned heig
     return 0;
 }
 
-static int configure_automatic_sensor(capture_device_t *device)
+static unsigned exposure_ceiling_lines(const capture_device_t *device, uint32_t maximum_us)
+{
+    const unsigned full_range = device->vts * 8U - 4U;
+    if (!maximum_us) return full_range;
+    const uint64_t lines = (uint64_t)maximum_us * device->pclk / ((uint64_t)device->hts * 1000000ULL);
+    return lines < full_range ? (unsigned)lines : full_range;
+}
+
+static int configure_automatic_sensor(capture_device_t *device, uint32_t maximum_us)
 {
     uint32_t mode, manual, sensor_awb, sensor_wb_gain, awb_control;
     if (read_register(device->fd, 0x3a00, &mode) || read_register(device->fd, 0x3503, &manual) ||
@@ -177,8 +190,9 @@ static int configure_automatic_sensor(capture_device_t *device)
     /* OV5647 datasheet 4.6: AEC/AGC select shutter and sensitivity from the
      * scene, extending integration before increasing amplification. Both
      * preview and stills have the sensor's documented eight-frame integration
-     * range and full 10-bit gain-ceiling field. These describe hardware range,
-     * not a requested shutter or gain. No application ISO/exposure ceiling.
+     * range and full 10-bit gain-ceiling field by default. An explicit owner
+     * ceiling limits integration in whole lines without selecting shutter or
+     * gain manually. Zero restores the full range; AGC remains automatic.
      *
      * White balance belongs to the sensor, before its output clipping. On P4
      * rev 1.3 esp_video folds ISP white-balance gains into the CCM; that combined
@@ -186,7 +200,7 @@ static int configure_automatic_sensor(capture_device_t *device)
      * automatic gains first leaves the ISP's neutral-preserving CCM independent
      * of AWB. ov5647_ipa.json therefore has no second AWB owner. Clear manual and
      * frozen AWB modes (datasheet 0x5180), and preserve unrelated ISP bits. */
-    const unsigned lines = device->vts * 8U - 4U;
+    const unsigned lines = exposure_ceiling_lines(device, maximum_us);
     if (write_register(device->fd, 0x3503, manual & ~7U) ||
         write_word(device->fd, 0x3a18, 0x3ffU) ||
         write_word(device->fd, 0x3a02, lines) || write_word(device->fd, 0x3a14, lines) ||
@@ -205,6 +219,29 @@ static int configure_automatic_sensor(capture_device_t *device)
         .ctrl_class = V4L2_CTRL_CLASS_CAMERA, .count = 1, .controls = &target,
     };
     if (ioctl(device->fd, VIDIOC_S_EXT_CTRLS, &controls)) return -1;
+    if (maximum_us) {
+        uint32_t high, middle, low;
+        if (read_register(device->fd, 0x3500, &high) || read_register(device->fd, 0x3501, &middle) ||
+            read_register(device->fd, 0x3502, &low)) return -1;
+        const uint32_t current = ((high & 15U) << 16) | (middle << 8) | low;
+        const uint32_t ceiling = lines * 16U;
+        if (current > ceiling) {
+            /* OV5647 datasheet 4.5.2: stable luminance retains the existing
+             * shutter/gain. Lowering MAX EXPO alone need not leave that stable
+             * state. Reconcile an out-of-range shutter once at configuration,
+             * using 0x3503[0] for its register update (table 4-5), then return
+             * AEC to automatic. AGC and its current gain remain untouched. */
+            if (write_register(device->fd, 0x3503, (manual & ~7U) | 1U)) return -1;
+            const int shutter_result =
+                write_register(device->fd, 0x3500, (high & ~15U) | (ceiling >> 16)) ||
+                write_register(device->fd, 0x3501, (ceiling >> 8) & 255U) ||
+                write_register(device->fd, 0x3502, ceiling & 255U);
+            const int automatic_result = write_register(device->fd, 0x3503, manual & ~7U);
+            if (shutter_result || automatic_result) return -1;
+        }
+    }
+    device->requested_max_exposure_us = maximum_us;
+    device->applied_max_exposure_us = maximum_us ? (uint64_t)lines * device->hts * 1000000ULL / device->pclk : 0;
     return 0;
 }
 
@@ -290,6 +327,7 @@ static void camera_task(void *unused)
         xSemaphoreTake(state_lock, portMAX_DELAY);
         const bool preview = enabled && !suspended && session;
         const uint8_t active_fps = fps;
+        const uint32_t active_max_exposure_us = max_exposure_us;
         if (pending && (request.generation != generation || suspended || request.session != session || !snapshot_active))
             pending = false;
         bool new_request = false;
@@ -326,10 +364,17 @@ static void camera_task(void *unused)
             failed(request, ESP_FAIL);
             goto cleanup;
         }
-        if (!device.streaming || format_changed) {
-            if (configure_automatic_sensor(&device)) { failed(request, ESP_FAIL); goto cleanup; }
+        if (!exposure_ceiling_lines(&device, active_max_exposure_us)) {
+            /* A later still mode may have a longer line period. Reject that
+             * request, then let the same owner resume preview's valid mode. */
+            failed(request, ESP_ERR_INVALID_ARG);
+            pending = false;
+            continue;
+        }
+        if (!device.streaming || format_changed || device.requested_max_exposure_us != active_max_exposure_us) {
+            if (configure_automatic_sensor(&device, active_max_exposure_us)) { failed(request, ESP_FAIL); goto cleanup; }
             /* Exposure belongs to the running sensor, not each photo request.
-             * Only a sensor restart/mode change invalidates its prior samples. */
+             * Restart, mode or ceiling changes invalidate its prior samples. */
             stable_since = 0;
             settle_frames = 0;
             anchor = (exposure_t){0};
@@ -356,6 +401,9 @@ static void camera_task(void *unused)
             continue;
         }
         consecutive_failures = 0;
+        const uint64_t frame_completed_us = (frame.flags & V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC) &&
+            frame.timestamp.tv_sec >= 0 && frame.timestamp.tv_usec >= 0 ?
+            (uint64_t)frame.timestamp.tv_sec * 1000000 + (uint64_t)frame.timestamp.tv_usec : 0;
         result = ESP_OK;
         if (frame.index >= CAMERA_BUFFERS || frame.bytesused < device.width * device.height * 2U ||
             (frame.flags & V4L2_BUF_FLAG_ERROR)) result = ESP_FAIL;
@@ -433,6 +481,7 @@ static void camera_task(void *unused)
             last_capture = (ainekio_camera_capture_t){
                 .counter = ++frame_counter, .width = width, .height = height,
                 .exposure_us = measured.exposure_us, .gain_x16 = measured.gain_x16,
+                .max_exposure_us = device.applied_max_exposure_us,
                 .settle_ms = pending ? (uint32_t)((now - request_start) / 1000) : 0,
                 .settled = pending && settled,
             };
@@ -440,9 +489,12 @@ static void camera_task(void *unused)
         xSemaphoreGive(state_lock);
         if (emit && current && callbacks.camera_frame) {
             callbacks.camera_frame(callbacks.context, request.session, request.origin, request.origin_id,
-                request.resolution, frame_counter, jpeg, encoded);
+                request.resolution, frame_counter, frame_completed_us, jpeg, encoded);
             if (!pending && active_fps > 0)
-                next_frame = esp_timer_get_time() + 1000000 / active_fps;
+                /* Processing belongs inside the capture interval. Anchor to
+                 * this frame, not an old deadline, so overruns do not queue
+                 * catch-up frames or add a full period after publication. */
+                next_frame = now + 1000000 / active_fps;
         }
         if (emit) pending = false;
     }
@@ -507,7 +559,8 @@ ainekio_camera_capture_t ainekio_p4_media_camera_capture(void)
 }
 
 esp_err_t ainekio_p4_media_camera_configure(bool stream, uint8_t rate, ainekio_camera_resolution_t size,
-                                         const ainekio_camera_resolution_t *snapshot_size)
+                                         const ainekio_camera_resolution_t *snapshot_size,
+                                         const uint32_t *maximum_exposure_us)
 {
     if (rate > 15 || size < AINEKIO_CAMERA_QVGA || size > AINEKIO_CAMERA_XGA ||
         (snapshot_size && (*snapshot_size < AINEKIO_CAMERA_QVGA || *snapshot_size > AINEKIO_CAMERA_AUTO)))
@@ -515,10 +568,14 @@ esp_err_t ainekio_p4_media_camera_configure(bool stream, uint8_t rate, ainekio_c
     if (!p4_camera_ready()) return ESP_ERR_INVALID_STATE;
     xSemaphoreTake(state_lock, portMAX_DELAY);
     if (suspended || !session) { xSemaphoreGive(state_lock); return ESP_ERR_INVALID_STATE; }
+    if (maximum_exposure_us && *maximum_exposure_us && *maximum_exposure_us < minimum_exposure_us) {
+        xSemaphoreGive(state_lock); return ESP_ERR_INVALID_ARG;
+    }
     enabled = stream && rate > 0;
     fps = rate;
     resolution = size;
     if (snapshot_size) snapshot_resolution = *snapshot_size;
+    if (maximum_exposure_us) max_exposure_us = *maximum_exposure_us;
     xSemaphoreGive(state_lock);
     return ESP_OK;
 }

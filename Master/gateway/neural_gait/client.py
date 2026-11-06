@@ -74,7 +74,13 @@ def walking_profile(value):
     if any(type(value.get(key)) not in (int, float) or not math.isfinite(value[key])
            or value[key] <= 0 for key in names):
         raise ValueError("Supply positive finite forward/lateral m/s and yaw rad/s at 100%")
-    return {"source": "neural", **{key: float(value[key]) for key in names}}
+    profile = {"source": "neural", **{key: float(value[key]) for key in names}}
+    if "exploration_buffer_steps" in value:
+        steps = value["exploration_buffer_steps"]
+        if type(steps) is not int or steps < 2:
+            raise ValueError("exploration_buffer_steps must be an integer of at least 2")
+        profile["exploration_buffer_steps"] = steps
+    return profile
 
 
 def walking_twist(command, profile):
@@ -115,7 +121,7 @@ def walking_orientation_reference(quaternion):
 
 
 def observation(source, environment, command, *, vision=None, previous_action=None,
-                orientation_reference=None, history=None):
+                orientation_reference=None, history=None, pending_actions=None):
     """Use the gateway sensor observation's calibrated model coordinates.
 
     The policy action domain stays the domain it trained on. Servo feedback
@@ -156,7 +162,10 @@ def observation(source, environment, command, *, vision=None, previous_action=No
         angular_rate_rad_s=imu["angular_rate_rad_s"],
         acceleration_m_s2=imu["acceleration_m_s2"],
         command=command,
-        events={"jam": bool(source.get("feedback", {}).get("stalled_joints"))},
+        events={"jam": (bool(source['feedback']['stalled_joints'])
+                        if 'stalled_joints' in source.get('feedback',{})
+                        and source['feedback'].get('enabled') is not False else None),
+                "tipped":None,"slip":None,"recovering":None, **source.get('events',{})},
         vision=vision or {"available": False},
         # Preview starts at zero; execution supplies the device-consumed action.
         previous_action=list(previous_action) if previous_action is not None else [0.0]*12,
@@ -172,6 +181,9 @@ def observation(source, environment, command, *, vision=None, previous_action=No
         imu_quality={key: imu.get(key) for key in IMU_QUALITY_FIELDS},
         observation_time_s=device_us/1e6 if type(device_us) in (int, float) else None,
     )
+    from .contract import PENDING_SCHEMA, pending_rows
+    if result['schema'] == PENDING_SCHEMA:
+        result['pending_actions'] = pending_rows(pending_actions)
     result = (history if history is not None else ObservationHistory()).project(result)
     vector(result)
     return result

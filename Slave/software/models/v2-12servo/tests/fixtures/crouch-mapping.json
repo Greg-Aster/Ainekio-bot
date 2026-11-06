@@ -1,0 +1,92 @@
+{
+  "pulse_window_us": [
+    500,
+    2800
+  ],
+  "joints": [
+    {
+      "id": 0,
+      "home_us": 1760,
+      "home_cd": 0,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 1,
+      "home_us": 2750,
+      "home_cd": -3087,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 2,
+      "home_us": 2870,
+      "home_cd": -11768,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 3,
+      "home_us": 1650,
+      "home_cd": 0,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 4,
+      "home_us": 415,
+      "home_cd": -3087,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 5,
+      "home_us": 440,
+      "home_cd": -11768,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 6,
+      "home_us": 1650,
+      "home_cd": 0,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 7,
+      "home_us": 2740,
+      "home_cd": -3087,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 8,
+      "home_us": 2750,
+      "home_cd": -11768,
+      "invert": true,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 9,
+      "home_us": 1700,
+      "home_cd": 0,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 10,
+      "home_us": 560,
+      "home_cd": -3087,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    },
+    {
+      "id": 11,
+      "home_us": 575,
+      "home_cd": -11768,
+      "invert": false,
+      "us_per_degree": 11.11111068725586
+    }
+  ]
+}

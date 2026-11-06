@@ -32,7 +32,11 @@ def targets_for(operation, positions, home, speed_deg_s):
         return
     joints=[args['joint']] if name=='move' else args['joints']
     angles=[args['angle_deg']] if name=='move' else args['angles_deg']
-    if len(joints)!=len(angles):raise ValueError('Each pose joint needs its corresponding angle')
+    if len(joints)!=len(angles):
+        error=ValueError(f'Pose lists {len(joints)} joints but {len(angles)} angle targets')
+        error.evidence={'kind':'invalid_pose',
+                        'operation':'pose','joint_count':len(joints),'angle_count':len(angles)}
+        raise error
     goal=dict(positions)
     for joint,angle in zip(joints,angles):
         reference={'current':positions,'home':home,'absolute':dict.fromkeys(JOINTS,0)}[args['reference']]
@@ -58,9 +62,6 @@ def compile_motion(action, observation, planned=None):
     for moving joints. Feedback remains evidence; it does not silently rewrite
     the remaining relative path on every segment.
     """
-    if action['name'] == 'trajectory':
-        from .trajectory import compile_trajectory
-        return compile_trajectory(action,observation,planned)
     name, args = action['name'], action['arguments']
     joints = observation['joints']
     home = {j:v['home_deg'] for j,v in joints.items()}
@@ -81,7 +82,15 @@ def compile_motion(action, observation, planned=None):
     else:
         frames = list(targets_for(action,start,home,observation['joint_speed_limit_deg_s']))
     end = dict(zip(JOINTS,[v/100 for v in frames[-1][1]])) if frames else dict(start)
-    return {'frames':frames,'start':start,'home':home,'moving':moving,'end':end}
+    result = {'frames':frames,'start':start,'home':home,'moving':moving,'end':end}
+    if args.get('taper_deg', 0) and frames:
+        from .trajectory import tapered_target
+        last_start = (dict(zip(JOINTS, [v/100 for v in frames[-2][1]]))
+                      if len(frames)>1 else start)
+        curve = tapered_target(last_start, frames[-1], args['taper_deg'])
+        if curve is not None:
+            result.update(frames=frames[:-1], curve=curve)
+    return result
 
 
 def gait_intent(args):

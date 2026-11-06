@@ -29,63 +29,91 @@ def legacy_sources():
 
 @lru_cache(maxsize=None)
 def source_motion(name):
-    """Complete catalog motion as generated cubic curves, never named dispatch.
-
-    Scalar tracks avoid repeating twelve coordinates at every global knot.
-    Each fit uses the native compiler and its 0.005-degree budget. Native phase
-    boundaries/reversals remain measured checkpoints. Semantic completion,
-    intentional holds and the posture travel deceleration remain source-owned.
-    """
+    """Compact authored stages; source paths are provenance, not curve targets."""
     from .kinematics import ROOT
     from .runtime import JOINTS
     compiler,clips=legacy_sources();clip=clips[name];rows=clip['positions']
-    required=compiler.gesture_targets(rows,clip['phases'])
-    phase_boundaries={round(t*120) for p in clip['phases'] for t in p['source_interval_s']}
-    native_knots,velocities,_=compiler.compact(rows,required)
-    tracks=[];bound=0.
-    number=lambda v:float(f'{v:.9g}')  # Native storage uses float32.
-    for j in range(12):
-        column=[row[j] for row in rows]
-        if max(column)-min(column)<=compiler.COMPRESSION_ERROR_CD:
-            tracks.append([[0.,number(column[0]/100),0.],
-                           [clip['duration_s'],number(column[-1]/100),0.]])
-            bound=max(bound,(max(column)-min(column))/100)
-        else:
-            # Other joints' reversals are checkpoints on the coordinated
-            # player, not extra knots needed in this scalar curve's fit.
-            indices,_,error=compiler.compact([[v]*12 for v in column],phase_boundaries)
-            tracks.append([[number(i/120),number(rows[i][j]/100),number(velocities[i][j]/100)] for i in indices])
-            bound=max(bound,error/100)
-    authored_holds=[tuple(round(t*120) for t in p['source_interval_s']) for p in clip['phases']
-                    if p.get('moving_joint_indices')==[] or p['name'].startswith('hold_')]
-    clock=compiler.travel_clock(rows,native_knots,velocities,authored_holds)
-    holds=[]
-    for a,b in zip(clock,clock[1:]):
-        if b[2]>a[2]:
-            begin,end=a[0]/120,b[0]/120
-            if holds and holds[-1][1]==begin:holds[-1]=(holds[-1][0],end)
-            else:holds.append((begin,end))
-    action=call('trajectory',joints=list(JOINTS),tracks=tracks,
-                checkpoints_s=[number(i/120) for i in required],
-                holds_s=[[number(t) for t in p] for p in holds],
-                expected_up=[[number(i/120),[number(v) for v in clip['expected_up'][i]]]
-                             for i in compiler.compact_up(clip['expected_up'])],
-                speed_pct=50,taper_deg=0.)
-    if name in ('sit','rest','crouch'):
-        action['arguments']['taper_deg']=min(10.,.2*clock[-1][1])
+    clip_source=json.loads((ROOT/'motions/gestures'/name/'source.json').read_text())['samples']
+    number=lambda value:round(value/100,2)
+    entry=[number(v) for v in rows[0]]
+    if name=='stretch':
+        # Owner's requested crouch, front-limb extension, holds and standing finish.
+        # The old Blender/source curve lacks the accepted extension.
+        program=stretch_program(entry)
+        final=entry
+    else:
+        program=[call('face',expr=name),call('pose',joints=list(JOINTS),
+            angles_deg=entry,reference='absolute',speed_pct=50,taper_deg=0)]
+        previous=list(rows[0])
+        for phase in clip['phases']:
+            begin,end=[round(t*120) for t in phase['source_interval_s']]
+            if phase.get('moving_joint_indices')==[] or 'hold' in phase['name'].lower():
+                program.append(call('hold',seconds=round(phase['source_interval_s'][1]-phase['source_interval_s'][0],6)))
+                continue
+            if name=='wave' and phase['name']=='three_playful_waves':
+                # The source holds every joint except the left front shoulder.
+                # Its three full cycles have the same entry and exit pose.
+                joint=6
+                values=[row[joint]/100 for row in rows[begin:end+1]]
+                amplitude=round((max(values)-min(values))/2,2)
+                program.append(call('oscillate',joint=JOINTS[joint],amplitude_deg=amplitude,
+                                    cycles=3,speed_pct=50,taper_deg=0))
+                previous=list(rows[end])
+                continue
+            landmarks=[end]
+            # Keep the source's lifted-foot waypoint before placing the foot.
+            # Phase endpoints alone erase the step and teach floor dragging.
+            if phase['name']!='three_playful_waves':
+                for leg in range(4):
+                    clearances=[row['sole_clearance_mm'][leg] for row in clip_source[begin:end+1]]
+                    peak=max(range(len(clearances)),key=clearances.__getitem__)
+                    if clearances[peak]>max(clearances[0],clearances[-1])+.01:
+                        landmarks.append(begin+peak)
+                landmarks=sorted(set(landmarks))
+            if name=='shrug' and phase['name']=='Palms-out double shrug':
+                # Retain each authored shrug's outer pose and return, instead
+                # of collapsing the whole phase into one terminal pose.
+                middle=(begin+end)//2
+                landmarks=[]
+                for first,last in ((begin,middle),(middle,end)):
+                    peak=max(range(first,last+1),key=lambda i:sum(
+                        (rows[i][j]-rows[first][j])**2 for j in range(12)))
+                    landmarks.extend(sorted({peak,last}))
+            for landmark in landmarks:
+                goal=rows[landmark]
+                ids=[i for i,(a,b) in enumerate(zip(previous,goal)) if round(a)!=round(b)]
+                if ids:
+                    travel=max(abs(goal[i]-previous[i]) for i in ids)/100
+                    program.append(call('pose',joints=[JOINTS[i] for i in ids],
+                        angles_deg=[number(goal[i]) for i in ids],reference='absolute',speed_pct=50,
+                        taper_deg=round(min(10,.2*travel),2) if name in ('sit','rest','crouch') else 0))
+                previous=list(goal)
+        final=[number(v) for v in rows[-1]]
     path=ROOT/'motions/gestures'/name/'source.json'
-    return {'program':[call('face',expr=name),action],
-            'source_path':str(path.relative_to(ROOT.parents[3])),
+    return {'program':program,'source_path':str(path.relative_to(ROOT.parents[3])),
             'source_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
             'execution_contract_sha256':hashlib.sha256(path.with_name('execution-contract.json').read_bytes()).hexdigest(),
             'semantic_end_s':clip['duration_s'],'source_samples':len(rows),
             'phases':[{'name':p['name'],'source_interval_s':p['source_interval_s']} for p in clip['phases']],
-            'required_source_samples':required,'path_error_bound_deg':bound,
-            'intentional_hold_s':clock[-1][2],
-            'native_distance_degrees':clock[-1][1],
-            'scalar_curve_knots':sum(map(len,tracks)),
-            'entry_model_deg':[number(v/100) for v in rows[0]],
-            'final_model_deg':[number(v/100) for v in rows[-1]]}
+            'intentional_hold_s':round(sum(a['arguments']['seconds'] for a in program if a['name']=='hold'),6),
+            'entry_model_deg':entry,'final_model_deg':final,
+            'representation':'compact movement stages; no continuous source-curve fidelity claim'}
+
+
+def stretch_program(entry=None):
+    """Editable compact stretch; geometry checked, physical acceptance separate."""
+    from .runtime import JOINTS
+    entry=entry if entry is not None else [0,.94,-21.25]*4
+    body=lambda dz:call('body',translation_mm=[0,0,dz],rotation_deg=[0,0,0],
+                        legs=[],foot_offsets_mm=[],speed_pct=100,taper_deg=0)
+    hands=lambda dx:call('feet',legs=['front_left','front_right'],offsets_mm=[[dx,0,0]]*2,
+                         speed_pct=100,taper_deg=0)
+    return [call('face',expr='stretch'),
+            call('pose',joints=list(JOINTS),angles_deg=entry,reference='absolute',speed_pct=100,taper_deg=0),
+            body(-20),hands(30),call('hold',seconds=.9),hands(5),call('hold',seconds=.7),
+            hands(-35),body(20),
+            call('pose',joints=list(JOINTS),angles_deg=entry,reference='absolute',speed_pct=100,taper_deg=0),
+            call('hold',seconds=.5),call('face',expr='stand')]
 
 
 def call(name, **arguments):
@@ -253,7 +281,7 @@ def source_posture(name, speed_pct=50):
         raise ValueError('This teacher covers only single-transition postures')
     program = copy.deepcopy([a for a in source_motion(name)['program'] if a['name'] != 'face'])
     for action in program:
-        if action['name'] in ('pose','trajectory'):action['arguments']['speed_pct'] = speed_pct
+        if action['name'] in ('pose','move','feet','body','oscillate'):action['arguments']['speed_pct'] = speed_pct
     return program
 
 

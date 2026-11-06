@@ -481,6 +481,16 @@ embedding media in JSON. VAD boundary events carry one robot-generated
 {"t":"cam_meta","res":"XGA","fps":0,"counter_base":18,"origin":"audio","origin_id":73}
 ```
 
+V2 camera metadata also carries optional `frame_completed_us` (positive signed
+64-bit microseconds) and `boot_id` (uint32, including zero). The timestamp is
+recorded on the exact buffer in the CSI transfer-completion path before it enters
+the done queue, in the same `esp_timer` clock and `boot_id` identity as IMU data.
+It means driver-observed transfer completion, including ISR/callback latency;
+it is **not** exposure start or midpoint, dequeue time, or network send time.
+It remains attached to `counter_base` through encoding and transmission. The
+legacy V1 producer omits both fields; consumers must not substitute receipt
+time and describe it as a measured device capture timestamp.
+
 The JPEG retains camera counter `18`. A body can send the complete image as
 binary type `0x02`, or interleave it with audio/control using type `0x03` chunks.
 Each chunk uses the existing five-byte type/counter header, followed by a
@@ -520,9 +530,34 @@ values `960P` (1280×960 full-field), `FHD` (1920×1080 cropped), and `AUTO`.
 Adaptive P4 firmware boots with AUTO; older firmware boots with VGA. AUTO
 selects a concrete mode after metering and reports that concrete resolution
 in `cam_meta` (never AUTO). It favors binned 960p in dim light and cropped FHD
-in brighter light; select 960P for a consistent field of view. Stills allow
-longer automatic exposures and exposure settling; preview favors shorter
-exposures. The P4 README documents the selection and settling policy.
+in brighter light; select 960P for a consistent field of view. Preview and
+stills share the automatic integration range; stills additionally wait for
+exposure settling. The P4 README documents the selection and settling policy.
+
+Bodies advertising `camera_motion_exposure_v1` accept optional
+`max_exposure_us` on the existing `cam` command:
+
+```json
+{"t":"cam","seq":75,"on":true,"fps":5,"res":"QVGA","max_exposure_us":10000}
+```
+
+The value is an integer from 0 through 4,294,967,295 µs. Zero restores the
+sensor's normal automatic integration range (the P4's eight-frame range);
+omission preserves the current setting. A positive value is an automatic
+exposure ceiling, not a fixed shutter. AGC stays automatic. The camera owner
+rounds down to whole sensor lines and clamps to the existing automatic range;
+it never extends that range. The setting applies to both preview and stills,
+is reapplied after mode changes, and is not stored in NVS. A positive ceiling
+shorter than one line in the current mode is rejected without changing the
+configuration. If a later still mode cannot represent the selected ceiling,
+only that snapshot fails and preview resumes. This feature is independent of
+`camera_controls_v1`; it does not imply manual gain, HD preview or JPEG-quality
+controls. P4 advertises the motion-exposure feature without advertising the
+manual-controls feature.
+The gateway rejects this field before dispatch unless that distinct feature is
+advertised. Body Control saves the requested value only after the camera command
+is acknowledged and restores it on reconnect. Selecting a motion-capture ceiling
+is explicit; Walk never changes it automatically.
 
 Bodies advertising `camera_controls_v1` additionally accept stream `res` values
 `XGA`, `960P` and `FHD`, and this optional complete group:
@@ -544,7 +579,9 @@ error instead of silently changing resolution or quality.
 
 Optional status `camera_capture` reports the latest emitted frame's `counter`,
 `width`, `height`, measured `exposure_us`, `gain_x16` (16 = 1×; not ISO),
-`settle_ms`, and `settled`. Preview has `settle_ms:0`; stills report whether
+`settle_ms`, and `settled`. With `camera_motion_exposure_v1`, `max_exposure_us`
+reports the applied whole-line ceiling for that frame, or zero for the default
+automatic range; it can be slightly lower than the requested microseconds. Preview has `settle_ms:0`; stills report whether
 settings converged before the settling budget expired. This is diagnostic
 information, not an image-quality guarantee or a robot movement condition.
 
@@ -736,10 +773,15 @@ remain unchanged.
 `map:2` identifies the twelve columns in `joints_v2.py` order. Arrays
 `filtered_model_deg`, `velocity_deg_s` and `commanded_model_deg` contain signed
 model degrees, degrees/second and commanded degrees respectively. `usable_mask`
-uses the same validity as the firmware's measured balance frame. Unusable
-position/velocity entries are `null`; `commanded_mask` separately identifies
+uses the same validity as the firmware's measured balance frame. Acquired
+position and velocity readings remain numeric outside that usable mask, including extrapolated and ADC-clipped readings. `null` means no converted
+measurement is available; `commanded_mask` separately identifies
 known output commands, with `null` for absent commands. A commanded zero is a
 real zero angle. These values do not establish foot contact or completed motion.
+
+`raw_adc` reports each joint's actual ADC sample, including rail values 0 and
+4095. `signal_millivolts` reports the signal conversion when available; it is
+not supply voltage. These optional columns use the same joint order and scan.
 
 `sampled_us` retains each joint's mapped ADC channel acquisition time;
 `device_us` timestamps the later snapshot projection on the same device clock.
@@ -747,8 +789,10 @@ real zero angle. These values do not establish foot contact or completed motion.
 `enabled`, `calibrated_mask`, `unavailable_mask`, `clipped_mask`,
 `below_calibration_mask` and `above_calibration_mask` retain feedback confidence;
 `stalled_joints` observes the existing body owner. `joint-feedback-validity-and-clock`
-requires each array to have twelve entries, numbers exactly where the respective
-mask is set, nulls elsewhere, and acquisition timestamps no later than `device_us`.
+requires each array to have twelve entries and numbers wherever a respective
+mask bit is set; measurement numbers may also be present when unusable. Command
+values are null where their mask is unset. Acquisition timestamps must be no
+later than `device_us`.
 The IMU retains its own timestamp and quality flags; sensors are not claimed to
 be simultaneously acquired. Host receipt time is not measured network latency.
 

@@ -83,6 +83,63 @@ class NativeSensorTests(unittest.TestCase):
         self.pose = np.array([0, 3.46, -21.63] * 4)
         self.addCleanup(self.body.close)
 
+    def test_batched_firmware_memory_is_repeatable_and_isolated_between_bodies(self):
+        from gateway.neural_gait.native import SensorBatch
+
+        np = self.np
+        bridge = SensorBatch(self.robot, .002)
+        self.addCleanup(bridge.close)
+        trace = np.zeros((2, 11, 19))
+        trace[:, :, :12] = np.deg2rad(self.pose)
+        trace[:, :, 14] = 9.80665
+        # Only the second body's first shaft moves. Each body must preserve its
+        # own filter history when the callback reuses the native scratch object.
+        trace[1, :, 0] += .1
+        targets = trace[:, -1, :12].copy()
+        memory, measured = bridge.acquire(None, trace[:, :1], targets, reset=True)
+        trace[:, :, 18] = np.arange(11) * .002
+        np.testing.assert_array_equal(measured[:, 34:46], np.zeros((2, 12)))
+        np.testing.assert_array_equal(measured[:, 65:77], -np.ones((2, 12)))
+        next_memory, observed = bridge.acquire(memory, trace, targets)
+        repeated_memory, repeated = bridge.acquire(memory, trace, targets)
+        np.testing.assert_array_equal(next_memory, repeated_memory)
+        np.testing.assert_array_equal(observed, repeated)
+        self.assertGreater(observed[1, 0], observed[0, 0] + .05)
+        np.testing.assert_array_equal(observed[:, 34:46], np.ones((2, 12)))
+        isolated_memory, isolated = bridge.acquire(memory[0], trace[0], targets[0])
+        np.testing.assert_array_equal(isolated_memory, next_memory[0])
+        np.testing.assert_array_equal(isolated, observed[0])
+        # Brax time-limit resets rewind physics without calling env.reset.
+        rewound_memory, rewound = bridge.acquire(next_memory, trace, targets)
+        np.testing.assert_array_equal(rewound_memory, next_memory)
+        np.testing.assert_array_equal(rewound, observed)
+
+    @unittest.skipUnless(importlib.util.find_spec("jax"), "Original trainer requires JAX")
+    def test_jax_batch_uses_native_calibration_pwm_and_sensor_processing(self):
+        import jax
+        import jax.numpy as jp
+        from gateway.neural_gait.native import SensorBatch
+
+        np = self.np
+        bridge = SensorBatch(self.robot, .002)
+        self.addCleanup(bridge.close)
+        targets = np.deg2rad(np.stack((self.pose, self.pose + .1))).astype(np.float32)
+        command = np.asarray(jax.jit(jax.vmap(bridge.jax_command))(jp.asarray(targets)))
+        self.assertEqual(command.shape, (2, 2, 12))
+        for requested, actual in zip(targets, command):
+            goal = np.rad2deg(requested.astype(float))
+            fitted = self.body.target(goal, goal, bridge.speed_deg_s, 0.)[1]
+            pwm = self.body.pwm_output(fitted)
+            np.testing.assert_allclose(actual[0], np.deg2rad(pwm['physical_angles']), atol=1e-7)
+            np.testing.assert_allclose(actual[1], np.deg2rad(fitted), atol=1e-7)
+        trace = np.zeros((2, 1, 19), dtype=np.float32)
+        trace[:, :, :12] = targets[:, None]
+        trace[:, :, 14] = 9.80665
+        memory, measured = jax.jit(jax.vmap(bridge.jax_reset))(jp.asarray(trace), jp.asarray(targets))
+        expected_memory, expected = bridge.acquire(None, trace, targets, reset=True)
+        np.testing.assert_array_equal(memory, expected_memory)
+        np.testing.assert_array_equal(measured, expected)
+
     def sample(self, raw=None, target=None, timestamp=20000):
         np = self.np
         return self.body.feedback_sample(
@@ -161,6 +218,14 @@ class NativeSensorTests(unittest.TestCase):
         rejected = self.body.imu_sample(2000, [0, 0, 9.80665], [1000.0, 0, 0])
         self.assertEqual(self.body.imu_status(2000)["timestamp_us"], 1000)
         np.testing.assert_array_equal(rejected[4:10], sample[4:10])
+
+    def test_virtual_registers_reuse_configured_imu_mounting_and_bias(self):
+        np = self.np
+        rotation = np.array([[0., -1., 0.], [1., 0., 0.], [0., 0., 1.]])
+        self.body.imu_calibration(rotation.ravel(), [.01, -.02, .03])
+        measured = self.body.imu_sample(1000, [1., 2., 9.80665], [.1, .2, .3])
+        np.testing.assert_allclose(measured[4:7], [1., 2., 9.80665], atol=.0025)
+        np.testing.assert_allclose(measured[7:10], [.1, .2, .3], atol=.0007)
 
     def test_imu_quality_is_read_from_estimator_at_observation_time(self):
         absent = self.body.imu_status(1000)
@@ -257,9 +322,27 @@ class NativeSensorTests(unittest.TestCase):
             self.assertTrue(((result["leg_fit"] >= 0) & (result["leg_fit"] <= 1)).all())
             np.testing.assert_allclose(
                 result["applied_offset_mm"],
-                offsets * result["leg_fit"][:, None],
+                self.body.foot_offsets_for_angles(result["nominal_goal_angles"], self.pose),
                 atol=1e-5,
             )
+
+    def test_nominal_joint_labels_roundtrip_through_production_foot_geometry(self):
+        np = self.np
+        requested = np.array([[12, 3, 5], [-8, -4, 7], [15, -2, 4], [-11, 5, 8]])
+        for reference in (self.pose, self.pose + [130, 0, 0] * 4):
+            with self.subTest(reference=reference.tolist()):
+                decoded = self.body.foot_target(requested, reference, self.pose, 2000, 1)
+                self.assertIsNotNone(decoded)
+                angles = decoded["nominal_goal_angles"].copy()
+                offsets = self.body.foot_offsets_for_angles(angles, reference)
+                np.testing.assert_allclose(offsets, decoded["applied_offset_mm"], atol=2e-4)
+                repeated = self.body.foot_target(offsets, reference, self.pose, 2000, 1)
+                self.assertIsNotNone(repeated)
+                np.testing.assert_allclose(repeated["nominal_goal_angles"], angles, atol=2e-3)
+                np.testing.assert_array_equal(angles, decoded["nominal_goal_angles"])
+        np.testing.assert_array_equal(self.body.foot_offsets_for_angles(self.pose, self.pose), np.zeros((4, 3)))
+        with self.assertRaises(ValueError):
+            self.body.foot_offsets_for_angles([float("nan")] * 12, self.pose)
 
     def test_foot_offset_fitting_respects_existing_calibrated_command_bounds(self):
         from gateway.neural_gait.native import BodyModel

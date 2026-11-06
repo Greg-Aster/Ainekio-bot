@@ -424,7 +424,9 @@ int main(void)
     assert(ainekio_p4_media_microphone(true,AINEKIO_MIC_GATE_WAKE,NULL,&edit)==ESP_ERR_NO_MEM);
     assert(status.vad_mode==1&&status.silence_ms==2000);
     allocation_fail=false;
+    unsigned before_epoch=microphone_epoch;
     assert(ainekio_p4_media_microphone(true,AINEKIO_MIC_GATE_WAKE,NULL,NULL)==ESP_OK);
+    assert(microphone_epoch==before_epoch); /* A no-op Save must not cut off speech. */
     assert(status.vad_mode==1&&status.silence_ms==2000&&status.max_recording_ms==10000);
     return 0;
 }
@@ -438,3 +440,137 @@ int main(void)
                 "-I", str(ROOT / "Slave/firmware/esp32p4-wifi6/tests/body_shim"),
                 str(path), "-o", str(binary)], check=True, capture_output=True, text=True)
             subprocess.run([str(binary)], check=True, capture_output=True, text=True)
+
+    def test_production_microphone_stream_and_capture_boundaries(self):
+        media = ROOT / "Slave/firmware/esp32p4-wifi6/components/ainekio_p4_media"
+        source = (media / "media.c").read_text()
+        functions = "\n".join(controller_function(source, name) for name in
+            ("reset_microphone_inference", "microphone_task"))
+        # Run the actual capture task and gate. Hardware reads supply successive
+        # PCM frames; the detector stub records stream continuity and lifetime.
+        harness = r'''
+#include <assert.h>
+#include <math.h>
+#include <setjmp.h>
+#include <stdatomic.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "ainekio/p4_media.h"
+#include "speech_gate.h"
+#define portMAX_DELAY 0
+#define pdMS_TO_TICKS(n) (n)
+#define FRAME_SAMPLES 320
+#define ESP_LOGI(...) ((void)0)
+#define ESP_LOGE(...) ((void)0)
+typedef unsigned vad_mode_t;
+typedef struct { unsigned frames; } *vad_handle_t;
+typedef enum { AINEKIO_WAKE_WORD_ERROR, AINEKIO_WAKE_WORD_LISTENING,
+               AINEKIO_WAKE_WORD_DETECTED } ainekio_wake_word_result_t;
+#define VAD_SPEECH 1
+static int mutex=1,wake_mutex=2,rx,lock_depth;
+static vad_handle_t vad;
+static void *wake=(void *)1;
+static atomic_bool audio_tasks_started=true;
+static atomic_uint external_speech_epoch;
+static bool microphone_enabled=true,suspended,external_active,allocation_fail;
+static ainekio_microphone_gate_t microphone_gate=AINEKIO_MIC_GATE_WAKE;
+static uint64_t session=42;
+static uint32_t microphone_epoch;
+static int64_t microphone_after,microphone_sample_at;
+static ainekio_p4_media_status_t status={.microphone_ready=true,.vad_ready=true,
+    .wake_ready=true,.wake_enabled=true,.vad_mode=1,.silence_ms=1500,.max_recording_ms=15000};
+static ainekio_p4_media_callbacks_t callbacks;
+static unsigned frame,reads,creates,destroys,processed,last_processed,opens,closes,first_close,pcm_frames;
+static const char *scenario;
+static jmp_buf finished;
+static void xSemaphoreTake(int h,int wait) { (void)wait;if(h==wake_mutex)++lock_depth; }
+static void xSemaphoreGive(int h) { if(h==wake_mutex)--lock_depth;assert(lock_depth>=0); }
+static void vTaskDelay(int n) { (void)n; }
+static int64_t esp_timer_get_time(void) { return (int64_t)frame*20000+1; }
+static bool external_speech_active(void) { return external_active; }
+static void ainekio_wake_word_reset(void *w) { assert(w==wake); }
+static bool ainekio_wake_word_ready(void *w) { return w!=NULL; }
+static vad_handle_t vad_create(vad_mode_t mode)
+{ assert(mode<=4);++creates;return allocation_fail?NULL:calloc(1,sizeof(*vad)); }
+static void vad_destroy(vad_handle_t h) { assert(h);++destroys;free(h); }
+static int vad_process(vad_handle_t h,int16_t *pcm,int rate,int ms)
+{ assert(lock_depth&&h&&rate==16000&&ms==20);++h->frames;++processed;last_processed=frame;
+  return (!strcmp(scenario,"late-speech")&&frame<400)?0:pcm[0]!=0; }
+static ainekio_wake_word_result_t ainekio_wake_word_process(void *w,const int16_t *pcm,size_t count)
+{
+    (void)pcm;assert(w==wake&&count==320&&lock_depth);
+    assert(last_processed==frame); /* Ambient and wake PCM must reach VAD too. */
+    if(frame==200)assert(processed>=199);
+    return frame==200||frame==700 ? AINEKIO_WAKE_WORD_DETECTED : AINEKIO_WAKE_WORD_LISTENING;
+}
+static int i2s_channel_read(int h,void *out,size_t size,size_t *received,int timeout)
+{
+    (void)h;(void)timeout;assert(size==640);
+    if(reads==1000)longjmp(finished,1);
+    frame=reads++;
+    if(frame==300) {
+        if(!strcmp(scenario,"playback")){status.speaker_busy=true;++microphone_epoch;}
+        if(!strcmp(scenario,"external")){external_active=true;atomic_fetch_add(&external_speech_epoch,1);}
+        if(!strcmp(scenario,"config")){status.vad_mode=2;++microphone_epoch;}
+        if(!strcmp(scenario,"session"))session=43;
+        if(!strcmp(scenario,"disabled")){microphone_enabled=false;++microphone_epoch;}
+        if(!strcmp(scenario,"allocation")||!strcmp(scenario,"recover")){allocation_fail=true;++microphone_epoch;}
+    }
+    if(frame==350) {
+        if(!strcmp(scenario,"playback")){status.speaker_busy=false;++microphone_epoch;}
+        if(!strcmp(scenario,"external")){external_active=false;atomic_fetch_add(&external_speech_epoch,1);}
+        if(!strcmp(scenario,"disabled")){microphone_enabled=true;++microphone_epoch;}
+        if(!strcmp(scenario,"recover")){allocation_fail=false;microphone_enabled=false;++microphone_epoch;}
+    }
+    if(frame==400&&!strcmp(scenario,"recover")){microphone_enabled=true;++microphone_epoch;}
+    int16_t *pcm=out;
+    bool speech=(frame>=200&&frame<500&&!(frame>=300&&frame<350))||(frame>=700&&frame<800);
+    for(unsigned i=0;i<320;++i)pcm[i]=speech?100:0;
+    *received=size;return ESP_OK;
+}
+static void gate_callback(void *context,uint64_t s,bool open,bool detected)
+{
+    (void)context;assert(s==session);
+    if(open){assert(detected&&(frame==200||frame==700));++opens;}
+    else {if(!closes)first_close=frame;++closes;}
+}
+static void pcm_callback(void *context,uint64_t s,const uint8_t *pcm)
+{
+    (void)context;(void)pcm;assert(s==session&&status.utterance_open);
+    assert(microphone_enabled&&!status.speaker_busy&&!external_active);++pcm_frames;
+}
+''' + functions + r'''
+int main(int argc,char **argv)
+{
+    assert(argc==2);scenario=argv[1];vad=vad_create(1);
+    callbacks.gate=gate_callback;callbacks.microphone=pcm_callback;
+    if(!setjmp(finished))microphone_task(NULL);
+    assert(!lock_depth&&pcm_frames>0);
+    if(!strcmp(scenario,"normal")||!strcmp(scenario,"late-speech")) {
+        assert(opens==2&&closes==2&&first_close==574);
+        assert(creates==2&&destroys==1); /* No reset or discontinuity at normal endpoints. */
+        assert(processed==999);
+    } else if(!strcmp(scenario,"session")) {
+        assert(opens==2&&closes==1&&creates>=3&&destroys>=2);
+    } else if(!strcmp(scenario,"allocation")) {
+        assert(opens==1&&closes==1&&first_close==300&&!status.vad_ready&&!status.wake_ready);
+    } else {
+        assert(opens==2&&closes==2&&first_close==300&&creates>=3&&destroys>=2);
+    }
+    if(vad)vad_destroy(vad);
+    puts("Continuous VAD, long speech, mid-sentence pause, capture reset and re-arm passed");
+    return 0;
+}
+'''
+        with tempfile.TemporaryDirectory(prefix="ainekio-microphone-task-") as temporary:
+            path = Path(temporary) / "microphone.c"
+            binary = Path(temporary) / "microphone"
+            path.write_text(harness)
+            subprocess.run(["cc", "-std=c11", "-Wall", "-Wextra", "-Werror",
+                "-I", str(CORE / "include"), "-I", str(media), "-I", str(media / "include"),
+                "-I", str(ROOT / "Slave/firmware/esp32p4-wifi6/tests/body_shim"),
+                str(path), "-lm", "-o", str(binary)], check=True, capture_output=True, text=True)
+            for scenario in ("normal", "late-speech", "playback", "external", "config", "session", "disabled", "allocation", "recover"):
+                with self.subTest(scenario=scenario):
+                    subprocess.run([str(binary), scenario], check=True, capture_output=True, text=True)

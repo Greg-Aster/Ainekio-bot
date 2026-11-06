@@ -18,11 +18,9 @@ from urllib.parse import urlsplit, parse_qs
 from uuid import uuid4
 
 import numpy as np
-import torch
 
-from .contract import SCHEMA, SCHEMAS, foot_offsets, vector
-from .environment import EnvironmentConfig, body_control_config, ENVIRONMENT_VERSION, POLICY_ENVIRONMENT_VERSIONS, representation_identity
-from .training import load_policy, policy_algorithm, request_interval_steps, request_timing, resume_environment_changes, resume_reward_changes, save_json, summarize_commands, training_recipe, requested_commands, locomotion_config, evaluation_seed_list
+from .contract import SCHEMA, SCHEMAS, HISTORY_SCHEMA, PENDING_SCHEMA, foot_offsets, vector
+from .artifacts import save_json, summarize_commands
 
 
 def evaluation_summary(value):
@@ -49,7 +47,9 @@ class Runtime:
         self.renders = {}
         self.lock = threading.RLock()
         self.selection_error = None
-        torch.set_num_threads(1)
+        self.kind = None
+        self.rng = np.random.default_rng()
+        self.demonstrations = {}
         selected = self.directory / "selected.json"
         if selected.exists():
             try:
@@ -76,6 +76,7 @@ class Runtime:
             result = dict(
                 schema=(self.environment or {}).get("observation_schema", SCHEMA),
                 model_id=self.model_id, checkpoint_id=self.checkpoint_id,
+                kind=self.kind,
                 selection_error=self.selection_error,
                 device=self.device, environment=self.environment,
                 training_id=training_id,
@@ -116,7 +117,7 @@ class Runtime:
             checkpoint_rows = json.loads(checkpoints.read_text()) if checkpoints.exists() else []
             for checkpoint in checkpoint_rows:
                 measured = checkpoint.get("evaluation", {})
-                if "command_results" not in measured:
+                if "command_results" not in measured and measured.get('episodes'):
                     measured["command_results"] = summarize_commands(measured.get("episodes", []))
                 checkpoint["evaluation"] = evaluation_summary(measured)
             video = path.with_name("progress-video.json")
@@ -128,7 +129,8 @@ class Runtime:
             runs.append(
                 dict(
                     id=path.parent.name,
-                    **value,
+                    **{**value, **({"kind": manifest['kind']} if 'kind' in manifest else {})},
+                    algorithm=manifest.get('algorithm'),
                     initialization=manifest.get("initialization"),
                     recipe=manifest.get("recipe"),
                     training_device=manifest.get("device"),
@@ -139,7 +141,7 @@ class Runtime:
                         if evaluation.exists()
                         else None
                     ),
-                    has_policy=path.with_name("policy.zip").exists(),
+                    has_policy=path.with_name("policy.zip").exists() or bool(manifest.get("policy") and (path.parent/manifest["policy"]).is_file()) or bool(manifest.get('kind') == 'physical-redq' and checkpoint_rows),
                     has_replay=path.with_name("replay.mp4").exists(),
                     has_footage=any(clip.is_file() and '.tmp.' not in clip.name
                                    for clip in (path.parent/'clips').glob('*.mp4')),
@@ -154,16 +156,51 @@ class Runtime:
                     render_exit_code=rendering.poll() if rendering else None,
                 )
             )
-        return dict(result, runs=runs,
-                    defaults=asdict(EnvironmentConfig(execution_backend="body_control")))
+        # History/inference never imports a simulator or training framework.
+        # An empty edit uses the training owner's normal defaults on submission.
+        defaults = self.environment or {}
+        return dict(result, runs=runs, defaults=defaults)
 
     def load(self, identifier, checkpoint_id=None):
         path = self.run_path(identifier)
         manifest = json.loads((path / "manifest.json").read_text())
+        if manifest.get("kind") == "microduck-mjlab" and not manifest.get("policy"):
+            raise ValueError("This MicroDuck run has no exported policy yet")
+        if manifest.get('kind') == 'physical-redq':
+            from .redq import NumpyActor
+            rows = json.loads((path/'checkpoints.json').read_text())
+            if not rows:
+                raise ValueError('Physical actor initialization has not finished')
+            selected = next((row for row in rows if row['id'] == checkpoint_id), None) if checkpoint_id else rows[-1]
+            if selected is None:
+                raise ValueError('Choose a published physical checkpoint')
+            model = NumpyActor.load(path/selected['policy'])
+            actor_environment = model.metadata.get('environment')
+            same_environment = actor_environment == manifest['environment']
+            if isinstance(actor_environment, dict) and not same_environment:
+                # A physical run can retain its immutable v5 checkpoints after
+                # the trainer gains pending-action inputs. All other installed
+                # geometry, calibration and execution fields must still match.
+                schemas = {actor_environment.get('observation_schema'), manifest['environment'].get('observation_schema')}
+                same_environment = (schemas == {HISTORY_SCHEMA, PENDING_SCHEMA} and
+                    {k: v for k, v in actor_environment.items() if k != 'observation_schema'} ==
+                    {k: v for k, v in manifest['environment'].items() if k != 'observation_schema'})
+            if (not same_environment or
+                    model.metadata.get('model_id') != identifier or
+                    model.metadata.get('checkpoint_id') != selected['id'] or
+                    model.metadata.get('action_contract') != manifest['action_contract']):
+                raise ValueError('Actor and run observation/action contracts differ')
+            with self.lock:
+                self.model, self.model_id = model, identifier
+                self.environment, self.checkpoint_id = actor_environment, selected['id']
+                self.kind, self.selection_error = 'physical-redq', None
+                save_json(self.directory/'selected.json', dict(model_id=identifier, checkpoint_id=selected['id']))
+            return self.status()
+        from .environment import POLICY_ENVIRONMENT_VERSIONS, representation_identity
         if (manifest["schema"] not in SCHEMAS or manifest.get("environment_version") not in POLICY_ENVIRONMENT_VERSIONS
                 or manifest.get("representation") != representation_identity()):
             raise ValueError("Checkpoint representation differs from the current robot environment")
-        checkpoint = "policy.zip"
+        checkpoint = manifest.get("policy", "policy.zip")
         if checkpoint_id is not None:
             # Select a published immutable checkpoint from its existing run;
             # continuing training must not change the reviewed deployment.
@@ -172,7 +209,14 @@ class Runtime:
             if selected is None:
                 raise ValueError("Choose a published checkpoint from this run")
             checkpoint = selected["policy"]
-        model = load_policy(path, checkpoint, device=self.device)
+        if manifest.get("kind") == "microduck-mjlab":
+            from .microduck_actor import MicroduckActor
+            model = MicroduckActor(path/checkpoint)
+        else:
+            from .training import load_policy
+            import torch
+            torch.set_num_threads(1)
+            model = load_policy(path, checkpoint, device=self.device)
         with self.lock:
             self.model, self.model_id, self.environment = (
                 model,
@@ -180,22 +224,132 @@ class Runtime:
                 manifest["environment"],
             )
             self.checkpoint_id = checkpoint_id
+            self.kind = manifest.get("kind")
             self.selection_error = None
             save_json(self.directory / "selected.json",
                       dict(model_id=identifier, checkpoint_id=checkpoint_id))
         return self.status()
 
-    def infer(self, observation):
+    def collection_end(self, robot_id, owner):
+        """Retire only the native generator owned by this completed Walk."""
+        with self.lock:
+            state = self.demonstrations.get(robot_id)
+            if state is not None and state['owner'] == owner and state['native'] is not None:
+                state['native'].close()
+                # Preserve the last motion identity: an already-sent HTTP
+                # request cannot recreate a generator after Stop retires it.
+                state['native'] = None
+                return dict(retired=True)
+            return dict(retired=False)
+
+    def _native_demonstration(self, observation, request):
+        from .native import BodyModel
+        if not isinstance(request, dict) or request.get('source') != 'native-c':
+            raise ValueError('Expected an explicit native-c demonstration request')
+        robot, owner, now = request.get('robot_id'), request.get('owner'), request.get('device_us')
+        gateway, epoch, walk = request.get('gateway_instance'), request.get('epoch'), request.get('walk')
+        if (not isinstance(robot, str) or not robot or not isinstance(owner, str) or not owner
+                or not isinstance(gateway, str) or not gateway or type(epoch) is not int or epoch < 1
+                or type(walk) is not int or walk < 1
+                or type(now) is not int or now < 0
+                or observation.get('observation_time_s') != now / 1e6):
+            raise ValueError('Native demonstration requires its Walk owner and actual observation clock')
+        command = request.get('command')
+        if not isinstance(command, dict):
+            raise ValueError('Native demonstration requires the requested Walk controls')
+        command = {key: command[key] for key in ('dir', 'speed', 'forward', 'lateral', 'turn', 'gait', 'stride', 'rate') if key in command}
+        command.update(t='intent', name='walk', steps=0)
+        state = self.demonstrations.get(robot)
+        if state is not None and state['gateway'] == gateway:
+            if (epoch, walk) < state['identity'] or ((epoch, walk) == state['identity'] and
+                    (state['owner'] != owner or state['native'] is None)):
+                raise ValueError('Native demonstration request belongs to a retired Walk')
+        if state is None or state['owner'] != owner:
+            if state is not None:
+                if state['native'] is not None:
+                    state['native'].close()
+                del self.demonstrations[robot]
+            native = BodyModel(self.environment['robot'])
+            try:
+                native.walk_configure(speed_deg_s=self.environment['joint_speed_deg_s'],
+                                      heading_enabled=False, balance_enabled=False, model=None)
+                if not native.walk_accept({**command, 'seq': 1}, now):
+                    raise ValueError('Native gait rejected the demonstration controls')
+            except BaseException:
+                native.close()
+                raise
+            state = dict(native=native, owner=owner, gateway=gateway, identity=(epoch, walk),
+                         command=command, sequence=1, now=now)
+            self.demonstrations[robot] = state
+        if now < state['now']:
+            raise ValueError('Native demonstration clock moved backwards within the same Walk')
+        if command != state['command']:
+            sequence = state['sequence'] + 1
+            if not state['native'].walk_accept({**command, 'seq': sequence, 'update': 1}, now):
+                raise ValueError('Native gait rejected the updated demonstration controls')
+            state.update(command=command, sequence=sequence)
+        result = state['native'].walk_tick(now, observation['target_deg'])
+        state['now'] = now
+        if result is None or result['failed']:
+            raise ValueError('Native gait could not produce the requested demonstration target')
+        # The production generator fits this frame to installed calibration.
+        # With all teacher corrections disabled it is the physical target before
+        # heading/balance correction, not the unconstrained generator pose.
+        angles = result['balanced_angles']
+        offsets = state['native'].foot_offsets_for_angles(angles, self.environment['reference_joint_deg'])
+        action = (np.asarray(offsets) / np.asarray(self.environment['foot_action_scale_mm'])).reshape(12)
+        if not np.isfinite(action).all() or np.any(np.abs(action) > 1.):
+            raise ValueError('Native demonstration exceeds the configured geometry-derived action encoding')
+        provenance = dict(source='native-c', owner=owner, device_us=now, command=command,
+            label_contract='native-c-calibrated-target-v1', target_joint_deg=angles.tolist(),
+            nominal_joint_deg=result['nominal_angles'].tolist(), phase=float(result['phase']),
+            heading_enabled=False, balance_enabled=False, learned_corrections_enabled=False)
+        return action, provenance
+
+    def infer(self, observation, *, explore=False, model_id=None, checkpoint_id=None, noise=None, demonstration=None):
         values = np.asarray(vector(observation), dtype=np.float32)
         started = time.monotonic()
         with self.lock:
             if self.model is None:
                 raise ValueError("No neural gait checkpoint selected")
+            if model_id is not None and (model_id, checkpoint_id) != (self.model_id, self.checkpoint_id):
+                raise ValueError('Inference checkpoint differs from the owning Walk')
+            if noise is not None:
+                if explore is not True or self.kind != 'physical-redq':
+                    raise ValueError('Explicit exploration noise requires an exploratory physical REDQ request')
+                if (not isinstance(noise, list) or len(noise) != 12
+                        or any(type(value) not in (int, float) for value in noise)
+                        or not np.isfinite(noise).all()):
+                    raise ValueError('Exploration noise must contain twelve finite numbers')
+                noise = np.asarray(noise, dtype=np.float32)
+                if not np.isfinite(noise).all():
+                    raise ValueError('Exploration noise must contain twelve finite float32 numbers')
             limits = self.environment["target_limits_deg"]
             if observation["target_limits_deg"] != limits:
                 raise ValueError(
                     "Observation action domain differs from the selected checkpoint"
                 )
+            if self.kind == 'physical-redq':
+                inputs = ({'pending_actions': observation['pending_actions']}
+                          if self.model.metadata.get('pending_input_dim', 0) else {})
+                provenance = None
+                if demonstration is not None:
+                    if explore is not True or noise is not None:
+                        raise ValueError('Native demonstrations require explicit collection without policy noise')
+                    action, provenance = self._native_demonstration(observation, demonstration)
+                else:
+                    action = self.model.act(values, deterministic=not explore, rng=self.rng, noise=noise, **inputs)
+                return dict(schema=self.environment['observation_schema'], model_id=self.model_id,
+                    checkpoint_id=self.checkpoint_id, action=action.tolist(),
+                    requested_foot_offset_mm=foot_offsets(action, self.environment['foot_action_scale_mm']),
+                    elapsed_s=time.monotonic()-started, execution='preview_only',
+                    exploration=bool(explore and provenance is None),
+                    **({'demonstration': provenance} if provenance is not None else {}),
+                    targets_resolved_by='existing P4 Walk kinematics')
+            if demonstration is not None:
+                raise ValueError('Native demonstration collection requires a physical actor contract')
+            if explore:
+                raise ValueError('Stochastic physical trials require a physical REDQ actor')
             action, _ = self.model.predict(values, deterministic=True)
             identifier, checkpoint_id = self.model_id, self.checkpoint_id
             schema = self.environment.get("observation_schema", SCHEMA)
@@ -220,9 +374,19 @@ class Runtime:
         )
 
     def start_training(self, payload):
+        source = payload.get("resume")
+        prior = json.loads((self.run_path(source)/"manifest.json").read_text()) if source else {}
+        if payload.get("recipe") == "microduck-mjlab-v1" or prior.get("kind") == "microduck-mjlab":
+            return self.start_microduck_training(payload, prior)
+        from .environment import EnvironmentConfig, body_control_config, representation_identity
+        from .training import (policy_algorithm, request_interval_steps, request_timing,
+            resume_environment_changes, resume_reward_changes, training_recipe, requested_commands,
+            locomotion_config, evaluation_seed_list)
         with self.lock:
             if self.training is not None and self.training.poll() is None:
                 raise ValueError("A gait training run is already active")
+            source = payload.get("resume") or payload.get("initialize_from")
+            prior = json.loads((self.run_path(source)/"manifest.json").read_text()) if source else {}
             steps = payload["steps"]
             if type(steps) is not int or steps <= 0:
                 raise ValueError("Training steps must be a positive integer")
@@ -367,7 +531,104 @@ class Runtime:
             self.training_id = identifier
             return dict(run_id=identifier, state="starting")
 
+    def start_microduck_training(self, payload, prior):
+        """The existing trainer process lifecycle also owns imported mjlab runs."""
+        from .environment import EnvironmentConfig
+        with self.lock:
+            if self.training is not None and self.training.poll() is None:
+                raise ValueError("A gait training run is already active")
+            steps = payload["steps"]
+            workers = payload.get("workers", prior.get("simulation_workers", 1024))
+            if type(steps) is not int or steps <= 0 or type(workers) is not int or workers <= 0:
+                raise ValueError("Training steps and parallel environments must be positive integers")
+            environment = payload.get("environment", prior.get("environment"))
+            if not environment:
+                raise ValueError("Supply Ainekio's environment including its camera profile for MicroDuck training")
+            config = EnvironmentConfig(**environment)
+            from .contract import PROPRIO_SCHEMA, PROPRIO_CAMERA_SCHEMA
+            from dataclasses import replace
+            stage=payload.get("stage",prior.get("stage","proprio"))
+            if stage not in ("proprio","camera"):
+                raise ValueError("Choose proprio or camera training stage")
+            config=replace(config,observation_schema=PROPRIO_CAMERA_SCHEMA if stage=="camera" else PROPRIO_SCHEMA,
+                           collision_profile="locomotion",balance_enabled=False,heading_feedback_enabled=False,control_hz=50,physics_hz=500)
+            if stage=="camera" and not config.depth_camera:
+                raise ValueError("The camera stage needs the installed optical camera profile")
+            if prior and prior["environment"] != asdict(config):
+                raise ValueError("Resume uses the saved robot/sensor contract; start a new run to change it")
+            root = Path(__file__).resolve().parents[3]
+            python = os.environ.get("AINEKIO_MICRODUCK_PYTHON", str(root/"build/microduck-training-env/bin/python"))
+            if not Path(python).is_file():
+                raise ValueError("Install the imported MicroDuck training environment first; see the gateway README")
+            identifier = uuid4().hex
+            path = self.run_path(identifier)
+            path.mkdir()
+            save_json(path/"environment.json", asdict(config))
+            iterations = math.ceil(steps/(workers*24))
+            command = [python, "-m", "gateway.neural_gait.microduck", "--directory", str(path),
+                "--config", str(path/"environment.json"), "--iterations", str(iterations),
+                "--num-envs", str(workers), "--device", str(payload.get("device", prior.get("device", "cuda:0"))),
+                "--seed", str(payload.get("seed", prior.get("seed", 1))), "--stage", stage]
+            if payload.get("resume"):
+                command += ["--resume", str(self.run_path(payload["resume"]))]
+            elif payload.get("initialize_from"):
+                command += ["--initialize-from", str(self.run_path(payload["initialize_from"]))]
+            with (path/"training.log").open("w") as log:
+                self.training = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
+            self.training_id = identifier
+            return dict(run_id=identifier, state="starting", iterations=iterations, recipe="microduck-mjlab-v1")
+
+
+    def physical_create(self, payload):
+        from .physical import physical_environment
+        algorithm = payload.get('algorithm', 'REDQ')
+        if algorithm != 'REDQ':
+            raise ValueError('Unknown physical learning algorithm')
+        with self.lock:
+            if self.training is not None and self.training.poll() is None:
+                raise ValueError('A gait training run is already active')
+            environment = physical_environment(payload['environment'])
+            path = self.run_path(uuid4().hex)
+            path.mkdir()
+            save_json(path/'environment.json', environment)
+            save_json(path/'progress.json', dict(kind='physical-redq', state='initializing'))
+            with (path/'training.log').open('a') as log:
+                self.training = subprocess.Popen([sys.executable, '-m', 'gateway.neural_gait.physical',
+                    '--directory', str(path), '--create-config', str(path/'environment.json'),
+                    '--seed', str(payload.get('seed', 0)), '--algorithm', algorithm], stdout=log, stderr=subprocess.STDOUT)
+            self.training_id = path.name
+            return dict(run_id=path.name, state='initializing', movement_started=False)
+
+    def physical_train(self, payload):
+        with self.lock:
+            if self.training is not None and self.training.poll() is None:
+                raise ValueError('A gait training run is already active')
+            path = self.run_path(payload['model_id'])
+            manifest = json.loads((path/'manifest.json').read_text())
+            updates, recordings = payload.get('updates'), payload.get('recordings')
+            if manifest.get('kind') != 'physical-redq' or type(updates) is not int or updates <= 0:
+                raise ValueError('Select a physical run and positive update count')
+            if not isinstance(recordings, list) or not recordings or any(not isinstance(p, str) or not p for p in recordings):
+                raise ValueError('Supply physical recording directories')
+            method = payload.get('method', 'reinforcement')
+            if method not in ('reinforcement', 'imitation'):
+                raise ValueError('Choose reinforcement or imitation training')
+            fit_all = payload.get('fit_all', False)
+            if type(fit_all) is not bool:
+                raise ValueError('fit_all must be a boolean')
+            if fit_all and method != 'imitation':
+                raise ValueError('fit_all applies only to imitation training')
+            with (path/'training.log').open('a') as log:
+                self.training = subprocess.Popen([sys.executable, '-m', 'gateway.neural_gait.physical',
+                    '--directory', str(path), '--recordings', *recordings, '--updates', str(updates),
+                    '--device', payload.get('device', 'cuda'),
+                    *(['--imitate'] if method == 'imitation' else []),
+                    *(['--fit-all'] if fit_all else [])], stdout=log, stderr=subprocess.STDOUT)
+            self.training_id = path.name
+            return dict(run_id=path.name, state='starting', movement_started=False)
+
     def render(self, identifier, progress=False):
+        from .environment import POLICY_ENVIRONMENT_VERSIONS, representation_identity
         with self.lock:
             path = self.run_path(identifier)
             manifest = json.loads((path / "manifest.json").read_text())
@@ -461,11 +722,18 @@ class Handler(BaseHTTPRequestHandler):
             )
             runtime = self.server.runtime
             if self.path == "/infer":
-                result = runtime.infer(payload["observation"])
+                result = runtime.infer(payload["observation"], **{key: payload[key] for key in
+                    ('explore', 'model_id', 'checkpoint_id', 'noise', 'demonstration') if key in payload})
+            elif self.path == '/collection-end':
+                result = runtime.collection_end(payload['robot_id'], payload['owner'])
             elif self.path == "/load":
                 result = runtime.load(payload["model_id"], payload.get("checkpoint_id"))
             elif self.path == "/train":
                 result = runtime.start_training(payload)
+            elif self.path == '/physical-create':
+                result = runtime.physical_create(payload)
+            elif self.path == '/physical-train':
+                result = runtime.physical_train(payload)
             elif self.path == "/render":
                 result = runtime.render(
                     payload["model_id"], payload.get("progress", False)

@@ -108,13 +108,10 @@ expression or recovery movement. When Freestyle body-event recovery is enabled,
 its trained generator receives current observations, the interrupted action and the compact unfinished plan; full programs and packet buffers are not repeated in recovery input.
 Current execution continues during inference; only an available correction
 replaces it, with fresh measured positions. Model errors retain current execution.
-The first stall remains internal to Body Control/Freestyle. If the admitted
-correction stalls again, Body Control releases outputs through its existing
-Stop/detach owner without another generation. The failed-correction event then
-reaches Environment Bridge for help, retaining joint and command identity,
-`correction_failed:true`, actual `outputs_released`, and any `release_error`.
-The model is not responsible for selecting that release. A delayed event cannot
-release an unrelated replacement command. This is attempt-based, not a new timer.
+Stalls remain internal to Body Control/Freestyle. A new stall during an admitted
+correction requests another model assessment while retaining outputs. There is
+no attempt-count release. Joint, command and epoch identity remain attached;
+a delayed event cannot supersede an unrelated replacement command.
 Manual Stop/replacement and existing driver-fault shutdowns remain immediate.
 No model-time cutoff, retry-count limit or changed jam threshold is added.
 Shake/tip notification suppression does not hide this observation. Existing calibration curves survive the NVS
@@ -168,7 +165,7 @@ The normal `get` response adds `walking_enabled` and `walking_saved`; existing
 self-leveling `save` requests do not change either value. An installation with
 no saved walking selection reports Off until the owner enables it.
 
-The body adjusts the ongoing gait's steering using relative gyro heading.
+The body adjusts native walking's steering using relative gyro heading.
 Operator-requested curves remain the heading reference. Corrections blend in
 trajectory space, sharing the existing forward/turn stroke budget; the semantic
 gait retains its full nominal joint movement rate. Missing or recovering IMU
@@ -176,19 +173,254 @@ data fades only this correction while the requested gait continues. Status
 `walking_feedback` reports enabled/active/reduced, `heading_error_rad`, and
 additive `turn_percent`. This is relative heading correction, not absolute
 heading, distance estimation, measured foot contact, or a trained policy.
-Fourth-wire model evaluation and local trace recording remain separate.
+The host neural policy owns yaw and balance; this switch does not add a
+heading correction to its foot targets. Fourth-wire model evaluation and local
+trace recording remain separate.
 
-### Neural walking simulation and policy service
+### Neural walking learning and policy service
 
 `Master/start-neural-gait.sh` runs the independent `gateway.neural_gait.server`
 on loopback port 8796. `Master/ainekio-neural-gait.service` provides its user-service
 lifecycle. Body Control uses `AINEKIO_NEURAL_GAIT_ENDPOINT` (default
 `http://127.0.0.1:8796`) through its authenticated `/api/neural-gait` route.
-**Learning history → Neural walking** exposes new/resumed simulation training,
-checkpoint selection, evaluation, rendered rollout video and a non-executing
-preview from the connected robot's existing calibrated Freestyle observations.
-The gait interpreter uses `Emulator/requirements-gait-training.txt`; it does not
-load Torch or MuJoCo into the gateway process. FFmpeg provides replay encoding.
+**Learning history → Neural walking** exposes physical learning, historical
+simulation training, checkpoint selection and inference preview. Training uses
+`Emulator/requirements-gait-training.txt` on the desktop. Physical REDQ actor
+serving needs only `Emulator/requirements-gait-inference.txt` (NumPy); it imports
+neither PyTorch nor MuJoCo. Set `AINEKIO_NEURAL_GAIT_PYTHON` to that inference
+environment on the Q6A. The launcher defaults numerical inference to one CPU
+thread (`AINEKIO_GAIT_INFERENCE_THREADS` overrides it). This does not change
+servo speed, requested range or target cadence. FFmpeg is used for simulated
+replay encoding, not physical policy execution.
+
+#### Imported MicroDuck training
+
+The complete [MicroDuck training source](neural_gait/vendor/microduck_rl/README.md)
+is imported at `bae39f5900b318f7e87fc485c30a31213cfa14eb`; its code, assets,
+licences and locked dependencies are retained. Local provenance is in
+[`UPSTREAM.json`](neural_gait/vendor/microduck_rl/UPSTREAM.json).
+[`microduck.py`](neural_gait/microduck.py) calls its actual velocity-task factory,
+reward implementations, PPO configuration, runner and normalized ONNX exporter.
+This is a separate imported mjlab training backend, not another SB3 recipe.
+
+The adaptation replaces the biped with Ainekio's closed four-bar quadruped,
+CAD body inertias and twelve MG90S actuators. The locomotion collision profile
+retains the torso hull, leg capsules and four CAD soles, omitting internal CAD
+collision decomposition from training. These contact proxies interact with terrain;
+self-contact inspection uses the detailed assembly profile. That profile remains
+available for other simulator consumers.
+
+Physics, analytic foot decoding, coupled linkage transitions, calibration,
+PCA9685 pulse quantization and sampled feedback/IMU state run as GPU operations.
+Native C is used once during construction to fit the fixed reference pose and
+as the regression oracle, never as a per-world rollout callback. The task uses
+MuJoCo's conjugate-gradient constraint solver. The pinned Warp Newton path can
+produce NaNs when its float32 constraint Hessian loses positive definiteness
+([upstream issue 1415](https://github.com/google-deepmind/mujoco_warp/issues/1415)).
+CG avoids this factorization without changing geometry, actuator limits or the
+500 Hz physics rate. The CUDA foot decoder uses `torch.compile` with the native
+linkage owner's double precision, preserving coupled transitions and PWM output.
+Sensor resets acquire the reset joint pose through the ADC/filter model and
+prime IMU inclination after physics forwarding; selected resets preserve other
+worlds' filter state and sampling timestamps. Terrain generation uses the recorded
+run seed. Learner saves approximately every million transitions also update
+`learner.pt`; error progress retains its last completed step count.
+
+Task revision 3 retains the tanh Gaussian actor with transformed likelihood,
+bounded-action entropy and deterministic ONNX output. Linear and yaw tracking
+have independent Cauchy scores (0.1 m/s and 0.5 rad/s widths), each subtracting
+its stationary baseline. Forward progress therefore does not depend on first
+solving yaw tracking. Standing commands have zero ideal tracking reward and
+penalize drift. Small normalized action-change, action-size and standing-pose
+costs regularize motion. The four-foot mean air-time bonus has weight 0.5 and
+moving/upright gating with a `0.25 + 0.75 * quality` floor; early stepping can
+receive credit before tracking succeeds. Clearance weight is -0.2.
+
+The existing `nan_state` termination is retained and checks current integration
+state as well as upstream derived body/contact state, avoiding a final-substep
+root-velocity failure slipping past stale derived values. Quadratic body/foot
+costs have explicit per-step budgets before episode accumulation; these do not
+clamp physical motion or change actuator capability. A numerical reset is not
+successful walking or evidence that the underlying physics is qualified.
+Training uses 20-second episodes and randomized initial episode clocks. Curriculum
+survival uses separately counted actual steps, so randomized clocks cannot grant
+unearned terrain progression. Use 40–60-second episodes for sustained evaluation.
+The parent `cfg.sim.mujoco` alone owns integration options; child XML options
+are removed before attachment.
+
+Training starts with `ainekio-neural-gait-v7-proprio`: fifteen 50 Hz samples of
+fourth-wire joint angles/velocities, gyro, acceleration, projected gravity,
+commanded twist and previous actions (720 features). The camera stage uses
+`ainekio-neural-gait-v8-proprio-camera`, adding the existing 147-value optical
+depth contract. The critic alone receives privileged body velocity. Audio is
+outside low-level gait control. Optical rays include camera latency, dropout and
+noise; they do not run MoGe on rendered frames or establish physical camera fidelity.
+The final requested sensor-complete policy requires the camera stage and
+sensor-response evaluation; a proprioceptive checkpoint is an intermediate.
+
+Install the upstream locked stack separately so it does not upgrade the existing
+SB3/physical-learning environment:
+
+```bash
+UV_PROJECT_ENVIRONMENT="$PWD/build/microduck-training-env" \
+  uv sync --project Master/gateway/neural_gait/vendor/microduck_rl --python python3.12 --frozen
+uv pip install --python build/microduck-training-env/bin/python \
+  -r Emulator/requirements-microduck-training.txt
+```
+
+Headless RunPod PyTorch containers also need `libegl1`, `libgl1`, `libglfw3`
+and `libglib2.0-0` installed before importing MuJoCo with `MUJOCO_GL=egl`.
+
+Use a recorded Ainekio environment containing robot calibration and the explicit
+`depth_camera` profile, preserving its measurement provenance and error assumptions.
+The task samples forward velocity from -0.15 to +0.20 m/s, lateral velocity from
+-0.06 to +0.06 m/s and yaw rate from -1 to +1 rad/s, including standing requests.
+Friction spans 0.4–1.2 from the start. All initial patches are flat with zero
+reset tilt and zero pushes. Completed-episode tracking improvement and survival
+increase the five-level curriculum through 10-degree slopes, tilted starts and
+the full configured velocity pushes. This curriculum does not scale the command
+range, actuator capability or foot workspace.
+
+Run a short 64-world smoke test first:
+
+```bash
+PYTHONPATH=Master:Slave/software MUJOCO_GL=egl TORCHINDUCTOR_COMPILE_THREADS=2 \
+  build/microduck-training-env/bin/python -m gateway.neural_gait.microduck \
+  --config /path/to/ainekio-environment.json \
+  --directory build/neural-gait/MICRODUCK_SMOKE \
+  --num-envs 64 --iterations 5 --device cuda:0
+```
+
+For proprioceptive training, replace the smoke budget with `--num-envs 1024
+--steps 20000000`. World count should fit available GPU memory. Resume with
+`--resume /path/to/run`. Extend a learned proprioceptive checkpoint with
+`--stage camera --initialize-from /path/to/proprio-run` in a new run directory.
+This preserves learned proprioceptive weights and starts camera weights at zero;
+further PPO training must learn useful camera responses.
+
+The existing service accepts `recipe:"microduck-mjlab-v1"`, `environment`,
+`steps`, `workers`, `device`, `seed`, `stage` and `initialize_from`. Its existing
+training-process owner runs the imported learner. Budgets round up to full
+24-step PPO rollouts per world. `AINEKIO_MICRODUCK_PYTHON` selects a different
+installation of the separate environment.
+
+Each run saves `learner.pt`, normalized `policy.onnx`, iteration progress and
+`sensor-evidence.json`. Counterfactual sensitivity is diagnostic: it does not
+block an export on flat ground or prove useful sensor behavior. Exports are
+simulation checkpoints, not qualified physical gait models. Evaluate them through
+the existing simulator/replay owners, and qualify loaded walking with measured
+joint tracking, IMU and body progress. The host neural Walk owns moving balance and yaw;
+P4 applies its established calibration and output ramp without adding its native
+moving-balance or heading correction. Native walking and stationary balance retain their
+existing behavior. Firmware changes require deployment before physical comparison.
+
+ONNX Runtime must be installed in the existing inference service environment.
+The standalone exported actor needs NumPy and ONNX Runtime; the service's existing
+representation checks and replay path retain their simulator dependencies.
+
+Maintained regressions run with `python -m unittest
+Emulator.tests.test_microduck_gait` under the imported environment (with
+`PYTHONPATH=Master:Slave/software`); the normal `Emulator/tests` discovery also
+includes them. Actor/serving checks run in the existing optional training environment
+when RSL-RL and ONNX Runtime are installed. No test commands physical movement.
+
+#### Learning from the physical robot
+
+The **Physical learning** controls extend the same neural Walk producer, P4
+target owner and gait recorder. The desktop learner implements
+[REDQ](https://arxiv.org/abs/2101.05982), following the
+[authors' algorithm](https://github.com/watchernyu/REDQ): ten critics, random
+two-critic target minimum, entropy-trained Gaussian actor and persistent replay.
+Only the small actor is deployed; there is no trainer running continuously on
+the Q6A and no neural network installed on the P4. The actor emits twelve foot
+offset coordinates through the existing `walk_target` command; installed P4
+kinematics, calibration, output ramp and feedback still own physical execution.
+The policy owns moving balance and yaw corrections.
+
+1. **Create physical run** captures the displayed robot/action contract and
+   creates an explicitly untrained actor. Creation sends no motion and changes
+   neither checkpoint selection nor the configured walking source. Reconcile
+   a saved offline profile with the connected robot before the first trial.
+2. Select the physical checkpoint, choose the existing **Neural** walking
+   source and enable **Log gait data**. Leave **Learn while walking** off:
+   that older option is the native gait-coefficient optimizer, not REDQ.
+3. **Start recorded learning trial** submits the normal Walk with the selected
+   direction and speed. Exploration belongs only to this explicit trial;
+   ordinary Walk uses deterministic inference. Use existing Finish, Stop or
+   Release. No fixed-duration stop is added. Steering, replacement and recovery
+   retain their existing owners.
+4. Finish recording, copy the recording directory to the desktop if necessary,
+   then select it under **Train from recordings**. The existing service starts
+   a finite GPU update batch. It resumes the same learner, optimizer, replay
+   and imported-sample identities. Re-importing a copied recording does not
+   duplicate experience. Training publishes an immutable actor checkpoint and
+   does not activate it. Review its recorded outcomes, select it explicitly
+   for the next trial, and compare fresh physical results.
+
+The existing authenticated `/api/neural-gait` API also supports demonstration
+collection: `op:"physical-trial"` with `collection_policy:"native-c"` uses the
+production native C gait generator inside the same neural Walk producer. The
+default `collection_policy:"policy"` retains actor/pink-noise exploration.
+The teacher follows the requested direction/speed and actual observation clock;
+its targets pass through the existing calibration fit and FK foot encoding.
+Teacher heading, balance and learned corrections are disabled; the physical
+P4 still applies its configured corrections and fourth-wire feedback. This
+avoids teaching those corrections twice. Stop, Release and replacement also
+retire the teacher; there is no separate motion executor.
+
+Each demonstration in `neural.jsonl` retains the original policy observation,
+pending requests, action and execution evidence, plus `demonstration.source`
+`"native-c"`, command, device time, raw `nominal_joint_deg` and calibrated
+`target_joint_deg`. `label_contract:"native-c-calibrated-target-v1"` identifies
+the calibrated labels; older rows without it contain raw generator targets.
+`op:"physical-train"` with `method:"imitation"`, the selected `model_id`,
+`recordings` and `updates` runs a finite supervised batch through the existing
+training lifecycle. The default method remains `"reinforcement"`. Imitation
+learns demonstrated targets without inventing distance rewards; fit errors do
+not establish physical walking success.
+Optional `fit_all:true` explicitly trains imitation on all selected usable rows
+instead of reserving a holdout (default `false`). This produces no held-out score;
+the updated actor requires an independent physical trial. It is not available for
+reinforcement training.
+
+Recordings retain exact float32 policy inputs, requested actions, firmware
+consumed-sample identities, measured fourth-wire position/velocity and IMU
+history. Camera movement is credited across its actual frame interval, once;
+it is an interval-average estimate, not per-action ground truth. Ordinary replay
+uses consecutive original policy inputs and their requested actions; actuator
+delay does not require consumption by the next input. Requested, acknowledged
+and observed-consumed targets remain distinct. Physical `v6-pending` actors
+also encode every pending request and its timing as a variable-length sequence;
+older immutable actors retain their original observation schema. Final held-action
+outcomes retain their measured consumption identity.
+Reference changes and missing frames are not fabricated stationary experience.
+The current MoGe/landmark metric scale is a learned estimate and
+has not been physically verified. Training summaries show requested versus
+estimated achieved velocity, turn, joint tracking and measurement provenance.
+The recorder also captures the last measured state when the existing motion
+owner ends a Walk or reports a fall/stall. Known failures, ordinary truncations
+and unknown outcomes remain distinct; measured failure attitude can be learned
+without claiming missing camera displacement was zero.
+The summaries describe collected experience, not an evaluation of the newly updated
+actor. Physical success must come from subsequent robot trials.
+
+Each run keeps one current `learner.pt` containing replay and optimizer state,
+small immutable `actors/*.npz` files, `physical-data.json` import/round history,
+and per-round measurement attribution. Deployment copies only `manifest.json`,
+`checkpoints.json` and the chosen actor file into the same run ID on the Q6A;
+select that checkpoint through the existing service. Replay and GPU dependencies
+stay on the desktop. A missing actor fails selection explicitly; no different
+walking model is silently substituted.
+
+The full 1,562-input actor measured 472,088 parameters and 1.65 MiB compressed.
+On the development i9-9900K, single-thread NumPy inference measured 0.0439 ms
+median / 0.0507 ms p95 over 1,000 calls. On the RTX 4080, 100 REDQ updates with
+batch 256 and ten critics took 1.096 s, peaking at 142.6 MiB allocated CUDA memory.
+These November 4 synthetic computation benchmarks are not Q6A timing, physical
+walking evidence or an estimate of required real-robot training time. Existing
+camera/depth processing has its own resource cost.
+
+#### Simulation artifacts and historical experiments
 
 Training progress distinguishes rollout collection, checkpoint evaluation (with
 completed/total trials), standing-baseline evaluation and final rendering. The
@@ -225,7 +457,7 @@ identities are actually in the video metadata.
 
 Neural walking uses the existing gateway producer and P4 walking owner. The
 configured walking source selects native or host neural targets; host targets
-retain one Walk operation, heading correction, leveling, fourth-wire progress,
+retain one Walk operation, calibrated output, fourth-wire progress,
 jam observation and the existing Finish/Stop/Release contracts. Physical walking
 and Freestyle recovery effectiveness still require real-robot qualification.
 
@@ -394,8 +626,9 @@ components so a regression can be attributed without retaining raw rollouts.
 Positive-score support, slip, effort and action-change costs remain. No foot
 order or gait period is prescribed. These experimental normalization scales and
 costs are recorded in each environment; they are not physical qualification.
-Version9 also repairs native host-heading oscillation using moving balance's
-existing damped attitude response. Heading and leveling remain enabled.
+Version9 repaired host-heading oscillation using the damped attitude response.
+Version15 removes that host correction: the neural policy owns yaw and moving
+balance, while native walking retains heading feedback and leveling.
 Scores from earlier versions are not directly comparable; reevaluate saved
 weights under the repaired execution/reward and retain the recorded version.
 The current development direction is outcome-based reinforcement learning from
@@ -801,8 +1034,36 @@ PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests:. \
   build/gait-training-env/bin/python -m unittest \
   Emulator.tests.test_neural_gait \
   Emulator.tests.test_neural_gait_sensors \
+  Emulator.tests.test_microduck_gait \
+  Emulator.tests.test_redq \
+  Emulator.tests.test_physical_gait \
   Emulator.tests.test_gateway_dashboard.GatewayDashboardTests.test_neural_gait_routes_are_authenticated_and_do_not_command_robot
 ```
+
+### Original Pupper V3 reference
+
+The original Pupper V3 source, pretrained policy and stock walking video remain
+in `build/pupper-v3-upstream/`. The local RSL-RL hybrid trainer, adapted rewards,
+coordinate adapters, training runs and ROS plugin were removed at the owner's
+request. The original MJX/Brax PPO trainer now selects the exported Ainekio CAD
+body and its twelve actuated joints. Its hardware bridge reuses the existing
+P4 calibration/PWM, fourth-wire filtering/jam detection and LSM6DS3/Fusion
+processing through `native.SensorBatch`; each virtual body carries independent
+firmware sensor memory. Virtual transducer inputs come from physics, not recorded
+physical measurements. Pupper's random sensor noise/latency is bypassed on this
+path. The existing estimated torque-speed plant uses the advertised MG90S speed,
+without adding target slew or a speed multiplier.
+
+The exporter writes machine-local `ainekio-hardware.json` alongside the MJCF.
+It contains the captured electrical calibration and explicit fidelity limits;
+installed IMU mounting/bias is not captured. Camera/depth observations and physical
+equivalence remain unqualified. A full
+CAD constructor probe compiled the XML but remained in MJX collision-pair
+conversion after over six minutes and was stopped; full reset/step and training
+throughput are unverified. This is a body/sensor
+binding, not a newly trained or deployed walking policy. Original source edits
+are retained in `Slave/software/models/v2-12servo/simulation/pupper-*-ainekio.patch`.
+Historical research and results remain in the gait journal.
 
 ### Supervised gait trial recording
 
@@ -2062,7 +2323,8 @@ route do not expose the dashboard. The selector does not change listeners,
 install services, create tunnels or select Wi-Fi networks.
 
 Save the stationary desktop's existing MetaHuman web address and use **Open
-desktop bridge settings**. This opens `/monitor#body-connection` on that host,
+desktop bridge settings**. This opens the main site at
+`/#view=chat&sidebar=monitor&section=body-connection` on that host,
 where the MetaHuman owner chooses **This computer**, **LAN / Wi-Fi via SSH**, or
 **Remote via Cloudflare**. The desktop's own authentication and bridge lifecycle
 remain authoritative; Body Control never receives its credentials. This page
@@ -2309,14 +2571,39 @@ Authenticated maintenance API (gateway proxy preserves the selected robot):
   never submits a motion command. Body Control sends only tracking records,
   trace headers and loss receipts. Maximum training upload is 8 MiB.
 
-`gait_trace_v1` has an additional `tracking` event, with per-leg timestamps,
+`gait_trace_v1` retains `output`, servo `sample`, `tracking` and IMU `imu`
+events in one recording ring. A `tracking` event has per-leg timestamps,
 phase, nominal/measured reference point, applied correction, context signature,
 stride, command sequence, nominal output-channel pulses (`nominal_pulses_us`)
 and validity mask. Version 2 training requires these nominal pulses; record a
 fresh baseline on 0.8.82 or newer. Older sample/output consumers ignore
-this event. The trace header now includes the geometry identifier. The UI labels
+this event. Since firmware `0.8.145-p4-imu-trace`, an `imu` event retains each
+accepted IMU acquisition, independently of servo scanning: its nested `imu`
+object contains the device `timestamp_us`, calibrated `acceleration_m_s2`
+(including gravity), `angular_rate_rad_s`, `orientation_wxyz`, calibration/frame
+labels, availability/freshness, estimator quality flags and acquisition counters.
+The timestamp is the I2C read midpoint, not sensor data-ready or camera exposure
+time. The header includes the geometry and `sensor_boot_id`, shared with camera
+metadata and ordinary IMU telemetry. Existing `boot_id` and `session` remain the
+separate trace cursor identity. Consumers of only sample/output/tracking records
+ignore other event kinds. Stop and draining use the same 512-event ring; `lost`,
+`oldest` and `more` remain authoritative when the reader falls behind. Dense
+records do not by themselves prove complete acquisition coverage. The UI labels
 telemetry as the **last walking observation**, rather than a live measurement
 while idle. Calibration/geometry changes require a new matching recording/model.
+
+Since firmware `0.8.148-p4-trace-cbor`, the same endpoint streams
+[`application/cbor-seq`](https://www.rfc-editor.org/rfc/rfc8742.html), with one
+CBOR map per former NDJSON record. The keys, ordering, header, cursor and final
+loss receipt are unchanged. The typed writer copies binary32/binary64 sensor
+values and integer timestamps directly into the existing HTTP chunk buffer;
+it does not allocate event trees or convert every number to decimal on the P4.
+Nonfinite readings remain null. The host's standard CBOR decoder restores the
+same dictionaries and saved JSONL format, and retains explicit NDJSON response
+support for older firmware. The 64-record response limit and 512-event ring are
+unchanged; loss receipts still determine whether a capture kept up with the
+actual combined load. Temporary encoding timing fields and the ineffective
+TCP socket experiment have been removed from the current implementation.
 
 Offline fitting/evaluation uses the same trainer as Body Control:
 
@@ -2443,8 +2730,11 @@ recording a neural trial is not an automatic model-weight update.
 Logging alone does not start an optimizer. Analyze now can calculate a proposal
 with learning off; it does not install that proposal.
 
-Trace downloads reuse a per-robot HTTP connection; failed requests are reported
-without replaying model-install operations. Brief missing joint observations
+Each maintenance response releases its HTTP connection, including trace batches;
+recording identity resides in device boot/session/cursor, not TCP. Per-robot
+serialization preserves read/Stop/drain order even when a cancelled async await
+leaves its HTTP worker running. Closing the transport drains those workers.
+Failed requests are reported without replaying model-install operations. Brief missing joint observations
 are counted inside the current window, not treated as a change of installed
 policy. Windows report both unusable tracking observations and observations
 where the learned correction was active. Missing readings never become zero
@@ -2582,19 +2872,25 @@ timestamps. Ordinary preview retrieval remains available through the same route.
 Camera → **Depth and camera movement** selects either the existing measured
 ground-plane owner or experimental **MoGe-2 + landmark tracking**. The latter runs the
 installed MoGe-2 network in an isolated host process and uses OpenCV SIFT matches,
-PnP RANSAC and pose refinement against retained 3-D landmarks. It supplies the existing `locomotion_measurement` contract,
+known-rotation translation RANSAC and translation-only refinement against retained
+3-D landmarks. Rotation comes from existing P4 fused attitude interpolated at the
+frame's device-clock CSI transfer-completion timestamp. It supplies the existing `locomotion_measurement` contract,
 including a depth preview, camera intrinsics, relative position/heading and
-landmark counts and pixel reprojection error. No P4 firmware change or robot movement command is involved.
+landmark counts and pixel reprojection error. Frame completion metadata requires
+supporting firmware; missing alignment leaves pose unavailable while depth and
+recognition remain available. This estimator issues no robot movement commands.
 The source selection persists in private `sensing-controls.json`.
 The saved mode key `moge-open3d` remains compatible with existing settings;
-the measurement source is now `moge2-landmark-odometry`. The initial dense
+the measurement source is now `moge2-imu-landmark-odometry`. The initial dense
 RGB-D comparison treated inconsistent per-image learned depth as movement in
 physical recordings. Matched landmarks now retain world positions; newly seen
 landmarks use model depth aligned to the retained map's scale. This avoids that
 direct depth-difference error without claiming a calibrated absolute scale.
 
 This is estimated metric depth and local odometry, **not a calibrated distance
-sensor, loop-closing SLAM or visual-inertial fusion**. `scaleSource` is
+sensor or loop-closing SLAM**. IMU-constrained rotation does not independently
+validate displacement. CSI completion is not exposure midpoint, and the residual
+camera/IMU timing offset is uncalibrated. `scaleSource` is
 `learned-metric-estimate`, metric accuracy is explicitly unverified, and metric
 uncertainty is unknown. Inlier counts and residual error are optimizer diagnostics,
 not an accuracy certificate. The first image establishes estimated intrinsics;

@@ -3,33 +3,39 @@
   "use strict";
   const panel = document.createElement("section");
   panel.className = "control-section freestyle-panel";
-  panel.dataset.workspacePanel = "poses";
-  panel.hidden = true;
-  panel.innerHTML = `<h2>Freestyle motions (experimental)</h2>
-    <label>Generator address <input data-field="endpoint" value="http://127.0.0.1:8794"></label>
-    <label class="freestyle-recovery"><input data-field="recovery" type="checkbox"> Let Freestyle respond to body events</label>
-    <button data-action="configure" type="button">Apply Freestyle settings</button>
+  panel.dataset.motionSystem = "freestyle";
+  panel.hidden = !document.getElementById("motion-system").checked;
+  panel.innerHTML = `<section class="freestyle-request">
     <label>Requested movement <textarea data-field="request" placeholder="Wave hello, then stretch both front legs"></textarea></label>
     <button data-action="generate" type="button">Generate only</button>
     <button data-action="execute" type="button">Generate and perform</button>
-    <button data-action="refresh" type="button">Refresh result</button>
-    <button data-action="save" type="button">Save trial data</button>
-    <h3>Saved motion trials</h3>
-    <button data-action="corrections" type="button">Refresh saved motion trials</button>
-    <label>Proposed motion <select data-field="correction"></select></label>
-    <button data-action="test-correction" type="button">Test selected correction</button>
-    <p>Test the saved program, then record how it looked before adding it to training data.</p>
-    <p data-field="recording" aria-live="polite"></p>
-    <label>What happened? <select data-field="outcome">
-      <option value="success">Performed correctly</option>
-      <option value="partial">Partly correct</option>
-      <option value="incorrect">Incorrect movement</option>
-    </select></label>
-    <label>Observed result or correction <textarea data-field="note" placeholder="Describe what moved incorrectly and what you expected"></textarea></label>
-    <button data-action="review" type="button">Save motion review</button>
-    <p data-field="review" aria-live="polite"></p>
-    <pre data-field="result" aria-live="polite"></pre>`;
-  document.querySelector('[data-workspace-panel="poses"]').after(panel);
+    </section>
+    <div data-freestyle-training></div>
+    <details class="freestyle-folder"><summary>Latest result</summary>
+      <button data-action="refresh" type="button">Refresh result</button>
+      <button data-action="save" type="button">Save trial data</button>
+      <pre data-field="result" aria-live="polite"></pre>
+    </details>
+    <details class="freestyle-folder" data-field="trials"><summary>Saved motion trials</summary>
+      <button data-action="corrections" type="button">Refresh saved trials</button>
+      <label>Proposed motion <select data-field="correction"></select></label>
+      <button data-action="test-correction" type="button">Perform selected correction</button>
+      <p data-field="recording" aria-live="polite"></p>
+      <label>What happened? <select data-field="outcome">
+        <option value="success">Performed correctly</option>
+        <option value="partial">Partly correct</option>
+        <option value="incorrect">Incorrect movement</option>
+      </select></label>
+      <label>Observed result or correction <textarea data-field="note" placeholder="Describe what moved incorrectly and what you expected"></textarea></label>
+      <button data-action="review" type="button">Save motion review</button>
+      <p data-field="review" aria-live="polite"></p>
+    </details>
+    <details class="freestyle-folder"><summary>Freestyle settings</summary>
+      <label>Generator address <input data-field="endpoint" value="http://127.0.0.1:8794"></label>
+      <label class="freestyle-recovery"><input data-field="recovery" type="checkbox"> Respond to body events</label>
+      <p data-field="settings-status" role="status"></p>
+    </details>`;
+  document.querySelector('[data-workspace-panel="poses"]').append(panel);
   const field = name => panel.querySelector(`[data-field="${name}"]`);
   const jobs = new Map();
   let displayedRobot = null;
@@ -37,6 +43,15 @@
   let displayedSettings = null;
   panel.addEventListener("input", event => {
     if (["endpoint", "recovery"].includes(event.target.dataset.field)) settingsEdited = true;
+  });
+  panel.addEventListener("change", async event => {
+    if (!["endpoint", "recovery"].includes(event.target.dataset.field)) return;
+    settingsEdited = true;
+    const robot = document.getElementById("robot-select").value;
+    try { await saveSettings(robot); }
+    catch (error) {
+      if (robot === document.getElementById("robot-select").value) field("settings-status").textContent = "Not saved: " + error.message;
+    }
   });
   window.renderFreestyleStatus = (status, robot) => {
     const recording = status?.recording;
@@ -59,7 +74,10 @@
     } else if (displayedRobot !== robot) {
       field("result").textContent = "";
     }
-    if (displayedRobot !== robot) field("review").textContent = "";
+    if (displayedRobot !== robot) {
+      field("review").textContent = "";
+      field("settings-status").textContent = "";
+    }
     displayedRobot = robot;
   };
   async function post(payload) {
@@ -68,6 +86,18 @@
       "Content-Type":"application/json", "X-Ainekio-CSRF":session.csrf}, body:JSON.stringify(payload)});
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || response.statusText);
+    return result;
+  }
+  async function saveSettings(robot) {
+    const endpoint = field("endpoint").value, recovery = field("recovery").checked;
+    field("settings-status").textContent = "Saving settings…";
+    const result = await post({operation:"configure",robot_id:robot,endpoint,recover_events:recovery});
+    if (robot === document.getElementById("robot-select").value &&
+        endpoint === field("endpoint").value && recovery === field("recovery").checked) {
+      settingsEdited = false;
+      displayedSettings = null;
+      field("settings-status").textContent = "Settings saved.";
+    }
     return result;
   }
   async function loadCorrections(robot) {
@@ -82,15 +112,11 @@
     field("correction").dataset.robot = robot;
     return result;
   }
-  window.openFreestyleTrials = async () => {
-    const robot = document.getElementById("robot-select").value;
-    panel.hidden = false;
-    field("correction").scrollIntoView({block:"center"});
-    const result = await loadCorrections(robot);
-    field("result").textContent = result.corrections.length
-      ? "Select a saved proposal and use Test selected correction to run it. These proposals are separate from approved training data."
-      : "No saved proposals for this robot.";
-  };
+  field("trials").addEventListener("toggle", async () => {
+    if (!field("trials").open) return;
+    try { await loadCorrections(document.getElementById("robot-select").value); }
+    catch (error) { field("review").textContent = error.message; }
+  });
   panel.addEventListener("click", async event => {
     const action = event.target.dataset.action;
     if (!action) return;
@@ -100,11 +126,7 @@
       if (action === "refresh") {
         const status = await fetch("/api/status").then(r => r.json());
         result = status.freestyle?.jobs?.[jobs.get(robot)] || status.freestyle;
-      } else if (action === "configure") {
-        result = await post({operation:"configure",robot_id:robot,endpoint:field("endpoint").value,
-          recover_events:field("recovery").checked});
-        settingsEdited = false;
-        displayedSettings = null;
+
       } else if (action === "corrections") {
         result = await loadCorrections(robot);
       } else if (action === "test-correction") {
@@ -124,12 +146,7 @@
         link.href=url;link.download=`freestyle-${result.job.id}.json`;link.click();
         URL.revokeObjectURL(url);
       } else {
-        if (settingsEdited) {
-          await post({operation:"configure",robot_id:robot,endpoint:field("endpoint").value,
-            recover_events:field("recovery").checked});
-          settingsEdited = false;
-          displayedSettings = null;
-        }
+        if (settingsEdited) await saveSettings(robot);
         result = await post({robot_id:robot,request:field("request").value,execute:action === "execute"});
         jobs.set(robot,result.job_id);
       }

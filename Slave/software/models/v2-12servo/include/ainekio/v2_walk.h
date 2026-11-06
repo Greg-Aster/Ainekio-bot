@@ -66,7 +66,6 @@ typedef struct {
             ainekio_v2_frame_t host_reference;
             float host_twist[3], host_requested[4][3], host_applied[4][3], host_fit[4];
             double host_anchors[4][3];
-            double host_heading_correction; /* Accepted moving-body yaw trim, radians. */
             uint32_t host_sample, host_consumed_sample;
         };
     };
@@ -98,6 +97,13 @@ void ainekio_v2_pose_from_frame(ainekio_v2_walk_pose_t *pose,
 /* Fixed material point on each lower leg, in body coordinates (mm), model
  * joint order. This is inferred geometry, not measured ground contact. */
 unsigned ainekio_v2_feet_forward(const ainekio_v2_frame_t *frame, float feet[4][3]);
+/* Analytic containing box for body-axis foot offsets from reference, across
+ * the supplied model-joint ranges. All feasible four-bar poses are included;
+ * box corners need not be reachable. Existing IK/branch and calibrated pulse
+ * mapping still determine which requested targets can execute. */
+bool ainekio_v2_foot_offset_bounds(const ainekio_v2_frame_t *reference,
+    const float lower_cd[12], const float upper_cd[12],
+    float lower_mm[4][3], float upper_mm[4][3]);
 /* Task-space residual through the same fixed-shaft linkage and assembly branch.
  * Does not change the gait clock, nominal state, calibration or servo mapping. */
 bool ainekio_v2_feet_offset(const ainekio_v2_frame_t *nominal,
@@ -134,16 +140,10 @@ bool ainekio_v2_walk_feedback_tick(ainekio_v2_walk_state_t *state,
     uint64_t now_us, bool enabled, bool usable, double yaw_rad,
     bool (*valid)(const ainekio_v2_frame_t *, void *), void *context);
 /* Observe the same relative IMU yaw and integrate an explicitly supplied
- * operator reference delta. Native supplies its phase-integrated curve; host
- * supplies SI yaw-rate * dt. There is no assumed host cycle frequency. */
+ * operator reference delta from the native phase-integrated curve. Host neural
+ * walking supplies its own yaw correction in foot targets. */
 void ainekio_v2_walk_heading_observe(ainekio_v2_walk_state_t *state,
     bool enabled,bool usable,double yaw_rad,double reference_delta_rad);
-/* Host nominal geometric yaw correction: preserve the accepted foot anchors,
- * reduce only added correction through the existing valid-frame search. No
- * native PI units/steering cap/filter are reinterpreted as seconds or rad/s. */
-bool ainekio_v2_walk_host_heading(ainekio_v2_walk_state_t *state,uint64_t now_us,
-    bool enabled,bool usable,double yaw_rad,
-    bool (*valid)(const ainekio_v2_frame_t *,void *),void *context);
 /* Call after common session/expiry admission. Updates name the original walk. */
 bool ainekio_v2_walk_accept(ainekio_v2_walk_state_t *state,
                            const ainekio_command_t *command, uint64_t now_us);

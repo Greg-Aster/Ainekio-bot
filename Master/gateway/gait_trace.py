@@ -8,6 +8,7 @@ import json
 import time
 import urllib.parse
 from pathlib import Path
+from .robot_learning_transport import decode_trace_response
 
 
 class TraceCapture:
@@ -26,7 +27,8 @@ class TraceCapture:
             payload.update(session=self.session, boot_id=self.boot_id)
         requested = time.monotonic()
         with self.client.request(self.path, payload) as response:
-            lines = [json.loads(line) for line in response if line.strip()]
+            content_type = response.getheader('Content-Type', 'application/x-ndjson') if hasattr(response, 'getheader') else 'application/x-ndjson'
+            lines = decode_trace_response(response.read(), content_type)
         batch = {'request_monotonic_s': requested, 'received_monotonic_s': time.monotonic(), 'records': lines}
         # Preserve even an incomplete/mismatched response for diagnosis.
         with (self.output/'trace.jsonl').open('a') as stream:
@@ -58,6 +60,36 @@ def calibrated_pulse(points, raw):
     if a['raw'] == b['raw']:
         return None
     return a['pulse_us']+(raw-a['raw'])*(b['pulse_us']-a['pulse_us'])/(b['raw']-a['raw'])
+
+
+def inertial_samples(batches):
+    """Original acquired IMU samples, deduplicated without inventing missing data.
+
+    Legacy ADC-associated snapshots remain usable as snapshots. Their trace boot
+    is not the camera/IMU boot; absent sensor identity stays unknown. Dedicated
+    acquisition records take precedence over snapshots of the same sample.
+    """
+    samples = {}
+    for batch in batches:
+        records = batch.get('records', [])
+        if not records or records[0].get('schema') != 'gait_trace_v1':
+            continue
+        header = records[0]
+        for event in records[1:]:
+            if event.get('kind') not in ('imu', 'sample') or not event.get('imu'):
+                continue
+            imu = event['imu']
+            stamp = imu.get('timestamp_us')
+            if type(stamp) is not int:
+                continue
+            key = (header['boot_id'], header['session'], stamp)
+            old = samples.get(key)
+            if old is not None and old['source'] == 'imu':
+                continue
+            samples[key] = dict(trace_boot_id=header['boot_id'], session=header['session'],
+                sensor_boot_id=header.get('sensor_boot_id'), source=event['kind'],
+                sequence=event['sequence'], imu=dict(imu))
+    return [samples[key] for key in sorted(samples)]
 
 
 def reconstruct(batches: list[dict], feedback: dict) -> tuple[list[dict], dict]:
@@ -136,7 +168,15 @@ def reconstruct(batches: list[dict], feedback: dict) -> tuple[list[dict], dict]:
                         row[f'imu_{label}{i}'] = value if imu_valid else None
                 rows.append(row)
     summary = feedback_summary(rows)
+    inertial = inertial_samples(batches)
+    gaps = [b['imu']['timestamp_us']-a['imu']['timestamp_us']
+            for a, b in zip(inertial, inertial[1:])
+            if (a['trace_boot_id'], a['session'], a['sensor_boot_id']) ==
+               (b['trace_boot_id'], b['session'], b['sensor_boot_id'])]
     summary.update(output_events=output_count, sample_events=sample_count,
+                   unique_imu_samples=len(inertial),
+                   acquired_imu_samples=sum(row['source'] == 'imu' for row in inertial),
+                   maximum_imu_gap_us=max(gaps, default=None),
                    reported_lost_records=lost, incomplete_batches=incomplete,
                    samples_with_different_calibration=revision_mismatch, rows_without_preceding_target=unmatched,
                    target_sample_alignment='Preceding software output publication by device time; not a physical PWM-edge timestamp',

@@ -148,7 +148,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self.gateway.subscribe_events(recorder.event)
         self.gateway.subscribe_diagnostics(recorder.diagnostic)
         self.freestyle = freestyle_module("bridge").Bridge(
-            self.gateway, RobotLearningTransport(self.gateway, self.token_store, persistent=False),
+            self.gateway, RobotLearningTransport(self.gateway, self.token_store),
             recorder=recorder, settings_path=self.password_store.path.with_name("freestyle-settings.json"))
         self.gateway.freestyle_motion = self.freestyle.submit
         self.gateway.freestyle_result = self.freestyle.result
@@ -167,13 +167,14 @@ class DashboardHttpServer(ThreadingHTTPServer):
         recordings=self.password_store.path.with_name("freestyle-recordings.sqlite")
         return self.motion_library().export(recordings=recordings if recordings.exists() else None)
 
-    async def play_library_motion(self, robot, example, program, request, unsaved_draft):
+    async def play_library_motion(self, robot, example, program, request, unsaved_draft, start_index=0):
         if self.freestyle is None:
             self._setup_freestyle()
-        return await self.freestyle.submit(robot, request, True, program=program,
+        options = {'start_index':start_index} if start_index else {}
+        return await self.freestyle.submit(robot, request, True, program=program,**options,
             source={"kind": "motion_library", "example_id": example["id"],
                     "revision": example["revision"], "title": example["title"],
-                    "unsaved_draft": unsaved_draft})
+                    "unsaved_draft": unsaved_draft, **({"start_index":start_index} if start_index else {})})
 
     async def close_freestyle(self):
         self.gateway.freestyle_motion = None
@@ -266,11 +267,30 @@ class DashboardHttpServer(ThreadingHTTPServer):
         if operation == 'status':
             status = await self.neural_gait.call('/status')
             return {**status, 'walking_source':self.gateway.walking_sources.get(payload.get('robot_id'), {'source':'native'})}
-        if operation in ('train', 'load', 'render'):
+        if operation in ('train', 'load', 'render', 'physical-create', 'physical-train'):
             return await self.neural_gait.call('/'+operation,
                 {key:value for key,value in payload.items() if key not in ('op', 'robot_id')})
+        if operation == 'physical-trial':
+            robot = _required_string(payload, 'robot_id')
+            collection_policy = payload.get('collection_policy', 'policy')
+            if collection_policy not in ('policy', 'native-c'):
+                raise ValueError('Choose policy or native-c collection')
+            if self.gait_learning is None:
+                raise GatewayError('The gait recorder is unavailable')
+            recording = self.gait_learning.status(robot)
+            if not recording['settings'].get('logging') or not recording.get('recording'):
+                raise ValueError('Enable Log gait data before starting a recorded learning Walk')
+            if recording['settings'].get('learning'):
+                raise ValueError('Turn off the native Learn while walking optimizer for a REDQ trial')
+            connection = self.gateway._connection(robot)
+            sequence = await connection.send_command(dict(t='intent', name='walk', steps=0,
+                dir=payload.get('dir', 'fwd'), speed=payload.get('speed', 100)),
+                received_at=self.gateway.clock(), learning_trial=True, collection_policy=collection_policy)
+            return dict(robot_id=robot, sequence=sequence, state='submitted',
+                        recording=recording['recording'],
+                        completion='Existing Walk Finish, Stop and Release controls')
         if operation == 'preview':
-            from gateway.neural_gait.client import observation
+            from gateway.neural_gait.client import observation,walking_orientation_reference
             from gateway.neural_gait.depth import project_depth
             from gateway.neural_gait.contract import DEPTH_SCHEMAS
             robot = _required_string(payload, 'robot_id')
@@ -278,12 +298,16 @@ class DashboardHttpServer(ThreadingHTTPServer):
             if model.get('environment') is None:
                 raise ValueError('Select a neural gait checkpoint first')
             source = self.gateway.body_sensor_observation(robot)
+            active_walk = self.gateway._connection(robot).neural_walk
             camera = self.camera_recognition
             metric = camera.locomotion_measurement(robot) if camera else {'available':False}
             data = observation(source, model['environment'], payload.get('command', [.08,0.,0.]),
+                orientation_reference=walking_orientation_reference(source['imu']['orientation_wxyz']),
+                pending_actions=active_walk.pending_inputs(source) if active_walk is not None else [],
                 vision=(project_depth(metric,self.gateway.clock(),robot,source['epoch'])
                         if model['environment'].get('observation_schema') in DEPTH_SCHEMAS else None))
-            result = await self.neural_gait.call('/infer', {'observation':data})
+            inference = {'observation':data}
+            result = await self.neural_gait.call('/infer', inference)
             evidence = {'observation':data, 'sensor_source':source,
                         'camera_measurement':{k:v for k,v in metric.items() if k != 'depthPreview'},
                         'recent_body_events':[event for event in self.gateway.body_events.status()['recent']
@@ -375,7 +399,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
         return result
 
     async def set_saved_camera(self, robot_id: str, settings: dict[str, object]) -> dict[str, object]:
-        sequence = await self.gateway.set_camera(robot_id=robot_id, **settings)
+        sequence = await self.gateway.set_camera(robot_id=robot_id, wait_for_ack=True, **settings)
         saved = {**self.control_settings, "cameras": {**self.control_settings["cameras"], robot_id: settings}}
         _atomic_secure_json(self.control_settings_path, saved)
         self.control_settings = saved
@@ -388,7 +412,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
         settings = self.control_settings["cameras"].get(robot_id)
         if settings is not None:
             try:
-                await self.gateway.set_camera(robot_id=robot_id, **settings)
+                await self.gateway.set_camera(robot_id=robot_id, wait_for_ack=True, **settings)
             except (GatewayError, ValueError) as error:
                 self.audit_log.record("camera_settings_restore_failed", robot_id=robot_id, error=str(error))
 
@@ -469,9 +493,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     library = self.server.motion_library()
                     query = parse_qs(parsed_url.query)
                     identifier = query.get("id", [None])[0]
-                    self._send_json(library.get(identifier) if identifier else library.list(
-                        int(query.get("page", ["1"])[0]), query.get("search", [""])[0],
-                        query.get("sort", ["name_asc"])[0]))
+                    if identifier:
+                        example = library.get(identifier)
+                        self._send_json({**example, "program":library.execution_program(example["answers"]),
+                            "joint_names":list(freestyle_module("runtime").JOINTS)})
+                    else:
+                        self._send_json(library.list(int(query.get("page",["1"])[0]),
+                            query.get("search",[""])[0],query.get("sort",["name_asc"])[0]))
             except GatewayError as error:
                 self._send_json({"error":str(error)},status=HTTPStatus.SERVICE_UNAVAILABLE)
             except ValueError as error:
@@ -805,9 +833,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
             library = self.server.motion_library()
             identifier = _required_string(payload, "id")
             operation = _required_string(payload, "operation")
+            if operation == "preview":
+                answers = (library.encode_program(payload["program"]) if "program" in payload
+                           else library.get(identifier)["answers"])
+                compact = freestyle_module("runtime").compact
+                return {"target":compact(answers),"operations":[compact(operation) for operation in answers]}
+            if operation in {"pause","release"}:
+                if self.server.freestyle is None:raise ValueError("No example is playing")
+                job_id = _required_string(payload,"job_id")
+                job = self.server.freestyle.jobs[job_id]
+                if job['robot_id'] != _required_string(payload,"robot_id") or (job.get('source') or {}).get('example_id') != identifier:
+                    raise ValueError("This playback belongs to another example or robot")
+                return self.server.call_gateway(self.server.freestyle.pause(job_id,release=operation=="release"),timeout=None)
+            if operation in {"save","run"} and "program" in payload:
+                payload["answers"] = library.encode_program(payload["program"])
             if operation == "save":
-                return library.save(identifier, payload.get("revision"),
+                example = library.save(identifier, payload.get("revision"),
                     _required_string(payload, "title"), _required_string(payload, "query"), payload.get("answers"))
+                return {**example,"program":library.execution_program(example["answers"]),
+                    "joint_names":list(freestyle_module("runtime").JOINTS)}
             if operation == "run":
                 example = library.get(identifier)
                 answers = payload.get("answers", example["answers"])
@@ -816,10 +860,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 request = freestyle_module("motion_library").request_text(query)
                 if not isinstance(request, str) or not request.strip():
                     raise ValueError("Training request is required")
+                start_index = payload.get("start_index",0)
+                if type(start_index) is not int or not 0 <= start_index <= len(program):
+                    raise ValueError("Choose an operation in this program")
+                options = {'start_index':start_index} if start_index else {}
                 return self.server.call_gateway(self.server.play_library_motion(
                     _required_string(payload, "robot_id"), example, program, request,
-                    answers != example["answers"] or query != example["query"]), timeout=None)
-            raise ValueError("Choose save or run")
+                    answers != example["answers"] or query != example["query"], **options), timeout=None)
+            raise ValueError("Choose save, run, pause, release or preview")
         if path == "/api/freestyle":
             return self.server.call_gateway(self.server.freestyle_request(payload))
         if path == "/api/neural-gait":
@@ -955,12 +1003,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 _required_string(payload, "robot_id"), payload), timeout=None)
         if path == "/api/camera":
             options = {"snapshot_resolution": _required_string(payload, "snapshot_res")} if "snapshot_res" in payload else {}
-            for key in ("exposure_us", "gain_x16", "jpeg_quality"):
+            for key in ("exposure_us", "gain_x16", "jpeg_quality", "max_exposure_us"):
                 if key in payload:
                     options[key] = _required_int(payload, key)
             return self.server.call_gateway(self.server.set_saved_camera(_required_string(payload, "robot_id"), {
                 "on": _required_bool(payload, "on"), "fps": _required_int(payload, "fps"),
-                "resolution": _required_string(payload, "res"), **options}))
+                "resolution": _required_string(payload, "res"), **options}), timeout=None)
         if path == "/api/speaker":
             volume = _required_int(payload, "volume_percent")
             if not 0 <= volume <= 100:

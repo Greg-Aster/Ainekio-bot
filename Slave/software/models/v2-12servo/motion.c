@@ -670,40 +670,6 @@ void ainekio_v2_walk_heading_observe(ainekio_v2_walk_state_t *s,
     }
 }
 
-bool ainekio_v2_walk_host_heading(ainekio_v2_walk_state_t *s,uint64_t now,
-    bool enabled,bool usable,double yaw,bool (*valid)(const ainekio_v2_frame_t *,void *),void *context)
-{
-    if(!s||!s->host_nominal||now<s->last_us)return false;
-    const double dt=(now-s->last_us)/1e6;
-    const bool acquired=s->heading_acquired;
-    const double previous_yaw=s->heading_measured;
-    ainekio_v2_walk_heading_observe(s,enabled,usable,yaw,dt*s->host_twist[2]);
-    /* Nominal host samples describe an absolute pose, rebuilt every frame.
-     * Applying the entire yaw error to that pose is a unity-gain outer loop:
-     * even an ideal one-frame delayed body alternates equal opposite errors.
-     * Reuse moving balance's damped correction response instead. A turn's
-     * requested rate is part of its reference, not an unwanted disturbance. */
-    const double rate=s->heading_active&&acquired&&dt>0. ?
-        (s->heading_measured-previous_yaw)/dt-s->host_twist[2] : 0.;
-    const double desired=s->heading_active ?
-        ainekio_v2_moving_attitude_response(s->host_heading_correction,
-            s->heading_error,rate,true,dt,1.,1.) : 0.;
-    const ainekio_v2_walk_pose_t nominal=s->pose;
-    double fraction=1.;
-    for(unsigned attempt=0;attempt<=13;attempt++,fraction*=.5) {
-        ainekio_v2_walk_pose_t candidate=nominal;
-        const double added=attempt==13||!s->heading_active?0.:fraction*desired;
-        candidate.euler[2]+=added;
-        if((added==0. || ainekio_v2_contact_solve(&candidate,(const double (*)[3])s->host_anchors)) &&
-           (!valid||valid(&candidate.frame,context))) {
-            s->pose=candidate;s->host_heading_correction=added;
-            s->heading_reduced=s->heading_active&&fabs(added-desired)>1e-9;
-            s->last_us=now;return true;
-        }
-    }
-    return false;
-}
-
 /* PI steering in gait-cycle coordinates: one full turn command is the
  * available yaw per cycle. The quarter-cycle filter blends trajectory changes;
  * it never eases PWM targets or waits for a joint. Integral tracks persistent

@@ -1,95 +1,62 @@
 import copy
-import json
 import unittest
-from unittest.mock import patch
 
 from .compact_wire import ProgramEncoding
-from .library_recovery import scenarios, validate_prefix, deduplicate
-from .migrate_targets import CONTRACT, STAND, standing_pose
+from .library_recovery import completion, deduplicate
+from .migrate_targets import CONTRACT, STAND
 from .runtime import JOINTS
 
 
 class LibraryRecoveryTests(unittest.TestCase):
     def test_shared_recovery_keeps_every_source_without_duplicate_training_rows(self):
-        rows=[{'id':'same-content','parent_example_id':p,'parent_source_hash':p+'-hash'} for p in ('a','b')]
+        rows=[{'id':'same-content','reference_example_id':p,'reference_source_hash':p+'-hash'} for p in ('a','b')]
         unique=deduplicate(rows)
         self.assertEqual(len(unique),1)
-        self.assertEqual(unique[0]['parent_examples'],[
+        self.assertEqual(unique[0]['reference_examples'],[
             {'id':'a','source_hash':'a-hash'},{'id':'b','source_hash':'b-hash'}])
 
-    def source(self, operation):
-        state={'joints':{j:{'model_deg':q,'commanded_model_deg':q,'home_deg':q} for j,q in STAND.items()},
-               'joint_speed_limit_deg_s':180}
-        return {'id':'0102030405060708','source_hash':'current-reviewed-example',
-                'query':json.dumps({'request':'Perform my motion and then stand','observation':state}),
-                'answers':[['face','happy'],operation,ProgramEncoding(CONTRACT).encode([standing_pose()])[0]]}
+    def test_recovery_keeps_original_absolute_goal_and_unfinished_tail(self):
+        encoding=ProgramEncoding(CONTRACT)
+        action=encoding.decode([['move',1,12,'current',50,0]])[0]
+        goal={**STAND,JOINTS[1]:STAND[JOINTS[1]]+12}
+        # A non-standing terminal posture detects the old unconditional finish.
+        tail=encoding.decode([['pose',list(range(12)),[-32.52,33.34,50.91]*4,'absolute',50,0],['hold',1.8]])
+        before=copy.deepcopy((action,goal,tail))
+        program=completion(action,STAND,goal,tail,50)
+        self.assertEqual(program[0]['arguments']['angles_deg'],[goal[j] for j in JOINTS])
+        self.assertEqual(program[0]['arguments']['reference'],'absolute')
+        self.assertEqual(program[1:],tail)
+        self.assertEqual((action,goal,tail),before)
+        self.assertIsNot(program[1],tail[0])
 
-    def test_every_joint_direction_retreats_and_preserves_goal_and_tail(self):
-        for joint in range(12):
+    def test_both_directions_keep_the_full_requested_joint_target(self):
+        for joint in JOINTS:
             for direction in (-1,1):
-                source=self.source(['move',joint,direction*12,'current',50])
-                original=copy.deepcopy(source)
-                with patch('experiments.freestyle.library_recovery.foot_positions',return_value={'foot':[0,0,0]}):
-                    train=list(scenarios(source,None));probe=list(scenarios(source,None,True))
-                    jam=train[0]; targets=validate_prefix(jam)
-                self.assertEqual(source,original)
-                self.assertFalse({r['id'] for r in train}&{r['id'] for r in probe})
-                self.assertEqual(jam['parent_source_hash'],source['source_hash'])
-                self.assertEqual(jam['recovery_evidence']['joint'],joint)
-                self.assertTrue(all(direction*(p[JOINTS[joint]]-jam['recovery_evidence']['blocked_deg'])<0 for p in targets[:-1]))
-                self.assertEqual(jam['answers'][-1],ProgramEncoding(CONTRACT).encode([standing_pose()])[0])
-                query=json.loads(jam['query'])
-                self.assertEqual(query['request'],'Perform my motion and then stand')
-                self.assertEqual(query['history'][0]['remaining_program'],[ProgramEncoding(CONTRACT).encode([standing_pose()])[0]])
-                self.assertNotIn('stop',[a[0] for a in jam['answers']])
+                goal={**STAND,joint:STAND[joint]+direction*12}
+                action={'name':'move','arguments':{'joint':joint,'angle_deg':direction*12,
+                        'reference':'current','speed_pct':50,'taper_deg':0}}
+                program=completion(action,STAND,goal,[],50)
+                self.assertEqual(dict(zip(program[0]['arguments']['joints'],
+                    program[0]['arguments']['angles_deg'])),goal)
 
-    def test_fall_changes_direction_when_measured_effect_worsens(self):
-        source=self.source(['move',0,12,'current',50])
-        with patch('experiments.freestyle.library_recovery.foot_positions',return_value={'foot':[0,0,0]}):
-            rows=[list(scenarios(source,None,probe))[1] for probe in (False,True)]
-        self.assertEqual({r['recovery_evidence']['improved'] for r in rows},{True,False})
-        for row in rows:
-            query=json.loads(row['query']);effect=query['history'][0]['last_correction']
-            correction=row['answers'][1]
-            expected=[v*(1 if row['recovery_evidence']['improved'] else -1) for _,v in effect['delta_deg']]
-            self.assertEqual(correction[2],expected)
-            self.assertEqual(row['answers'][2],ProgramEncoding(CONTRACT).encode([standing_pose()])[0])
-            self.assertEqual(query['event']['type'],'tipped')
-            self.assertFalse(row['physical_qualification'])
+    def test_simultaneous_targets_are_not_shortened_during_completion(self):
+        goal={**STAND,JOINTS[1]:STAND[JOINTS[1]]+12,JOINTS[7]:STAND[JOINTS[7]]-12}
+        action={'name':'pose','arguments':{'joints':[JOINTS[1],JOINTS[7]],
+            'angles_deg':[12,-12],'reference':'current','speed_pct':75,'taper_deg':0}}
+        program=completion(action,STAND,goal,[],75)
+        args=program[0]['arguments']
+        self.assertEqual(dict(zip(args['joints'],args['angles_deg'])),goal)
+        self.assertEqual(args['speed_pct'],75)
 
-    def test_simultaneous_targets_and_oscillation_cycles_survive_adaptation(self):
-        sources=[self.source(['pose',[1,7],[12,-12],'current',50]),
-                 self.source(['oscillate',6,12,4,50])]
-        with patch('experiments.freestyle.library_recovery.foot_positions',return_value={'foot':[0,0,0]}):
-            pose,oscillation=[list(scenarios(s,None))[0] for s in sources]
-        adapted=pose['answers'][2]
-        self.assertEqual(adapted[0],'pose')
-        self.assertEqual(set(adapted[1]),{1,7})
-        self.assertEqual(oscillation['answers'][2][0],'oscillate')
-        self.assertEqual(oscillation['answers'][2][3],4)
-        self.assertLess(oscillation['answers'][2][2],12)
+    def test_oscillation_preserves_center_amplitude_and_complete_cycles(self):
+        action={'name':'oscillate','arguments':{'joint':JOINTS[6],'amplitude_deg':12,
+            'cycles':4,'speed_pct':50,'taper_deg':0}}
+        program=completion(action,STAND,{**STAND,JOINTS[6]:12},[],50)
+        self.assertEqual(program[0]['arguments']['angles_deg'],list(STAND.values()))
+        self.assertEqual(program[1],action)
+        self.assertEqual(program[-1]['arguments']['cycles'],4)
 
-    def test_jam_feedback_retains_all_commanded_targets_distinct_from_measurements(self):
-        source=self.source(['pose',[1,7],[12,-12],'current',50])
-        with patch('experiments.freestyle.library_recovery.foot_positions',return_value={'foot':[0,0,0]}):
-            jam=list(scenarios(source,None))[0]
-        joints=json.loads(jam['query'])['observation']['joints']
-        for joint,delta in ((1,12),(7,-12)):
-            self.assertAlmostEqual(joints['commanded_model_deg'][joint],STAND[JOINTS[joint]]+delta)
-            self.assertAlmostEqual(joints['model_deg'][joint],STAND[JOINTS[joint]]+.75*delta)
-
-    def test_fall_magnitude_varies_and_tracks_the_supplied_effect(self):
-        magnitudes={False:set(),True:set()}
-        with patch('experiments.freestyle.library_recovery.foot_positions',return_value={'foot':[0,0,0]}):
-            for seed in range(30):
-                source=self.source(['move',0,12,'current',50])
-                source['id']=format(seed,'08x')+'00000000'
-                for probe in (False,True):
-                    fall=list(scenarios(source,None,probe))[1]
-                    effect=json.loads(fall['query'])['history'][0]['last_correction']
-                    expected=[v*(1 if fall['recovery_evidence']['improved'] else -1)
-                              for _,v in effect['delta_deg']]
-                    self.assertEqual(fall['answers'][1][2],expected)
-                    magnitudes[probe].add(abs(expected[0]))
-        self.assertEqual(magnitudes[False],{1,2,3,4,6})
-        self.assertEqual(magnitudes[True],{1.5,2.5,3.5,4.5,6.5})
+    def test_finite_gait_keeps_the_requested_cycles_and_following_hold(self):
+        action={'name':'gait','arguments':{'command':'walk','cycles':3,'speed_pct':75}}
+        tail=[{'name':'hold','arguments':{'seconds':2}}]
+        self.assertEqual(completion(action,STAND,STAND,tail,75),[action,*tail])

@@ -9,6 +9,7 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+import cbor2
 from unittest.mock import patch, Mock, AsyncMock
 
 from gateway.plugins import CameraFramePlugin, _CameraInput
@@ -16,7 +17,7 @@ from gateway.server.service import GatewayConnection, GatewayService, GatewaySer
 from gateway.gait_learning import policy_seed
 from gateway.gait_optimizer import candidate, context, DEFAULT_RADII, DEFAULT_WEIGHTS, measured_score, compare, project_candidate
 from gateway.gait_learning_service import GaitLearningService
-from gateway.robot_learning_transport import TraceSessionChanged, RobotLearningTransport
+from gateway.robot_learning_transport import TraceSessionChanged, RobotLearningTransport, decode_trace_response
 from gateway.gait_training import profile_signature
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 from test_gait_learning import policy_recording
@@ -185,11 +186,37 @@ class GaitStorageTests(unittest.TestCase):
 
 
 class ObjectiveTests(unittest.TestCase):
+    def test_cbor_trace_preserves_records_and_rejects_truncated_tail(self):
+        records = [{"schema": "gait_trace_v1", "boot_id": 4294967295},
+                   {"kind": "imu", "time_us": 9007199254740991,
+                    "imu": {"angular_rate_rad_s": [math.nextafter(.1, 1), -2.5, None]}},
+                   {"next": 19, "lost": 0, "more": False}]
+        wire = b''.join(cbor2.dumps(record) for record in records)
+        self.assertEqual(decode_trace_response(wire, 'application/cbor-seq'), records)
+        with self.assertRaisesRegex(ValueError, 'Incomplete or invalid'):
+            decode_trace_response(wire[:-1], 'application/cbor-seq')
+
+    def test_transport_decodes_binary_trace_and_legacy_ndjson(self):
+        records = [{"schema": "gait_trace_v1"}, {"next": 1}]
+        connection = Mock()
+        response = connection.getresponse.return_value
+        response.status = 200
+        for content_type, wire in (
+                ('application/cbor-seq', b''.join(cbor2.dumps(row) for row in records)),
+                ('application/x-ndjson', b'\n'.join(json.dumps(row).encode() for row in records))):
+            with self.subTest(content_type=content_type):
+                response.getheader.return_value = content_type
+                response.read.return_value = wire
+                with patch('gateway.robot_learning_transport.http.client.HTTPConnection', return_value=connection):
+                    self.assertEqual(RobotLearningTransport._request('robot', 'token', 'servo-feedback',
+                        {'op': 'trace_read'}), records)
+        self.assertEqual(connection.close.call_count, 2)
+
     def test_sparse_feedback_owns_and_closes_each_connection(self):
         async def check():
             gateway=Mock();gateway.maintenance_address=AsyncMock(return_value='robot')
             tokens=Mock();tokens.snapshot.return_value={'body':'token'}
-            transport=RobotLearningTransport(gateway,tokens,persistent=False)
+            transport=RobotLearningTransport(gateway,tokens)
             with patch('gateway.robot_learning_transport.http.client.HTTPConnection') as factory:
                 connection=factory.return_value
                 connection.getresponse.return_value.status=200
@@ -198,28 +225,29 @@ class ObjectiveTests(unittest.TestCase):
                 await transport.request('body','servo-feedback',None)
                 self.assertEqual(factory.call_count,2)
                 self.assertEqual(connection.close.call_count,2)
-                self.assertFalse(transport.sessions)
+                self.assertEqual(connection.request.call_args.args[3]['Connection'], 'close')
+                self.assertEqual(set(transport.locks), {'body'})
         asyncio.run(check())
 
-    def test_transport_reuses_socket_and_does_not_retry_failed_requests(self):
+    def test_trace_transport_releases_each_socket_and_does_not_retry_failed_requests(self):
         transport = RobotLearningTransport(None,None)
-        session = dict(lock=threading.Lock(),address=None,connection=None)
+        lock = threading.Lock()
         with patch("gateway.robot_learning_transport.http.client.HTTPConnection") as factory:
             connection=factory.return_value
             response=connection.getresponse.return_value
             response.status=200
+            response.getheader.return_value='application/x-ndjson'
             response.read.return_value=b'{"next":1}\n'
             for _ in range(3):
-                transport._persistent_request(session,"robot","token","servo-feedback",{"op":"trace_read"})
-            self.assertEqual(factory.call_count,1)
+                transport._serialized_request(lock,"robot","token","servo-feedback",{"op":"trace_read"})
+            self.assertEqual(factory.call_count,3)
             self.assertEqual(connection.request.call_count,3)
-            connection.close.assert_not_called()
+            self.assertEqual(connection.close.call_count,3)
             connection.request.side_effect=OSError("disconnected")
             with self.assertRaisesRegex(OSError,"disconnected"):
-                transport._persistent_request(session,"robot","token","gait-learning",{"op":"install"})
+                transport._serialized_request(lock,"robot","token","gait-learning",{"op":"install"})
             self.assertEqual(connection.request.call_count,4)
-            connection.close.assert_called_once()
-            self.assertIsNone(session["connection"])
+            self.assertEqual(connection.close.call_count,4)
 
     def test_trace_session_conflict_is_distinct_from_other_http_errors(self):
         connection = Mock()
@@ -235,6 +263,45 @@ class ObjectiveTests(unittest.TestCase):
                 RobotLearningTransport._request("robot", "token", "servo-feedback", {"op": "trace_read", "after": 100})
             self.assertNotIsInstance(error.exception, TraceSessionChanged)
         self.assertEqual(connection.close.call_count, 2)
+
+    def test_cancelled_trace_worker_finishes_before_stop_and_transport_close(self):
+        async def check():
+            started, release = threading.Event(), threading.Event()
+            order = []
+            gateway = Mock(); gateway.maintenance_address = AsyncMock(side_effect=lambda robot: robot)
+            tokens = Mock(); tokens.snapshot.return_value = {'body': 'token', 'other': 'token'}
+            transport = RobotLearningTransport(gateway, tokens)
+            def connection(address, port, timeout):
+                conn = Mock(); response = conn.getresponse.return_value
+                response.status = 200; response.getheader.return_value = 'application/x-ndjson'
+                def request(method, path, payload, headers):
+                    conn.operation = json.loads(payload)['op']
+                    order.append((address, conn.operation))
+                def read():
+                    if address == 'body' and conn.operation == 'trace_read':
+                        started.set()
+                        if not release.wait(5): raise RuntimeError('Fixture worker was not released')
+                    return b'{"next":1}\n'
+                conn.request.side_effect = request; response.read.side_effect = read
+                conn.close.side_effect = lambda: order.append((address, 'closed'))
+                return conn
+            with patch('gateway.robot_learning_transport.http.client.HTTPConnection', side_effect=connection):
+                reading = asyncio.create_task(transport.request('body', 'servo-feedback', {'op': 'trace_read'}))
+                try:
+                    self.assertTrue(await asyncio.to_thread(started.wait, 2))
+                    reading.cancel()
+                    with self.assertRaises(asyncio.CancelledError): await reading
+                    stopping = asyncio.create_task(transport.request('body', 'servo-feedback', {'op': 'trace_stop'}))
+                    closing = asyncio.create_task(transport.close())
+                    await transport.request('other', 'servo-feedback', {'op': 'trace_read'})
+                    self.assertNotIn(('body', 'trace_stop'), order)
+                    self.assertFalse(closing.done())
+                finally:
+                    release.set()
+                await asyncio.wait_for(asyncio.gather(stopping, closing), 2)
+                self.assertLess(order.index(('body', 'closed')), order.index(('body', 'trace_stop')))
+                self.assertEqual(order.count(('body', 'closed')), 2)
+        asyncio.run(check())
 
     def test_depth_provenance_survives_reward_calculation(self):
         poses = [{**pose(t, x=t*.1), "source": "moge2-open3d-odometry",
@@ -631,7 +698,7 @@ class CloseLifecycleTests(unittest.IsolatedAsyncioTestCase):
                         await owner
                     self.assertTrue(owner.cancelled())
                     self.assertIsNone(await observer)
-                    await self.assert_writer_finished(f.gait)
+                    await assert_writer_finished(self, f.gait)
                     f.transport.close.assert_awaited_once()
                     f.transport.request.assert_not_awaited()
                     f.gateway.close.assert_awaited_once()
@@ -775,6 +842,53 @@ class RecorderReleaseTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.service._runtime("robot")["owned"])
         await self.assert_close_failure(error)
         self.assertEqual(len(self.stop_calls()), 1)
+
+    async def test_recording_restart_retains_failed_stop_owner_and_finishes_same_trace(self):
+        self.stop_error = OSError("Fixture trace_stop connection failed")
+        first, recording = await self.enable()
+        await self.service.configure("robot", {"logging": False})
+        await self.assert_failed(first, recording, [("trace_stop", str(self.stop_error))], False, False)
+        self.stop_error = None
+        before = len(self.transport.calls)
+        second, restarted = await self.enable()
+        self.assertIsNot(first, second)
+        self.assertNotEqual(recording, restarted)
+        trace_calls = [payload for _, _, payload in self.transport.calls[before:] if payload]
+        self.assertEqual(trace_calls[0], {"op": "trace_read", "after": 0, "boot_id": 1, "session": 1})
+        self.assertTrue(self.service._runtime("robot")["owned"])
+        await self.service.configure("robot", {"logging": False})
+        await asyncio.wait_for(asyncio.shield(second), 1)
+        event = (await self.events(restarted))[-1]
+        self.assertTrue(event["trace_stop_acknowledged"])
+        self.assertTrue(event["trace_drained"])
+        self.assertEqual((event["boot_id"], event["session"]), (1, 1))
+        self.assertEqual([call["session"] for call in self.stop_calls()], [1, 1])
+        self.assertEqual(sum(bool(p and p["op"] == "trace_start") for _, _, p in self.transport.calls), 1)
+        self.assertTrue((restarted/"metadata.jsonl").exists())
+        self.assertFalse(self.transport.active)
+        self.assertFalse(self.service._runtime("robot")["owned"])
+        await self.service.close()
+
+    async def test_recording_restart_never_adopts_replacement_of_failed_stop_session(self):
+        self.stop_error = OSError("Fixture trace_stop connection failed")
+        first, recording = await self.enable()
+        await self.service.configure("robot", {"logging": False})
+        await self.assert_failed(first, recording, [("trace_stop", str(self.stop_error))], False, False)
+        self.stop_error = None
+        self.transport.session = 99
+        before = len(self.transport.calls)
+        second, restarted = await self.enable()
+        trace_calls = [payload for _, _, payload in self.transport.calls[before:] if payload]
+        self.assertEqual(trace_calls[0]["session"], 1, "First read remains fenced to the original owner")
+        self.assertFalse(self.service._runtime("robot")["owned"])
+        await self.service.configure("robot", {"logging": False})
+        await asyncio.wait_for(asyncio.shield(second), 1)
+        self.assertEqual([call["session"] for call in self.stop_calls()], [1])
+        self.assertTrue(self.transport.active)
+        event = (await self.events(restarted))[-1]
+        self.assertEqual(event["session"], 99)
+        self.assertIsNone(event["trace_stop_acknowledged"])
+        await self.service.close()
 
     async def test_combined_independent_failures_are_persisted_and_visible(self):
         self.depth_error = RuntimeError("Fixture depth-release submission failed")
@@ -1423,6 +1537,40 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
             connection.cancel_pending()
             owner.unsubscribe_diagnostics(self.service.diagnostic)
 
+    async def test_walk_target_receipts_are_saved_without_claiming_consumption(self):
+        owner = GatewayService(GatewayServiceConfig(tokens={}))
+        connection = GatewayConnection(owner, Mock(closed=False, send=AsyncMock()), "robot", 7)
+        connection.model = "v2-12servo"
+        connection.features = {"walk_nominal_v1", "walk_controls_v2", "body_commands_v1"}
+        connection.capabilities = {"motion": True, "commands": ["walk", "stop"]}
+        owner._connections["robot"] = connection
+        owner.subscribe_diagnostics(self.service.diagnostic)
+        folder = Path(self.temp.name)/"target-receipts"
+        self.service.settings["robot"] = {"logging": True, "learning": False}
+        self.service._runtime("robot")["recording"] = folder
+        try:
+            walk = await connection.send_command({"t": "intent", "name": "walk", "dir": "fwd",
+                "steps": 0, "source": "host", "geometry": "fixture", "reference_cd": [0.]*12,
+                "twist": [.08, 0., 0.]}, received_at=owner.clock())
+            await connection._handle_control({"t": "ack", "seq": walk})
+            for sample, result in ((11, "ack"), (12, "nak")):
+                seq = await connection.send_command({"t": "walk_target", "walk": walk,
+                    "sample": sample, "geometry": "fixture", "feet_mm": [0., 0., -50.]*4}, received_at=owner.clock())
+                await connection._handle_control({"t": result, "seq": seq,
+                    **({"code": "stale_walk"} if result == "nak" else {}),
+                    "unrelated_private_data": "do-not-record"})
+            await self.service.writes.join()
+            rows = [json.loads(line)["value"] for line in (folder/"events.jsonl").read_text().splitlines()]
+            self.assertEqual([(r["command_type"], r["walk"], r["sample"], r["t"]) for r in rows],
+                [("walk_target", walk, 11, "ack"), ("walk_target", walk, 12, "nak")])
+            self.assertTrue(all(r["robot_id"] == "robot" and r["epoch"] == 7 for r in rows))
+            self.assertEqual(rows[1]["code"], "stale_walk")
+            self.assertNotIn("consumed_sample", rows[0])
+            self.assertNotIn("do-not-record", (folder/"events.jsonl").read_text())
+        finally:
+            connection.cancel_pending()
+            owner.unsubscribe_diagnostics(self.service.diagnostic)
+
     async def test_neural_trial_preserves_requested_consumed_and_fault_evidence(self):
         self.service.settings["robot"] = {"logging": True, "learning": False}
         folder = Path(self.temp.name)/"physical-trial"
@@ -1440,14 +1588,25 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
                       "requested_foot_offset_mm": [1]*12, "observation_device_us": 100000,
                       "scan": 12, "consumed_sample": 6,
                       "orientation_reference_yaw_rad": 1.2, "orientation_reference_sign": -1,
+                      "learning_trial": True, "revision": 2, "feedback_revision": 54,
+                      "demonstration": {"source":"native-c", "phase":.2},
+                      "policy_observation": {"schema": "ainekio-neural-gait-v5-history",
+                          "encoding": "float32-le-zlib-base64", "values": "recorded-input-fixture"},
                       "inference_elapsed_s": .003, "token": "not-recorded"}
         self.gateway.diagnostics[0](diagnostic)
+        original_observation = copy.deepcopy(diagnostic["policy_observation"])
         diagnostic["action"][0] = 999  # Async storage retains the inference as observed.
+        diagnostic["policy_observation"]["values"] = "later-input-must-not-overwrite"
         self.gateway.diagnostics[0]({"event": "unrelated", "robot_id": "robot", "token": "secret"})
         failed = {"event": "neural_gait", "robot_id": "robot", "epoch": 3,
                   "walk": 41, "model_id": "candidate", "error": "Inference unavailable",
                   "finish_sequence": 44}
         self.gateway.diagnostics[0](failed)
+        final = {"event":"neural_gait", "robot_id":"robot", "epoch":3, "walk":41,
+                 "model_id":"candidate", "consumed_sample":7, "outcome":"failure",
+                 "outcome_evidence":{"kind":"tipped", "event_id":"fall-1"},
+                 "policy_observation":copy.deepcopy(original_observation)}
+        self.gateway.diagnostics[0](final)
         consumed = {"t": "imu", "robot_id": "robot", "epoch": 3,
                     "imu": {"motion": {"seq": 41, "walk_source": "host", "nominal_sample": 7,
                                        "sampled_us": 120000}, "joint_feedback": {"scan": 13}}}
@@ -1462,13 +1621,18 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         commands, neural, events = rows("commands.jsonl"), rows("neural.jsonl"), rows("events.jsonl")
         self.assertEqual(commands[0], {k: v for k, v in start.items() if k != "token"})
         self.assertEqual(commands[1], target)
-        self.assertEqual(len(neural), 2)
+        self.assertEqual(len(neural), 3)
         self.assertEqual(neural[0]["action"], [.1]*12)
         self.assertEqual(neural[0]["checkpoint_id"], "000065536-imitation000560000")
         self.assertEqual(neural[0]["consumed_sample"], 6)
+        self.assertTrue(neural[0]["learning_trial"])
+        self.assertEqual((neural[0]["revision"], neural[0]["feedback_revision"]), (2, 54))
+        self.assertEqual(neural[0]["policy_observation"], original_observation)
+        self.assertEqual(neural[0]["demonstration"], {"source":"native-c", "phase":.2})
         self.assertEqual(neural[0]["orientation_reference_yaw_rad"], 1.2)
         self.assertEqual(neural[0]["orientation_reference_sign"], -1)
         self.assertEqual(neural[1], failed)
+        self.assertEqual(neural[2], final)
         self.assertNotIn("token", neural[0])
         self.assertEqual(events, [consumed, fault, rejected, cancelled])
         self.assertEqual(neural[0]["sample"], events[0]["imu"]["motion"]["nominal_sample"])
@@ -1686,6 +1850,8 @@ class RecordingDepthTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(self.temp.cleanup)
         self.gateway = Gateway()
         self.gateway.instance_id = "recording-depth-test"
+        self.gateway.configure_camera_attitude_history = Mock()
+        self.gateway.camera_frame_attitude = Mock(return_value={"available":False})
         self.gateway.unsubscribe_frames = self.gateway.frames.remove
         self.gateway.clock = time.monotonic
         self.body = {"epoch": 1, "connection_state": "online", "active_walk": None}
@@ -1700,7 +1866,7 @@ class RecordingDepthTests(unittest.IsolatedAsyncioTestCase):
         self.release = threading.Event()
         self.fail_depth = False
         loop = asyncio.get_running_loop()
-        def process(robot, epoch, counter, received, payload, stamp, config):
+        def process(robot, epoch, counter, received, payload, stamp, config, attitude=None):
             loop.call_soon_threadsafe(self.entered.set)
             if not self.release.wait(10):
                 raise AssertionError("Test did not release depth inference")

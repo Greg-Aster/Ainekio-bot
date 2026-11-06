@@ -49,6 +49,37 @@ class MotionLibraryTests(unittest.TestCase):
         return self.library.save(example['id'], example['revision'], kwargs.get('title', example['title']),
             kwargs.get('query', example['query']), kwargs.get('answers', example['answers']))
 
+    def test_compact_migration_replaces_curve_targets_and_preserves_working_library(self):
+        from .migrate_targets import compact_library
+        from .runtime import compact
+        source=self.root/'legacy-source';source.mkdir()
+        tools=copy.deepcopy([*TOOLS,face_tool()])
+        for tool in tools:
+            tool['parameters']['properties'].pop('taper_deg',None)
+            if 'taper_deg' in tool['parameters']['required']:tool['parameters']['required'].remove('taper_deg')
+        properties={key:{'type':'array'} for key in ('joints','tracks','checkpoints_s','holds_s','expected_up')}
+        properties.update(speed_pct={'type':'number'},taper_deg={'type':'number'})
+        tools.append({'name':'trajectory','parameters':{'type':'object','properties':properties,'required':list(properties),'additionalProperties':False}})
+        curve=['trajectory',[0],[[[0,0,0],[1,20,0]]],[0,1],[],[],50,0]
+        row={'id':'old-stretch','family':'legacy_asset_stretch','query':'{"request":"Please stretch","history":[]}',
+             'answers':[curve],'source_id':'source-stretch','source_hash':'old-hash','physical_qualification':True}
+        for name,text in {'tools.json':compact(tools),'wire.json':compact({'format':FORMAT}),
+                          'system.txt':'','train.jsonl':compact(row)+'\n',
+                          'evaluation.jsonl':compact({**row,'id':'held-out'})+'\n'}.items():(source/name).write_text(text)
+        library=MotionLibrary(self.root/'legacy.sqlite');library.import_dataset(source)
+        for index in range(2):
+            compact_library(library.path,self.root/('compact-'+str(index)))
+            item=library.get('old-stretch')['example']
+            self.assertEqual(len(item['answers']),12)
+            self.assertFalse(any(a[0]=='trajectory' for a in item['answers']))
+            self.assertFalse(item['physical_qualification'])
+            self.assertEqual(library.list()['total'],1)
+            with zipfile.ZipFile(io.BytesIO(library.export())) as archive:
+                references=[json.loads(line) for line in archive.read('dataset/evaluation.jsonl').decode().splitlines()]
+                self.assertEqual(len(references),1)
+                self.assertNotIn('held-out',{json.loads(line)['id'] for line in archive.read('dataset/train.jsonl').decode().splitlines()})
+        self.assertEqual(item['library_revision'],2,'Repeated conversion preserves the edited revision')
+
     def test_native_alignment_updates_snapshot_and_library_without_reviving_substitutes(self):
         from .legacy_curriculum import align, rows_at
         good = self.library.get('example-00000')['example']
@@ -80,6 +111,35 @@ class MotionLibraryTests(unittest.TestCase):
         self.assertEqual(repeated['retired_training_rows'],0)
         self.assertEqual(repeated['retired_library_rows'],0)
         self.assertFalse((self.root/'unused').exists())
+
+    def test_native_alignment_retains_context_teachers_and_excluded_evaluations(self):
+        from .legacy_curriculum import align, rows_at
+        from .legacy_curriculum import native_examples, contextual_example
+        from .migrate_targets import joint_state
+        tools=json.loads((self.source/'tools.json').read_text())
+        reference=next(row for row in native_examples(tools) if row['family']=='legacy_asset_stretch')
+        observation=json.loads(reference['query'])['observation']
+        observation={**observation,'joints':joint_state(observation)}
+        contexts=[contextual_example(reference,observation,'Please stretch',tools)]
+        held=[contextual_example(reference,observation,'Give me a stretch.',tools)]
+        original=rows_at(self.source/'train.jsonl')
+        (self.source/'train.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in original+contexts))
+        (self.source/'regression-evaluation.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in held))
+        (self.source/'manifest.json').write_text(json.dumps({'training_rows':len(original+contexts),'discarded_examples':[]}))
+        self.library.import_dataset(self.source)
+        reference=(self.source/'regression-evaluation.jsonl').read_bytes()
+        for attempt in range(2):
+            align(self.source,self.library.path,self.root/('alignment-'+str(attempt)),apply=True)
+            current=[r for r in rows_at(self.source/'train.jsonl') if r['family']=='legacy_asset_stretch']
+            self.assertEqual({r['id']:r for r in current},{r['id']:r for r in contexts})
+            self.assertEqual((self.source/'regression-evaluation.jsonl').read_bytes(),reference)
+            self.assertEqual(self.library.list()['total'],len(contexts)+23)
+            with sqlite3.connect(self.library.path) as db:
+                stored=db.execute("SELECT value FROM metadata WHERE key='file:regression-evaluation.jsonl'").fetchone()[0]
+            self.assertEqual(stored.encode(),reference)
+        with sqlite3.connect(self.library.path) as db:
+            imported={row[0] for row in db.execute("SELECT id FROM examples WHERE family='legacy_asset_stretch'")}
+        self.assertEqual(imported,{r['id'] for r in contexts})
 
     def test_training_export_adds_only_latest_approved_trials_and_keeps_library_targets(self):
         recordings=self.root/'freestyle-recordings.sqlite'
@@ -153,6 +213,19 @@ class MotionLibraryTests(unittest.TestCase):
         self.assertEqual(len(rows),2)
         self.assertTrue(any(row.get('job_id')=='trial' for row in rows))
 
+    def test_changed_program_removes_obsolete_source_reference_claims(self):
+        keys=('reference_source_sha256','reference_entry_model_deg','reference_final_model_deg','reference_phases')
+        with self.library.connect() as db,db:
+            row=json.loads(db.execute('SELECT payload FROM examples WHERE id=?',('example-00000',)).fetchone()[0])
+            row.update({key:['old reference'] for key in keys})
+            db.execute('UPDATE examples SET payload=? WHERE id=?',(json.dumps(row),'example-00000'))
+        example=self.library.get('example-00000')
+        answers=copy.deepcopy(example['answers']);answers[-1][-1]=.5
+        result=self.save(example,answers=answers)
+        for key in keys:self.assertNotIn(key,result['example'])
+        reopened=MotionLibrary(self.library.path).get(example['id'])
+        for key in keys:self.assertNotIn(key,reopened['example'])
+
     def test_edit_persists_and_export_preserves_context_and_exact_commands(self):
         original = self.library.get('example-00000')
         program = copy.deepcopy(self.program)
@@ -194,6 +267,19 @@ class MotionLibraryTests(unittest.TestCase):
         self.assertEqual(stored['query'], row['query'])
         self.assertEqual(stored['answers'], row['answers'])
         self.assertNotIn('program', stored)
+
+    def test_editor_replacement_stores_named_pose_as_exact_compact_training_target(self):
+        original=self.library.get('example-00000')
+        program=[{'name':'pose','arguments':{'joints':['front_left_carrier','front_right_carrier'],
+            'angles_deg':[-32.5,-33.25],'reference':'absolute','speed_pct':50,'taper_deg':0}}]
+        saved=self.save(original,answers=self.library.encode_program(program))
+        reopened=MotionLibrary(self.library.path).get(saved['id'])
+        self.assertEqual(self.library.execution_program(reopened['answers']),program)
+        self.assertEqual(json.loads(reopened['query'])['observation'],{'marker':'preserve'})
+        self.assertFalse(reopened['physical_qualification'])
+        with zipfile.ZipFile(io.BytesIO(self.library.export())) as archive:
+            row=json.loads(archive.read('dataset/train.jsonl'))
+        self.assertEqual(row['answers'],reopened['answers'])
 
     def test_invalid_commands_and_stale_save_do_not_overwrite(self):
         original = self.library.get('example-00000')

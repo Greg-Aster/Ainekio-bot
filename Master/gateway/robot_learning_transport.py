@@ -1,7 +1,27 @@
 import asyncio
 import http.client
+import io
 import json
 import threading
+
+import cbor2
+
+
+def decode_trace_response(data, content_type):
+    """Decode the device trace without changing its records or cursor contract."""
+    media_type = content_type.split(';', 1)[0].strip().lower()
+    if media_type == 'application/cbor-seq':
+        stream = io.BytesIO(data)
+        decoder = cbor2.CBORDecoder(stream)
+        records = []
+        try:
+            while stream.tell() < len(data):
+                records.append(decoder.decode())
+        except cbor2.CBORDecodeError as error:
+            raise ValueError('Incomplete or invalid device CBOR trace') from error
+        return records
+    # Installed firmware before CBOR uses NDJSON during rolling upgrades.
+    return [json.loads(line) for line in data.splitlines() if line.strip()]
 
 
 class TraceSessionChanged(ValueError):
@@ -10,65 +30,48 @@ class TraceSessionChanged(ValueError):
 
 class RobotLearningTransport:
     """Use the gateway's authenticated LAN robot and token, never user URLs."""
-    def __init__(self, gateway, tokens, *, persistent=True):
+    def __init__(self, gateway, tokens):
         self.gateway, self.tokens = gateway, tokens
-        self.persistent = persistent
-        self.sessions = {}
+        self.locks = {}
 
     async def request(self, robot, endpoint, payload):
         address = await self.gateway.maintenance_address(robot)
         token = self.tokens.snapshot()[robot]
-        if not self.persistent:
-            # Inference may outlast the robot's HTTP idle connection. Sparse
-            # observations own a fresh socket; streamed traces retain reuse.
-            return await asyncio.to_thread(self._request, address, token, endpoint, payload)
-        session = self.sessions.setdefault(robot, {"lock": threading.Lock(), "address": None, "connection": None})
-        return await asyncio.to_thread(self._persistent_request, session, address, token, endpoint, payload)
+        lock = self.locks.setdefault(robot, threading.Lock())
+        return await asyncio.to_thread(self._serialized_request, lock, address, token, endpoint, payload)
 
-    def _persistent_request(self, session, address, token, endpoint, payload):
-        # HTTP/1.1 request/response pairs on one socket must be serialized.
-        # This lock belongs only to this robot's measurement/model HTTP stream;
-        # semantic commands, camera and other robots use their existing owners.
-        with session["lock"]:
-            if session["address"] != address or session["connection"] is None:
-                if session["connection"] is not None:
-                    session["connection"].close()
-                session.update(address=address, connection=http.client.HTTPConnection(address, 80, timeout=30))
-            try:
-                return self._request(address, token, endpoint, payload, session["connection"])
-            except Exception:
-                session["connection"].close()
-                session["connection"] = None
-                raise  # Existing caller reports failure; no request is replayed here.
+    def _serialized_request(self, lock, address, token, endpoint, payload):
+        # A cancelled to_thread await can leave its request running. Preserve
+        # read/Stop/drain order on the device's serial maintenance HTTP server.
+        # Each completed response releases its socket; trace identity belongs
+        # to boot/session/cursor, not an idle TCP connection. No request retries.
+        with lock:
+            return self._request(address, token, endpoint, payload)
 
     async def close(self):
         def close_sessions():
-            for session in self.sessions.values():
-                with session["lock"]:
-                    if session["connection"] is not None:
-                        session["connection"].close()
-                        session["connection"] = None
+            for lock in tuple(self.locks.values()):
+                with lock:
+                    pass  # Drain workers whose asyncio await was cancelled.
         await asyncio.to_thread(close_sessions)
 
     @staticmethod
-    def _request(address, token, endpoint, payload, connection=None):
-        owned = connection is None
-        if owned:
-            connection = http.client.HTTPConnection(address, 80, timeout=30)
+    def _request(address, token, endpoint, payload):
+        connection = http.client.HTTPConnection(address, 80, timeout=30)
         try:
             connection.request("POST" if payload is not None else "GET", "/api/"+endpoint,
                                json.dumps(payload) if payload is not None else None,
-                               {"Authorization": "Bearer "+token, "Content-Type": "application/json"})
+                               {"Authorization": "Bearer "+token, "Content-Type": "application/json",
+                                "Connection": "close"})
             response = connection.getresponse()
-            data = response.read().decode()
+            data = response.read()
             if response.status != 200:
                 if response.status == 409 and (payload or {}).get("op", "").startswith("trace_"):
                     if json.loads(data).get("error") == "Trace session changed":
                         raise TraceSessionChanged("Device trace session changed")
-                raise ValueError(f"Robot {endpoint}: HTTP {response.status}: {data}")
+                raise ValueError(f"Robot {endpoint}: HTTP {response.status}: {data.decode()}")
             if (payload or {}).get("op", "").startswith("trace_"):
-                return [json.loads(line) for line in data.splitlines() if line.strip()]
+                return decode_trace_response(data, response.getheader('Content-Type', 'application/x-ndjson'))
             return json.loads(data)
         finally:
-            if owned:
-                connection.close()
+            connection.close()

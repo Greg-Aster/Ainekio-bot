@@ -1,5 +1,6 @@
-/* Host binding of production mapping, ramp, feedback and attitude owners.
- * MuJoCo supplies sensor samples. This file owns no alternate controller. */
+/* Host binding of production geometry, mapping, ramp, feedback and attitude
+ * owners. Callers supply sensor samples; geometry queries need none.
+ * This file owns no alternate controller. */
 #include "joint_calibration.h"
 #include "servo_feedback.h"
 #include "ainekio/imu.h"
@@ -8,6 +9,7 @@
 #include "ainekio/v2_learning.h"
 #include "ainekio/control_codec.h"
 #include "virtual_body.h"
+#include "walk_data.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,12 +70,60 @@ void *simulation_new(const double *mapping,const double *feedback,const double *
     return s;
 }
 void simulation_free(void *state){free(state);}
+/* Static tensor-backend constants come from the same generated geometry as
+ * the P4. This query performs no motion and needs no acquired sensor sample. */
+void simulation_foot_geometry(double *out)
+{
+    const float parameters[12]={V2_O_X,V2_O_Z,V2_C_X,V2_C_Z,V2_PRIMARY,V2_INPUT,
+        V2_ROD,V2_PICKUP,V2_ALPHA_ZERO,V2_THETA_ZERO,V2_BETA_ZERO,V2_BRANCH};
+    for(unsigned i=0;i<12;i++)out[i]=parameters[i];
+    for(unsigned leg=0;leg<4;leg++) {
+        const v2_walk_leg_t *g=&v2_walk_legs[(leg+2)%4];
+        double *p=out+12+13*leg;
+        for(unsigned i=0;i<3;i++) {
+            p[i]=g->shoulder_sign[i];p[3+i]=g->shoulder_translation[i];
+            p[6+i]=g->mechanism_translation[i];p[9+i]=g->reference[i];
+        }
+        p[12]=g->mirror;
+    }
+}
+/* Episode-local sensor memory for JAX's functional environment state. Only
+ * firmware-owned feedback/IMU state crosses this ABI, never a controller. */
+typedef struct {
+    ainekio_p4_feedback_snapshot_t sample;
+    ainekio_feedback_filter_t filters[16];
+    ainekio_p4_feedback_progress_t progress;
+    ainekio_imu_t imu;
+    uint64_t last_sensor_us;
+} simulation_sensor_state_t;
+size_t simulation_sensor_size(void){return sizeof(simulation_sensor_state_t);}
+void simulation_sensor_export(void *state,unsigned char *bytes)
+{
+    simulation_t *s=state;simulation_sensor_state_t value={0};
+    value.sample=s->sample;memcpy(value.filters,s->filters,sizeof value.filters);
+    value.progress=s->progress;value.imu=s->imu;value.last_sensor_us=s->last_sensor_us;
+    memcpy(bytes,&value,sizeof value);
+}
+void simulation_sensor_import(void *state,const unsigned char *bytes)
+{
+    simulation_t *s=state;simulation_sensor_state_t value;
+    memcpy(&value,bytes,sizeof value);s->sample=value.sample;
+    memcpy(s->filters,value.filters,sizeof s->filters);s->progress=value.progress;
+    s->imu=value.imu;s->last_sensor_us=value.last_sensor_us;
+}
+int simulation_imu_calibration(void *state,const double *rotation,const double *bias)
+{
+    simulation_t *s=state;ainekio_imu_config_t cfg=ainekio_imu_default_config();
+    for(unsigned i=0;i<9;i++)cfg.sensor_to_body[i]=(float)rotation[i];
+    for(unsigned i=0;i<3;i++)cfg.gyro_bias_rad_s[i]=(float)bias[i];
+    return ainekio_imu_init(&s->imu,&cfg);
+}
 int simulation_target(void *state,const double *target,const double *previous,double speed,double dt,double *out)
 {
     simulation_t *s=state;ainekio_v2_frame_t goal={0},from={0},ramped;uint16_t pulses[12];
     for(unsigned j=0;j<12;j++){goal.position[j]=target[j]*100.;from.position[j]=previous[j]*100.;}
     if(!ainekio_p4_joint_fit_frame(s->mapping,&goal))return 0;
-    ainekio_p4_joint_ramp_frame(&from,goal.position,speed*100.,dt,&ramped);
+    if(!ainekio_p4_joint_ramp_frame(&from,goal.position,speed*100.,dt,&ramped))return 0;
     if(!ainekio_p4_joint_fit_frame(s->mapping,&ramped)||!ainekio_p4_joint_map_frame(s->mapping,&ramped,pulses))return 0;
     ainekio_p4_joint_unmap_frame(s->mapping,pulses,&ramped);
     for(unsigned j=0;j<12;j++){out[j]=ramped.position[j]/100.;out[12+j]=goal.position[j]/100.;}
@@ -129,11 +179,21 @@ int simulation_arrival(void *state,const double *target,double commanded_us,doub
 void simulation_imu(void *state,double now,const double *accel,const double *gyro,double *out)
 {
     simulation_t *s=state;ainekio_imu_sample_t sample;uint8_t bytes[12];
+    double sensor_accel[3],sensor_gyro[3];
+    for(unsigned a=0;a<3;a++) {
+        sensor_accel[a]=sensor_gyro[a]=0.;
+        for(unsigned b=0;b<3;b++) {
+            sensor_accel[a]+=s->imu.config.sensor_to_body[3*b+a]*accel[b];
+            sensor_gyro[a]+=s->imu.config.sensor_to_body[3*b+a]*gyro[b];
+        }
+        sensor_accel[a]=sensor_accel[a]/s->imu.config.accel_scale[a]+s->imu.config.accel_bias_m_s2[a];
+        sensor_gyro[a]+=s->imu.config.gyro_bias_rad_s[a];
+    }
     /* Model digital acquisition: nearest count and signed-register saturation.
      * The existing estimator still rejects decoded samples outside its physical
      * configured range. Analog nonlinearity before a rail is not characterized. */
     for(unsigned a=0;a<6;a++) {
-        const double value=a<3?gyro[a]:accel[a-3];
+        const double value=a<3?sensor_gyro[a]:sensor_accel[a-3];
         const double unit=a<3?AINEKIO_LSM6DS3_GYRO_LSB_RAD_S:AINEKIO_LSM6DS3_ACCEL_LSB_M_S2;
         const int count=(int)fmax(-32768.,fmin(32767.,round(value/unit)));
         const uint16_t encoded=(uint16_t)count;
@@ -275,12 +335,50 @@ static bool simulation_foot_valid(const ainekio_v2_frame_t *frame,void *opaque)
     const simulation_t *s=opaque;
     return ainekio_p4_joint_frame_in_travel(s->mapping,frame);
 }
+static bool simulation_foot_project(ainekio_v2_frame_t *frame,void *opaque)
+{
+    const simulation_t *s=opaque;
+    return ainekio_p4_joint_fit_frame(s->mapping,frame);
+}
 void simulation_balance_configure(void *state,const double *settings)
 {
     simulation_t *s=state;
     memset(&s->balance,0,sizeof s->balance);
     s->balance_enabled=settings[0];
     s->tuning=(ainekio_v2_balance_tuning_t){settings[1],settings[2],settings[3],settings[4]};
+}
+int simulation_foot_action_scale(void *state,const double *reference,const double *limits,double *out)
+{
+    simulation_t *s=state;ainekio_v2_frame_t nominal={0};
+    float low[12],high[12],lower[4][3],upper[4][3];
+    for(unsigned j=0;j<12;j++) {
+        nominal.position[j]=reference[j]*100.;
+        low[j]=nextafterf((float)(limits[2*j]*100.),-INFINITY);
+        high[j]=nextafterf((float)(limits[2*j+1]*100.),INFINITY);
+    }
+    if(!ainekio_p4_joint_fit_frame(s->mapping,&nominal)||!simulation_foot_valid(&nominal,s)||
+       !ainekio_v2_foot_offset_bounds(&nominal,low,high,lower,upper))return 0;
+    for(unsigned axis=0;axis<3;axis++) {
+        out[axis]=0.;
+        for(unsigned leg=0;leg<4;leg++)out[axis]=fmax(out[axis],fmax(fabs(lower[leg][axis]),fabs(upper[leg][axis])));
+        if(!isfinite(out[axis])||out[axis]<=0.)return 0;
+    }
+    return 1;
+}
+int simulation_foot_offsets_for_angles(void *state,const double *angles,const double *reference,double *out)
+{
+    simulation_t *s=state;ainekio_v2_frame_t target={0},nominal={0};
+    float feet[4][3],origin[4][3];
+    for(unsigned j=0;j<12;j++) {
+        target.position[j]=angles[j]*100.;nominal.position[j]=reference[j]*100.;
+    }
+    /* Match the action decoder's fitted origin, but preserve the supplied
+     * target exactly. An invalid linkage is an error, not a clipped label. */
+    if(!ainekio_p4_joint_fit_frame(s->mapping,&nominal)||!simulation_foot_valid(&nominal,s)||
+       ainekio_v2_feet_forward(&nominal,origin)!=15||ainekio_v2_feet_forward(&target,feet)!=15)return 0;
+    for(unsigned leg=0;leg<4;leg++)for(unsigned axis=0;axis<3;axis++)
+        out[3*leg+axis]=(double)feet[leg][axis]-origin[leg][axis];
+    return 1;
 }
 int simulation_foot_target(void *state,const double *offsets,const double *reference,
     const double *previous,double speed,double dt,double now_us,double *out)
@@ -292,14 +390,14 @@ int simulation_foot_target(void *state,const double *offsets,const double *refer
         desired[j/3][j%3]=offsets[j];
     }
     if(!ainekio_p4_joint_fit_frame(s->mapping,&nominal)||!simulation_foot_valid(&nominal,s))return 0;
-    const float fit=ainekio_v2_learning_offsets_apply((const float (*)[3])desired,&nominal,
-        simulation_foot_valid,s,&goal,applied,leg_fit);
+    ainekio_v2_walk_pose_t pose={0};double anchors[4][3];
+    if(!ainekio_v2_nominal_foot_pose(&nominal,(const float (*)[3])desired,
+        simulation_foot_valid,simulation_foot_project,s,&pose,anchors,applied,leg_fit))return 0;
+    goal=pose.frame;float fit=1.;for(unsigned l=0;l<4;l++)fit=fminf(fit,leg_fit[l]);
     for(unsigned j=0;j<12;j++)out[53+j]=goal.position[j]/100.;
     out[65]=out[66]=out[68]=out[69]=0.;out[67]=1.;
     if(s->balance_enabled) {
-        ainekio_v2_walk_pose_t pose={0},balanced;double anchors[4][3];
-        ainekio_v2_pose_from_frame(&pose,&goal);
-        if(!ainekio_v2_contact_forward(&pose,anchors,true))return 0;
+        ainekio_v2_walk_pose_t balanced;
         ainekio_imu_observation_t imu;ainekio_imu_observe(&s->imu,(uint64_t)now_us,&imu);
         const bool usable=imu.available&&imu.fresh&&!imu.startup&&!imu.gyro_recovery&&!imu.acceleration_recovery;
         ainekio_v2_balance_configured_apply(&s->balance,imu.orientation_wxyz,imu.angular_rate_rad_s,
@@ -310,7 +408,7 @@ int simulation_foot_target(void *state,const double *offsets,const double *refer
         out[68]=s->balance.correction[0];out[69]=s->balance.correction[1];
     }
     if(!ainekio_p4_joint_fit_frame(s->mapping,&goal))return 0;
-    ainekio_p4_joint_ramp_frame(&from,goal.position,speed*100.,dt,&ramped);
+    if(!ainekio_p4_joint_ramp_frame(&from,goal.position,speed*100.,dt,&ramped))return 0;
     if(!ainekio_p4_joint_fit_frame(s->mapping,&ramped)||!ainekio_p4_joint_map_frame(s->mapping,&ramped,pulses))return 0;
     ainekio_p4_joint_unmap_frame(s->mapping,pulses,&ramped);
     for(unsigned j=0;j<12;j++) {

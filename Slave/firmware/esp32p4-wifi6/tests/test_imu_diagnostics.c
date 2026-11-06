@@ -15,6 +15,17 @@ static ainekio_p4_imu_calibration_t saved_calibration;
 static size_t saved_size;
 static unsigned nvs_writes,nvs_closes;
 static esp_err_t open_error,set_error,commit_error;
+static unsigned observed_samples;
+static ainekio_imu_observation_t observed_sample;
+static bool observed_calibrated;
+static void observed(const ainekio_imu_observation_t *sample,bool calibrated)
+{
+    ++observed_samples;observed_sample=*sample;observed_calibrated=calibrated;
+    /* The observer receives the current transformed sample, not a stale
+     * snapshot or a second acquisition, and can read the published state. */
+    assert(sample->timestamp_us==state.raw.timestamp_us);
+    assert(ainekio_p4_imu_status().attitude.timestamp_us==sample->timestamp_us);
+}
 
 esp_err_t nvs_open(const char *space,int mode,nvs_handle_t *handle)
 {
@@ -74,6 +85,7 @@ static void setup(void)
     fail_read=fail_write=-1;device=NULL;
     state=(ainekio_p4_imu_status_t){0};published=state;
     gyro_calibration_requested=false;
+    sample_callback=NULL;observed_samples=0;
     stored=false;saved_size=0;nvs_writes=nvs_closes=0;
     open_error=set_error=commit_error=ESP_OK;
 }
@@ -83,7 +95,7 @@ static void initialized(void)
 {
     assert(p4_imu_prepare((void *)1)==ESP_OK);
     assert(registers[CTRL1_XL]==0x54 && registers[CTRL2_G]==0x5c && registers[CTRL3_C]==0x44);
-    assert(ainekio_p4_imu_start()==ESP_OK && tasks==1);
+    assert(ainekio_p4_imu_start(observed)==ESP_OK && tasks==1);
 }
 int main(void)
 {
@@ -93,11 +105,12 @@ int main(void)
     setup();fail_write=CTRL2_G;assert(p4_imu_prepare((void *)1)!=ESP_OK);
     assert(registers[CTRL1_XL]==0 && registers[CTRL2_G]==0 && registers[CTRL3_C]==4 && removed==1);
     setup();assert(p4_imu_prepare((void *)1)==ESP_OK);task_ok=false;
-    assert(ainekio_p4_imu_start()==ESP_ERR_NO_MEM && !published.running);
+    assert(ainekio_p4_imu_start(observed)==ESP_ERR_NO_MEM && !published.running && !sample_callback);
     setup();initialized();assert(p4_imu_prepare((void *)1)==ESP_ERR_INVALID_STATE);
-    assert(ainekio_p4_imu_start()==ESP_ERR_INVALID_STATE && tasks==1);
+    assert(ainekio_p4_imu_start(NULL)==ESP_ERR_INVALID_STATE && tasks==1 && sample_callback==observed);
     put_axis(OUTX_L_G,1000);put_axis(OUTX_L_G+2,-1000);put_axis(OUTX_L_G+10,2049);
     poll_sample();ainekio_p4_imu_status_t s=ainekio_p4_imu_status();
+    assert(observed_samples==1 && observed_sample.timestamp_us==s.raw.timestamp_us && !observed_calibrated);
     assert(s.samples==1 && s.attitude.accepted_samples==1 && s.attitude.fresh && s.read_us==100);
     assert(fabsf(s.raw.acceleration_m_s2[2]-9.80665F)<0.005F);
     assert(fabsf(s.raw.angular_rate_rad_s[0]-1.2217305F)<0.00001F);
@@ -105,10 +118,13 @@ int main(void)
     const uint64_t first=s.raw.timestamp_us;
     registers[STATUS_REG]=0;time_us+=5000;poll_sample();
     assert(state.samples==1 && state.no_data_polls==1 && state.raw.timestamp_us==first);
+    assert(observed_samples==1); /* Polls with no new acquisition do not duplicate it. */
     registers[STATUS_REG]=3;fail_read=OUTX_L_G;time_us+=25000;poll_sample();
     s=ainekio_p4_imu_status();assert(s.samples==1 && s.io_errors==1 && !s.attitude.fresh);
     assert(s.raw.timestamp_us==first && s.attitude.timestamp_us==first);
+    assert(observed_samples==1); /* An I2C failure is not a new inertial sample. */
     fail_read=-1;poll_sample();assert(state.samples==2 && state.attitude.gap_restarts==1);
+    assert(observed_samples==2 && observed_sample.gap_restarts==1);
     assert(ainekio_p4_imu_status().attitude.fresh && state.last_error==ESP_OK);
     const unsigned before_reads=reads,before_writes=writes;
     char *args[]={"imu","sample"};assert(ainekio_p4_imu_command(2,args)==0);
@@ -143,6 +159,9 @@ int main(void)
     assert(s.attitude.acceleration_m_s2[0]==-s.raw.acceleration_m_s2[0]);
     assert(s.attitude.acceleration_m_s2[1]==-s.raw.acceleration_m_s2[1]);
     assert(s.attitude.acceleration_m_s2[2]==s.raw.acceleration_m_s2[2]);
+    assert(observed_calibrated);
+    assert(!memcmp(observed_sample.acceleration_m_s2,s.attitude.acceleration_m_s2,sizeof observed_sample.acceleration_m_s2));
+    assert(!memcmp(observed_sample.angular_rate_rad_s,s.attitude.angular_rate_rad_s,sizeof observed_sample.angular_rate_rad_s));
     cal.sensor_to_body[4]=1; /* reflection, not a proper rotation */
     assert(ainekio_p4_imu_calibration_save(&cal)==ESP_ERR_INVALID_ARG && nvs_writes==1);
     cal.sensor_to_body[4]=-1;cal.gyro_bias_rad_s[0]=NAN;
@@ -187,6 +206,7 @@ int main(void)
     put_axis(OUTX_L_G,11);time_us+=4800;poll_sample();
     for(unsigned i=0;i<3;i++)assert(fabsf(state.attitude.angular_rate_rad_s[i])<1e-7F);
     assert(state.attitude.accepted_samples==257 && writes==configured_writes && tasks==1);
+    assert(observed_samples==257 && observed_sample.accepted_samples==257);
     const ainekio_p4_imu_calibration_t active=state.calibration;
     commit_error=ESP_FAIL;assert(ainekio_p4_imu_calibrate_gyro()==ESP_OK);
     put_axis(OUTX_L_G,40);

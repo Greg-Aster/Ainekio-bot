@@ -3,10 +3,10 @@
 #include <stdint.h>
 #include "ainekio/protocol.h"
 
-/* Recording state owned by the existing microphone task. One step per 20 ms
- * PCM frame; playback/configuration/session boundaries reset this state. */
+/* Recording state owned by the existing microphone task. Only the configured
+ * silence pause and wake maximum end recording. Capture boundaries reset it. */
 typedef struct {
-    unsigned hangover;
+    int64_t silence_deadline;
     bool wake_latched;
     int64_t wake_deadline;
 } p4_speech_gate_t;
@@ -18,13 +18,13 @@ static inline bool p4_speech_gate_step(p4_speech_gate_t *state,
     if (detected) {
         state->wake_latched = true;
         state->wake_deadline = now_us + (int64_t)max_recording_ms * 1000;
-        state->hangover = 150; /* Existing three-second wake acquisition window. */
+        state->silence_deadline = 0;
     }
     bool open = gate == AINEKIO_MIC_GATE_OPEN;
     if (gate == AINEKIO_MIC_GATE_VAD || (gate == AINEKIO_MIC_GATE_WAKE && state->wake_latched)) {
-        if (speech) state->hangover = silence_ms / 20;
-        else if (state->hangover) --state->hangover;
-        open = state->hangover > 0;
+        if (speech) state->silence_deadline = now_us + (int64_t)silence_ms * 1000;
+        open = (gate == AINEKIO_MIC_GATE_WAKE && !state->silence_deadline) ||
+            now_us < state->silence_deadline;
     }
     if (gate == AINEKIO_MIC_GATE_WAKE && state->wake_latched &&
         (!open || now_us >= state->wake_deadline)) {

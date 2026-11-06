@@ -8,6 +8,7 @@
 #include "display.h"
 #include "imu_diagnostics.h"
 #include "servo_feedback.h"
+#include "gait_trace_runtime.h"
 #include "ainekio/p4_imu.h"
 #include "ainekio/p4_assets.h"
 
@@ -63,7 +64,7 @@ void app_main(void)
     const esp_err_t media = ainekio_p4_controller_media_start();
     if (media != ESP_OK) printf("media initialization: %s\n", esp_err_to_name(media));
     ainekio_p4_log_stage("IMU initialization");
-    const esp_err_t imu_result=ainekio_p4_imu_start();
+    const esp_err_t imu_result=ainekio_p4_imu_start(ainekio_p4_gait_trace_imu);
     printf("continuous IMU acquisition: %s\n",esp_err_to_name(imu_result));
     ainekio_p4_log_stage("display initialization");
     const esp_err_t display = ainekio_p4_display_start();

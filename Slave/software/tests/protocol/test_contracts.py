@@ -242,7 +242,8 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
                 raise SchemaMismatch("joint acquisition is later than snapshot")
             for column in ("filtered_model_deg", "velocity_deg_s", "commanded_model_deg"):
                 mask = instance["commanded_mask" if column == "commanded_model_deg" else "usable_mask"]
-                if any((value is not None) != bool(mask & (1 << index))
+                if any((value is None and mask & (1 << index)) or
+                       (column == "commanded_model_deg" and value is not None and not mask & (1 << index))
                        for index, value in enumerate(instance[column])):
                     raise SchemaMismatch("joint values disagree with validity mask")
         elif rule == "event-origin":
@@ -292,6 +293,40 @@ class ControlSchemaTests(unittest.TestCase):
             validate_control_message(invalid)
         with self.assertRaises(SchemaMismatch):
             assert_matches_schema(invalid, self.schema, self.schema)
+
+    def test_camera_motion_exposure_schema_and_runtime_agree(self) -> None:
+        for filename, valid in (("control-valid-v1.json", True), ("control-invalid-v1.json", False)):
+            cases = [case for case in load_json(FIXTURE_ROOT / filename)["cases"]
+                     if case["name"].startswith("camera_motion_exposure_")]
+            self.assertEqual(len(cases), 3 if valid else 4)
+            for case in cases:
+                with self.subTest(case=case["name"]):
+                    if valid:
+                        validate_control_message(case["message"])
+                        assert_matches_schema(case["message"], self.schema, self.schema)
+                    else:
+                        with self.assertRaises(ValueError) as error:
+                            validate_control_message(case["message"])
+                        self.assertEqual(error.exception.reason, case["reason"])
+                        with self.assertRaises(SchemaMismatch):
+                            assert_matches_schema(case["message"], self.schema, self.schema)
+
+    def test_camera_completion_clock_schema_and_runtime_agree(self) -> None:
+        for filename, valid in (("control-valid-v1.json", True), ("control-invalid-v1.json", False)):
+            cases = [case for case in load_json(FIXTURE_ROOT / filename)["cases"]
+                     if isinstance(case["message"], dict) and case["message"].get("t") == "cam_meta"]
+            self.assertTrue(cases)
+            for case in cases:
+                with self.subTest(case=case["name"]):
+                    if valid:
+                        validate_control_message(case["message"])
+                        assert_matches_schema(case["message"], self.schema, self.schema)
+                    else:
+                        with self.assertRaises(ValueError) as error:
+                            validate_control_message(case["message"])
+                        self.assertEqual(error.exception.reason, case["reason"])
+                        with self.assertRaises(SchemaMismatch):
+                            assert_matches_schema(case["message"], self.schema, self.schema)
 
     def test_schema_covers_exactly_the_runtime_message_types(self) -> None:
         definitions = self.schema["$defs"]

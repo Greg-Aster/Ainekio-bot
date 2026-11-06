@@ -32,8 +32,12 @@ typedef struct {
     ainekio_imu_observation_t attitude;
 } ainekio_p4_imu_status_t;
 
-/* Called once by app startup after media creates/prepares the shared bus. */
-esp_err_t ainekio_p4_imu_start(void);
+/* Called once by app startup after media creates/prepares the shared bus.
+ * Optional observer receives each accepted acquisition, outside snapshot_lock.
+ * It must copy synchronously without allocation, blocking I/O or sensor reads. */
+typedef void (*ainekio_p4_imu_sample_callback_t)(const ainekio_imu_observation_t *sample,
+                                              bool calibration_applied);
+esp_err_t ainekio_p4_imu_start(ainekio_p4_imu_sample_callback_t sample_callback);
 /* Copies the last result without I2C or advancing the estimator. */
 ainekio_p4_imu_status_t ainekio_p4_imu_status(void);
 /* Uses the existing estimator's configuration validation. Save changes only

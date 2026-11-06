@@ -57,6 +57,13 @@ for item in catalog["commands"]:
         up = [(1-u)*x+u*y for x, y in zip(a, b)]
         length = math.sqrt(sum(v*v for v in up))
         assert math.sqrt(sum((v/length-target)**2 for v, target in zip(up,actual['expected_up']))) < .00011, item['command']
+        if item['command'] == 'crouch':
+            # Regression mapping for the four carrier endpoint failures.
+            fixture=json.loads((family.parent.parent/'tests/fixtures/crouch-mapping.json').read_text())
+            low,high=fixture['pulse_window_us']
+            for mapping,angle in zip(fixture['joints'],actual['position']):
+                pulse=mapping['home_us']+(-1 if mapping['invert'] else 1)*(angle-mapping['home_cd'])/100*mapping['us_per_degree']
+                assert low-.02 <= pulse <= high+.02, ('crouch',t,mapping['id'],pulse)
         expected = motion.sample(min(t, command_duration_us))
         if t >= command_duration_us:
             expected.update(complete=True, velocity=[0.0]*12, acceleration=[0.0]*12)

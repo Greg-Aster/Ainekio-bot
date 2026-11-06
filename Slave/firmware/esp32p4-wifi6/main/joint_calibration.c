@@ -5,18 +5,41 @@
 #include <math.h>
 #include <string.h>
 
-void ainekio_p4_joint_ramp_frame(const ainekio_v2_frame_t *from,
+bool ainekio_p4_joint_ramp_frame(const ainekio_v2_frame_t *from,
     const float *goal,double speed_cd_s,double dt,ainekio_v2_frame_t *out)
 {
+    if(!from||!goal||!out||!isfinite(speed_cd_s)||speed_cd_s<=0.||!isfinite(dt)||dt<0.)return false;
+    ainekio_v2_frame_t target=*from;
+    memcpy(target.position,goal,sizeof target.position);
     double remaining=0.;
     for(unsigned j=0;j<12;j++)remaining=fmax(remaining,fabs(goal[j]-from->position[j]));
-    const double u=remaining ? fmin(1.,speed_cd_s*dt/remaining) : 1.;
-    *out=*from;
+    const double travel=speed_cd_s*dt;
+    double u=remaining ? fmin(1.,travel/remaining) : 1.;
+    ainekio_v2_frame_t candidate;
+    if(!ainekio_v2_transition(from,&target,u,&candidate))return false;
+    if(u>0. && u<1.) {
+        /* A straight carrier/crank interpolation can leave the four-bar's
+         * closure region even when both endpoints are feasible. Follow the
+         * existing geometry path and use the requested angular travel budget.
+         * The carrier is nonlinear along that path, so endpoint distance alone
+         * is not its per-frame travel. Bisection resolves float output precision. */
+        double low=0.,high=1.;*out=*from;
+        for(unsigned iteration=0;iteration<32;iteration++) {
+            double distance=0.;
+            for(unsigned j=0;j<12;j++)distance=fmax(distance,fabs(candidate.position[j]-from->position[j]));
+            if(distance<=travel){low=u;*out=candidate;}else high=u;
+            if(distance==travel)break;
+            const double next=(low+high)*.5;
+            if((float)next==(float)u)break;
+            u=next;
+            if(!ainekio_v2_transition(from,&target,u,&candidate))return false;
+        }
+        u=low;
+    } else *out=candidate;
     for(unsigned j=0;j<12;j++) {
-        const double delta=goal[j]-from->position[j];
-        out->position[j]=(float)(from->position[j]+u*delta);
-        out->velocity[j]=u<1. && remaining ? (float)(speed_cd_s*delta/remaining) : 0;
+        out->velocity[j]=u<1. && dt>0. ? (float)((out->position[j]-from->position[j])/dt) : 0;
     }
+    return true;
 }
 
 _Static_assert(sizeof(ainekio_p4_joint_config_t) == 12, "calibration layout changed");

@@ -319,8 +319,10 @@ modes), End-of-speech pause (seconds), and Maximum recording after wake
 transport maximum. Higher speech sensitivity selects a lower Espressif VAD
 mode, including more quiet speech and background sound. The pause applies to
 Voice activity and Wake word; the recording maximum is measured from wake
-detection. The initial three-second wake acquisition window is retained until
-speech is detected. Defaults remain mode 3, a 1-second pause and 15-second wake
+detection. There is no separate wake acquisition cutoff: until VAD first reports
+speech, the selected wake maximum owns the recording window. After detected
+speech, the selected silence pause also applies. Both use elapsed time rather
+than a count of processed frames. Defaults remain mode 3, a 1-second pause and 15-second wake
 window; adding the controls does not retune an existing installation.
 
 The existing microphone task owns recording boundaries. Its former fixed
@@ -330,6 +332,47 @@ under the existing audio-inference lock and commit with `speech_v1` in NVS.
 Failed allocation or saving leaves the previous active settings in place.
 Heartbeat audio telemetry confirms the settings, and Body Control retains edits
 until this readback matches. Older firmware displays an update explanation.
+
+The P4 feeds VAD on every enabled listening frame in Voice activity and Wake
+word modes, including ambient input before wake detection. Transmission still
+starts only when the selected gate opens. Capture discontinuities (session,
+configuration, playback and external-speech boundaries) reset both the wake
+engine and the VAD filter/noise history. Previously, VAD received only the
+latched wake recordings and retained its state between unrelated recordings.
+Saving unchanged microphone settings now preserves an active recording.
+Firmware logs distinguish a capture reset, detected silence and the selected
+maximum duration when a recording closes.
+
+Wake-word preprocessing includes adaptive gain; the separate VAD receives raw
+PCM at the saved codec gain. Successful wake recognition therefore does not
+establish suitable speech-detection levels. Adjust gain and speech sensitivity
+through the existing controls; there is no hidden gain or second endpoint
+detector. The production-task regression in `test_p4_audio_transport.py` covers
+ambient VAD input, speech beyond three seconds, an internal one-second pause,
+initially missed speech beyond three seconds, endpoint/re-arm and
+session/configuration/playback/external-speech resets.
+
+November 4 replacement: `0.8.138-p4-recording-window` removes the fixed
+three-second acquisition cutoff and its frame countdown. The selected maximum
+owns acquisition; the selected silence pause applies after detected speech.
+The original implementation fails the new missed-speech regression; the
+replacement passes it, the capture-task scenarios, all seven audio transport
+tests, and the dashboard audio renderer check. The 3,511,056-byte application
+has SHA-256 `6e70cc87cfbbbcdd725b696a27fcb5e97e6e0542748a18d758a8237654614daa`.
+After activation the robot reported `accepted`, `pending_verify:false` and
+`ESP_OK`. Readback after restart preserved 30 dB gain, High speech sensitivity,
+a 1.5-second pause and a 15-second maximum. A new physical sentence after this
+replacement has not yet been qualified.
+
+November 4 installation: `0.8.137-p4-speech-continuity`, 3,510,976-byte
+application, SHA-256
+`3aa9e7d79e1caff7177f6ce11bf0584b3af828e91193c87b526da6ef44312c10`.
+The seven audio transport/settings/capture-task tests, dashboard audio renderer
+and native recording-gate test passed. OTA readback reported `accepted`,
+`pending_verify:false`, `ESP_OK`, and startup `required=0x1f ready=0x1f`.
+That release still contained the fixed acquisition cutoff. The subsequent
+spoken test ended at 3,080 ms with 154 frames and no missing frames; it did not
+qualify the original cutoff repair.
 
 November 3 installation: `0.8.136-p4-speech-settings`, 3,510,000-byte application,
 SHA-256 `5fe6e65d2c4dec0e3bdb2e88e20e5b965584d5b945761f678eaf3848ae9368d8`.
@@ -441,7 +484,9 @@ bounds under untested media workloads. See the model's
 [controller validation](../../software/models/v2-12servo/CONTROLLER_VALIDATION.md)
 for resource costs, removed components and qualification limits.
 
-The current source build is `0.8.19-p4-imu-cal`; prior deployment records below refer to earlier images. It requires the 8 MiB application partition. Boards still using
+The source version is declared in [CMakeLists.txt](CMakeLists.txt); read the
+installed version through `/api/firmware`. Dated deployment records below refer
+to their stated images. The current layout requires an 8 MiB application partition. Boards still using
 the old `0.3.0-p4-turns` partition layout require the migration described in the
 [integration record](../../../docs/v2-12servo/MOTION_INTEGRATION_20260917.md),
 not just an application-only flash.
@@ -467,8 +512,9 @@ The camera owner multiplexes preview JPEGs and correlated stills in one task.
 Espressif `esp_video` / `esp_cam_sensor` control CSI and the OV5647, `esp_ipa`
 controls the P4 ISP, and ESP-IDF's hardware JPEG encoder compresses the images.
 RAW10 stays on the P4; Body Control receives JPEGs. Sensor AEC/AGC adjusts
-exposure/gain; Body Control selects capture profiles, not individual shutter
-or ISO values. The vendor OV5647 ISP tuning remains unchanged.
+exposure/gain; Body Control selects capture profiles and an optional automatic
+exposure ceiling, not a fixed shutter or ISO value. The vendor OV5647 ISP
+tuning remains unchanged.
 
 `camera_profiles_v1` provides independent preview/still settings; the additional
 `camera_adaptive_v1` feature enables `snapshot_res: AUTO | 960P | FHD` alongside
@@ -477,12 +523,41 @@ JPEG quality remains 75. Changing preview settings preserves the still profile
 unless `snapshot_res` is supplied. Neither profile is stored in NVS.
 
 Preview uses the 1280×960 binned mode. Preview and stills both use continuous
-sensor automatic exposure and sensitivity, with the OV5647's eight-frame
-night integration range (about 178 ms in 960p, 267 ms in 1080p). These are
+sensor automatic exposure and sensitivity. By default they retain the OV5647's
+eight-frame night integration range (about 178 ms in 960p, 267 ms in 1080p). These are
 sensor integration limits, not fixed exposure settings. The sensor meters the
 light and extends exposure before increasing gain; long exposure can blur
-motion and reduce delivered frame rate. After
-startup/profile changes, stills collect at least eight frames and wait until
+motion and reduce delivered frame rate.
+
+`camera_motion_exposure_v1` adds optional `max_exposure_us` to the existing
+`cam` command. Zero (the boot default) restores the full automatic range;
+omission preserves the current setting. A positive unsigned 32-bit value limits
+AEC integration while AGC continues adapting automatically. The camera task
+converts microseconds to whole sensor lines, rounding down and never extending
+the normal eight-frame range, and reapplies the ceiling after mode changes.
+When the current shutter exceeds a newly applied ceiling, the owner adjusts
+that shutter once and immediately returns AEC to automatic; it preserves gain.
+The sensor's stable-luminance state can otherwise retain its previous long
+shutter despite a lower ceiling (OV5647 datasheet §4.5.2). There is no recurring
+manual shutter controller.
+For example, `max_exposure_us:10000` selects a maximum of approximately 10 ms,
+not a fixed 10 ms exposure. This setting applies to preview and stills and is
+not stored in NVS. Changes take effect in the existing capture task without
+restarting it. Values shorter than one line in the current mode are rejected
+without changing settings. If a later still mode cannot represent the selected
+ceiling, that snapshot fails and preview resumes. This capability does not
+advertise `camera_controls_v1`, manual gain, HD preview or adjustable JPEG quality.
+
+Physical check, 2026-11-04: `0.8.139-p4-motion-exposure` was uploaded once through
+Body Control and accepted on `ota_1`. The same installed camera changed from a
+measured 177,621 µs exposure to 9,983 µs with a 10,000 µs ceiling; AGC reached
+1023/16 in the dim scene. The intermediate capture still reported 15,981 µs as
+automatic exposure converged, so a command ACK alone does not establish that
+the sensor has reached the ceiling. Image and walking-trial qualification are
+recorded in the [gait journal](../../../docs/v2-12servo/GAIT_RESEARCH_JOURNAL.md).
+
+After startup/profile changes or exposure-ceiling changes, stills collect at
+least eight frames and wait until
 measured exposure and gain remain within 1/16 of an anchor for 300 ms. After
 four seconds per mode, a changing scene returns the current image marked
 unsettled instead of waiting indefinitely. This does not stop robot motion.
@@ -510,15 +585,18 @@ preview delivery; concurrent throughput and acquisition age require device
 measurements. The two capture buffers are resized when the sensor mode changes;
 the resize scratch remains 1024×768 RGB565 and JPEG storage remains 256 KiB.
 Status `camera_capture` reports counter, actual width/height, `exposure_us`,
-`gain_x16` (16 = unity gain, not calibrated ISO), `settle_ms`, and `settled`.
+`max_exposure_us` (the applied whole-line ceiling, or zero for the default
+automatic range), `gain_x16` (16 = unity gain, not calibrated ISO), `settle_ms`,
+and `settled`.
 The settling flag describes sensor settings, not a guarantee of image quality.
 
 The native `camera_profiles_and_snapshots` test runs production `camera.c`
 against virtual sensor/encoder/scheduler I/O. It covers independent profiles,
 zero-FPS snapshots, settling, changing illumination, native mode selection,
 preview resumption, cancellation, session fencing, and pixel orientation across
-native/downsampled images and mode switches. It does
-not establish physical sensor operation, image quality or encoding latency.
+native/downsampled images and mode switches. It also covers ceiling changes
+without stream restart, restoration of the default range, mode-specific line
+rounding and invalid settings that preserve preview operation. It does not establish physical sensor operation, image quality or encoding latency.
 
 Physical check, 2026-10-06: application `0.8.1-p4-camera-face` was flashed at
 `0x20000` with esptool hash verification, preserving NVS. Fresh stills returned
@@ -547,9 +625,12 @@ The gateway/protocol support remains compatible with other capable firmware.
 `0.8.88-p4-camera-metering` retains removal of the application's 66.7 ms preview and
 32× automatic-gain ceilings. Sensor AEC, AGC and automatic frame length stay
 enabled across preview, stills, format switches and stream restarts; the
-application never writes a fixed shutter or gain. Both profiles expose the
+application leaves shutter and gain under automatic control. Applying a lower
+ceiling can reconcile an existing overlong shutter once, as described above;
+gain is not written. Both profiles default to the
 sensor's eight-frame night integration range and full 10-bit gain-ceiling
-field. Preview/still transitions no longer switch exposure policies.
+field. The optional `max_exposure_us` ceiling narrows integration only when
+explicitly selected; preview/still transitions preserve that selection.
 
 The native AEC brightness target is 46/255 (18% linear full scale), applied
 through the pinned OV5647 driver's `V4L2_CID_EXPOSURE` control after each

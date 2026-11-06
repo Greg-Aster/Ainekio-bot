@@ -150,9 +150,101 @@ def build(database, output, workers=4):
     return report
 
 
+def compact_row(row, previous_tools):
+    """Replace the retired curve teacher and encode compact speed/taper targets."""
+    from .semantic_teachers import stretch_program
+    old=ProgramEncoding(previous_tools);new=ProgramEncoding(CONTRACT)
+    result=copy.deepcopy(row)
+    program=old.decode(row['answers'])
+    if any(action['name']=='trajectory' for action in program):
+        if row.get('family')!='legacy_asset_stretch':
+            raise ValueError('Curve needs an authored compact replacement: '+row['id'])
+        program=stretch_program()
+        for key in ('source_alignment','canonical_source_motion_sha256','legacy_motion',
+                    'review','review_evidence_id','expected_final_angles_deg','expected_final_model_deg',
+                    'kinematic_evidence','motion_structure_sha256'):
+            result.pop(key,None)
+        result.update(physical_qualification=False,synthetic=True,
+                      qualification_basis='owner_requested_compact_stretch_not_physically_reviewed',
+                      teacher='compact crouch, front-limb extension, holds and standing finish')
+    def context(value):
+        if isinstance(value,list):
+            if value and isinstance(value[0],str) and value[0] in old.tools:
+                action=old.decode([value])[0]
+                if action['name']=='trajectory':
+                    raise ValueError('Historical curve context needs explicit attribution: '+row['id'])
+                return new.encode([action])[0]
+            return [context(item) for item in value]
+        if isinstance(value,dict):
+            if set(value)=={'name','arguments'} and value['name'] in old.tools:
+                action=copy.deepcopy(value)
+                if action['name']=='trajectory':
+                    raise ValueError('Historical curve context needs explicit attribution: '+row['id'])
+                if action['name'] in ('move','pose','oscillate','body','feet'):
+                    action['arguments'].setdefault('taper_deg',0)
+                return action
+            return {key:context(item) for key,item in value.items()}
+        return value
+    query=json.loads(row['query'])
+    result.update(query=compact(context(query)),answers=new.encode(program))
+    if result['answers']==row['answers'] and json.loads(result['query'])==query:
+        return copy.deepcopy(row)
+    result['source_hash']=hashlib.sha256(compact([result['query'],result['answers']]).encode()).hexdigest()
+    result['source_id']='compact-targets:'+row['id']+':'+result['source_hash'][:16]
+    result['migrated_source_hash']=row['source_hash']
+    return result
+
+
+def compact_library(database, output):
+    """Explicit offline contract migration; preserve edits and discarded IDs."""
+    import io
+    import zipfile
+    from .motion_library import MotionLibrary
+    output=Path(output);output.mkdir(parents=True,exist_ok=False)
+    library=MotionLibrary(database)
+    before=sqlite3.connect(output/'library-before.sqlite')
+    with library.connect() as db:
+        db.backup(before)
+    before.close()
+    with library.connect() as db,db:
+        db.execute('BEGIN IMMEDIATE')
+        tools=library.tools(db)
+        originals=db.execute('SELECT id,revision,payload FROM examples ORDER BY id').fetchall()
+        converted=[compact_row(json.loads(item['payload']),tools) for item in originals]
+        for item,row in zip(originals,converted):
+            if row==json.loads(item['payload']):continue
+            revision=item['revision']+1
+            row['library_revision']=revision
+            db.execute('UPDATE examples SET revision=?,payload=? WHERE id=?',(revision,compact(row),item['id']))
+            db.execute('DELETE FROM revisions WHERE id=?',(item['id'],))
+            db.execute('INSERT INTO revisions VALUES (?,?,?)',(item['id'],revision,compact(row)))
+        for item in db.execute("SELECT key,value FROM metadata WHERE key LIKE 'file:%.jsonl'").fetchall():
+            rows=[compact_row(json.loads(line),tools) for line in item['value'].splitlines() if line.strip()]
+            db.execute('UPDATE metadata SET value=? WHERE key=?',(''.join(compact(row)+'\n' for row in rows),item['key']))
+        db.execute("UPDATE metadata SET value=? WHERE key='tools'",(compact(CONTRACT),))
+    # Use the established export owner, including its frozen held-out files.
+    with zipfile.ZipFile(io.BytesIO(library.export())) as archive:
+        archive.extractall(output)
+    dataset=output/'dataset'
+    report={'version':FORMAT,'source':'Body Control editable motion library',
+            'training_rows':len(converted),'converted_rows':len(converted),
+            'removed_model_operation':'trajectory','physical_trials':0,
+            'system_prompt_tokens':0,'files':{p.name:hashlib.sha256(p.read_bytes()).hexdigest()
+                 for p in dataset.iterdir() if p.is_file() and p.name!='manifest.json'}}
+    # Keep the export owner's discarded-ID record in the snapshot manifest.
+    report['discarded_examples']=json.loads((dataset/'manifest.json').read_text()).get('discarded_examples',[])
+    (dataset/'manifest.json').write_text(json.dumps(report,indent=2)+'\n')
+    (output/'migration.json').write_text(json.dumps(report,indent=2)+'\n')
+    return report
+
+
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--database',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--compact',action='store_true')
     parser.add_argument('--workers',type=int,default=4)
-    build(**vars(parser.parse_args()))
+    args=parser.parse_args()
+    report=(compact_library(args.database,args.output) if args.compact else
+            build(args.database,args.output,args.workers))
+    print(compact({k:v for k,v in report.items() if k!='discarded_examples'}))

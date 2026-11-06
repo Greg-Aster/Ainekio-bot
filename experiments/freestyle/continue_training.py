@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 import time
 from contextlib import redirect_stderr, redirect_stdout
 from functools import wraps
@@ -42,20 +43,29 @@ def align_qwen_mlp(model, torch):
 
 
 def loss_only_evaluation(model):
-    """Do not retain/cast vocabulary logits that this loss-only evaluator discards.
+    """Evaluate every labeled token using Unsloth's fused loss.
 
-    Accelerate otherwise makes an additional full FP32 logits tensor. Loss is
-    already computed by the model; retain that exact tensor. Training forwards
-    and unlabeled generation keep their original outputs.
+    Evaluation mode enables generation logits, which otherwise materializes a
+    sequence-by-vocabulary tensor before it can be discarded. Training and
+    unlabeled generation retain their original outputs and environment state.
     """
     forward = model.forward
 
     @wraps(forward)
     def evaluate(*args, **kwargs):
-        result = forward(*args, **kwargs)
-        if not model.training and kwargs.get('labels') is not None and result.get('loss') is not None:
-            return {'loss': result['loss']}
-        return result
+        loss_only=not model.training and kwargs.get('labels') is not None
+        if not loss_only:
+            return forward(*args, **kwargs)
+        # Unsloth eval() enables full vocabulary logits. Its existing fused
+        # loss computes the same labeled objective without materializing them.
+        previous=os.environ.get('UNSLOTH_RETURN_LOGITS')
+        os.environ['UNSLOTH_RETURN_LOGITS']='0'
+        try:
+            result=forward(*args, **kwargs)
+        finally:
+            if previous is None:os.environ.pop('UNSLOTH_RETURN_LOGITS',None)
+            else:os.environ['UNSLOTH_RETURN_LOGITS']=previous
+        return {'loss':result['loss']} if result.get('loss') is not None else result
 
     model.forward = evaluate
 
@@ -81,7 +91,7 @@ def configure_loss_weighting(trainer, cfg):
             'model_accepts_loss_kwargs':trainer.model_accepts_loss_kwargs}
 
 
-def train(config, data, evaluation, manifest, adapter, output, shared_trainer):
+def train(config, data, evaluation, manifest, adapter, output, shared_trainer, skip_evaluation=False):
     spec=importlib.util.spec_from_file_location('freestyle_shared_trainer',shared_trainer)
     shared=importlib.util.module_from_spec(spec);spec.loader.exec_module(shared)
     cfg=shared.validate_config(json.loads(config.read_text()))
@@ -121,18 +131,20 @@ def train(config, data, evaluation, manifest, adapter, output, shared_trainer):
             del expected,previous,loaded
             result['initial_weights_verified']=True
         training=shared.tokenize_rows(tokenizer,shared.read_rows(data),cfg)
-        testing=shared.tokenize_rows(tokenizer,shared.read_rows(evaluation),cfg)
+        testing=[] if skip_evaluation else shared.tokenize_rows(tokenizer,shared.read_rows(evaluation),cfg)
         result.update(training_samples=len(training),evaluation_samples=len(testing),
                       supervised_tokens=sum(sum(v!=-100 for v in r['labels']) for r in training),
                       template_options={'enable_thinking':False})
         save()
         trainer=shared.make_trainer(model,tokenizer,cfg,output,training,testing)
         result['runtime_adjustments'].update(configure_loss_weighting(trainer,cfg))
-        result['before_loss']=shared.finite_loss(trainer.evaluate());save()
+        result['before_loss']=None if skip_evaluation else shared.finite_loss(trainer.evaluate())
+        result['evaluation']='skipped_at_owner_request' if skip_evaluation else 'held_out_loss'
+        save()
         torch.cuda.reset_peak_memory_stats()
         trainer.train()
         trainer.save_model(str(output));tokenizer.save_pretrained(output)
-        result.update(status='candidate',after_loss=shared.finite_loss(trainer.evaluate()),
+        result.update(status='candidate',after_loss=None if skip_evaluation else shared.finite_loss(trainer.evaluate()),
                       peak_allocated_bytes=torch.cuda.max_memory_allocated(),
                       adapter_sha256=sha(output/'adapter_model.safetensors'),
                       duration_seconds=time.time()-started,
@@ -150,6 +162,7 @@ if __name__=='__main__':
     p.add_argument('--adapter',type=Path,
                    help='Optional same-architecture adapter; omit to train a fresh LoRA on the configured base')
     p.add_argument('--logfile',type=Path)
+    p.add_argument('--skip-evaluation',action='store_true',help='Train without held-out model evaluations')
     arguments=vars(p.parse_args());logfile=arguments.pop('logfile')
     if logfile:
         print('Training log: '+str(logfile),flush=True)

@@ -8,6 +8,8 @@ cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT/Master:$REPO_ROOT/Slave/software${PYTHONPATH:+:$PYTHONPATH}"
 export MPLCONFIGDIR="${MPLCONFIGDIR:-$REPO_ROOT/build/neural-gait/matplotlib}"
 export MUJOCO_GL="${MUJOCO_GL:-egl}"
+export OPENBLAS_NUM_THREADS="${AINEKIO_GAIT_INFERENCE_THREADS:-1}"
+export OMP_NUM_THREADS="${AINEKIO_GAIT_INFERENCE_THREADS:-1}"
 exec "${AINEKIO_NEURAL_GAIT_PYTHON:-$REPO_ROOT/build/gait-training-env/bin/python}" \
   -m gateway.neural_gait.server \
   --directory "${AINEKIO_NEURAL_GAIT_DATA_DIR:-$REPO_ROOT/build/neural-gait}" \

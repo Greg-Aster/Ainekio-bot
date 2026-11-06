@@ -370,6 +370,8 @@ class _CameraInput:
     counter: int
     received_at: float
     payload: bytes
+    camera_metadata: dict | None = None
+    attitude: dict | None = None
     requested: bool = False
     result: asyncio.Future[CameraAnalysis] | None = None
 
@@ -464,7 +466,7 @@ class CameraFramePlugin:
             or type(received_at) not in {int, float} or not math.isfinite(received_at)
         ):
             return
-        return self._inflight.get((robot_id, epoch, counter)) or _CameraInput(robot_id, epoch, counter, received_at, payload)
+        return self._inflight.get((robot_id, epoch, counter)) or _CameraInput(robot_id, epoch, counter, received_at, payload, camera_metadata=frame.get("camera_metadata"))
 
     def capture(self, frame: dict[str, object]) -> asyncio.Future[CameraAnalysis] | None:
         """Join this exact still's inference; never take a second picture."""
@@ -661,6 +663,8 @@ class CameraFramePlugin:
         self._depth_settings = {robot: depth_settings(config) for robot, config in configurations.items()}
 
     def _queue_metric(self, frame, timestamp):
+        if frame.attitude is None and self._depth_settings.get(frame.robot_id, {}).get("mode") == "moge-open3d":
+            frame.attitude = self.gateway.camera_frame_attitude(frame.robot_id, frame.epoch, frame.camera_metadata)
         waiting = []
         while not self._metric_queue.empty():
             waiting.append(self._metric_queue.get_nowait())
@@ -690,6 +694,9 @@ class CameraFramePlugin:
             self._metric_consumers[consumer_id] = robot_id
         else:
             self._metric_consumers.pop(consumer_id, None)
+        for robot in {previous, robot_id} - {None}:
+            self.gateway.configure_camera_attitude_history(robot,
+                self.max_frame_age_s if robot in self._metric_consumers.values() else 0.)
         released_robots = {robot for robot in {previous, robot_id} - {None}
                            if robot not in self._metric_consumers.values()}
         for released in released_robots:
@@ -741,7 +748,7 @@ class CameraFramePlugin:
             if self._depth_motion is None:
                 self._depth_motion = DepthMotion(self.gateway.instance_id)
             return self._depth_motion.process(frame.robot_id, frame.epoch, frame.counter,
-                frame.received_at, frame.payload, received_iso, config)
+                frame.received_at, frame.payload, received_iso, config, attitude=frame.attitude)
         return self._metric_owner().process(frame.robot_id, frame.epoch, frame.counter,
                                              frame.received_at, frame.payload, received_iso)
 
@@ -909,6 +916,8 @@ class CameraFramePlugin:
         await asyncio.shield(self._close_task)
 
     async def _finish_close(self) -> None:
+        for robot in set(self._metric_consumers.values()):
+            self.gateway.configure_camera_attitude_history(robot, 0.)
         self._metric_consumers.clear()
         for ready in self._metric_ready.values():
             if not ready.done():

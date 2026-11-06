@@ -32,6 +32,7 @@ from stable_baselines3.common.running_mean_std import RunningMeanStd
 from .contract import (SCHEMA, DEPTH_SCHEMA, HISTORY_SCHEMA, SCHEMAS, OBSERVATION_SIZE,
     COMMAND_SLICE, HISTORY_SIZE, HISTORY_START, HISTORY_SAMPLES, HISTORY_ROW_SIZE,
     CRITIC_FEATURES, observation_size)
+from .artifacts import save_json, summarize_commands
 from .environment import (
     EnvironmentConfig,
     make_environment,
@@ -318,6 +319,11 @@ def load_policy(directory, checkpoint="policy.zip", *, device="cpu", env=None):
     """One artifact loader for inference and replay, including legacy SAC runs."""
     directory = Path(directory)
     manifest = json.loads((directory / "manifest.json").read_text())
+    if manifest.get("kind") == "microduck-mjlab":
+        from .microduck_actor import MicroduckActor
+        if not manifest.get("policy"):
+            raise ValueError("This MicroDuck run has no exported policy yet")
+        return MicroduckActor(directory / (manifest["policy"] if checkpoint == "policy.zip" else checkpoint))
     owner = {"SAC": SAC, "PPO": GaitPPO}[policy_algorithm(manifest)]
     if manifest.get("schema") == HISTORY_SCHEMA and owner is not GaitPPO:
         raise ValueError("History schema requires the asymmetric GaitPPO actor/critic")
@@ -356,12 +362,6 @@ def policy_imitation_updates(directory, checkpoint="policy.zip"):
     progress = json.loads(progress_path.read_text()) if progress_path.exists() else {}
     manifest = json.loads((directory / "manifest.json").read_text())
     return progress.get("imitation_updates", manifest.get("imitation_updates", 0))
-
-
-def save_json(path, value):
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(value, indent=2, allow_nan=False))
-    tmp.replace(path)
 
 
 def save_replay(model, directory):
@@ -494,33 +494,6 @@ def record_command_segment(segment, env, reward, info):
     segment["fallen"] |= bool(info["fallen"])
 
 
-def summarize_commands(episodes):
-    """Measured progress for each requested twist, including request transitions.
-
-    Older artifacts without command-frame measurements remain unavailable;
-    world-frame displacement cannot substitute for these measurements.
-    """
-    grouped = {}
-    for episode in episodes:
-        for segment in episode.get("command_segments") or [episode]:
-            required = ("command", "seconds", "command_reference_travel_m", "heading_change_rad", "reward")
-            if any(key not in segment for key in required) or segment["seconds"] <= 0:
-                return None
-            key = tuple(segment["command"])
-            row = grouped.setdefault(key, dict(command=list(key), seconds=0.,
-                travel=[0.,0.], heading=0., reward=0.))
-            row["seconds"] += segment["seconds"]
-            for axis in range(2):
-                row["travel"][axis] += segment["command_reference_travel_m"][axis]
-            row["heading"] += segment["heading_change_rad"]
-            row["reward"] += segment["reward"]
-    return [dict(command=row["command"], seconds=row["seconds"],
-                 measured_velocity_command_m_s=[value/row["seconds"] for value in row["travel"]],
-                 measured_yaw_rate_rad_s=row["heading"]/row["seconds"],
-                 mean_reward_per_second=row["reward"]/row["seconds"])
-            for row in grouped.values()]
-
-
 def evaluation_seed_list(seeds):
     if seeds is None:
         return None
@@ -580,9 +553,12 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
             if scenario is not None:
                 options["scenario"] = scenario["id"]
             obs, reset_info = requests.reset(seed=seed, options=options)
+            if model is not None and hasattr(model, 'reset'):
+                model.reset()
             segments = [begin_command_segment(env, requests.request)] if switching else []
             progress_intervals = []
             start = env.data.qpos[:3].copy()
+            start_time = float(env.data.time)
             reward = 0.0
             travel_reward = 0.0
             fallen = False
@@ -672,7 +648,7 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
                 if terminated or truncated:
                     fallen = info["fallen"]
                     break
-            seconds = (step + 1) / config.control_hz
+            seconds = (step + 1)/config.control_hz
             rows.append(
                 dict(
                     seed=seed,
@@ -685,12 +661,12 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
                     reward=reward,
                     mean_total_reward_per_step=reward/(step+1),
                     mean_travel_reward_per_step=travel_reward/(step+1),
-                    reward_components_per_second={name: value/seconds for name, value in reward_component_sums.items()},
+                    reward_components_per_second={name: value/seconds for name, value in reward_component_sums.items()} if seconds else {},
                     motion_metric_means={name: value/(step+1) for name, value in motion_metric_sums.items()},
                     seconds=seconds,
                     fallen=fallen,
                     displacement_m=(env.data.qpos[:3] - start).tolist(),
-                    forward_m_s=float((env.data.qpos[0] - start[0]) / seconds),
+                    forward_m_s=float((env.data.qpos[0] - start[0]) / seconds) if seconds else None,
                     rejected_frames=rejected,
                     moving_target_frames=moving_targets,
                     minimum_upright=upright,
@@ -707,6 +683,7 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
                     body_terminal=info.get("body_terminal"),
                     body_rejection=info.get("body_rejection"),
                     producer_failure=info.get("producer_failure"),
+                    geometry_rejection=info.get('geometry_rejection'),
                     consumed_sample=info.get("consumed_sample"),
                     jam_frames=jam_frames,
                     foot_contact_fraction=(contacts/(step+1)).tolist(),
@@ -728,7 +705,8 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
         travel_frames=dict(displacement_m="fixed world frame",
             command_reference_travel_m="command-start horizontal reference, following requested turn",
             body_frame_travel_m="integrated instantaneous full3D measured body frame"),
-        policy_kind="held_standing_reference" if model is None else "neural_foot_offsets",
+        policy_kind=("held_standing_reference" if model is None else
+                     "neural_foot_offsets"),
         trial_variation=("Held reference has no seed-dependent physics or controller inputs; reused rows identify their source seed"
             if len(rows) > simulated else
             "configured physics, sensor or request-timing variation; otherwise one deterministic reference trial"),
@@ -736,7 +714,8 @@ def evaluate(model, config, seeds=None, commands=None, command_switch_seconds=No
         reused_episodes=len(rows)-simulated,
         episodes=rows,
         command_results=summarize_commands(rows),
-        mean_forward_m_s=float(np.mean([r["forward_m_s"] for r in rows])),
+        mean_forward_m_s=(float(np.mean([r["forward_m_s"] for r in rows]))
+                          if all(r['forward_m_s'] is not None for r in rows) else None),
         falls=sum(r["fallen"] for r in rows),
         mean_reward=float(np.mean([r["reward"] for r in rows])),
     )
@@ -1798,7 +1777,7 @@ def train(directory, steps, config, resume=None, device="cpu", seed=1, workers=1
             source=("Body Control WebSocket + production P4 executor + MuJoCo physical dynamics"
                     if config.execution_backend == "body_control" else "MuJoCo physical dynamics"),
             execution_changes=execution_changes,
-            execution_revision=dict(host_heading="moving_attitude_response",
+            execution_revision=dict(host_heading="policy_owned",host_moving_balance="policy_owned",
                 sources_sha256={name: hashlib.sha256((GEOMETRY.parent/name).read_bytes()).hexdigest()
                                 for name in ("motion.c", "balance.c")}),
             reward_changes=reward_changes,

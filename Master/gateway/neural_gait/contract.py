@@ -5,13 +5,24 @@ Missing vision is explicitly represented, not reported as zero displacement.
 """
 
 import math
+import base64
+import struct
+import zlib
 from collections import deque
 
 SCHEMA = "ainekio-neural-gait-v3"
 DEPTH_SCHEMA = "ainekio-neural-gait-v4-depth"
 HISTORY_SCHEMA = "ainekio-neural-gait-v5-history"
-DEPTH_SCHEMAS = frozenset((DEPTH_SCHEMA, HISTORY_SCHEMA))
-SCHEMAS = frozenset((SCHEMA, *DEPTH_SCHEMAS))
+PENDING_SCHEMA = "ainekio-neural-gait-v6-pending"
+PROPRIO_SCHEMA = "ainekio-neural-gait-v7-proprio"
+PROPRIO_CAMERA_SCHEMA = "ainekio-neural-gait-v8-proprio-camera"
+PROPRIO_SCHEMAS = frozenset((PROPRIO_SCHEMA, PROPRIO_CAMERA_SCHEMA))
+PROPRIO_FEATURES = 48
+PROPRIO_SAMPLES = 15
+PROPRIO_SIZE = PROPRIO_FEATURES * PROPRIO_SAMPLES
+HISTORY_SCHEMAS = frozenset((HISTORY_SCHEMA, PENDING_SCHEMA))
+DEPTH_SCHEMAS = frozenset((DEPTH_SCHEMA, PROPRIO_CAMERA_SCHEMA, *HISTORY_SCHEMAS))
+SCHEMAS = frozenset((SCHEMA, *DEPTH_SCHEMAS, *PROPRIO_SCHEMAS))
 LEGS = ("rear_left", "rear_right", "front_left", "front_right")
 JOINTS = tuple(
     f"{leg}_{joint}" for leg in LEGS for joint in ("shoulder", "carrier", "crank")
@@ -39,11 +50,41 @@ CRITIC_FEATURES = 5  # simulator pace xyz and reward-reference heading sin/cos
 HISTORY_SIZE = HISTORY_START + HISTORY_SAMPLES * HISTORY_ROW_SIZE + CRITIC_FEATURES
 
 
+
+def recorded_observation(observation):
+    """Lossless float32 policy inputs without duplicating verbose sensor history."""
+    values = vector(observation)
+    result = dict(schema=observation['schema'], encoding='float32-le-zlib-base64',
+                values=base64.b64encode(zlib.compress(struct.pack('<%df' % len(values), *values))).decode())
+    if observation['schema'] == PENDING_SCHEMA:
+        result['pending_actions'] = pending_rows(observation['pending_actions'])
+    return result
+
+
+def pending_rows(value):
+    """Ordered, uncapped sent requests: action[12], source age, signed send time.
+
+    Send time is relative to the current sensor receipt, not a claimed physical
+    output time. A positive value means the send followed that sensor receipt.
+    """
+    if not isinstance(value, (list, tuple)):
+        raise ValueError('Expected pending action rows')
+    result = []
+    for row in value:
+        if (len(row) != 14 or any(type(x) not in (int, float) or not math.isfinite(x) for x in row)
+                or any(abs(x) > 1.000001 for x in row[:12]) or row[12] < 0):
+            raise ValueError('Expected finite pending action[12], nonnegative source age and signed send time')
+        result.append([float(x) for x in row])
+    return result
+
+
 def observation_size(schema=SCHEMA):
     if schema not in SCHEMAS:
         raise ValueError("Neural gait observation schema mismatch")
-    if schema == HISTORY_SCHEMA:
+    if schema in HISTORY_SCHEMAS:
         return HISTORY_SIZE
+    if schema in PROPRIO_SCHEMAS:
+        return PROPRIO_SIZE + (SPATIAL_FEATURES if schema == PROPRIO_CAMERA_SCHEMA else 0)
     return OBSERVATION_SIZE + (SPATIAL_FEATURES if schema in DEPTH_SCHEMAS else 0)
 
 
@@ -87,6 +128,16 @@ def spatial_features(vision):
 
 def vector(observation):
     size = observation_size(observation.get("schema"))
+    if observation.get("schema") in PROPRIO_SCHEMAS:
+        rows = observation["proprio_history"]
+        if len(rows) != PROPRIO_SAMPLES or any(len(row) != PROPRIO_FEATURES for row in rows):
+            raise ValueError("Expected fifteen measured proprioceptive snapshots")
+        values = [float(value) for row in rows for value in row]
+        if observation["schema"] == PROPRIO_CAMERA_SCHEMA:
+            values += spatial_features(observation.get("vision", {}))
+        if not all(math.isfinite(value) for value in values):
+            raise ValueError("Nonfinite proprioceptive observation")
+        return values
 
     def numbers(key, count, scale=1.0):
         values = observation[key]
@@ -147,7 +198,7 @@ def vector(observation):
     if observation["schema"] in DEPTH_SCHEMAS:
         values += spatial_features(vision)
     values += numbers("previous_action", 12)
-    if observation["schema"] == HISTORY_SCHEMA:
+    if observation["schema"] in HISTORY_SCHEMAS:
         error = float(observation["heading_error_rad"])
         values += [math.sin(error), math.cos(error)]
         history = observation["sensor_history"]
@@ -162,6 +213,8 @@ def vector(observation):
         values += [float(value) for value in critic]
     if len(values) != size or not all(math.isfinite(x) for x in values):
         raise ValueError("Invalid neural gait observation")
+    if observation['schema'] == PENDING_SCHEMA:
+        pending_rows(observation['pending_actions'])
     return values
 
 
@@ -179,7 +232,34 @@ class ObservationHistory:
         self.time = self.command = self.reference_heading = None
 
     def project(self, observation):
-        if observation["schema"] != HISTORY_SCHEMA:
+        if observation["schema"] in PROPRIO_SCHEMAS:
+            now = observation.get("observation_time_s")
+            if type(now) not in (int, float) or not math.isfinite(now) or now < 0:
+                raise ValueError("Expected a finite nonnegative observation_time_s")
+            w,x,y,z = observation["orientation_wxyz"]
+            gravity = [2*(x*z-w*y),2*(y*z+w*x),2*(w*w+z*z)-1]
+            rad = math.pi/180
+            row = ([value*rad for value in observation["joint_deg"]] +
+                   [value*rad for value in observation["joint_velocity_deg_s"]] +
+                   list(observation["angular_rate_rad_s"]) +
+                   [value/9.81 for value in observation["acceleration_m_s2"]] +
+                   [-value for value in gravity] + list(observation["command"]) +
+                   list(observation["previous_action"]))
+            if self.time is None or now < self.time:
+                self.samples.clear()
+            self.time = now
+            if self.samples and self.samples[-1][0] == now:
+                self.samples.pop()
+            self.samples.append((now,row))
+            while len(self.samples)>1 and self.samples[1][0]<now-PROPRIO_SAMPLES*.02:
+                self.samples.popleft()
+            result=dict(observation,proprio_history=[])
+            for index in range(PROPRIO_SAMPLES):
+                past=next((values for stamp,values in reversed(self.samples)
+                           if stamp<=now-index*.02+1e-9),None)
+                result["proprio_history"].append(past if past is not None else [0.]*PROPRIO_FEATURES)
+            return result
+        if observation["schema"] not in HISTORY_SCHEMAS:
             return observation
         now = observation.get("observation_time_s")
         if type(now) not in (int, float) or not math.isfinite(now) or now < 0:

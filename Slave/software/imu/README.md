@@ -7,16 +7,18 @@ P4's `ainekio_p4_media/imu.c` now owns continuous hardware acquisition and
 calls this estimator. The console reads synchronized snapshots (`imu`,
 `imu sample`, `imu watch`, `imu body`). P4 now loads a saved nominal mounting
 rotation and measured stationary gyro bias at boot. Raw sensor snapshots remain
-available alongside corrected body observations. Network telemetry and gait
-feedback are not connected yet; precise mounting and accelerometer calibration
-remain unmeasured.
+available alongside corrected body observations. The P4 controller publishes
+body-frame attitude, angular rate and acceleration with device timestamps and a
+boot identity; Body Control and the existing walking/balance owners consume these
+observations. Explicit gait recordings also retain IMU snapshots alongside servo
+feedback. Precise mounting and accelerometer calibration remain unmeasured.
 
 ## Data contract
 
 `include/ainekio/imu.h` is the interface. One acquisition owner calls
 `ainekio_imu_update` once per new sample. Consumers call `ainekio_imu_observe`
-without advancing filter state. The eventual P4 owner must synchronize copies
-across tasks and associate transmitted observations with the active boot/session.
+without advancing filter state. The P4 acquisition owner synchronizes snapshot
+copies across tasks; the controller supplies the active telemetry boot identity.
 
 - Input time is acquisition time in monotonic microseconds, in one session.
   Do not substitute host receipt time or the gait's rate-limited phase clock.
@@ -126,7 +128,22 @@ data-ready flags every 2 ms; scheduling or bus contention can skip updates.
 The task calls the estimator once per acquired sample. I2C errors retain the
 previous acquisition timestamp, so snapshots age according to the existing
 20 ms freshness contract. Snapshot reads do not advance filter state.
-No motion admission or actuator output depends on this data.
+The existing body balance and walking consumers use the corrected observations;
+reading or transmitting a snapshot does not itself command actuator output.
+Acquisition rate is not ordinary telemetry rate: telemetry and the gait trace's
+servo `sample` events take independent snapshots of this estimator. Since
+`0.8.145-p4-imu-trace`, explicit gait recording also retains each accepted
+acquisition as an `imu` event in the existing trace ring. These events contain
+the calibrated estimator acceleration and angular rate, quaternion, quality
+flags and acquisition counters. Their timestamp remains the I2C read midpoint,
+not a sensor data-ready timestamp. The header's `sensor_boot_id` identifies the
+same device clock as camera metadata and ordinary IMU telemetry; the trace's
+separate `boot_id` and `session` continue to identify its cursor lifecycle.
+Deduplicate by sensor boot identity and original IMU timestamp when combining
+snapshots with acquisition events. Recording Stop prevents further appends and
+retains the final records for draining. The shared 512-event ring reports lost
+records if the reader falls behind; full-rate coverage must be established from
+the recorded timestamps, acquisition counters and loss receipts.
 See [gait journal](../../../docs/v2-12servo/GAIT_RESEARCH_JOURNAL.md) for physical
 results rather than treating compilation as working hardware.
 

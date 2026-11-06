@@ -6,6 +6,7 @@ never firmware limits or saved servo calibration. Run native and interpolation
 validation before adopting the resulting files. NumPy/SciPy are required.
 """
 import argparse, json, copy, importlib.util, sys, hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 import numpy as np
 from scipy.optimize import least_squares
@@ -16,6 +17,8 @@ parser.add_argument("--root", type=Path, required=True)
 parser.add_argument("--calibration", type=Path, required=True)
 parser.add_argument("--commands", nargs="+", required=True)
 parser.add_argument("--refresh-only", action="store_true")
+parser.add_argument("--pulse-window-us", nargs=2, type=float, default=(500, 2800),
+                    help="Permitted pulse band for the authored motion")
 args = parser.parse_args()
 BASE = args.baseline.resolve()
 ROOT = args.root.resolve()
@@ -34,7 +37,7 @@ for j in js:
         np.radians(
             j["home_cd"] / 100 + (us - j["home_us"]) / (sign * j["us_per_degree"])
         )
-        for us in (400, 2900)
+        for us in args.pulse_window_us
     ]
     bounds[j["id"] // 3, j["id"] % 3] = sorted(a)
 
@@ -59,6 +62,8 @@ def author(command):
     with np.load(hp) as hulls:
         m.hulls = {l: hulls["sole_" + l].copy() for l in legs}
         bh = hulls["body"].copy()
+    fixed_pitch = command == "crouch"
+    offset = 2 if fixed_pitch else 3
     prev = None
     cache = {}
     maxerr = 0.0
@@ -99,9 +104,9 @@ def author(command):
             def residual(v):
                 b = body.copy()
                 b[[0, 2]] += v[:2]
-                ee = e + np.array([0.0, v[2], 0.0])
+                ee = e if fixed_pitch else e + np.array([0.0, v[2], 0.0])
                 m.body_euler = ee
-                q = v[3:].reshape(4, 3)
+                q = v[offset:].reshape(4, 3)
                 errors = []
                 for i, l in enumerate(legs):
                     try:
@@ -118,7 +123,7 @@ def author(command):
                             errors.extend((R[:, 0] - rotations[i][:, 0]) * 1000)
                     except ValueError:
                         errors.extend(
-                            [1000 + v[3 + 3 * i] * 0.1]
+                            [1000 + v[offset + 3 * i] * 0.1]
                             * (7 if command == "sit" and i < 2 and active[i] else 4)
                         )
                 B = ref.rz(ee[2]) @ ref.ry(ee[1]) @ ref.rx(ee[0])
@@ -126,19 +131,19 @@ def author(command):
                 return np.r_[
                     errors,
                     v[:2] * (0.02 if continuous else 0.002),
-                    v[2] * (1.0 if continuous else 0.1),
+                    [] if fixed_pitch else [v[2] * (1.0 if continuous else 0.1)],
                     (q - qold).ravel() * (0.05 if continuous else 0.01),
                     (q - prior).ravel() * (0.01 if continuous else 0.005),
                     min(0.0, floor) * 1000,
                 ]
 
             pitch_bound = 0.5
-            lo = np.r_[-100.0, -100.0, -pitch_bound, bounds[:, :, 0].ravel() + 1e-8]
-            hi = np.r_[100.0, 100.0, pitch_bound, bounds[:, :, 1].ravel() - 1e-8]
+            lo = np.r_[-100.0, -100.0, [] if fixed_pitch else [-pitch_bound], bounds[:, :, 0].ravel() + 1e-8]
+            hi = np.r_[100.0, 100.0, [] if fixed_pitch else [pitch_bound], bounds[:, :, 1].ravel() - 1e-8]
             start = np.r_[
                 0.0,
                 0.0,
-                0.0,
+                [] if fixed_pitch else [0.0],
                 np.clip(qold, bounds[:, :, 0] + 1e-6, bounds[:, :, 1] - 1e-6).ravel(),
             ]
             if prev is not None and not continuous:
@@ -146,7 +151,7 @@ def author(command):
                 pe = np.array(prev["body_rotation_euler_xyz_rad"])
                 start = np.r_[
                     pb[[0, 2]] - body[[0, 2]],
-                    pe[1] - e[1],
+                    [] if fixed_pitch else [pe[1] - e[1]],
                     np.array(prev["actuator_angles_rad"]).ravel(),
                 ]
             start = np.clip(start, lo + 1e-10, hi - 1e-10)
@@ -162,8 +167,8 @@ def author(command):
             )
             b = body.copy()
             b[[0, 2]] += fit.x[:2]
-            ee = e + np.array([0.0, fit.x[2], 0.0])
-            q = fit.x[3:].reshape(4, 3)
+            ee = e if fixed_pitch else e + np.array([0.0, fit.x[2], 0.0])
+            q = fit.x[offset:].reshape(4, 3)
             m.body_euler = ee
             err = 0.0
             for i, l in enumerate(legs):
@@ -205,7 +210,9 @@ def author(command):
         changed_samples=changed,
         maximum_planted_fit_error_mm=maxerr,
         maximum_joint_step_degrees=float(np.degrees(abs(np.diff(q, axis=0))).max()),
-        pulse_window_us=[400, 2900],
+        pulse_window_us=args.pulse_window_us,
+        calibration_sha256=hashlib.sha256(args.calibration.read_bytes()).hexdigest(),
+        body_rotations_preserved=command=="crouch",
         baseline_source_sha256=hashlib.sha256(
             (folder / "source.json").read_bytes()
         ).hexdigest(),
@@ -302,6 +309,8 @@ def refresh(commands):
         baseline = read(BASE / "motions/gestures" / name / "source.json")
         original = baseline["samples"]
         source["metadata"]["baseline_validation"] = baseline["validation"]
+        if name == "crouch" and "linkage_remap" in source["metadata"]:
+            source["metadata"]["linkage_remap"]["policy"] = "Planted-foot Crouch refitted to the supplied motor mapping and authored pulse window; lowering depth follows that fit."
         q = np.array([r["actuator_angles_rad"] for r in rows])
         times = np.array([r["time_s"] for r in rows])
         cfg = read(ROOT / "geometry.json")
@@ -427,6 +436,8 @@ def refresh(commands):
                 ] = "Stepped Sit with planted support positions preserved; body pitch and joints refitted to the installed calibration."
             if name == "crouch":
                 v["body_z_mm"] = rows[-1]["body_translation_world_mm"][2]
+                if "linkage_remap" in v:
+                    v["linkage_remap"]["policy"] = "Planted-foot Crouch refitted to the supplied motor mapping and authored pulse window; lowering depth follows that fit."
             if name == "point":
                 v["extended_joint_offsets_rad"] = rows[600]["actuator_angles_rad"][2]
                 v["extension_waypoints_rad"] = [
@@ -468,6 +479,7 @@ def refresh(commands):
                 b["posture_sha256"] = digest(folder / b["posture_file"])
             write(p, v)
         manifest = read(folder / "manifest.json")
+        manifest["generated_utc"] = datetime.now(timezone.utc).date().isoformat()
         manifest.update(
             source_sha256=digest(folder / "source.json"),
             source_validation=source["validation"],

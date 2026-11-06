@@ -66,6 +66,20 @@ int main(void)
     assert(!camera_message.command.data.camera.enabled && camera_message.command.data.camera.fps == 0);
     assert(!camera_message.command.data.camera.has_snapshot_resolution);
     assert(!camera_message.command.data.camera.has_controls);
+    assert(!camera_message.command.data.camera.has_max_exposure_us);
+    const uint32_t ceilings[] = {0, 10000, UINT32_MAX};
+    for (unsigned i = 0; i < 3; ++i) {
+        snprintf(output, sizeof(output), "{\"t\":\"cam\",\"seq\":4,\"on\":true,\"fps\":5,\"res\":\"VGA\",\"max_exposure_us\":%lu}", (unsigned long)ceilings[i]);
+        assert(ainekio_control_decode_for_body(output, strlen(output), &camera_message) == AINEKIO_DECODE_OK);
+        assert(camera_message.command.data.camera.has_max_exposure_us);
+        assert(camera_message.command.data.camera.max_exposure_us == ceilings[i]);
+        assert(!camera_message.command.data.camera.has_controls);
+    }
+    const char *invalid_ceilings[] = {"-1", "4294967296", "1.5", "true", "null"};
+    for (unsigned i = 0; i < 5; ++i) {
+        snprintf(output, sizeof(output), "{\"t\":\"cam\",\"seq\":4,\"on\":true,\"fps\":5,\"res\":\"VGA\",\"max_exposure_us\":%s}", invalid_ceilings[i]);
+        assert(ainekio_control_decode_for_body(output, strlen(output), &camera_message) != AINEKIO_DECODE_OK);
+    }
     const char *stream_names[] = {"XGA", "960P", "FHD"};
     for (unsigned i = 0; i < 3; ++i) {
         snprintf(output, sizeof(output), "{\"t\":\"cam\",\"seq\":4,\"on\":true,\"fps\":3,\"res\":\"%s\",\"exposure_us\":50000,\"gain_x16\":64,\"jpeg_quality\":85}", stream_names[i]);
@@ -113,7 +127,7 @@ int main(void)
     length = ainekio_encode_cancelled(5U, AINEKIO_CANCEL_STOP, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_CANCELLED);
     const ainekio_camera_capture_t capture = {.counter=1, .width=1280, .height=960,
-        .exposure_us=80000, .gain_x16=64, .settle_ms=900, .settled=true};
+        .exposure_us=80000, .max_exposure_us=99992, .gain_x16=64, .settle_ms=900, .settled=true};
     const ainekio_status_t status = {
         .battery_voltage = 7.42F,
         .rssi = -52,
@@ -136,6 +150,7 @@ int main(void)
     assert(strstr(output, "\"wake_model\":\"ainekio\"") != NULL);
     assert(strstr(output, "\"wake_ready\":false") != NULL);
     assert(strstr(output, "\"exposure_us\":80000") != NULL);
+    assert(strstr(output, "\"max_exposure_us\":99992") != NULL);
     assert(strstr(output, "\"settled\":true") != NULL);
     length = ainekio_encode_event(
         AINEKIO_EVENT_LITTLEFS_FAIL,
@@ -160,17 +175,20 @@ int main(void)
         UINT32_MAX,
         AINEKIO_CAMERA_ORIGIN_NONE,
         0U,
+        0, 0,
         output,
         sizeof(output)
     );
     valid(output, length, AINEKIO_MESSAGE_CAMERA_META);
     assert(strstr(output, "\"fps\":5") != NULL);
+    assert(strstr(output, "frame_completed_us") == NULL && strstr(output, "boot_id") == NULL);
     length = ainekio_encode_camera_meta(
         AINEKIO_CAMERA_XGA,
         5U,
         1U,
         AINEKIO_CAMERA_ORIGIN_ACTION,
         4U,
+        UINT64_C(12345678901), 0,
         output,
         sizeof(output)
     );
@@ -179,11 +197,15 @@ int main(void)
     assert(strstr(output, "\"origin\":\"action\"") != NULL);
     assert(strstr(output, "\"origin_id\":4") != NULL);
     assert(strstr(output, "\"fps\":0") != NULL);
+    assert(strstr(output, "\"frame_completed_us\":12345678901") != NULL);
+    assert(strstr(output, "\"boot_id\":0") != NULL);
     for (unsigned i = AINEKIO_CAMERA_960P; i <= AINEKIO_CAMERA_FHD; ++i) {
-        length = ainekio_encode_camera_meta(i, 0, 3, AINEKIO_CAMERA_ORIGIN_REQUEST, 2, output, sizeof(output));
+        length = ainekio_encode_camera_meta(i, 0, 3, AINEKIO_CAMERA_ORIGIN_REQUEST, 2, INT64_MAX, UINT32_MAX, output, sizeof(output));
         valid(output, length, AINEKIO_MESSAGE_CAMERA_META);
+        assert(length < 192); /* Existing controller packet metadata capacity. */
     }
-    assert(ainekio_encode_camera_meta(AINEKIO_CAMERA_AUTO, 0, 3, AINEKIO_CAMERA_ORIGIN_REQUEST, 2, output, sizeof(output)) == 0);
+    assert(ainekio_encode_camera_meta(AINEKIO_CAMERA_AUTO, 0, 3, AINEKIO_CAMERA_ORIGIN_REQUEST, 2, 0, 0, output, sizeof(output)) == 0);
+    assert(ainekio_encode_camera_meta(AINEKIO_CAMERA_VGA, 5, 3, AINEKIO_CAMERA_ORIGIN_NONE, 0, UINT64_MAX, 0, output, sizeof(output)) == 0);
     length = ainekio_encode_ping(false, output, sizeof(output));
     valid(output, length, AINEKIO_MESSAGE_PING);
     length = ainekio_encode_ping(true, output, sizeof(output));

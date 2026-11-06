@@ -38,6 +38,56 @@ def project_depth(measurement, now_s, robot_id, epoch):
         depth_frame_id=measurement.get("frameId"), depth_source=measurement.get("source"))
 
 
+class RenderedCamera:
+    """Virtual optics only: JPEGs go to the existing Body Control camera owner.
+
+    This never reads root pose, ray depth or a simulator quaternion to produce
+    a measurement. The installed MoGe/odometry worker must derive its own depth
+    and motion from the images and the firmware-estimated IMU telemetry.
+    """
+    def __init__(self, profile):
+        self.profile = deepcopy(profile)
+        self.width, self.height = profile["imageSize"]
+        self.capture_hz = float(profile["capture_hz"])
+        self.jpeg_quality = int(profile["jpeg_quality"])
+        self.renderer = None
+        self.reset()
+
+    def reset(self):
+        self.next_capture = 0.
+        self.counter = 0
+        self.pending_frame = None
+
+    def update(self, model, data, rng=None, *, now_s=None, **unused):
+        import cv2
+        import mujoco
+        now = float(data.time if now_s is None else now_s)
+        if now + 1e-10 < self.next_capture:
+            return None
+        self.next_capture = now + 1/self.capture_hz
+        if self.renderer is None:
+            self.renderer = mujoco.Renderer(model, height=self.height, width=self.width)
+        self.renderer.update_scene(data, camera="ainekio_camera")
+        rgb = self.renderer.render()
+        ok, jpeg = cv2.imencode(".jpg", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR),
+                               [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality])
+        if not ok:
+            raise RuntimeError("Virtual camera JPEG encoding failed")
+        self.counter += 1
+        self.pending_frame = dict(counter=self.counter, jpeg=jpeg.tobytes(),
+                                  completed_us=round(1+now*1e6))
+        return None  # A frame is not a depth/odometry measurement.
+
+    def take_frame(self):
+        frame, self.pending_frame = self.pending_frame, None
+        return frame
+
+    def close(self):
+        if self.renderer is not None:
+            self.renderer.close()
+            self.renderer = None
+
+
 class DepthCamera:
     def __init__(self, profile):
         self.profile = deepcopy(profile)

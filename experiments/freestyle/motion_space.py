@@ -29,6 +29,7 @@ TOOLS = [
     operation('gait','Use the existing P4 walking system when ordinary locomotion is requested.',
               {'command':{'type':'string','enum':['walk','backward','left','right','crawl','run','crab','crab_right','crab_forward','crab_backward','crab_turn_left','crab_turn_right']},
                'speed_pct':NUMBER,'cycles':{'type':'integer'}}),
+    operation('stand','Run the body’s existing Stand operation, including its startup rise, posture transition and feedback correction.',{}),
     operation('stop','Stop body movement when stopping is requested.',{}),
     operation('feet',
         'Translate the listed foot reference points together from their measured starting positions. '
@@ -44,20 +45,16 @@ TOOLS = [
         {'translation_mm':VECTOR,'rotation_deg':VECTOR,'legs':LEG_LIST,
          'foot_offsets_mm':VECTORS,'speed_pct':NUMBER}),
     operation('release','Release servo outputs when the request explicitly asks to release them, including after resting.',{}),
-    operation('trajectory',
-        'Generate coordinated cubic joint curves, without a stored motion name. Each joint pairs with one track. '
-        'Track knots are [seconds, absolute model degrees, tangent degrees/second], start at zero, and share an ending time. '
-        'checkpoints_s selects endpoints that must be measured before advancing; terminal arrival completes the trajectory. '
-        'holds_s preserves intentional source-time intervals. speed_pct controls joint-distance travel; taper_deg selects '
-        'the final deceleration distance, or zero. expected_up is [seconds, XYZ body-frame vertical] intended attitude, '
-        'not a measurement; [] means unknown. Other joints retain their current targets.',
-        {'joints':{'type':'array','items':JOINT},
-         'tracks':{'type':'array','items':{'type':'array','items':VECTOR}},
-         'checkpoints_s':{'type':'array','items':NUMBER},
-         'holds_s':{'type':'array','items':{'type':'array','items':NUMBER,'minItems':2,'maxItems':2}},
-         'expected_up':{'type':'array','items':{'type':'array','prefixItems':[NUMBER,VECTOR],'minItems':2,'maxItems':2}},
-         'speed_pct':NUMBER,'taper_deg':NUMBER}),
+
 ]
+
+TAPER_DESCRIPTION = ('speed_pct sets joint travel rate as a percentage of joint_speed_limit_deg_s. '
+                     'taper_deg is the final joint-travel deceleration distance in degrees; zero disables taper.')
+for tool in TOOLS:
+    if tool['name'] in ('move','pose','oscillate','feet','body'):
+        tool['description'] += ' ' + TAPER_DESCRIPTION
+        tool['parameters']['properties']['taper_deg'] = NUMBER
+        tool['parameters']['required'].append('taper_deg')
 
 COMPLETION_INSTRUCTIONS = (
     'An empty array [] completes the current request without issuing another movement. '

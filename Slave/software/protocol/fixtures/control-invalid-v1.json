@@ -1485,6 +1485,153 @@
         "max_recording_ms": 15020
       },
       "reason": "range:max_recording_ms"
+    },
+    {
+      "name": "camera_motion_exposure_-1",
+      "message": {
+        "t": "cam",
+        "seq": 42,
+        "on": true,
+        "fps": 5,
+        "res": "VGA",
+        "max_exposure_us": -1
+      },
+      "reason": "range:max_exposure_us"
+    },
+    {
+      "name": "camera_motion_exposure_4294967296",
+      "message": {
+        "t": "cam",
+        "seq": 42,
+        "on": true,
+        "fps": 5,
+        "res": "VGA",
+        "max_exposure_us": 4294967296
+      },
+      "reason": "range:max_exposure_us"
+    },
+    {
+      "name": "camera_motion_exposure_1.5",
+      "message": {
+        "t": "cam",
+        "seq": 42,
+        "on": true,
+        "fps": 5,
+        "res": "VGA",
+        "max_exposure_us": 1.5
+      },
+      "reason": "type:max_exposure_us"
+    },
+    {
+      "name": "camera_motion_exposure_True",
+      "message": {
+        "t": "cam",
+        "seq": 42,
+        "on": true,
+        "fps": 5,
+        "res": "VGA",
+        "max_exposure_us": true
+      },
+      "reason": "type:max_exposure_us"
+    },
+    {
+      "name": "cam_meta_frame_completed_us_0",
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 19,
+        "frame_completed_us": 0
+      },
+      "reason": "range:frame_completed_us"
+    },
+    {
+      "name": "cam_meta_frame_completed_us_-1",
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 19,
+        "frame_completed_us": -1
+      },
+      "reason": "range:frame_completed_us"
+    },
+    {
+      "name": "cam_meta_frame_completed_us_9223372036854775808",
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 19,
+        "frame_completed_us": 9223372036854775808
+      },
+      "reason": "range:frame_completed_us"
+    },
+    {
+      "name": "cam_meta_frame_completed_us_1.5",
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 19,
+        "frame_completed_us": 1.5
+      },
+      "reason": "type:frame_completed_us"
+    },
+    {
+      "name": "cam_meta_frame_completed_us_True",
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 19,
+        "frame_completed_us": true
+      },
+      "reason": "type:frame_completed_us"
+    },
+    {
+      "name": "cam_meta_boot_id_-1",
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 19,
+        "boot_id": -1
+      },
+      "reason": "range:boot_id"
+    },
+    {
+      "name": "cam_meta_boot_id_4294967296",
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 19,
+        "boot_id": 4294967296
+      },
+      "reason": "range:boot_id"
+    },
+    {
+      "name": "cam_meta_boot_id_1.5",
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 19,
+        "boot_id": 1.5
+      },
+      "reason": "type:boot_id"
+    },
+    {
+      "name": "cam_meta_boot_id_True",
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 19,
+        "boot_id": true
+      },
+      "reason": "type:boot_id"
     }
   ]
 }

@@ -172,7 +172,11 @@ def replay(program, observation, native_gait=None):
                 current = {**observation, 'joints': {
                     j:{**observation['joints'][j], 'model_deg':positions[j],
                        'commanded_model_deg':positions[j]} for j in JOINTS}}
-                frames = compile_motion(action, current, positions)['frames']
+                compiled = compile_motion(action, current, positions)
+                frames = list(compiled['frames'])
+                if 'curve' in compiled:
+                    curve=compiled['curve']
+                    frames.append([round(curve['speed_deg_s']*100),curve['positions'][-1]])
             else:
                 return {'status':'not_fully_replayed', 'operation':name,
                         'completed_actions':completed, 'samples':samples,

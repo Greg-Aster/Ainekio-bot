@@ -29,6 +29,7 @@ COMMAND_DEADLINE_FEATURE = "command_deadline_v1"
 CAMERA_PROFILES_FEATURE = "camera_profiles_v1"
 CAMERA_ADAPTIVE_FEATURE = "camera_adaptive_v1"
 CAMERA_CONTROLS_FEATURE = "camera_controls_v1"
+CAMERA_MOTION_EXPOSURE_FEATURE = "camera_motion_exposure_v1"
 AUDIO_INPUT_FEATURE = "audio_input_v1"
 FACE_FEEDBACK_FEATURE = "face_feedback_v1"
 BODY_CALIBRATION_FEATURE = "body_calibration_v2"
@@ -451,6 +452,8 @@ def _validate_cam(message: Mapping[str, object]) -> None:
     _string(message, "res", allowed=CAMERA_STREAM_RESOLUTIONS)
     if "snapshot_res" in message:
         _string(message, "snapshot_res", allowed=CAMERA_SNAPSHOT_RESOLUTIONS)
+    if "max_exposure_us" in message:
+        _integer(message, "max_exposure_us", minimum=0, maximum=0xFFFFFFFF)
     if any(key in message for key in ("exposure_us", "gain_x16", "jpeg_quality")):
         exposure = _integer(message, "exposure_us", minimum=0, maximum=1000000)
         gain = _integer(message, "gain_x16", minimum=0, maximum=1023)
@@ -919,6 +922,13 @@ def _validate_event(message: Mapping[str, object]) -> None:
             if not isinstance(samples, list) or len(samples) != 12 or any(
                     type(value) is not int or not 0 <= value <= feedback["device_us"] for value in samples):
                 _fail("invalid:imu.joint_feedback.sampled_us")
+            for key,maximum in (("raw_adc",4095),("signal_millivolts",None)):
+                if key not in feedback:continue
+                values=feedback[key]
+                if not isinstance(values,list) or len(values)!=12 or any(
+                        value is not None and (type(value) is not int or value<0 or
+                            (maximum is not None and value>maximum)) for value in values):
+                    _fail(f"invalid:imu.joint_feedback.{key}")
             for key in ("filtered_model_deg", "velocity_deg_s", "commanded_model_deg"):
                 values = feedback.get(key)
                 mask = feedback["commanded_mask" if key == "commanded_model_deg" else "usable_mask"]
@@ -928,7 +938,8 @@ def _validate_event(message: Mapping[str, object]) -> None:
                     if mask & (1 << index):
                         if type(value) not in (int, float) or not math.isfinite(value):
                             _fail(f"invalid:imu.joint_feedback.{key}")
-                    elif value is not None:
+                    elif value is not None and (key == "commanded_model_deg" or
+                            type(value) not in (int,float) or not math.isfinite(value)):
                         _fail(f"invalid:imu.joint_feedback.{key}")
     if "origin_id" in message:
         if name not in {"vad_open", "vad_close"}:
@@ -940,6 +951,10 @@ def _validate_cam_meta(message: Mapping[str, object]) -> None:
     _string(message, "res", allowed=CAMERA_RESOLUTIONS)
     _integer(message, "fps", minimum=0, maximum=15)
     _integer(message, "counter_base", minimum=0, maximum=MAX_BINARY_COUNTER)
+    if "frame_completed_us" in message:
+        _integer(message, "frame_completed_us", minimum=1, maximum=(1 << 63) - 1)
+    if "boot_id" in message:
+        _integer(message, "boot_id", minimum=0, maximum=MAX_BINARY_COUNTER)
     has_origin = "origin" in message
     has_origin_id = "origin_id" in message
     if has_origin != has_origin_id:

@@ -1202,6 +1202,61 @@
         "silence_ms": 2000,
         "max_recording_ms": 15000
       }
+    },
+    {
+      "name": "camera_motion_exposure_0",
+      "message": {
+        "t": "cam",
+        "seq": 42,
+        "on": true,
+        "fps": 5,
+        "res": "VGA",
+        "max_exposure_us": 0
+      }
+    },
+    {
+      "name": "camera_motion_exposure_10000",
+      "message": {
+        "t": "cam",
+        "seq": 42,
+        "on": true,
+        "fps": 5,
+        "res": "VGA",
+        "max_exposure_us": 10000
+      }
+    },
+    {
+      "name": "camera_motion_exposure_4294967295",
+      "message": {
+        "t": "cam",
+        "seq": 42,
+        "on": true,
+        "fps": 5,
+        "res": "VGA",
+        "max_exposure_us": 4294967295
+      }
+    },
+    {
+      "name": "cam_meta_completed_clock",
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 19,
+        "frame_completed_us": 12345678901,
+        "boot_id": 0
+      }
+    },
+    {
+      "name": "cam_meta_completed_clock_max",
+      "message": {
+        "t": "cam_meta",
+        "res": "VGA",
+        "fps": 5,
+        "counter_base": 19,
+        "frame_completed_us": 9223372036854775807,
+        "boot_id": 4294967295
+      }
     }
   ]
 }

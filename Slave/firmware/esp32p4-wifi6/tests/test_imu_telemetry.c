@@ -49,10 +49,12 @@ int main(void) {
      * commanded zero angle remain distinct. Exercise the actual JSON parser. */
     ainekio_p4_feedback_observation_t feedback={.device_us=UINT64_MAX,
         .scan=UINT32_MAX,.revision=UINT32_MAX,.scan_us=20000,.enabled=true,
-        .usable_mask=4094,.commanded_mask=4095,.stalled_joints=4,
-        .health={.calibrated=4095,.unavailable=1}};
+        .measured_mask=4094,.usable_mask=4092,.commanded_mask=4095,.stalled_joints=4,
+        .health={.calibrated=4095,.unavailable=1,.below_calibration=2}};
     for(unsigned j=0;j<12;j++) {
         feedback.sampled_us[j]=INT64_MAX-100*j;
+        feedback.raw_adc[j]=j?400:4095;
+        feedback.signal_millivolts[j]=j?286:-1;
         feedback.measured.position[j]=(j%2?-1:1)*35999.9f;
         feedback.measured.velocity[j]=(j%2?-1:1)*54545.45f;
         feedback.commanded.position[j]=j?12345.6f:0;
@@ -72,6 +74,10 @@ int main(void) {
     assert(cJSON_IsNull(cJSON_GetArrayItem(angles,0)));
     assert(cJSON_GetArrayItem(commands,0)->valuedouble==0);
     assert(fabs(cJSON_GetArrayItem(angles,1)->valuedouble+359.999)<.001);
+    assert(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(joints,"raw_adc"),1)->valueint==400);
+    assert(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(joints,"raw_adc"),0)->valueint==4095);
+    assert(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(joints,"signal_millivolts"),1)->valueint==286);
+    assert(cJSON_IsNull(cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(joints,"signal_millivolts"),0)));
     assert(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(joints,"sampled_us"))==12);
     cJSON_Delete(message);
     assert(!ainekio_imu_telemetry(&sensor,UINT32_MAX,&motion,token,&feedback,combined,bytes));

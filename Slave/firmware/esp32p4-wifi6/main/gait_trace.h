@@ -2,14 +2,16 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "ainekio/imu.h"
 
 /* Diagnostic event journal only: no actuator, admission or timing decisions.
  * Output time is software publication, not the PCA9685's physical PWM edge. */
-enum { AINEKIO_TRACE_OUTPUT=1, AINEKIO_TRACE_SAMPLE=2, AINEKIO_TRACE_TRACKING=3 };
+enum { AINEKIO_TRACE_OUTPUT=1, AINEKIO_TRACE_SAMPLE=2, AINEKIO_TRACE_TRACKING=3, AINEKIO_TRACE_IMU=4 };
 typedef struct {
     uint64_t time_us;
     unsigned kind;
     union {
+        struct { ainekio_imu_observation_t sample; bool calibration_applied; } imu;
         struct { uint16_t pulses[12]; bool armed; } output;
         struct {
             uint64_t sampled_us[4];

@@ -878,7 +878,7 @@
     text("servo-feedback-motion", data.stand_replanning ?
       "Stand: calculating the next commanded stepping path." : data.stand_waiting ?
       `Checking commanded joint targets${waiting.length ? ": " + waiting.join(", ") : "."}${data.stand_replans ? ` Stand corrective paths: ${data.stand_replans}.` : ""}` : stalled.length ?
-      `Last stall: ${stalled.join(", ")}. All servo outputs were released (device time ${data.stall_clock_us} µs).` :
+      `Last reported jam: ${stalled.join(", ")}${data.device_us != null && data.stall_clock_us != null ? ` · ${((data.device_us-data.stall_clock_us)/1000000).toFixed(1)} s ago` : ""}.` :
       `Stand verification ${data.stand_enabled ? "enabled" : "off"}.`);
     const rows = byId("servo-feedback-rows"); rows.replaceChildren();
     for (const joint of data.joints) {
@@ -1456,7 +1456,7 @@
   }
 
   function sendNamedMotion(name, asset, label) {
-    if (byId("motion-system").value !== "library") {
+    if (byId("motion-system").checked) {
       return command("/api/request-motion", {description: (asset || name).replaceAll("_", " ")}, label);
     }
     const params = asset ? {asset} : {};
@@ -1469,29 +1469,33 @@
     return command("/api/intent", {name, params}, label);
   }
 
+  function renderMotionSystemControls() {
+    const freestyle = byId("motion-system").checked;
+    byId("named-poses-emotes").hidden = freestyle;
+    document.querySelectorAll('[data-motion-system="freestyle"]').forEach(panel => { panel.hidden = !freestyle; });
+  }
+
   function updateMotionSystem(payload) {
     if (motionSystemRobot !== selectedRobotId) {
       motionSystemRobot = selectedRobotId;
       motionSystemEdited = false;
     }
     const system = payload.motion_systems?.[selectedRobotId] || "freestyle";
-    if (!motionSystemEdited) byId("motion-system").value = system;
-    text("motion-system-status", selectedRobotId
-      ? `Manual controls: ${system === "freestyle" ? "Freestyle" : "Legacy library"}. MetaHuman and automatic requests use Freestyle.`
-      : "Select a robot.");
+    if (!motionSystemEdited) byId("motion-system").checked = system === "freestyle";
+    renderMotionSystemControls();
   }
 
   function setupMotionControls() {
-    byId("motion-system").addEventListener("change", () => { motionSystemEdited = true; });
-    byId("motion-system-form").addEventListener("submit", async (event) => {
-      event.preventDefault();
+    byId("motion-system").addEventListener("change", async () => {
+      motionSystemEdited = true;
+      renderMotionSystemControls();
       const robot = selectedRobotId;
-      const system = byId("motion-system").value;
+      const system = byId("motion-system").checked ? "freestyle" : "library";
       try {
         await command("/api/motion-system", {system},
           "Motion system saved", () => robot === selectedRobotId);
         if (robot === selectedRobotId) {
-          if (byId("motion-system").value === system) motionSystemEdited = false;
+          if ((byId("motion-system").checked ? "freestyle" : "library") === system) motionSystemEdited = false;
           await refreshStatus();
         }
       } catch (_error) { /* command displays the error */ }
@@ -2367,6 +2371,68 @@
     }
   }
 
+  function restoreCameraSettings(saved) {
+    byId("camera-form").elements.motion_exposure.value = saved?.max_exposure_us ? "motion" : "auto";
+    byId("camera-form").elements.max_exposure_ms.value = saved?.max_exposure_us ? saved.max_exposure_us / 1000 : 10;
+    if (saved) {
+      const form = byId("camera-form");
+      form.elements.on.checked = saved.on;
+      form.elements.fps.value = saved.fps;
+      form.elements.res.value = saved.resolution;
+      if (saved.snapshot_resolution) form.elements.snapshot_res.value = saved.snapshot_resolution;
+      form.elements.exposure_ms.value = (saved.exposure_us || 0) / 1000;
+      form.elements.sensor_gain.value = (saved.gain_x16 || 0) / 16;
+      form.elements.jpeg_quality.value = saved.jpeg_quality || 75;
+    }
+    updateMotionExposureInput();
+  }
+
+  function renderCameraCapture(capture, adaptiveCamera, cameraControls) {
+    text("camera-capture-status", capture ?
+      `Last capture: ${capture.width} × ${capture.height}, ${(capture.exposure_us / 1000).toFixed(1)} ms exposure, ISO ≈${Math.round(capture.gain_x16 * 100 / 16)} (OV5647 scale; ${(capture.gain_x16 / 16).toFixed(1)}× gain).` +
+      (capture.max_exposure_us != null ? (capture.max_exposure_us > 0 ?
+        ` Automatic exposure ceiling applied: ${(capture.max_exposure_us / 1000).toFixed(3)} ms; gain automatic.` :
+        " Automatic exposure: full integration range; gain automatic.") :
+        adaptiveCamera && !cameraControls ? " Exposure and gain automatic." : "") +
+      (capture.settle_ms ? ` ${capture.settled ? "Exposure settled" : "Exposure still adjusting"} after ${(capture.settle_ms / 1000).toFixed(1)} s.` : "") : "");
+  }
+
+  function updateMotionExposureInput() {
+    const form = byId("camera-form");
+    form.elements.max_exposure_ms.disabled =
+      form.querySelector("fieldset[data-camera-motion-exposure]").disabled || form.elements.motion_exposure.value === "auto";
+  }
+
+  function renderCameraMotionExposure(entry, available) {
+    const supported = Boolean(entry && (entry.features || []).includes("camera_motion_exposure_v1"));
+    const form = byId("camera-form"), group = form.querySelector("fieldset[data-camera-motion-exposure]");
+    group.hidden = !supported;
+    group.disabled = !supported || !available;
+    form.elements.motion_exposure.disabled = group.disabled;
+    updateMotionExposureInput();
+  }
+
+  function setupCameraSettings() {
+    byId("camera-form").elements.motion_exposure.addEventListener("change", updateMotionExposureInput);
+    byId("camera-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const values = new FormData(form);
+      const payload = { on: form.elements.on.checked, fps: Number(values.get("fps")), res: values.get("res") };
+      if (!form.elements.snapshot_res.disabled) payload.snapshot_res = values.get("snapshot_res");
+      if (!form.querySelector("fieldset[data-camera-controls]").disabled) {
+        payload.exposure_us = Math.round(Number(values.get("exposure_ms")) * 1000);
+        payload.gain_x16 = Math.round(Number(values.get("sensor_gain")) * 16);
+        payload.jpeg_quality = Number(values.get("jpeg_quality"));
+      }
+      if (!form.querySelector("fieldset[data-camera-motion-exposure]").disabled) {
+        payload.max_exposure_us = form.elements.motion_exposure.value === "auto" ? 0 :
+          Math.round(Number(values.get("max_exposure_ms")) * 1000);
+      }
+      command("/api/camera", payload, "Camera settings applied and saved");
+    });
+  }
+
   function setupForms() {
     byId("controller-logs-read-button").addEventListener("click", () => readControllerLogs());
     byId("controller-logs-download-button").addEventListener("click", () => readControllerLogs(true));
@@ -2496,19 +2562,7 @@
         text("ground-calibration-status", JSON.stringify(await post(payload), null, 2));
       } catch (error) { text("ground-calibration-status", error.message); }
     });
-    byId("camera-form").addEventListener("submit", (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const values = new FormData(form);
-      const payload = { on: form.elements.on.checked, fps: Number(values.get("fps")), res: values.get("res") };
-      if (!form.elements.snapshot_res.disabled) payload.snapshot_res = values.get("snapshot_res");
-      if (!form.querySelector("fieldset[data-camera-controls]").disabled) {
-        payload.exposure_us = Math.round(Number(values.get("exposure_ms")) * 1000);
-        payload.gain_x16 = Math.round(Number(values.get("sensor_gain")) * 16);
-        payload.jpeg_quality = Number(values.get("jpeg_quality"));
-      }
-      command("/api/camera", payload, "Camera request sent and settings saved");
-    });
+    setupCameraSettings();
     Object.entries(audioForms).forEach(([kind, state]) => {
       byId(`${kind}-form`).addEventListener("input", () => {
         state.edited = true;
@@ -2697,7 +2751,7 @@
         localStorage.setItem("ainekio-connections-v1", JSON.stringify({
           ...addresses, route: route.value, desktop: desktop.value,
         }));
-        const href = kind === "body" ? target.href : new URL("/monitor#body-connection", target).href;
+        const href = kind === "body" ? target.href : new URL("/#view=chat&sidebar=monitor&section=body-connection", target).href;
         window.open(href, "_blank", "noopener,noreferrer");
         result.textContent = "Address saved. Requested a new tab; allow pop-ups for this site if it did not open. Sign in at the destination as needed.";
       } catch (error) {
@@ -3098,16 +3152,7 @@
         depthForm.elements.cameraToBody.value = depth.cameraToBody ? JSON.stringify(depth.cameraToBody) : "";
       }
       const saved = payload.camera_settings?.[selectedRobotId];
-      if (saved) {
-        const form = byId("camera-form");
-        form.elements.on.checked = saved.on;
-        form.elements.fps.value = saved.fps;
-        form.elements.res.value = saved.resolution;
-        if (saved.snapshot_resolution) form.elements.snapshot_res.value = saved.snapshot_resolution;
-        form.elements.exposure_ms.value = (saved.exposure_us || 0) / 1000;
-        form.elements.sensor_gain.value = (saved.gain_x16 || 0) / 16;
-        form.elements.jpeg_quality.value = saved.jpeg_quality || 75;
-      }
+      restoreCameraSettings(saved);
       cameraSettingsRobotId = selectedRobotId;
     }
     const measurement = entry?.locomotion_measurement;
@@ -3247,6 +3292,7 @@
       control.hidden = !cameraControls;
       control.disabled = !cameraControls || !capability("camera");
     });
+    renderCameraMotionExposure(entry, capability("camera"));
     document.querySelectorAll("[data-camera-adaptive]").forEach((option) => {
       option.hidden = !adaptiveCamera;
       option.disabled = !adaptiveCamera;
@@ -3257,11 +3303,7 @@
       cameraProfileSession = cameraSession;
     }
     byId("camera-adaptive-help").hidden = !adaptiveCamera;
-    const capture = status && status.camera_capture;
-    text("camera-capture-status", capture ?
-      `Last capture: ${capture.width} × ${capture.height}, ${(capture.exposure_us / 1000).toFixed(1)} ms exposure, ISO ≈${Math.round(capture.gain_x16 * 100 / 16)} (OV5647 scale; ${(capture.gain_x16 / 16).toFixed(1)}× gain).` +
-      (adaptiveCamera && !cameraControls ? " Exposure and ISO automatic." : "") +
-      (capture.settle_ms ? ` ${capture.settled ? "Exposure settled" : "Exposure still adjusting"} after ${(capture.settle_ms / 1000).toFixed(1)} s.` : "") : "");
+    renderCameraCapture(status && status.camera_capture, adaptiveCamera, cameraControls);
     const connection = byId("connection-state");
     const connectionState = entry ? entry.connection_state || "online" : "offline";
     const connectionLabel = connectionState === "stale" ? "Stale" : entry ? "Online" : "Offline";
@@ -3365,7 +3407,7 @@
           updateMotionSystem(payload);
           gaitHistoryView?.update(selectedRobotId, payload.robots?.[selectedRobotId]?.gait_training);
           window.renderFreestyleStatus?.(payload.freestyle, selectedRobotId);
-          window.renderMotionLibraryStatus?.(payload.freestyle, selectedRobotId);
+          window.renderMotionLibraryStatus?.(payload.freestyle, selectedRobotId, payload.robots?.[selectedRobotId]);
           renderHostNetwork(payload.host_network);
         }
       } catch (error) {
@@ -3640,6 +3682,7 @@
     const panel = byId('neural-gait-panel');
     if (!panel) return;
     let busy = false;
+    let lastStatus = null;
     let profileRobot = null, profileEdited = false, profileRevision = 0;
     for (const id of ['source','forward','lateral','yaw'])
       byId(`neural-walking-${id}`).addEventListener('input', () => {
@@ -3672,6 +3715,25 @@
         if (op === 'progress') { payload.op = 'render'; payload.progress = true; payload.model_id = model; }
         if (['load','render'].includes(op)) payload.model_id = model;
         if (op === 'load' && checkpointId !== null) payload.checkpoint_id = checkpointId;
+        if (op === 'physical-create') {
+          const environment = JSON.parse(byId('neural-gait-environment').value);
+          payload.environment = Object.fromEntries(['robot', 'reference_joint_deg', 'target_limits_deg',
+            'foot_action_scale_mm', 'joint_speed_deg_s', 'control_hz']
+            .filter(key => key in environment).map(key => [key, environment[key]]));
+        }
+        if (op === 'physical-train') {
+          payload.model_id = model;
+          payload.recordings = byId('neural-gait-physical-recordings').value.split(/\r?\n/).map(path => path.trim()).filter(Boolean);
+          payload.updates = Number(byId('neural-gait-physical-updates').value);
+          payload.device = 'cuda';
+          if (!payload.recordings.length) throw new Error('Enter at least one recording directory.');
+          if (!Number.isInteger(payload.updates) || payload.updates <= 0)
+            throw new Error('Training updates must be a positive whole number.');
+        }
+        if (op === 'physical-trial') {
+          payload.speed = Number(byId('neural-gait-physical-speed').value);
+          payload.dir = 'fwd';
+        }
         if (op === 'train' || op === 'resume') {
           payload.op = 'train';
           payload.steps = Number(byId('neural-gait-steps').value);
@@ -3685,6 +3747,14 @@
           }
         }
         const result = await request('/api/neural-gait', {method:'POST', body:JSON.stringify(payload)});
+        if (selectedRobotId !== robotId) return;
+        if (op.startsWith('physical-')) {
+          text('neural-gait-physical-result', op === 'physical-create'
+            ? `Created physical run ${result.run_id}. Select its actor to use it. No movement started.`
+            : op === 'physical-train'
+              ? `Physical training: ${result.state}. The active actor is unchanged.`
+              : 'Recorded learning Walk submitted. Use Finish, Stop or Release to end movement.');
+        }
         if (op === 'preview') {
           text('neural-gait-prediction', JSON.stringify(result, null, 2));
           return;
@@ -3702,10 +3772,13 @@
         select.replaceChildren(...status.runs.map(run => {
           const option = document.createElement('option');
           option.value = run.id;
-          option.textContent = `${run.id.slice(-8)} · ${run.state} · ${run.imitation_updates || 0} imitation updates + ${run.steps || 0} RL steps`;
+          option.textContent = run.kind === 'physical-redq'
+            ? `${run.id.slice(-8)} · physical · ${run.state} · ${run.steps || 0} training updates`
+            : `${run.id.slice(-8)} · simulation · ${run.state} · ${run.imitation_updates || 0} imitation updates + ${run.steps || 0} RL steps`;
           return option;
         }));
-        if (status.runs.some(run => run.id === model)) select.value = model;
+        if (op === 'physical-create' && status.runs.some(run => run.id === result.run_id)) select.value = result.run_id;
+        else if (status.runs.some(run => run.id === model)) select.value = model;
         else if (status.model_id) select.value = status.model_id;
         if (!byId('neural-gait-environment').value.trim())
           byId('neural-gait-environment').value = JSON.stringify(status.defaults, null, 2);
@@ -3713,7 +3786,27 @@
         text('neural-gait-selection', status.model_id
           ? `Active model: ${status.model_id.slice(-8)} · ${status.checkpoint_id || 'published final policy'}`
           : 'No model selected.');
-        const run = status.runs.find(run => run.id === select.value);
+        lastStatus = status;
+        renderRun(status, op, result);
+      } catch (error) {
+        if (selectedRobotId === robotId) {
+          text('neural-gait-summary', error.message);
+          if (op.startsWith('physical-')) text('neural-gait-physical-result', error.message);
+        }
+      }
+      finally { busy = false; }
+    }
+    function renderRun(status, op = 'status', result = {}) {
+        const run = status.runs.find(run => run.id === byId('neural-gait-model').value);
+        const physical = run?.kind === 'physical-redq';
+        for (const id of ['resume', 'render', 'progress']) byId(`neural-gait-${id}`).hidden = physical;
+        byId('neural-gait-physical-train').disabled = !physical;
+        byId('neural-gait-load').disabled = !run?.has_policy;
+        byId('neural-gait-video-note').hidden = physical;
+        byId('neural-gait-physical-evidence').hidden = !physical;
+        text('neural-gait-measurement-note', physical
+          ? 'Recorded physical movement: requested versus estimated measured speed when available. Training updates alone do not verify walking performance.'
+          : 'Latest checkpoint: requested versus measured movement. Values are forward/lateral m/s and turn rad/s, grouped across the simulated trials.');
         const phase = run?.state === 'evaluating'
           ? `Evaluating ${run.evaluation_purpose === 'standing_baseline' ? 'standing baseline' : run.evaluation_purpose === 'source_policy_baseline' ? 'starting policy baseline' : run.evaluation_purpose === 'final_candidate' ? 'final candidate' : 'checkpoint'}${run.total_episodes != null ? ` · ${run.completed_episodes}/${run.total_episodes} trials` : ''}`
           : run?.state;
@@ -3723,13 +3816,21 @@
           : !run.progress_video && run.automatic_footage
             ? ` · before/after video ${run.rendering ? 'rendering' : 'after training'}`
             : ` · video ${run.progress_video?.checkpoint_ids?.length || 0}/${run.checkpoints?.length || 0} checkpoints${run.rendering ? ' (rendering)' : ''}`;
-        const origin = run?.initialization ? `Transferred weights from ${run.initialization.source_rl_steps.toLocaleString()} prior RL steps · ` : '';
-        text('neural-gait-summary', run ? `${phase} · ${origin}${(run.imitation_updates || 0).toLocaleString()} imitation updates + ${(run.steps || 0).toLocaleString()} ${run.initialization ? 'new ' : ''}RL steps · ${run.checkpoints?.length || 0} saved checkpoints${footageProgress}. Simulation only.` : 'No training runs yet.');
+        const initialization = run?.initialization;
+        const origin = Number.isFinite(initialization?.source_rl_steps)
+          ? `Transferred weights from ${initialization.source_rl_steps.toLocaleString()} prior RL steps · `
+          : '';
+        text('neural-gait-summary', physical
+          ? `Physical learning · ${phase} · ${(run.steps || 0).toLocaleString()} training updates · ${run.checkpoints?.length || 0} saved actors.`
+          : run ? `${phase} · ${origin}${(run.imitation_updates || 0).toLocaleString()} imitation updates + ${(run.steps || 0).toLocaleString()} ${run.initialization ? 'new ' : ''}RL steps · ${run.checkpoints?.length || 0} saved checkpoints${footageProgress}. Simulation only.` : 'No training runs yet.');
         byId('neural-gait-checkpoints').replaceChildren(...(run?.checkpoints || []).map(row => {
           const tr = document.createElement('tr');
-          const checkpoint = `${row.aggregation_round != null ? `Round ${row.aggregation_round} · ` : ''}${row.imitation_updates ? `${row.imitation_updates.toLocaleString()} imitation + ` : ''}${row.steps.toLocaleString()} RL steps`;
-          const score = row.evaluation.mean_reward;
-          for (const value of [checkpoint, Number.isFinite(score) ? score.toFixed(2) : '—', `${row.evaluation.falls}/${row.evaluation.episodes.length}`]) {
+          const checkpoint = physical ? `${row.steps.toLocaleString()} training updates`
+            : `${row.aggregation_round != null ? `Round ${row.aggregation_round} · ` : ''}${row.imitation_updates ? `${row.imitation_updates.toLocaleString()} imitation + ` : ''}${row.steps.toLocaleString()} RL steps`;
+          const score = row.evaluation?.mean_reward;
+          const falls = row.evaluation?.falls, episodes = row.evaluation?.episodes;
+          for (const value of [checkpoint, Number.isFinite(score) ? score.toFixed(2) : '—',
+              Number.isFinite(falls) && Array.isArray(episodes) ? `${falls}/${episodes.length}` : 'Not evaluated']) {
             const cell = document.createElement('td'); cell.textContent = value; tr.append(cell);
           }
           const cell = document.createElement('td'), button = document.createElement('button');
@@ -3741,6 +3842,8 @@
           return tr;
         }));
         const commandResults = run?.checkpoints?.at(-1)?.evaluation?.command_results;
+        if (physical) text('neural-gait-physical-measurements', JSON.stringify(
+          run.checkpoints?.at(-1)?.evaluation ?? run.evaluation ?? {note: 'No physical evaluation supplied for this actor.'}, null, 2));
         const trackingRows = (commandResults || []).map(row => {
           const tr = document.createElement('tr');
           const measured = [...row.measured_velocity_command_m_s, row.measured_yaw_rate_rad_s];
@@ -3758,17 +3861,18 @@
         byId('neural-gait-command-results').replaceChildren(...trackingRows);
         const video = byId('neural-gait-video');
         const footage = byId('neural-gait-footage');
-        footage.hidden = !run?.has_footage;
-        if (run?.has_footage) {
+        footage.hidden = physical || !run?.has_footage;
+        if (!physical && run?.has_footage) {
           footage.href = `/api/neural-gait/footage?id=${encodeURIComponent(run.id)}`;
           footage.download = `neural-gait-${run.id.slice(-8)}-footage.zip`;
         }
-        video.hidden = !run?.has_replay && !run?.has_progress_video;
+        video.hidden = physical || !run?.has_replay && !run?.has_progress_video;
+        if (physical) video.pause();
         if (op === 'progress' && !run?.has_progress_video) text('neural-gait-summary',
           result.state === 'comparison_after_training'
             ? 'The before/after comparison will render when training finishes.'
             : 'The progress video is rendering. Refresh shortly to watch it.');
-        if (run?.has_replay || run?.has_progress_video) {
+        if (!physical && (run?.has_replay || run?.has_progress_video)) {
           const kind = run.has_progress_video && op !== 'render' ? 'progress-video' : 'replay';
           const revision = kind === 'progress-video'
             ? (run.progress_video.checkpoint_ids?.at(-1) ?? run.progress_video.training_steps.at(-1))
@@ -3778,11 +3882,10 @@
           if ((op !== 'status' || video.paused || video.ended || !video.getAttribute('src')) && video.getAttribute('src') !== url)
             video.src = url;
         }
-      } catch (error) { text('neural-gait-summary', error.message); }
-      finally { busy = false; }
     }
-    for (const op of ['train','resume','load','render','progress','preview'])
+    for (const op of ['train','resume','load','render','progress','preview','physical-create','physical-train','physical-trial'])
       byId(`neural-gait-${op}`).addEventListener('click', () => void operate(op));
+    byId('neural-gait-model').addEventListener('change', () => { if (lastStatus) renderRun(lastStatus); });
     byId('neural-gait-refresh').addEventListener('click', () => void operate('status'));
     panel.addEventListener('toggle', () => { if (panel.open) void operate('status'); });
     setInterval(() => { if (panel.open && !panel.closest('[hidden]')) void operate('status'); }, 5000);

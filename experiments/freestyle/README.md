@@ -96,15 +96,11 @@ Feedback-health transitions are independent of reaction faces and motion-event
 cooldowns; repeated identical health samples are not new events.
 
 The custom-movement curriculum excludes servo-output release supervision.
-Body Control sends the first stall to Freestyle for correction. A stall attributed
-to that correction releases outputs through the existing Stop/detach owner,
-without another model call. Only the failed-correction/release notice reaches
-Environment Bridge for a help response. Its `correction_failed` and actual
-`outputs_released` values distinguish failure from the initial internal warning;
-`release_error` preserves a rejected release. Unrelated replacement commands and
-older command/epoch events retain their existing ownership. No new timeout is used.
-Archived adapters and their matching contracts retain their historical release
-operation; removing supervision does not erase an already-trained operation.
+Each new stall, including one during an admitted correction, returns to Freestyle
+with its joint, command and progress evidence. The gateway does not detach outputs
+after a fixed number of corrections. Explicit Stop/Release and unrelated replacement
+commands retain ownership; stale command/epoch events cannot resume superseded work.
+Archived adapters and their matching contracts retain their historical behavior.
 
 A generated program runs once. The P4 receives movement targets and speeds,
 uses fourth-wire feedback to establish shaft arrival, and returns the correlated
@@ -115,6 +111,10 @@ feedback-fault, tipping and slip events retain the existing event-triggered
 Freestyle recovery path. A correction remains a generated movement, not a claim
 that the body recovered physically.
 
+Recovery retains `motion_goal`: the original request and unfinished plan at the
+first interruption. Successive recovery jobs carry that goal alongside the
+latest attempt's progress; a corrective program cannot replace the requested
+goal in model context. This is evidence, not code-selected resumption.
 Recovery history carries the prior `program_state`, an `interrupted_action`
 only while that operation is unfinished, and the last `completed_action` when
 one exists. A failed operation is identified as `failed_action` with its actual
@@ -139,14 +139,79 @@ restored. The source progress/receipt repair remains; these generation results
 do not qualify the generator's motion quality or establish a permanent runaway
 repair. The existing full repository training snapshot is preserved.
 
-The maintained training snapshot and editable library include the complete
-original catalog stretch for “Please stretch”, “Perform stretch.” and
-“Stand up, stretch, and finish standing.” Its generated joint curves preserve
-all 805 source samples within the native fitting budget, source phase checkpoints,
-the authored 0.9, 0.7 and 0.5 second holds, and the source standing finish. Three
-incomplete recorded stretch recovery targets were retired from the editable
-library. The existing trajectory operation is included in the training contract;
-this revision neither trains nor activates a model and has no new physical trial.
+The editable library and maintained training snapshot use compact movement
+operations: `move`, `pose`, `oscillate`, `feet`, `body`, `hold`, faces, existing
+gaits, and native `stand`. `[["stand"]]` invokes the P4's existing Stand operation,
+including startup rise, grounded transitions and its feedback controller. It does
+not substitute one simultaneous joint target for that procedure. Each joint or spatial movement ends with `speed_pct, taper_deg` in its
+compact array. Speed is a percentage of the advertised joint rate; taper is the
+final angular deceleration distance, with zero disabling it. Tapered targets use
+the existing P4 curve player, with its two-point linear track constructed by
+local code. The model never emits cubic tracks, source-time checkpoints or
+attitude tables. The system prompt remains empty.
+
+The working dataset retains three owner-approved everyday requests for each of
+the 23 legacy gestures plus standing: 72 ordinary reference examples. Forty-eight
+also include recorded sensor context in the same layout the generator supplies;
+one plain-language input remains per motion. Their targets retain source foot-lift
+waypoints, entry poses, holds and terminal poses in compact calls.
+
+The native-Stand revision contains 349 examples: those 72 ordinary requests,
+138 synthetic event-recovery lessons across 23 gesture families, 138 variants
+using the existing generic runtime recovery request, and one recorded standing
+input. The three ordinary Stand targets and the recorded standing target call
+native `stand`; the 12 recovery labels derived from the former direct-pose Stand
+are removed. Native Stand retains its installed context-dependent transition
+and feedback owner. It retires 384 recovery labels that
+replaced the unfinished request with standing. Jam labels use a foot-lift/carry
+approach before completing the interrupted target and remaining phases; a
+repeated jam changes the body/foot approach while retaining the original goal.
+These waypoints are authored training demonstrations, not runtime choices or
+measured clearance. Sensor-derived fields are constructed once by `model_query`
+for training and serving. The last reported jam mask remains historical evidence
+with its age when available. The two approved stretch phrasings remain outside
+training. Optional recovery probes and model evaluations were skipped for this
+revision at the owner's request. No physical recovery qualification is claimed.
+
+The goal-preserving base adapter was trained fresh on the unchanged shared 0.8B
+base. The native-Stand revision continues that separate LoRA using the corrected
+library; no model merge or second base is introduced. The trainer's
+`--skip-evaluation` option supports the owner's training-only workflow; it does
+not run held-out model evaluations or replay requests. Generator contract and
+request-local adapter selection must identify the same revision. The rejected
+servo-command curriculum and discarded recordings remain excluded.
+
+Crouch uses the calibrated legacy reference fitted to the existing 500-2800
+microsecond software working band. The owner reports physical servo travel of
+400-2900 microseconds; no additional authoring margin is applied. The full source
+path spans approximately 500-2665 microseconds with the installation mapping used for
+authoring. It preserves planted-foot references, orientation and the two-second
+hold. Its three compact examples share that revised terminal pose and retain
+their existing speed. Source assets and the editable dataset share this pose. Updating an example
+changes future training exports; loaded weights change only after deployment.
+Physical Crouch acceptance remains unverified.
+`author_calibrated_clips.py` defaults to the existing software working band.
+
+The stretch examples teach an explicit standing entry, 20 mm body lowering,
+30 mm front-foot extension followed by a further 5 mm reach, the 0.9/0.7-second
+stretch holds, withdrawal, standing finish and 0.5-second standing hold. This
+replaces the source curve that the owner reported as missing the extension.
+Geometry replay establishes the requested offsets and final joint target;
+physical reach, support and owner acceptance remain unqualified.
+
+`migrate_targets --compact` performs the explicit offline migration using the
+existing editable library and export owner. Its backup retains pre-conversion
+evidence. Discarded IDs remain excluded, held-out inputs stay excluded from
+training, and changed stretch targets lose their old source-alignment claims.
+The source importer now emits compact phase targets and explicit holds rather
+than curve-fitting tables; it does not claim continuous source-curve fidelity.
+The generated schema retains matching joint/angle and leg/offset counts.
+
+Training uses a separate LoRA on the shared unmerged 0.8B base. Saving an example,
+converting the library, fitting an adapter and activating it remain distinct
+operations. Old datasets and adapters are historical evidence, not the current
+training or execution contract.
+
 
 The October 27 full-reach correction proposal remains separate review evidence.
 It requested an all-four-leg crouch, farther forward reach and longer holds;
@@ -161,18 +226,20 @@ slip detector here; caller-supplied slip events use the same recovery path.
 
 The owner removed the model-requested continuation operation on October 26.
 Its executor loop, tool/schema entry, prompt directives and maintained training
-labels are removed. Affected training programs now finish with explicit normal
-standing targets through the same measured-target executor. Existing explicit
-endings without that operation remain unchanged. Stand geometry is represented
-by target poses; there is no new posture shortcut or response filter.
+labels are removed. The first replacement labels used normal-standing targets;
+the goal-preserving curriculum instead retains each requested movement's actual
+terminal pose and unfinished phases through the same measured-target executor.
+Stand geometry is represented by target poses; there is no posture shortcut or
+response filter.
 
 `training-data/` is the maintained snapshot for subsequent training. The editable
 Body Control library uses the same revised contract. Completed training runs and
 running qualification artifacts retain their historical inputs and model hashes;
 they are evidence, not the current curriculum. Existing weights require retraining
-to change learned behavior. The desktop Freestyle selection uses the original
-stretch retraining adapter from `artifacts/original-stretch-20261104T014150Z/`
-on the shared unmerged 0.8B base. The generator records the configured base and
+to change learned behavior. The desktop Freestyle selection and matching dataset
+come from `FREESTYLE_ADAPTER_FILE` and `FREESTYLE_CONTRACT` in the installation's
+`freestyle.env`, on the shared unmerged 0.8B base. The November 4 context-correction
+adapter is historical evidence. The generator records the configured base and
 adapter hashes, adapter path, tools, schema and input-projection hashes with
 each inference. The frozen run dataset supplies its matching generation contract.
 Verify the running service and those identities when comparing a failure with a
@@ -297,17 +364,16 @@ Compact recovery-input projection is already compatible with that model.
 
 ## Editable training motion library
 
-Body Control → **Poses and emotes → View training data** opens the Q6A's working
-training library. It searches titles, requests and families, and fetches 25
-summaries per page. First/Previous/Next/Last navigation appears above and below
-the list. Sort by name, date added to this library, or last edited, in either
-direction. Unedited examples follow edited examples in last-edited sorting.
-Selecting an example loads the exact training input text and compact assistant-target
-JSON. These are the stored/exported values, not an expanded command editor.
-Both input and target are editable; the title is library metadata. The existing base gesture buttons remain
-available above the expanded library.
+Body Control → **Poses and emotes → Freestyle** shows Requested movement first,
+followed directly by Training data. The library loads 25 summaries per page and
+supports search and sorting. Training data and each example use native disclosure
+arrows. Expanding an example loads its exact training input and named motion
+program into the inline editor; storage and export retain the compact encoding. Buttons perform actions: generate, perform, save, export,
+search or change page. The selected draft survives list refreshes and status updates.
+Saved motion trials, results and generator settings have their own disclosures
+below the library. None of these disclosures generates or executes motion.
 
-**Save training example** updates the canonical working dataset in
+**Replace example** updates the canonical working dataset in
 `build/gateway/physical/motion-library.sqlite` (beside dashboard authentication
 state if the data directory is overridden). Saves are transactional, replace superseded versions, and report conflicting
 edits without overwriting the current target. Previous edit targets are discarded.
@@ -318,13 +384,39 @@ Editing the input changes its actual training context. Edited targets do not inh
 an older target's physical-success label or trajectory claims. Viewing and saving
 require no connected robot and make no inference or motion request.
 
-**Send motion to robot** decodes the editor's compact target only at the existing
-execution boundary and submits it through `Bridge.submit(program=...)`, including
+**Perform example** uses `ProgramEncoding` for the named editor and compact
+training formats, then decodes at the existing execution boundary and submits it through `Bridge.submit(program=...)`, including
 unsaved changes. It uses fresh
 robot observations and the existing asynchronous compiler/executor. It does not
 call the LLM or save the draft. Job progress appears in the editor through the
 existing dashboard status updates; browser closure does not cancel execution.
 The existing Stop and replacement-command behavior still applies.
+
+The inline editor shows the submitted program and highlights its executing
+operation from the existing executor status. The Readable / Actual training data
+switch changes only that view. The training arrays are indented, with a new line
+after each structural comma; numeric text and quoted strings remain unchanged.
+Saved targets are read directly from the library;
+draft/playback targets use the same `ProgramEncoding` and `compact` owners as
+saving and training export;
+previewing does not save or execute anything. Draft edits do not rewrite that
+playback snapshot. **Pause** cancels further operations and uses the existing
+Stop acknowledgement to hold the commanded pose. **Release servos** uses the
+existing detach command; it does not fabricate measured arrival. Neither action
+can stop an example that has been replaced by another command.
+
+The servo table uses the existing dashboard telemetry: measured model degrees,
+commanded positions or released outputs, per-joint sample ages and measurement
+availability. It adds no sensor poller. **Capture measured pose into operation**
+updates a compact absolute pose using available measured angles, preserving the
+selected operation's speed and taper. Capture edits the draft; Replace example
+writes the target used by the next training export.
+
+**Perform from selected operation** starts that edited operation and the remainder using fresh body
+observations. Section trials report `completed_section`; the existing reviewed
+training export requires a completed whole-request trial, so section tests do not
+become positive full-motion demonstrations. The corrected full library target
+remains available in the normal export.
 
 **Export training data** downloads a consistent ZIP snapshot with the exact stored
 library targets and eligible reviewed trials in `dataset/train.jsonl`, suitable
@@ -499,7 +591,9 @@ Recovery-first firmware (`0.8.120`) sends these jam observations with
 the model generates a correction. Recovery claims the existing executor only
 when its program is available and reads fresh joint positions before dispatch.
 Manual replacement/Stop cancels pending recovery. A model failure does not
-release outputs or abandon current execution. A newer event retains earlier
+release outputs or abandon current execution. A stall during a correction returns
+to the same model assessment owner with the new evidence; it does not impose a
+second-stall release or a retry-count limit. A newer event retains earlier
 event evidence while replacing its pending inference; no timeout or retry-count
 policy is imposed on model decisions. Genuine driver faults and explicit Stop
 retain their existing physical authority. The feedback panel reads the installed
@@ -1684,7 +1778,8 @@ tests pass. No candidate has been activated in Body Control, MetaHuman or P4.
 Source tests:
 
 ```sh
-python3 -m unittest discover -s experiments/freestyle -p 'test_*.py' -v
+PYTHONPATH=.:experiments/freestyle:Master:Slave/software \
+  python3 -m unittest discover -s experiments/freestyle -t . -p 'test_*.py' -v
 ```
 
 ## First local training result
@@ -1807,42 +1902,40 @@ No production adapter is overwritten or selected by these commands.
 
 ## Serve and call
 
-Add the matching base and adapter to this computer's native model preset,
-using the existing host installation linked above. Keep its measured context
-capacity and model-specific options in that section, with `load-on-startup = false`.
-The native router loads the selected alias on request. For an isolated candidate,
-register a distinct alias in the same host preset rather than a second listener.
+Load each specialist LoRA on the existing shared base preset at global scale
+zero. Configure the generator with that base alias, its base model file and the
+separate `FREESTYLE_ADAPTER_FILE`. The generator resolves the loaded adapter ID
+by path and supplies its scale in each inference request. This never changes
+global scales or registers a separate copy of the base for Freestyle.
+The qualified shared 0.8B preset uses its unmerged BF16 base with F16 K/V
+attention caches. Quantized serving changed numeric generation in the stretch
+replays. These precision settings use more VRAM; the existing context capacity
+and pooling remain owned by that preset. No merged model is selected.
 
-```sh
-python3 experiments/freestyle/runtime.py --request /path/to/request.json \
-  --endpoint http://127.0.0.1:8080/v1 --model ainekio-freestyle
+Call the existing inference-only generator when inspecting output without
+executing it:
+
+```python
+import asyncio
+from experiments.freestyle.generator import async_remote_generate
+
+result = asyncio.run(async_remote_generate('http://127.0.0.1:8794',
+                                           {'request': 'Please stretch'}))
+print(result['program'])
 ```
 
-Both consumers can send the payload printed by `runtime.py --print-payload`
-directly to llama.cpp. There is no extra inference server or coordinator.
-The request is an evidence envelope, for example:
+The response is a generated program, not an execution receipt. Body Control's
+existing Freestyle executor owns physical dispatch and its correlated results.
 
-```json
-{
-  "request_id":"caller-owned-id",
-  "robot_id":"selected-robot-id",
-  "request":"Continue the wave with a different arm path",
-  "body":{"model":"v2-12servo","joint_map":2},
-  "observation":{"measured_joints_cd":null,"imu":null},
-  "event":{"kind":"jam","joint_mask":64},
-  "execution_history":[]
-}
-```
-
-Replace nulls with available attributed observations; the example does not
-establish a known pose. A recovery input contract does not mean recovery has
+A recovery input contract does not mean recovery has
 been trained. Dynamic recovery requires successful measured examples from
 different obstructions/fall poses and separate evaluation.
 
 ## Evaluation and removal
 
 ```sh
-python3 -m unittest discover -s experiments/freestyle -p 'test_*.py' -v
+PYTHONPATH=.:experiments/freestyle:Master:Slave/software \
+  python3 -m unittest discover -s experiments/freestyle -t . -p 'test_*.py' -v
 python3 experiments/freestyle/evaluate.py \
   --data /tmp/ainekio-freestyle-seed/evaluation.jsonl \
   --endpoint http://127.0.0.1:8080/v1 --ids wave:0:0
@@ -1853,10 +1946,12 @@ agreement and completion labeling. It never dispatches movement. Test whole
 generated continuations as well as individual teacher-context packets before
 claiming sequence fidelity. Passing JSON tests is not model or hardware proof.
 
-To retire a serving candidate, remove its section from the existing host preset
-and reload the native model inventory after its active requests finish. Preserve
-artifacts and recordings that still have training, provenance or replay consumers.
-Removing a generator does not authorize stopping the shared inference host.
+To retire a Freestyle LoRA, select its qualified replacement through the existing
+generator configuration, then remove only the retired adapter entry from the
+shared base preset once no active consumer selects it. Reload the native model
+inventory through its existing owner. Preserve artifacts and recordings with
+training, provenance or replay consumers, and retain the shared base and other
+roles' adapters.
 
 ### Q6A corrected-motion live-test protocol
 
@@ -1892,8 +1987,10 @@ live trial and operator assessment, export the approved trial to the pending
 training set there. Preserve failed attempts; do not rewrite the frozen v8 run.
 ### Per-motion recovery curriculum (target-control candidate)
 
-`library_recovery.py` derives one jam and one measured-effect fall example per
-current motion-bearing training row. It excludes face-only/Stop rows and
+`library_recovery.py` derives jam, repeated-jam and measured-effect fall lessons
+from one recorded-context reference per generated gesture family, retaining all
+ordinary request phrasings. Native Stand is excluded from these fabricated joint
+checkpoints because the installed controller owns its posture transition. It excludes face-only/Stop rows and
 existing recovery rows. `recovery-coverage.json` links every derived row to its
 source ID and content hash, lists omissions, and counts joint coverage.
 Separate probes change the sensor
@@ -1907,12 +2004,15 @@ python -m experiments.freestyle.library_recovery \
 ```
 
 Build the native sampler against matching current headers/libraries. Its output
-is nominal gait geometry, not measured robot motion. Jam prefixes retreat from
-the blocked direction and shorten the affected target while continuing the other
-participating joints, or reduce an oscillation's excursion. The revised programs
-end with normal standing targets. Fall examples repeat or reverse a preceding
-correction according to its supplied before/after IMU orientation.
-Faces vary across corrections. No new slip examples or detector are added.
+is nominal gait geometry, not measured robot motion. Jam demonstrations lift and
+carry the affected foot, then complete the original target and remaining program.
+Repeated-jam demonstrations change body translation and foot approach. The full
+requested range, cycles, holds and terminal pose remain in the labels; standing
+is only the finish when it belongs to the requested movement. Fall examples
+repeat or reverse the preceding correction according to its supplied before/after
+IMU orientation, then retain the unfinished movement. No new slip detector or
+runtime recovery script is added. `--skip-probes` prepares training without
+constructing optional feedback probes; it does not run model evaluations.
 
 Jam observations retain the commanded target of every participating shaft,
 separately from its measured partial progress. This lets the correction continue

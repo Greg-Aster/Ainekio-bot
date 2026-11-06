@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #define AINEKIO_PROTOCOL_VERSION 1U
+#define AINEKIO_CAMERA_MOTION_EXPOSURE_FEATURE "camera_motion_exposure_v1"
 #define AINEKIO_WALK_STEERING_FEATURE "walk_steering_v1"
 #define AINEKIO_WALK_LATERAL_FEATURE "walk_lateral_v1"
 #define AINEKIO_WALK_NOMINAL_FEATURE "walk_nominal_v1"
@@ -139,6 +140,7 @@ typedef struct {
 
 typedef struct {
     uint32_t counter, width, height, exposure_us, gain_x16, settle_ms;
+    uint32_t max_exposure_us; /* applied whole-line ceiling; zero = full automatic range */
     bool settled;
 } ainekio_camera_capture_t;
 
@@ -303,6 +305,8 @@ typedef struct {
             ainekio_camera_resolution_t snapshot_resolution;
             bool has_controls;
             ainekio_camera_controls_t controls;
+            bool has_max_exposure_us;
+            uint32_t max_exposure_us; /* zero restores full automatic integration range */
         } camera;
         struct {
             bool enabled;

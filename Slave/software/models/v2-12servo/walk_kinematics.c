@@ -1,6 +1,7 @@
 #include "ainekio/v2_walk.h"
 #include "ainekio/v2_limits.h"
 #include "walk_data.h"
+#include <float.h>
 #include <math.h>
 #include <string.h>
 
@@ -194,6 +195,64 @@ static bool reference_at(unsigned leg,const float q[3],vec_t *world)
     double angle[3];for(unsigned j=0;j<3;j++)angle[j]=q[j]*.00017453292519943296;
     solution_t s={0};if(!seed(angle,&s))return false;
     mechanism(g,shoulder,&s,r);(void)derivatives(g,shoulder,r,&s,point(g->reference),world);return true;
+}
+/* Extrema of a*cos(angle)+b*sin(angle), including interior extrema rather
+ * than treating a finite joint-angle grid as a workspace boundary. */
+static void arc_bounds(double a,double b,double low,double high,double *minimum,double *maximum)
+{
+    const double tau=6.2831853071795864769,amplitude=hypot(a,b),span=high-low;
+    if(span>=tau){*minimum=-amplitude;*maximum=amplitude;return;}
+    low=remainder(low,tau);high=low+span;
+    const double first=a*cos(low)+b*sin(low),last=a*cos(high)+b*sin(high);
+    *minimum=fmin(first,last);*maximum=fmax(first,last);
+    const double peak=atan2(b,a),trough=peak+tau/2.;
+    if(peak+ceil((low-peak)/tau)*tau<=high)*maximum=amplitude;
+    if(trough+ceil((low-trough)/tau)*tau<=high)*minimum=-amplitude;
+}
+bool ainekio_v2_foot_offset_bounds(const ainekio_v2_frame_t *reference,
+    const float low[12],const float high[12],float lower_mm[4][3],float upper_mm[4][3])
+{
+    if(!reference||!low||!high||!lower_mm||!upper_mm)return false;
+    for(unsigned j=0;j<12;j++)
+        if(!isfinite(low[j])||!isfinite(high[j])||low[j]>high[j])return false;
+    for(unsigned leg=0;leg<4;leg++) {
+        const v2_walk_leg_t *g=&v2_walk_legs[(leg+2)%4];
+        vec_t origin;if(!reference_at(leg,&reference->position[3*leg],&origin))return false;
+        const double rad=.00017453292519943296;
+        const double h0=low[3*leg]*rad,h1=high[3*leg]*rad;
+        const double a0=V2_ALPHA_ZERO+low[3*leg+1]*rad,a1=V2_ALPHA_ZERO+high[3*leg+1]*rad;
+        const double radius=hypot(g->reference[0],g->reference[2]);
+        double cx0,cx1,sz0,sz1;
+        arc_bounds(V2_PRIMARY,0.,a0,a1,&cx0,&cx1);
+        arc_bounds(0.,V2_PRIMARY,a0,a1,&sz0,&sz1);
+        /* Relax the lower-link orientation to its full circle. This contains
+         * every orientation admitted by the crank limits and four-bar closure,
+         * including interior/tangent endpoints, without restricting travel. */
+        const double x0=V2_O_X+cx0-radius,x1=V2_O_X+cx1+radius;
+        const double lateral=g->mechanism_translation[1]+g->reference[1];
+        const double z[2]={g->mechanism_translation[2]+V2_O_Z+sz0-radius,
+                           g->mechanism_translation[2]+V2_O_Z+sz1+radius};
+        double lo[3]={g->mechanism_translation[0]+fmin(g->mirror*x0,g->mirror*x1),INFINITY,INFINITY};
+        double hi[3]={g->mechanism_translation[0]+fmax(g->mirror*x0,g->mirror*x1),-INFINITY,-INFINITY};
+        for(unsigned end=0;end<2;end++) {
+            double y0,y1,z0,z1;
+            arc_bounds(lateral,-z[end],h0,h1,&y0,&y1);
+            arc_bounds(z[end],lateral,h0,h1,&z0,&z1);
+            lo[1]=fmin(lo[1],y0);hi[1]=fmax(hi[1],y1);
+            lo[2]=fmin(lo[2],z0);hi[2]=fmax(hi[2],z1);
+        }
+        const double baseline[3]={origin.x,origin.y,origin.z};
+        for(unsigned axis=0;axis<3;axis++) {
+            double a=g->shoulder_sign[axis]*lo[axis]-baseline[axis];
+            double b=g->shoulder_sign[axis]*hi[axis]-baseline[axis];
+            /* Outward allowance for the existing float FK arithmetic, not a
+             * mechanical margin or a reduction of the physical workspace. */
+            const double rounding=64.*FLT_EPSILON*(1.+fabs(a)+fabs(b)+V2_PRIMARY+radius);
+            lower_mm[leg][axis]=nextafterf((float)(fmin(a,b)-rounding),-INFINITY);
+            upper_mm[leg][axis]=nextafterf((float)(fmax(a,b)+rounding),INFINITY);
+        }
+    }
+    return true;
 }
 bool ainekio_v2_feet_bounded(ainekio_v2_frame_t *frame,const float low[12],const float high[12])
 {

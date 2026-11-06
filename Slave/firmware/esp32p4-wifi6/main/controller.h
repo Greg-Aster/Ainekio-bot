@@ -1,10 +1,13 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "esp_err.h"
 #include "connection_screen.h"
 
 ainekio_connection_gateway_t ainekio_p4_controller_display_status(void);
+/* Shared device-clock identity for IMU and camera; fixed at controller startup. */
+uint32_t ainekio_p4_controller_sensor_boot_id(void);
 
 esp_err_t ainekio_p4_controller_start(void);
 esp_err_t ainekio_p4_controller_media_start(void);
