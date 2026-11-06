@@ -130,6 +130,8 @@ size_t ainekio_encode_camera_meta(
     uint32_t counter_base,
     ainekio_camera_origin_t origin,
     uint32_t origin_id,
+    uint64_t frame_completed_us,
+    uint32_t boot_id,
     char *output,
     size_t capacity
 );

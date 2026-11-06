@@ -102,6 +102,7 @@ static atomic_int display_link_state, display_rejection;
  * before creating another; queued results can never cross into its successor. */
 static uint64_t link_generation;
 static uint32_t sensor_boot_id;
+uint32_t ainekio_p4_controller_sensor_boot_id(void){return sensor_boot_id;}
 static bool boot_reported;
 static atomic_uint wake_reports;
 
@@ -343,7 +344,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {AINEKIO_MOTION_TARGETS_FEATURE, AINEKIO_MOTION_CURVES_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, AINEKIO_WALK_NOMINAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "walking_feedback_v1", "gait_learning_v1", "gait_sensor_policy_v1", "servo_feedback_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
+    const char *features[] = {AINEKIO_MOTION_TARGETS_FEATURE, AINEKIO_MOTION_CURVES_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, AINEKIO_WALK_NOMINAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "walking_feedback_v1", "gait_learning_v1", "gait_sensor_policy_v1", "servo_feedback_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_CAMERA_MOTION_EXPOSURE_FEATURE, AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -567,7 +568,7 @@ static void camera_failed(void *context, uint64_t session, ainekio_camera_origin
 
 static void camera_frame(void *context, uint64_t session, ainekio_camera_origin_t origin,
                          uint32_t origin_id, ainekio_camera_resolution_t resolution,
-                         uint32_t counter, const uint8_t *jpeg, size_t length)
+                         uint32_t counter, uint64_t frame_completed_us, const uint8_t *jpeg, size_t length)
 {
     (void)context;
     if (length > AINEKIO_MAX_JPEG_BYTES) { camera_failed(NULL, session, origin, origin_id, ESP_ERR_INVALID_SIZE); return; }
@@ -576,7 +577,7 @@ static void camera_frame(void *context, uint64_t session, ainekio_camera_origin_
     packet.bytes = heap_caps_malloc(packet.length, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     size_t encoded;
     if (!packet.bytes || !ainekio_encode_camera_meta(resolution, atomic_load(&camera_fps), counter,
-        origin, origin_id, packet.metadata, sizeof(packet.metadata)) ||
+        origin, origin_id, frame_completed_us, sensor_boot_id, packet.metadata, sizeof(packet.metadata)) ||
         ainekio_binary_encode(AINEKIO_FRAME_CAMERA_JPEG, counter, jpeg, length,
             packet.bytes, packet.length, &encoded) != AINEKIO_BINARY_OK ||
         xQueueSend(camera_packets, &packet, 0) != pdTRUE) {
@@ -840,7 +841,6 @@ static void link_task(void *arg)
         atomic_store(&telemetry_requested, false);
         if (error == ESP_OK) error = esp_websocket_client_start(client);
         uint64_t last_ping = now_us(), last_status = now_us(), last_imu = 0;
-        if (!sensor_boot_id) sensor_boot_id = esp_random();
         ainekio_p4_body_event_t event = {0};
         bool have_body_event = false;
         packet_t camera = {0};
@@ -1204,7 +1204,8 @@ static esp_err_t apply(const request_t *request)
             if (command->data.camera.has_controls) return ESP_ERR_INVALID_ARG;
             esp_err_t result = ainekio_p4_media_camera_configure(command->data.camera.enabled,
                 command->data.camera.fps, command->data.camera.resolution,
-                command->data.camera.has_snapshot_resolution ? &command->data.camera.snapshot_resolution : NULL);
+                command->data.camera.has_snapshot_resolution ? &command->data.camera.snapshot_resolution : NULL,
+                command->data.camera.has_max_exposure_us ? &command->data.camera.max_exposure_us : NULL);
             if (result == ESP_OK) atomic_store(&camera_fps, command->data.camera.enabled ? command->data.camera.fps : 0);
             return result;
         }
@@ -1291,6 +1292,7 @@ static void control_task(void *arg)
 
 esp_err_t ainekio_p4_controller_start(void)
 {
+    sensor_boot_id=esp_random();
     const uint32_t allowed = AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_WALK_TARGET) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_MOTION_PLAN) |
         AINEKIO_COMMAND_MASK(AINEKIO_COMMAND_INTENT) |

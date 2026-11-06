@@ -89,6 +89,7 @@ class FakeGateway:
         return self._record("snap", kwargs)
 
     async def set_camera(self, **kwargs: object) -> int:
+        kwargs.pop("wait_for_ack", None)  # This fixture immediately acknowledges camera settings.
         return self._record("camera", kwargs)
 
     async def set_microphone(self, **kwargs: object) -> int:
@@ -292,6 +293,122 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved['answers'], large)
         self.assertEqual(self.gateway.calls, [])
 
+    async def test_motion_editor_named_program_pause_and_release_use_existing_owners(self):
+        from experiments.freestyle.test_motion_library import dataset
+        source,_=dataset(self.server.password_store.path.parent)
+        library=self.server.motion_library();library.import_dataset(source)
+        cookie,csrf=await self._login()
+        code,example,_=await self._request('GET','/api/motion-library?id=example-00000',cookie=cookie)
+        self.assertEqual(example['program'],library.execution_program(example['answers']))
+        self.assertEqual(len(example['joint_names']),12)
+        program=[{'name':'pose','arguments':{'joints':['front_left_carrier','front_right_carrier'],
+            'angles_deg':[-32.5,-33.25],'reference':'absolute','speed_pct':50}}]
+        code,saved,_=await self._request('POST','/api/motion-library',{'operation':'save','id':example['id'],
+            'revision':example['revision'],'title':example['title'],'query':example['query'],'program':program},cookie=cookie,csrf=csrf)
+        self.assertEqual((code,saved['program']),(200,program))
+        self.assertEqual(self.gateway.calls,[])
+        service=SimpleNamespace(submit=AsyncMock(return_value={'job_id':'editor-job'}),
+            pause=AsyncMock(return_value={'pause_state':'paused','operation_index':0}),
+            jobs={'editor-job':{'robot_id':'selected-body','source':{'example_id':example['id']}}})
+        self.server.freestyle=service
+        for operation in ('pause','release'):
+            payload={'operation':operation,'id':example['id'],'robot_id':'selected-body','job_id':'editor-job'}
+            self.assertEqual((await self._request('POST','/api/motion-library',payload,cookie=cookie))[0],403)
+            code,result,_=await self._request('POST','/api/motion-library',payload,cookie=cookie,csrf=csrf)
+            self.assertEqual(code,200)
+            service.pause.assert_awaited_with('editor-job',release=operation=='release')
+        wrong={'operation':'release','id':example['id'],'robot_id':'another-body','job_id':'editor-job'}
+        self.assertEqual((await self._request('POST','/api/motion-library',wrong,cookie=cookie,csrf=csrf))[0],400)
+        draft=[{'name':'hold','arguments':{'seconds':.1}},*program]
+        code,result,_=await self._request('POST','/api/motion-library',{'operation':'run','id':example['id'],
+            'robot_id':'selected-body','program':draft,'start_index':1},cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(service.submit.call_args.kwargs['program'],draft)
+        self.assertEqual(service.submit.call_args.kwargs['start_index'],1)
+        self.assertEqual(library.execution_program(library.get(example['id'])['answers']),program)
+
+    async def test_editor_play_pause_release_replace_with_simulated_actuators(self):
+        from experiments.freestyle.bridge import Bridge
+        from experiments.freestyle.program import compile_motion
+        from experiments.freestyle.test_program import FakeGateway as MotionGateway, FakeTransport
+        from experiments.freestyle.test_motion_library import dataset
+        source,_=dataset(self.server.password_store.path.parent)
+        library=self.server.motion_library();library.import_dataset(source)
+        cookie,csrf=await self._login()
+        example=library.get('example-00000');gateway=MotionGateway()
+        entered=asyncio.Event();stops=[];blocked=True
+        async def compiler(*args):return compile_motion(*args)
+        async def stop(**kwargs):
+            gateway.seq+=1;seq=gateway.seq
+            if kwargs.get('on_sequence'):kwargs['on_sequence'](seq)
+            stops.append((seq,kwargs.get('detach',False)))
+            for callback in gateway.commands:await callback({'t':'stop','robot_id':'robot','seq':seq})
+            return seq
+        async def receipt(seq,**kwargs):
+            if seq in [item[0] for item in stops]:return {'t':'ack','seq':seq}
+            if blocked:entered.set();await asyncio.Future()
+            return {'t':'done','seq':seq}
+        gateway.estop=stop;gateway.wait_terminal=receipt
+        bridge=Bridge(gateway,FakeTransport(),compiler=compiler)
+        self.server.freestyle=bridge
+        program=[{'name':'hold','arguments':{'seconds':0}},
+                 {'name':'pose','arguments':{'joints':['front_left_carrier','front_right_carrier'],
+                  'angles_deg':[-32.5,-33.25],'reference':'absolute','speed_pct':50}}]
+        try:
+            code,submitted,_=await self._request('POST','/api/motion-library',{'operation':'run','id':example['id'],
+                'robot_id':'robot','program':program},cookie=cookie,csrf=csrf)
+            self.assertEqual(code,200)
+            await entered.wait();identifier=submitted['job_id']
+            self.assertEqual(bridge.status()['jobs'][identifier]['operation_index'],1)
+            for operation,state in [('pause','paused'),('release','released')]:
+                code,result,_=await self._request('POST','/api/motion-library',{'operation':operation,
+                    'id':example['id'],'robot_id':'robot','job_id':identifier},cookie=cookie,csrf=csrf)
+                self.assertEqual((code,result['pause_state']),(200,state))
+                self.assertEqual(result['operation_index'],1)
+            self.assertEqual([detach for seq,detach in stops],[False,True])
+            program[1]['arguments']['angles_deg']=[-40,-41]
+            code,saved,_=await self._request('POST','/api/motion-library',{'operation':'save','id':example['id'],
+                'revision':example['revision'],'title':example['title'],'query':example['query'],'program':program},cookie=cookie,csrf=csrf)
+            self.assertEqual((code,saved['program']),(200,program))
+            self.assertEqual(library.execution_program(library.get(example['id'])['answers']),program)
+            self.assertEqual(len(gateway.sent),1,'Editing and replacing does not execute another motion')
+            blocked=False
+            code,continued,_=await self._request('POST','/api/motion-library',{'operation':'run','id':example['id'],
+                'robot_id':'robot','program':program,'start_index':1},cookie=cookie,csrf=csrf)
+            self.assertEqual(code,200)
+            result=await bridge.result(continued['job_id'])
+            self.assertEqual(result['state'],'completed_section')
+            self.assertEqual(len(gateway.sent),2)
+            self.assertEqual(gateway.sent[-1][-1][1][7],-4000)
+            self.assertEqual(gateway.sent[-1][-1][1][10],-4100)
+        finally:await bridge.close()
+
+    async def test_motion_training_target_preview_uses_exact_training_encoder_without_saving(self):
+        from experiments.freestyle.test_motion_library import dataset
+        from experiments.freestyle.runtime import compact
+        source,_=dataset(self.server.password_store.path.parent)
+        library=self.server.motion_library();library.import_dataset(source)
+        before=library.get('example-00000');cookie,csrf=await self._login()
+        program=[{'name':'pose','arguments':{'joints':['front_left_carrier','front_right_carrier'],
+            'angles_deg':[-32.5,-33.25],'reference':'absolute','speed_pct':50}}]
+        payload={'operation':'preview','id':before['id'],'program':program}
+        self.assertEqual((await self._request('POST','/api/motion-library',payload,cookie=cookie))[0],403)
+        code,result,_=await self._request('POST','/api/motion-library',payload,cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(result['target'],compact(library.encode_program(program)))
+        self.assertEqual('['+','.join(result['operations'])+']',result['target'])
+        self.assertEqual(library.get(before['id']),before)
+        self.assertEqual(self.gateway.calls,[])
+        self.assertIsNone(self.server.freestyle)
+        program[0]['arguments']['angles_deg']=[-0.0,10.0]
+        stored=library.save(before['id'],before['revision'],before['title'],before['query'],library.encode_program(program))
+        code,result,_=await self._request('POST','/api/motion-library',{'operation':'preview','id':before['id']},cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(result['target'],compact(stored['answers']))
+        self.assertIn('-0.0',result['target'])
+        self.assertIn('10.0',result['target'])
+        self.assertEqual(library.get(before['id']),stored)
+
     async def test_freestyle_cancel_uses_existing_owner_without_submitting_motion(self):
         cookie,csrf=await self._login()
         service=SimpleNamespace(cancel=AsyncMock(return_value={'id':'idle-job','state':'superseded'}),
@@ -424,7 +541,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_neural_preview_consumes_streamed_observation_without_freestyle_or_http(self):
         from protocol.joints_v2 import JOINT_LABELS
-        from gateway.neural_gait.contract import SCHEMA, DEPTH_SCHEMAS
+        from gateway.neural_gait.contract import SCHEMA, DEPTH_SCHEMAS, PENDING_SCHEMA
         source = {"epoch": 3, "joints": {name: {"filtered_model_deg": 12.,
             "velocity_deg_s": 2., "commanded_model_deg": 15., "feedback_usable": True,
             "sampled_us": 990000} for name in JOINT_LABELS},
@@ -432,6 +549,8 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
                 "acceleration_m_s2": [0, 0, 9.80665], "timestamp_us": 995000},
             "feedback": {"device_us": 1000000}}
         self.gateway.body_sensor_observation = Mock(return_value=source)
+        connection = SimpleNamespace(neural_walk=None)
+        self.gateway._connection = Mock(return_value=connection)
         self.gateway.clock = lambda: 10.
         grid = dict(schema="ainekio-depth-grid-v1", rows=8, columns=8, frame="camera-optical",
             depthKind="optical-axis-z", units="estimated-metres", available=True,
@@ -458,12 +577,50 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
                 if schema in DEPTH_SCHEMAS:
                     self.assertEqual(observed["vision"]["depth_frame_id"], "depth-1")
                     self.assertEqual(observed["vision"]["depthSpatial"]["values"], [.5]*64)
+                if schema == PENDING_SCHEMA:
+                    self.assertEqual(observed['pending_actions'], [])
                 self.assertEqual(self.gateway.calls, [])
+        pending = [[.2]*12+[.04,.001]]*12
+        connection.neural_walk = SimpleNamespace(pending_inputs=Mock(return_value=pending))
+        model['environment']['observation_schema'] = PENDING_SCHEMA
+        self.server.neural_gait.call = AsyncMock(side_effect=[model, {'execution':'preview_only'}])
+        await self.server.neural_gait_request({'op':'preview','robot_id':'ainekio-test-01'})
+        connection.neural_walk.pending_inputs.assert_called_once_with(source)
+        self.assertEqual(self.server.neural_gait.call.await_args.args[1]['observation']['pending_actions'], pending)
         self.gateway.body_sensor_observation.side_effect = GatewayError("This robot has not supplied joint feedback telemetry")
         self.server.neural_gait.call = AsyncMock(return_value=model)
         with self.assertRaisesRegex(GatewayError, "not supplied joint feedback"):
             await self.server.neural_gait_request({"op": "preview", "robot_id": "ainekio-test-01"})
         self.server.neural_gait.call.assert_awaited_once_with("/status?history=0")
+
+    async def test_physical_learning_trial_uses_authenticated_recorded_walk_owner(self):
+        recording = {'settings':{'logging':True, 'learning':False}, 'recording':'/recorded/trial'}
+        self.server.gait_learning = SimpleNamespace(status=Mock(return_value=recording))
+        connection = SimpleNamespace(send_command=AsyncMock(return_value=42))
+        self.gateway._connection = Mock(return_value=connection)
+        self.gateway.clock = lambda: 10.
+        payload = {'op':'physical-trial', 'robot_id':'ainekio-test-01', 'speed':100, 'dir':'fwd'}
+        route = '/api/neural-gait'
+        self.assertEqual((await self._request('POST', route, payload))[0], 401)
+        cookie, csrf = await self._login()
+        self.assertEqual((await self._request('POST', route, payload, cookie=cookie))[0], 403)
+        connection.send_command.assert_not_awaited()
+        code, result, _ = await self._request('POST', route, payload, cookie=cookie, csrf=csrf)
+        self.assertEqual((code, result['state'], result['sequence']), (200, 'submitted', 42))
+        connection.send_command.assert_awaited_once_with(
+            {'t':'intent', 'name':'walk', 'steps':0, 'dir':'fwd', 'speed':100},
+            received_at=10., learning_trial=True, collection_policy='policy')
+        self.assertEqual(result['recording'], '/recorded/trial')
+        connection.send_command.reset_mock()
+        code, result, _ = await self._request('POST', route, {**payload,'collection_policy':'native-c'}, cookie=cookie, csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(connection.send_command.call_args.kwargs['collection_policy'],'native-c')
+        for settings in ({'logging':False, 'learning':False}, {'logging':True, 'learning':True}):
+            recording['settings'] = settings
+            code, _, _ = await self._request('POST', route, payload, cookie=cookie, csrf=csrf)
+            self.assertEqual(code, 400)
+        self.assertEqual(connection.send_command.await_count, 1)
+        self.assertEqual(self.gateway.calls, [])
 
     async def test_host_learning_routes_use_selected_robot_and_require_csrf(self):
         learning = SimpleNamespace(
@@ -1397,6 +1554,33 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         await self.server.restore_camera({"t": "connection", "status": "connected", "robot_id": "robot"})
         self.assertEqual(self.gateway.calls[-1], ("camera", {"robot_id": "robot", **saved}))
         self.assertTrue(all(call[0] == "camera" for call in self.gateway.calls))
+
+    async def test_motion_exposure_is_saved_restored_and_rejections_preserve_saved_settings(self):
+        cookie, csrf = await self._login()
+        payload = {"robot_id": "robot", "on": True, "fps": 5, "res": "VGA", "max_exposure_us": 10000}
+        self.assertEqual((await self._request("POST", "/api/camera", payload, cookie=cookie))[0], 403)
+        self.assertNotIn("robot", self.server.control_settings["cameras"])
+        code, _, _ = await self._request("POST", "/api/camera", payload, cookie=cookie, csrf=csrf)
+        self.assertEqual(code, 200)
+        saved = self.server.control_settings["cameras"]["robot"]
+        self.assertEqual(saved, {"on": True, "fps": 5, "resolution": "VGA", "max_exposure_us": 10000})
+        self.assertEqual(json.loads(self.server.control_settings_path.read_text())["cameras"]["robot"], saved)
+        await self.server.restore_camera({"t": "connection", "status": "connected", "robot_id": "robot"})
+        self.assertEqual(self.gateway.calls[-1], ("camera", {"robot_id": "robot", **saved}))
+        self.assertTrue(all(call[0] == "camera" for call in self.gateway.calls))
+        original = self.gateway.set_camera
+        for error in ("camera_motion_exposure_v1 is required", "Exposure ceiling is shorter than a sensor line"):
+            self.gateway.set_camera = AsyncMock(side_effect=GatewayError(error))
+            code, result, _ = await self._request("POST", "/api/camera", {**payload, "max_exposure_us": 1}, cookie=cookie, csrf=csrf)
+            self.assertEqual(code, 409)
+            self.assertIn(error, result["error"])
+            self.gateway.set_camera.assert_awaited_once_with(robot_id="robot", wait_for_ack=True,
+                on=True, fps=5, resolution="VGA", max_exposure_us=1)
+            self.assertEqual(json.loads(self.server.control_settings_path.read_text())["cameras"]["robot"], saved)
+        self.gateway.set_camera = original
+        code, _, _ = await self._request("POST", "/api/camera", {**payload, "max_exposure_us": 0}, cookie=cookie, csrf=csrf)
+        self.assertEqual(code, 200)
+        self.assertEqual(self.server.control_settings["cameras"]["robot"]["max_exposure_us"], 0)
 
     async def test_body_event_controls_are_authenticated_saved_and_applied_per_robot(self):
         from gateway.body_events import DEFAULTS

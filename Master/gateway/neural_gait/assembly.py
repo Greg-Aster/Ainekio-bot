@@ -260,14 +260,28 @@ def _prepare(config=None, workers=8):
     return directory, result
 
 
-def attach(root, config, *, visuals=True):
+def attach(root, config, *, visuals=True, collision_profile="assembly"):
     directory, manifest = prepare(config)
     asset = root.find("asset")
-    asset.clear()
+    detailed = collision_profile == "assembly"
+    if detailed:
+        asset.clear()
     bodies = {b.get("name"): b for b in root.iter("body")}
     for body in bodies.values():
         for geom in list(body.findall("geom")):
-            body.remove(geom)
+            if detailed:
+                body.remove(geom)
+            else:
+                # Inertia still comes from every CAD part below. These existing
+                # contact proxies carry no independently estimated extra mass.
+                geom.set("mass", "0")
+                if (geom.get("type") == "capsule" or
+                        int(geom.get("contype", "1")) or int(geom.get("conaffinity", "1"))):
+                    # Coarse hulls/capsules overlap inside the valid closed
+                    # assembly. This profile models robot-to-terrain contact;
+                    # detailed assembly geometry owns self-contact inspection.
+                    geom.set("contype", "2")
+                    geom.set("conaffinity", "1")
     totals = {}
     for obj in manifest["objects"]:
         family = "torso" if obj["body"] == "torso" else "_".join(obj["body"].split("_")[:2])
@@ -279,7 +293,7 @@ def attach(root, config, *, visuals=True):
         budget = config.mass_kg - 4 * config.leg_mass_kg if family == "torso" else config.leg_mass_kg
         density = budget / totals[family]
         properties[obj["body"]].append((obj["volume"] * density, np.asarray(obj["center"]), np.asarray(obj["inertia"]) * density))
-        for name in ([obj["visual"]] if visuals else []) + obj["collision"]:
+        for name in ([obj["visual"]] if visuals else []) + (obj["collision"] if detailed else []):
             # Body inertias below are explicit; none is inferred from these
             # render/contact meshes. Shell processing supports thin CoACD
             # pieces without inventing a minimum collision volume.
@@ -292,7 +306,7 @@ def attach(root, config, *, visuals=True):
         if visuals:
             ET.SubElement(body, "geom", name=obj["visual"], type="mesh", mesh=obj["visual"],
                           mass="0", contype="0", conaffinity="0", group="2", rgba=_text(obj["rgba"]))
-        for name in obj["collision"]:
+        for name in obj["collision"] if detailed else []:
             ET.SubElement(body, "geom", name=name, type="mesh", mesh=name,
                           mass="0", group="3", rgba="0 0 0 0")
     for name, items in properties.items():

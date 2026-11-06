@@ -23,14 +23,17 @@ typedef struct {
 void ainekio_p4_feedback_health(const ainekio_p4_feedback_snapshot_t *sample,
     ainekio_p4_feedback_health_t *health);
 /* Transport view of one completed acquisition scan, in stable model-joint
- * order. Usability is the same as feedback_frame; missing values are not zero
- * positions. This observes outputs, and never drives or verifies a motion. */
+ * order. Acquired readings remain visible outside calibration; usability is the
+ * same as feedback_frame and is reported independently. This observes outputs,
+ * and never drives or verifies a motion. */
 typedef struct {
     ainekio_v2_frame_t measured, commanded;
     int64_t sampled_us[12];
+    uint16_t raw_adc[12];
+    int signal_millivolts[12];
     uint64_t device_us;
     uint32_t scan, scan_us, revision;
-    uint16_t usable_mask, commanded_mask, stalled_joints;
+    uint16_t measured_mask, usable_mask, commanded_mask, stalled_joints;
     bool enabled;
     ainekio_p4_feedback_health_t health;
 } ainekio_p4_feedback_observation_t;

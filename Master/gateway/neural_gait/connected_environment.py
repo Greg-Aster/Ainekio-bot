@@ -56,19 +56,32 @@ class BodyControlEnvironment(GaitEnvironment):
             self.executor = None
 
     async def _reset(self, **kwargs):
-        await self._disconnect()
+        retained = self.session if self.session is not None and self.session.camera is not None else None
+        if retained is not None:
+            await retained.robot.close()
+            self.executor.close()
+            self.executor = None
+        else:
+            await self._disconnect()
         _, info = super().reset(**kwargs)
         self.requested_command = list(self.config.command)
         wire = self._wire_command(self.requested_command)
         super().set_command(walking_twist(wire, self.profile))
         self.executor = self.virtual_body()
-        self.session = VirtualGatewaySession(self.executor, asdict(self.config),
+        self.session = retained or VirtualGatewaySession(self.executor, asdict(self.config),
             self._now_us, self.profile)
-        self.session.gateway.locomotion_measurement = lambda robot_id: {
-            **(self.depth_measurement or {}), "robotId": robot_id,
-            "epoch": self.session.connection.epoch}
+        rendered = self.config.depth_camera.get("source") == "body_control_camera"
+        if not rendered:
+            self.session.gateway.locomotion_measurement = lambda robot_id: {
+                **(self.depth_measurement or {}), "robotId": robot_id,
+                "epoch": self.session.connection.epoch}
         try:
-            await self.session.start()
+            if retained is not None:
+                await self.session.reconnect_body(self.executor)
+            else:
+                await self.session.start()
+            if rendered and retained is None:
+                await self.session.enable_camera(self.config.depth_camera)
             await self.session.start_walk(wire)
             # Admission precedes the first scheduled PWM frame. Run hardware
             # acquisition until the existing producer actually asks for its
@@ -77,6 +90,7 @@ class BodyControlEnvironment(GaitEnvironment):
                 _, output = self.advance_body(self.executor)
                 await self.session.publish(output["messages"])
                 await self.session.telemetry()
+                await self._camera_frame()
             self.gateway_observation = await self.session.observation()
             actions = self.warm_start_actions()
             command = list(self.requested_command)
@@ -98,6 +112,10 @@ class BodyControlEnvironment(GaitEnvironment):
     def reset(self, **kwargs):
         return self._run(self._reset(**kwargs))
 
+    async def _camera_frame(self):
+        if self.session.camera is not None:
+            await self.session.camera_frame(self.depth_camera.take_frame(), self.config.depth_camera)
+
     async def _step(self, action):
         terminal = None
         producer_failure = None
@@ -112,6 +130,7 @@ class BodyControlEnvironment(GaitEnvironment):
         _, reward, terminated, truncated, info = result
         await self.session.publish(output["messages"])
         await self.session.telemetry()
+        await self._camera_frame()
         rejected = admission.get("accepted") is False
         if terminal is None and not rejected and producer_failure is None:
             try:

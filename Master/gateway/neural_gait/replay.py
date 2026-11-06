@@ -88,8 +88,9 @@ def clip(directory, config, checkpoint, seed, *, model=None, episode=None):
     imitation = json.loads(imitation_path.read_text()) if imitation_path.exists() else None
     updates = checkpoint.get('imitation_updates', imitation['updates'] if imitation else 0)
     training_label = (f'{updates:,} imitation updates + ' if updates else '') + f'{checkpoint["steps"]:,} RL steps'
-    if manifest.get('initialization'):
-        inherited = manifest['initialization']['source_rl_steps']
+    initialization = manifest.get('initialization') or {}
+    if 'source_rl_steps' in initialization:
+        inherited = initialization['source_rl_steps']
         training_label = f'Transferred {inherited:,} prior RL steps + {checkpoint["steps"]:,} new steps'
     if training_version != ENVIRONMENT_VERSION:
         training_label += f' | Trained env {training_version}, replay env {ENVIRONMENT_VERSION}'
@@ -114,6 +115,7 @@ def clip(directory, config, checkpoint, seed, *, model=None, episode=None):
             options['scenario'] = episode['scenario_id']
         obs,_ = env.reset(seed=seed, options=options)
         origin = env.data.qpos[:2].copy()
+        started_simulation_time = float(env.data.time)
         next_frame = 0.
         schedule = {row['start_step']: row['command'] for row in command_segments}
         frames = 0
@@ -123,7 +125,7 @@ def clip(directory, config, checkpoint, seed, *, model=None, episode=None):
             raw = renderer.render()
             replay_speed = float(env.data.qpos[0]-origin[0])/(step/config.control_hz) if step else 0.
             overlay = labelled(raw, [
-                f'SIMULATION | {training_label} | {episode.get("scenario_id", "flat")} | Fixed trial {seed-999}',
+                f'SIMULATION | {training_label} | {episode.get("scenario_id", "flat")} | Fixed seed {seed}',
                 f'Request ({env.config.command[0]:+.3f}, {env.config.command[1]:+.3f}) m/s, yaw {env.config.command[2]:+.2f} rad/s | Replay average {replay_speed:+.3f} m/s forward',
                 f't={step/config.control_hz:.2f}s | Travel ({env.data.qpos[0]-origin[0]:+.3f}, {env.data.qpos[1]-origin[1]:+.3f}) m | Yaw {math.degrees(env.world_heading_delta):+.1f} deg | {outcome}'])
             processes[0].stdin.write(overlay.tobytes())
@@ -153,6 +155,8 @@ def clip(directory, config, checkpoint, seed, *, model=None, episode=None):
                     outcome = 'POLICY PRODUCER FAILED'
                 elif info.get('body_rejection'):
                     outcome = 'BODY REJECTED TARGET'
+                elif info.get('geometry_rejection'):
+                    outcome = 'GEOMETRY REJECTED TARGET'
                 elif info.get('body_terminal'):
                     outcome = 'BODY ' + str(info['body_terminal'].get('t', 'terminated')).upper()
                 else:
@@ -172,9 +176,10 @@ def clip(directory, config, checkpoint, seed, *, model=None, episode=None):
             rollout_environment_version=ENVIRONMENT_VERSION, training_environment_version=training_version,
             aggregation_round=checkpoint.get('aggregation_round'), steps=checkpoint['steps'], seed=seed,
             labelled='clips/'+names[0], clean='clips/'+names[1], duration_s=frames/fps,
-            simulated_seconds=(step+1)/config.control_hz, final_pose_display_hold_s=1,
+            simulated_seconds=float(env.data.time)-started_simulation_time, final_pose_display_hold_s=1,
             forward_displacement_m=float(env.data.qpos[0]-origin[0]), fallen=info['fallen'],
-            forward_m_s=float(env.data.qpos[0]-origin[0])/((step+1)/config.control_hz),
+            forward_m_s=(float(env.data.qpos[0]-origin[0])/(float(env.data.time)-started_simulation_time)
+                         if env.data.time>started_simulation_time else None),
             checkpoint_evaluation_forward_m_s=episode['forward_m_s'],
             command=config.command, command_index=command_index,
             scenario_id=episode.get('scenario_id', 'flat'),
@@ -185,6 +190,7 @@ def clip(directory, config, checkpoint, seed, *, model=None, episode=None):
             execution_backend=config.execution_backend,
             body_terminal=info.get('body_terminal'), body_rejection=info.get('body_rejection'),
             producer_failure=info.get('producer_failure'),
+            geometry_rejection=info.get('geometry_rejection'),
             imitation_updates=updates,
             physical_execution=False, width=WIDTH, height=HEIGHT, fps=fps)
         save_json(metadata_path, metadata)

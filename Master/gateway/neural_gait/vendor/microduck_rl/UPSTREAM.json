@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/pollen-robotics/microduck_rl",
+  "commit": "bae39f5900b318f7e87fc485c30a31213cfa14eb",
+  "imported": "2026-11-05",
+  "modifications": "None. Ainekio task adaptation lives in gateway.neural_gait.microduck.",
+  "omitted": [
+    ".git",
+    "AGENTS.md",
+    "CLAUDE.md"
+  ]
+}

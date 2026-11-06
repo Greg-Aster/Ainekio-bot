@@ -15,17 +15,60 @@ from pathlib import Path
 from .compact_wire import ProgramEncoding, model_query
 from .gait_replay import sample_gait
 from .kinematics import foot_positions
-from .migrate_targets import CONTRACT, STAND, joint_state, standing_pose
+from .migrate_targets import CONTRACT, joint_state
 from .program import compile_motion
 from .runtime import JOINTS, compact
 
 ENCODING = ProgramEncoding(CONTRACT)
-MOTIONS = {'move', 'pose', 'oscillate', 'feet', 'body', 'stand', 'gait'}
+MOTIONS = {'move', 'pose', 'oscillate', 'feet', 'body', 'gait'}
 FACES = ('confused', 'sad', 'angry', 'thinking')
 
 
 def call(name, **arguments):
+    if name in ('move','pose','oscillate','feet','body'):
+        arguments.setdefault('taper_deg',0)
     return {'name':name, 'arguments':arguments}
+
+
+def completion(action, start, goal, tail, speed):
+    """Keep the interrupted request's targets and remaining phases in the label."""
+    if action['name'] in ('gait','oscillate'):
+        # The synthetic checkpoint is inside the first cycle: no complete
+        # cycles have been credited. Restore the oscillation's measured center.
+        prefix = ([] if action['name']=='gait' else [call('pose',joints=list(JOINTS),
+            angles_deg=list(start.values()),reference='absolute',speed_pct=speed)])
+        return [*prefix,copy.deepcopy(action),*copy.deepcopy(tail)]
+    return [call('pose',joints=list(JOINTS),angles_deg=[goal[j] for j in JOINTS],
+                 reference='absolute',speed_pct=speed,
+                 taper_deg=action['arguments'].get('taper_deg',0)),*copy.deepcopy(tail)]
+
+
+def foot_approach(state, present, goal, joint, speed, clearance, shift=False):
+    """Author a foot-lift/carry approach using the existing geometric compiler.
+
+    These millimetre waypoints are synthetic demonstrations, not runtime rules,
+    measured clearance, contact labels, or a guarantee of recovery.
+    """
+    leg = joint.rsplit('_',1)[0]
+    feet = foot_positions(present)
+    target = foot_positions(goal)[leg]
+    prefix = []
+    if shift:
+        others = [point for name,point in feet.items() if name != leg]
+        center = [sum(point[axis] for point in others)/len(others) for axis in (0,1)]
+        length = math.hypot(*center)
+        translation = [round(10*v/length,2) for v in center] if length else [0,0]
+        prefix.append(call('body',translation_mm=[*translation,0],rotation_deg=[0,0,0],
+                           legs=[],foot_offsets_mm=[],speed_pct=speed))
+        # A body translation with fixed world feet changes their body-relative
+        # coordinates. Recompute those coordinates at the compiled joint pose.
+        feet = foot_positions(compile_motion(prefix[0],state_at(state,present),present)['end'])
+    current = feet[leg]
+    height = max(current[2],target[2])+clearance
+    prefix.append(call('feet',legs=[leg],offsets_mm=[[0,0,round(height-current[2],2)]],speed_pct=speed))
+    prefix.append(call('feet',legs=[leg],offsets_mm=[[round(target[0]-current[0],2),
+        round(target[1]-current[1],2),0]],speed_pct=speed))
+    return prefix
 
 
 def state_at(state, positions):
@@ -40,19 +83,16 @@ def state_at(state, positions):
 def checkpoint(row, native_gait):
     """Ground the interrupted target in the same compiler/native gait owner."""
     query = json.loads(row['query'])
-    state = copy.deepcopy(query['observation'])
+    state = copy.deepcopy(query.get('observation') or {
+        'model':'v2-12servo','joint_speed_limit_deg_s':2000,
+        'joints':{joint:{'model_deg':angle,'commanded_model_deg':angle,'home_deg':angle}
+                  for joint,angle in zip(JOINTS,row['reference_entry_model_deg'])}})
     state['joints'] = joint_state(state)
     positions = {j:v['model_deg'] for j,v in state['joints'].items()}
     program = ENCODING.decode(row['answers'])
-    stand_candidate = None
     for index, action in enumerate(program):
         name = action['name']
         if name not in MOTIONS:
-            continue
-        if name == 'stand':
-            if any(abs(STAND[j]-positions[j]) > .1 for j in JOINTS):
-                stand_candidate = (index, state_at(state, positions), dict(STAND), action, program[index+1:])
-            positions = dict(STAND)
             continue
         if name == 'gait':
             # Only the initial cycle is needed to locate an interrupted target.
@@ -66,11 +106,11 @@ def checkpoint(row, native_gait):
                 raise ValueError('Native gait has no moving checkpoint')
         else:
             compiled = compile_motion(action, state_at(state, positions), positions)
-            goal = dict(zip(JOINTS, [v/100 for v in compiled['frames'][0][1]]))
+            goal = (dict(zip(JOINTS,[v/100 for v in compiled['frames'][0][1]]))
+                    if name=='oscillate' else dict(compiled['end']))
         if max(abs(goal[j]-positions[j]) for j in JOINTS) > .1:
             return index, state_at(state, positions), goal, action, program[index+1:]
         if name != 'gait': positions = compiled['end']
-    if stand_candidate: return stand_candidate
     raise ValueError('No nonzero movement checkpoint')
 
 
@@ -90,7 +130,7 @@ def row_for(source, family, query, program, index, variant, evidence):
     return {'id':digest[:16], 'family':family, 'query':query, 'answers':answers,
         'title':family.replace('_',' ').title()+': '+source.get('title',json.loads(source['query'])['request']),
         'source_id':'library-recovery:'+digest[:16], 'source_hash':digest,
-        'parent_example_id':source['id'], 'parent_source_hash':source['source_hash'],
+        'reference_example_id':source['id'], 'reference_source_hash':source['source_hash'],
         'source_action_index':index, 'scenario':variant,
         'synthetic':True, 'physical_qualification':False,
         'teacher':'Offline counterfactual feedback and target compiler; no physical demonstration',
@@ -124,9 +164,6 @@ def scenarios(source, native_gait, probe=False):
     portion = .6 if probe else .75
     measured = round(start[joint]+portion*(goal[joint]-start[joint]),2)
     direction = 1 if goal[joint]>start[joint] else -1
-    traversed = abs(measured-start[joint])
-    retreat = round(traversed*(.4 if probe else .5),2)
-    if retreat < .02: raise ValueError('Checkpoint excursion too small for distinct measured targets')
     # The counterfactual interrupts a coordinated move part-way through it.
     present = {j:round(start[j]+portion*(goal[j]-start[j]),2) for j in JOINTS}
     present[joint] = measured
@@ -137,38 +174,43 @@ def scenarios(source, native_gait, probe=False):
         jam_state['joints'][j]['commanded_model_deg'] = goal[j]
     jam_state['feedback'] = {'enabled':True, 'stalled_joints':1<<JOINTS.index(joint), 'no_progress_ms':1000}
     jam_state['imu'] = imu(0,'roll')
+    motion_goal = {'request':original['request'], 'interrupted_action':action, 'remaining_program':tail}
     history = [{'joints':{joint:start[joint]}}, {'joints':{joint:measured}},
-               {'interrupted_action':action, 'remaining_program':tail}]
+               {'program_state':'executing', 'interrupted_action':action, 'remaining_program':tail}]
     query = {'request':original['request'], 'event':{'type':'servo_stall',
         'joints':[JOINTS.index(joint)], 'outputs_released':False, 'reason':'no_position_progress'},
-        'observation':jam_state, 'history':history}
+        'observation':jam_state, 'history':history, 'motion_goal':motion_goal}
     speed = action['arguments'].get('speed_pct',50)
-    recovery = [call('face',expr=FACES[seed%len(FACES)]),
-                call('move',joint=joint,angle_deg=round(-direction*retreat,2),reference='current',speed_pct=speed)]
-    if action['name']=='oscillate':
-        recovery.append(call('oscillate',joint=joint,amplitude_deg=round(retreat/2,2),
-                             cycles=action['arguments']['cycles'],speed_pct=speed))
-    else:
-        # Finish the other participating targets while shortening the blocked
-        # joint's excursion, then measure the resulting posture. This is an
-        # authored training adaptation, never a hard-coded runtime clamp.
-        adapted = {j:goal[j] for j in changing}
-        adapted[joint] = round(measured-direction*retreat/2,2)
-        recovery.append(call('pose',joints=list(adapted),angles_deg=list(adapted.values()),
-                             reference='absolute',speed_pct=speed))
-    recovery.append(standing_pose())
+    clearance = 15 if probe else 10
+    recovery = [*foot_approach(state,present,goal,joint,speed,clearance),
+                *completion(action,start,goal,tail,speed)]
     variant = 'held_out_feedback' if probe else 'training_feedback'
-    jam = row_for(source,'library_jam_recovery',query,recovery,index,variant,
-        {'joint':JOINTS.index(joint), 'blocked_deg':measured, 'direction':direction,
-         'traversed_start_deg':start[joint], 'checkpoint_operation':action['name'],
-         'scope':'retreat and reduced excursion; complete program ends standing'})
-    targets = validate_prefix(jam)
-    if not targets or any(direction*(p[joint]-measured)>=0 for p in targets[:-1]):
-        raise ValueError('Recovery prefix repeats the blocked extreme')
+    evidence = {'joint':JOINTS.index(joint), 'blocked_deg':measured, 'direction':direction,
+        'traversed_start_deg':start[joint], 'checkpoint_operation':action['name'],
+        'clearance_mm':clearance,'scope':'synthetic foot lift/carry approach, original checkpoint target and unfinished phases'}
+    jam = row_for(source,'library_jam_recovery',query,recovery,index,variant,evidence)
+    validate_prefix(jam)
     yield jam
 
+    # A second jam carries the original objective alongside the failed attempt.
+    # Teach a changed support/approach plan rather than repeating that attempt.
+    repeated = copy.deepcopy(query)
+    failed = recovery[0]
+    failed_target = compile_motion(failed,jam_state,present)['end']
+    for shaft in JOINTS:
+        repeated['observation']['joints'][shaft]['commanded_model_deg'] = failed_target[shaft]
+    repeated['history'][-1] = {'program_state':'executing', 'interrupted_action':failed,
+        'remaining_program':recovery[1:], 'joint_progress':[{joint:measured},{joint:measured}]}
+    repeated_program = [*foot_approach(state,present,goal,joint,speed,clearance+10,shift=True),
+                        *completion(action,start,goal,tail,speed)]
+    second = row_for(source,'library_repeated_jam_recovery',repeated,repeated_program,index,variant,
+        {**evidence,'clearance_mm':clearance+10,
+         'scope':'synthetic repeated no-progress, changed body/foot approach, same unfinished objective'})
+    validate_prefix(second)
+    yield second
+
     # A fall correction is chosen from an observed effect, never an invented
-    # universal righting pose. The complete correction ends standing.
+    # universal righting pose. Preserve the requested movement after correction.
     axis = ('pitch' if seed%2 else 'roll') if not probe else ('roll' if seed%2 else 'pitch')
     sign = 1 if seed%3 else -1
     improved = bool(seed%2) if not probe else not bool(seed%2)
@@ -181,13 +223,12 @@ def scenarios(source, native_gait, probe=False):
     magnitude = (1,2,3,4,6)[(seed//6)%5] + (.5 if probe else 0)
     delta = {pair[0]:sign*magnitude, pair[1]:-sign*magnitude}
     fallen = state_at(state,start); fallen['imu']=imu(after,axis); fallen['expected_up']=[0,0,1]
-    pending = [copy.deepcopy(action),*copy.deepcopy(tail)]
     history = [{'imu':imu(before,axis),'correction_delta_deg':delta}, {'imu':fallen['imu']},
-               {'interrupted_action':action,'remaining_program':pending}]
-    query = {'request':original['request'],'event':{'type':'tipped'},'observation':fallen,'history':history}
+               {'program_state':'executing','interrupted_action':action,'remaining_program':tail}]
+    query = {'request':original['request'],'event':{'type':'tipped'},'observation':fallen,'history':history,'motion_goal':motion_goal}
     recovery = [call('face',expr=FACES[(seed+1)%len(FACES)]),
         call('pose',joints=list(pair),angles_deg=[d*(1 if improved else -1) for d in delta.values()],
-             reference='current',speed_pct=50),standing_pose()]
+             reference='current',speed_pct=speed),*completion(action,start,goal,tail,speed)]
     fall = row_for(source,'library_fall_recovery',query,recovery,index,variant,
         {'axis':axis,'before_tilt_deg':before,'after_tilt_deg':after,'improved':improved,
          'scope':'measured correction effect; no initial get-up policy or contact proof'})
@@ -195,10 +236,40 @@ def scenarios(source, native_gait, probe=False):
     yield fall
 
 
+
+def event_variants(rows):
+    """Use the same compact lessons for the enabled feedback/IMU event routes."""
+    for row in rows:
+        yield row
+        variant=copy.deepcopy(row);query=json.loads(variant['query'])
+        if row['family'] in ('library_jam_recovery','library_repeated_jam_recovery'):
+            query['event']['type']='servo_feedback_fault'
+            query['event'].pop('reason',None)
+            joint=row['recovery_evidence']['joint'];joints=query['observation']['joints']
+            index=joints['ids'].index(joint);value=joints['model_deg'][index]
+            increasing=row['recovery_evidence']['direction']>0
+            # Counterfactual calibration status remains independent of the
+            # visible measured position and the authored recovery movement.
+            ranges=[None]*len(joints['ids']);ranges[index]=[value-200,value-.1] if increasing else [value+.1,value+200]
+            faults=[[] for _ in joints['ids']];faults[index]=['above_calibration' if increasing else 'below_calibration']
+            joints['feedback_range_deg']=ranges;joints['feedback_faults']=faults
+            joints['feedback_usable']=[i!=index for i in range(len(joints['ids']))]
+            variant['family']=('library_repeated_feedback_recovery' if row['family']=='library_repeated_jam_recovery'
+                               else 'library_feedback_recovery')
+        else:
+            query['event']['type']='rapid_movement'
+            variant['family']='library_movement_recovery'
+        variant['query']=compact(query)
+        digest=hashlib.sha256(compact([variant['query'],variant['answers']]).encode()).hexdigest()
+        variant.update(id=digest[:16],source_id='library-recovery:'+digest[:16],source_hash=digest)
+        yield variant
+
+
 def audit_source(task):
-    source, native_gait = task
+    source, native_gait, include_probes = task
     try:
-        training=list(scenarios(source,native_gait)); probe=list(scenarios(source,native_gait,True))
+        training=list(event_variants(scenarios(source,native_gait)))
+        probe=list(event_variants(scenarios(source,native_gait,True))) if include_probes else []
         return {'source_id':source['id'],'source_hash':source['source_hash'],
                 'train':training,'probe':probe}
     except (ValueError,KeyError,TypeError) as error:
@@ -209,15 +280,15 @@ def deduplicate(rows):
     """Shared teaching content can cover several source motions without repeats."""
     unique = {}
     for row in rows:
-        parent={'id':row['parent_example_id'],'source_hash':row['parent_source_hash']}
+        parent={'id':row['reference_example_id'],'source_hash':row['reference_source_hash']}
         if row['id'] not in unique:
-            unique[row['id']]={**row,'parent_examples':[parent]}
-        elif parent not in unique[row['id']]['parent_examples']:
-            unique[row['id']]['parent_examples'].append(parent)
+            unique[row['id']]={**row,'reference_examples':[parent]}
+        elif parent not in unique[row['id']]['reference_examples']:
+            unique[row['id']]['reference_examples'].append(parent)
     return list(unique.values())
 
 
-def build(source, output, native_gait, workers=4):
+def build(source, output, native_gait, workers=4, include_probes=True):
     source=Path(source);output=Path(output);output.mkdir(parents=True,exist_ok=False)
     rows=[json.loads(s) for s in (source/'train.jsonl').read_text().splitlines()]
     eligible=[]; excluded=[]
@@ -226,9 +297,22 @@ def build(source, output, native_gait, workers=4):
         if query.get('event') or not any(a[0] in MOTIONS for a in row['answers']):
             excluded.append({'id':row['id'],'reason':'existing recovery' if query.get('event') else 'no movement'})
         else:eligible.append(row)
+    # The three approved phrasings share a motion target. Derive feedback
+    # lessons from one recorded-context source per motion, retaining every
+    # ordinary request in the exported training split.
+    by_motion = {}
+    source_motion = {row['id']:row.get('reference_motion') for row in rows if row.get('reference_motion')}
+    for row in eligible:
+        key = row.get('reference_motion') or source_motion.get(row.get('reference_example_id')) or row['id']
+        old = by_motion.get(key)
+        priority = lambda item: (bool(item.get('reference_motion')),
+                                 bool(json.loads(item['query']).get('observation')))
+        if old is None or priority(row) > priority(old):
+            by_motion[key] = row
+    eligible = list(by_motion.values())
     results=[]
     with ProcessPoolExecutor(workers) as pool:
-        for result in pool.map(audit_source,((r,str(native_gait)) for r in eligible)):
+        for result in pool.map(audit_source,((r,str(native_gait),include_probes) for r in eligible)):
             results.append(result)
             if len(results)%100==0:print('recovery sources',len(results),flush=True)
     new_train=deduplicate(r for result in results for r in result.get('train',[]))
@@ -240,7 +324,9 @@ def build(source, output, native_gait, workers=4):
         path=output/(split+'.jsonl')
         with path.open('a') as stream:
             stream.writelines(compact(r)+'\n' for r in added)
+        manifest.setdefault('splits',{}).setdefault(split,len(rows) if split=='train' else 0)
         manifest['splits'][split]+=len(added)
+        if split=='train':manifest['training_rows']=manifest['splits'][split]
         manifest['files'][path.name]=hashlib.sha256(path.read_bytes()).hexdigest()
     report={'eligible_source_motions':len(eligible),'covered_source_motions':sum('error' not in r for r in results),
         'added_training':len(new_train),'added_probes':len(new_probe),'families':dict(Counter(r['family'] for r in new_train)),
@@ -265,4 +351,6 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     for name in ('source','output','native-gait'):parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--workers',type=int,default=4)
-    build(**vars(parser.parse_args()))
+    parser.add_argument('--skip-probes',action='store_true')
+    arguments=vars(parser.parse_args());arguments['include_probes']=not arguments.pop('skip_probes')
+    build(**arguments)

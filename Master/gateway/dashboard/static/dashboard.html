@@ -196,17 +196,15 @@
       </section>
 
 <section class="control-section workspace-section" data-workspace-panel="poses" aria-labelledby="poses-title"><div class="section-heading"><h2 id="poses-title">Poses and emotes</h2></div>
-<form id="motion-system-form">
-  <label for="motion-system">Manual motion controls</label>
-  <select id="motion-system" name="system">
-    <option value="freestyle">Freestyle — trained motion model</option>
-    <option value="library">Legacy library — direct manual controls</option>
-  </select>
-  <button type="submit">Save manual selection</button>
-  <p id="motion-system-status" aria-live="polite"></p>
-  <p>Freestyle handles motion requests and startup stretch. Select Legacy library only to trigger stored motions manually here. This selection does not change MetaHuman or automatic recovery.</p>
-</form>
-<div class="emote-group">
+<div id="motion-system-controls">
+  <label class="motion-system-toggle">
+    <span>Legacy library</span>
+    <input id="motion-system" name="system" type="checkbox" role="switch" aria-label="Use Freestyle for manual motion controls" checked>
+    <span class="motion-system-track" aria-hidden="true"></span>
+    <span>Freestyle</span>
+  </label>
+</div>
+<div id="named-poses-emotes" class="emote-group" hidden>
           <span class="field-label">Named poses and emotes</span>
 
           <div id="motion-catalog" class="emote-grid">
@@ -326,7 +324,7 @@
   <div class="section-heading"><h2 id="gait-history-title">Learning history</h2></div>
   <details id="neural-gait-panel">
     <summary>Neural walking · source and training</summary>
-    <p>Train a separate walking policy, inspect its evaluation and watch its simulated movement. Preview reads robot sensors without moving. The walking source below applies to new Walk requests from Body Control and MetaHuman; existing goals still own arrival and Finish.</p>
+    <p>Train from recorded physical trials or simulation, inspect the results and select a walking policy. Preview reads robot sensors without moving. The walking source below applies to new Walk requests from Body Control and MetaHuman; existing goals still own arrival and Finish.</p>
     <div class="input-with-actions">
       <label>Walking source<select id="neural-walking-source"><option value="native">Native gait</option><option value="neural">Selected neural policy</option></select></label>
       <label>Forward m/s at 100%<input id="neural-walking-forward" type="number" step="any"></label>
@@ -340,26 +338,44 @@
       <button id="neural-gait-refresh" type="button">Refresh neural training</button>
       <label>Additional training steps<input id="neural-gait-steps" type="number" min="1" step="1000" value="50000"></label>
       <label>Simulation workers for new runs<input id="neural-gait-workers" type="number" min="1" step="1" value="2"></label>
-      <button id="neural-gait-train" type="button">Train new policy</button>
+      <button id="neural-gait-train" type="button">Train Pupper V3 adaptation</button>
     </div>
     <div class="input-with-actions">
       <label>Saved run<select id="neural-gait-model"></select></label>
-      <button id="neural-gait-resume" type="button">Continue selected training</button>
+      <button id="neural-gait-resume" type="button">Continue simulation training</button>
       <button id="neural-gait-load" type="button">Select inference model</button>
       <button id="neural-gait-render" type="button">Render evaluation trials</button>
       <button id="neural-gait-progress" type="button">Watch learning progress</button>
       <button id="neural-gait-preview" type="button">Preview from robot sensors</button>
     </div>
-    <details><summary>Physics and training command</summary>
+    <details><summary>Robot configuration and simulation settings</summary>
       <p>Total mass is measured. Component mass distribution, actuator strength and friction are estimates. Exploration ranges describe simulation, not measured mechanical stops. Keep the same configuration when resuming a checkpoint.</p>
       <label>Environment configuration (JSON)<textarea id="neural-gait-environment" rows="12"></textarea></label>
       <label>Training requests (optional JSON list of [forward m/s, lateral m/s, turn rad/s])<textarea id="neural-gait-commands" rows="3" placeholder="[[0.03,0,0],[-0.03,0,0],[0,0,0.4]]"></textarea></label>
     </details>
+    <fieldset>
+      <legend>Physical learning</legend>
+      <p>These controls retain the existing physical REDQ runs. The Pupper V3 adaptation trains through the simulation controls above.</p>
+      <p>Create a run from the configuration above, then select its saved actor for inference and save Selected neural policy as the walking source. Enable Log gait data before starting a recorded learning Walk. Use the existing Finish, Stop and Release controls to end movement.</p>
+      <div class="input-with-actions">
+        <button id="neural-gait-physical-create" type="button">Create physical learning run</button>
+        <label>Forward speed %<input id="neural-gait-physical-speed" type="number" step="any" value="100"></label>
+        <button id="neural-gait-physical-trial" type="button">Start recorded learning Walk</button>
+      </div>
+      <p>The trial uses the active physical actor. Creating or training a run does not select it or start movement. Training uses saved recordings on the desktop; the Q6A runs the selected actor for inference.</p>
+      <label>Recording directories on the training computer (one per line)<textarea id="neural-gait-physical-recordings" rows="3" placeholder="/path/to/recording"></textarea></label>
+      <div class="input-with-actions">
+        <label>Training updates<input id="neural-gait-physical-updates" type="number" min="1" step="1" value="1000"></label>
+        <button id="neural-gait-physical-train" type="button">Train saved physical run</button>
+      </div>
+      <p id="neural-gait-physical-result" role="status"></p>
+    </fieldset>
     <p id="neural-gait-summary" role="status">Refresh to connect to the separate neural gait service.</p>
     <p id="neural-gait-selection">No model selected.</p>
     <table><thead><tr><th>Training checkpoint</th><th>Mean trial reward</th><th>Falls / evaluated trials</th><th>Inference selection</th></tr></thead><tbody id="neural-gait-checkpoints"></tbody></table>
-    <p>Latest checkpoint: requested versus measured movement. Values are forward/lateral m/s and turn rad/s, grouped across the simulated trials.</p>
+    <p id="neural-gait-measurement-note">Latest checkpoint: requested versus measured movement. Values are forward/lateral m/s and turn rad/s, grouped across the simulated trials.</p>
     <table><thead><tr><th>Requested</th><th>Measured</th><th>Seconds sampled</th></tr></thead><tbody id="neural-gait-command-results"></tbody></table>
+    <details id="neural-gait-physical-evidence" hidden><summary>Recorded physical evidence</summary><pre id="neural-gait-physical-measurements"></pre></details>
     <p id="neural-gait-video-note">Progress videos compare the same reference trials at each checkpoint. A deterministic environment uses one trial; varied environments use multiple seeds. Failed trials remain visible.</p>
     <video id="neural-gait-video" controls loop playsinline hidden style="width:100%;max-width:640px"></video>
     <p><a id="neural-gait-footage" hidden>Download clean clips, labelled clips and training measurements</a></p>
@@ -553,6 +569,19 @@
               <label>Frame rate
                 <input name="fps" type="number" min="0" max="15" value="1">
               </label>
+              <fieldset data-camera-motion-exposure hidden disabled>
+                <legend>Automatic exposure</legend>
+                <label>Exposure mode
+                  <select name="motion_exposure">
+                    <option value="auto">Automatic · full integration range</option>
+                    <option value="motion">Motion capture · limit exposure</option>
+                  </select>
+                </label>
+                <label>Maximum exposure (ms)
+                  <input name="max_exposure_ms" type="number" min="0.001" max="4294967.295" step="0.001" value="10" disabled required>
+                </label>
+                <p class="field-help">Motion capture limits shutter time to reduce movement blur. Exposure and gain remain automatic; dim scenes may look darker or noisier. The camera rounds the limit to its line timing. This saved setting applies to preview and snapshots until you change it.</p>
+              </fieldset>
               <fieldset data-camera-controls hidden disabled>
                 <legend>Exposure, gain and JPEG quality</legend>
                 <label>Exposure (ms; 0 = Auto)

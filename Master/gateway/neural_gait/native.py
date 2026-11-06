@@ -16,6 +16,16 @@ WALK_LOCK = threading.RLock()  # Native production speed setting is process-glob
 ARRAY = np.ctypeslib.ndpointer(dtype=np.float64, flags="C_CONTIGUOUS")
 
 
+def motor_force_range(velocity,stall_torque,advertised_speed,*,array=np):
+    """Existing virtual MG90S torque/speed plant; no target slew or speed scale.
+
+    Speed is advertised; stall torque and this linear envelope remain plant
+    estimates until measured. They are not fourth-wire current measurements.
+    """
+    return (-stall_torque*array.clip(1+velocity/advertised_speed,0,1),
+            stall_torque*array.clip(1-velocity/advertised_speed,0,1))
+
+
 def finite_array(value, size):
     result = np.ascontiguousarray(value, dtype=np.float64)
     if result.shape != (size,) or not np.isfinite(result).all():
@@ -56,6 +66,13 @@ def library():
     lib.simulation_new.argtypes = [ARRAY, ARRAY, ARRAY]
     lib.simulation_new.restype = ctypes.c_void_p
     lib.simulation_free.argtypes = [ctypes.c_void_p]
+    lib.simulation_foot_geometry.argtypes = [ARRAY]
+    sensor_bytes=np.ctypeslib.ndpointer(dtype=np.uint8,flags='C_CONTIGUOUS')
+    lib.simulation_sensor_size.restype=ctypes.c_size_t
+    lib.simulation_sensor_export.argtypes=[ctypes.c_void_p,sensor_bytes]
+    lib.simulation_sensor_import.argtypes=[ctypes.c_void_p,sensor_bytes]
+    lib.simulation_imu_calibration.argtypes=[ctypes.c_void_p,ARRAY,ARRAY]
+    lib.simulation_imu_calibration.restype=ctypes.c_int
     lib.simulation_target.argtypes = [
         ctypes.c_void_p,
         ARRAY,
@@ -85,6 +102,10 @@ def library():
         ctypes.c_double,
         ARRAY,
     ]
+    lib.simulation_foot_action_scale.argtypes = [ctypes.c_void_p, ARRAY, ARRAY, ARRAY]
+    lib.simulation_foot_action_scale.restype = ctypes.c_int
+    lib.simulation_foot_offsets_for_angles.argtypes = [ctypes.c_void_p, ARRAY, ARRAY, ARRAY]
+    lib.simulation_foot_offsets_for_angles.restype = ctypes.c_int
     lib.simulation_balance_configure.argtypes = [ctypes.c_void_p, ARRAY]
     lib.simulation_balance_configure.restype = None
     lib.simulation_pwm.argtypes = [
@@ -133,6 +154,8 @@ def library():
     for name in ("telemetry", "hello", "receive", "events", "feedback"):
         getattr(lib, "virtual_body_" + name).restype = ctypes.c_size_t
     return lib
+
+
 
 
 class BodyModel:
@@ -222,6 +245,28 @@ class BodyModel:
             out,
         )
         return (out[:12], out[12:]) if ok else None
+
+    def sensor_state(self):
+        """Serialize firmware sensor memory for one independent virtual body."""
+        result=np.zeros(self.lib.simulation_sensor_size(),dtype=np.uint8)
+        self.lib.simulation_sensor_export(self.state,result)
+        return result
+
+    def foot_geometry(self):
+        """Generated P4 geometry in physical RL/RR/FL/FR order; setup only."""
+        out = np.zeros(64, dtype=np.float64)
+        self.lib.simulation_foot_geometry(out)
+        return dict(parameters=out[:12].tolist(), legs=out[12:].reshape(4,13).tolist())
+
+    def imu_calibration(self,rotation,gyro_bias):
+        if not self.lib.simulation_imu_calibration(self.state,finite_array(rotation,9),finite_array(gyro_bias,3)):
+            raise ValueError('The existing IMU owner rejected this calibration')
+
+    def restore_sensor_state(self,values):
+        values=np.ascontiguousarray(values,dtype=np.uint8)
+        if values.shape!=(self.lib.simulation_sensor_size(),):
+            raise ValueError('Sensor state belongs to a different native ABI')
+        self.lib.simulation_sensor_import(self.state,values)
 
     def raw_samples(self, angles):
         angles = finite_array(angles, 12)
@@ -490,6 +535,35 @@ class BodyModel:
         self.lib.simulation_balance_configure(
             self.state, finite_array([enabled, *tuning], 5))
 
+    def foot_action_scale(self, reference_angles, target_limits_deg):
+        """Containing workspace from production geometry and calibrated ranges.
+
+        This is an action encoding, not a claim that every box corner is
+        reachable. The existing IK and pulse mapping continue to fit targets.
+        """
+        limits = np.asarray(target_limits_deg, dtype=float)
+        if limits.shape != (12, 2) or not np.isfinite(limits).all() or np.any(limits[:, 0] >= limits[:, 1]):
+            raise ValueError("Expected twelve ordered finite joint ranges")
+        out = np.zeros(3)
+        if not self.lib.simulation_foot_action_scale(self.state, finite_array(reference_angles, 12),
+                finite_array(limits.reshape(-1), 24), out):
+            raise ValueError("Reference cannot define the calibrated foot workspace")
+        return out.tolist()
+
+    def foot_offsets_for_angles(self, angles, reference_angles):
+        """Production FK offsets from the action decoder's fitted reference.
+
+        Returns 4x3 body-axis millimeters in physical RL/RR/FL/FR order.
+        Supplied target angles are never fitted or clipped; an impossible
+        linkage raises ValueError instead of changing the training label.
+        This geometric conversion consumes no simulated sensor observations.
+        """
+        out = np.zeros(12)
+        if not self.lib.simulation_foot_offsets_for_angles(self.state,
+                finite_array(angles, 12), finite_array(reference_angles, 12), out):
+            raise ValueError("Target or fitted reference has no valid production foot geometry")
+        return out.reshape(4, 3)
+
     def foot_target(self, offsets_mm, reference_angles, previous, speed, dt, *, now_us=0.0):
         """Existing per-leg IK fit followed by the production calibrated ramp.
 
@@ -534,6 +608,143 @@ class BodyModel:
             balance_correction_rad=out[68:70],
         )
 
+
+def derive_foot_action_scale(robot, reference_joint_deg, target_limits_deg):
+    """Configuration-time geometry projection; no sensor samples or motion."""
+    model = BodyModel(robot)
+    try:
+        return model.foot_action_scale(reference_joint_deg, target_limits_deg)
+    finally:
+        model.close()
+
+
+class SensorBatch:
+    """Functional episode bridge to the existing P4 sensor/PWM owners.
+
+    Virtual shaft positions and IMU specific-force/angular-rate samples describe
+    transducers, not policy observations. Firmware ADC filters, calibration,
+    jam detection and LSM6DS3/Fusion produce the policy-visible result. No network,
+    controller, fabricated random noise or physical measurement lives here.
+    """
+    FEATURES=78
+
+    def __init__(self,robot,physics_dt,imu_calibration=None):
+        self.body=BodyModel(robot)
+        profile=ROOT/'Slave/software/models/v2-12servo/servo_profile.json'
+        self.speed_deg_s=json.loads(profile.read_text())['gait_max_joint_speed_degrees_s']
+        if imu_calibration is not None:
+            self.body.imu_calibration(imu_calibration['sensor_to_body'],imu_calibration['gyro_bias_rad_s'])
+        self.physics_us=float(physics_dt)*1e6
+        self.first_scan_us=1+robot['feedback']['scan_us']
+        self.native_initial=self.body.sensor_state()
+        self.native_size=len(self.native_initial)
+        self.history_rows=int(np.ceil(max(robot['feedback']['sample_age_from_last_channel_us'])/self.physics_us))+3
+        self.tail_size=4+self.history_rows*13+self.FEATURES
+        self.state_size=self.native_size+self.tail_size*8
+
+    def close(self):
+        self.body.close()
+
+    def initial_state(self):
+        result=np.zeros(self.state_size,dtype=np.uint8)
+        result[:self.native_size]=self.native_initial
+        tail=result[self.native_size:].view(np.float64)
+        # The first complete mux scan needs its recorded acquisition duration.
+        # Do not manufacture twelve available samples at the episode's birth.
+        tail[:4]=[0,1,self.first_scan_us,0]  # last physics us, next IMU, next ADC, history rows
+        return result
+
+    def acquire(self,states,traces,targets,*,reset=False):
+        """Batched pure callback: all mutable firmware state is an input/output.
+
+        Trace rows: 12 shaft radians, 3 specific-force m/s², 3 gyro rad/s,
+        followed by the actual virtual physics time in seconds. A rewound
+        physics clock is an episode reset, including Brax time-limit resets.
+        State uses bytes to retain native timestamps/precision under JAX float32.
+        """
+        traces=np.asarray(traces,dtype=np.float64)
+        prefix=traces.shape[:-2]
+        streams=traces.reshape(-1,*traces.shape[-2:])
+        commands=np.broadcast_to(targets,(*prefix,12)).reshape(-1,12)
+        incoming=(np.broadcast_to(self.initial_state(),(*prefix,self.state_size)) if reset else np.asarray(states))
+        outgoing=np.ascontiguousarray(incoming).reshape(-1,self.state_size).copy()
+        observed=np.empty((len(streams),self.FEATURES),dtype=np.float32)
+        # Native routines already own state/quality semantics. This lock only
+        # protects the reusable ABI scratch object during concurrent callbacks.
+        with WALK_LOCK:
+            for index,(stream,command) in enumerate(zip(streams,commands)):
+                state=outgoing[index]
+                self.body.restore_sensor_state(state[:self.native_size])
+                tail=state[self.native_size:].view(np.float64)
+                header=tail[:4];history=tail[4:4+self.history_rows*13].reshape(self.history_rows,13)
+                latest=tail[-self.FEATURES:]
+                for row in stream:
+                    now=1+round(float(row[18])*1e6)
+                    if now == header[0]:
+                        continue  # Shared physics boundary, already acquired.
+                    if now < header[0]:
+                        # AutoReset rewinds physics without calling this bridge's
+                        # reset method. Keep firmware memory in that same episode.
+                        state[:]=self.initial_state()
+                        self.body.restore_sensor_state(state[:self.native_size])
+                    header[0]=now
+                    count=min(int(header[3])+1,self.history_rows)
+                    history[:-1]=history[1:]
+                    history[-1]=np.r_[now,np.rad2deg(row[:12])]
+                    header[3]=count
+                    if now+1e-7>=header[1]:
+                        imu=self.body.imu_sample(now,row[12:15],row[15:18])
+                        latest[24:34]=np.r_[imu[:4],imu[4:7],imu[7:10]]
+                        header[1]+=1e6/208
+                    if now+1e-7>=header[2]:
+                        timestamps=1+self.body.sample_times((now-1)/1e6)*1e6
+                        active=history[-count:]
+                        angles=np.array([np.interp(t,active[:,0],active[:,j+1]) for j,t in enumerate(timestamps)])
+                        raw=np.rint(np.clip(self.body.raw_samples(angles),0,4095))
+                        positions,velocities,usable,jammed=self.body.feedback_sample(raw,np.rad2deg(command),timestamps)
+                        latest[:24]=np.deg2rad(np.r_[positions,velocities])
+                        latest[34:46]=usable
+                        latest[53:65]=[(jammed>>j)&1 for j in range(12)]
+                        latest[65:77]=timestamps
+                        header[2]+=20000.
+                quality=self.body.imu_status(now)
+                latest[46:53]=list(quality['quality'].values())
+                current=latest.copy()
+                current[65:77]=np.where(current[65:77]>0,(now-current[65:77])/1e6,-1.)
+                current[77]=quality['sample_age_s'] if quality['sample_age_s'] is not None else -1.
+                observed[index]=current
+                state[:self.native_size]=self.body.sensor_state()
+        return outgoing.reshape(*prefix,self.state_size),observed.reshape(*prefix,self.FEATURES)
+
+    def jax_reset(self,trace,targets):
+        import jax
+        import jax.numpy as jp
+        shapes=(jax.ShapeDtypeStruct((self.state_size,),jp.uint8),jax.ShapeDtypeStruct((self.FEATURES,),jp.float32))
+        def callback(samples,command):return self.acquire(None,samples,command,reset=True)
+        return jax.pure_callback(callback,shapes,trace,targets,vmap_method='broadcast_all')
+
+    def jax_step(self,state,trace,targets):
+        import jax
+        import jax.numpy as jp
+        shapes=(jax.ShapeDtypeStruct((self.state_size,),jp.uint8),jax.ShapeDtypeStruct((self.FEATURES,),jp.float32))
+        return jax.pure_callback(self.acquire,shapes,state,trace,targets,vmap_method='broadcast_all')
+
+    def jax_command(self,targets):
+        import jax
+        import jax.numpy as jp
+        def callback(values):
+            values=np.asarray(values);result=np.empty((*values.shape[:-1],2,12),dtype=np.float32)
+            with WALK_LOCK:
+                for source,destination in zip(values.reshape(-1,12),result.reshape(-1,2,12)):
+                    goal=np.rad2deg(source)
+                    fitted=self.body.target(goal,goal,self.speed_deg_s,0.)
+                    if fitted is None:
+                        raise ValueError('Existing P4 target owner rejected the requested calibrated frame')
+                    output=self.body.pwm_output(fitted[1])
+                    destination[0]=np.deg2rad(output['physical_angles'])
+                    destination[1]=np.deg2rad(fitted[1])
+            return result
+        return jax.pure_callback(callback,jax.ShapeDtypeStruct((2,12),jp.float32),targets,vmap_method='broadcast_all')
 
 class VirtualBody:
     """One real P4 body executor per process, with an external physics plant.

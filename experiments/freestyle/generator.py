@@ -10,26 +10,24 @@ from uuid import uuid4
 from urllib.parse import urlsplit, quote
 from pathlib import Path
 
-from .runtime import compact
+from .runtime import compact, JOINTS
 from .observations import enrich
 from .compact_wire import FORMAT, LEGACY_FORMAT, ProgramEncoding, model_query
 
 
 def argument_schema(tool):
-    """Express the spatial format's existing one-offset-per-leg requirement.
-
-    Grammar constrains generation itself; no returned motion is trimmed or
-    replaced. The compiler already requires distinct legs from the four-leg
-    vocabulary. Body moves may legitimately have no explicit foot offsets.
-    """
+    """Express the executor's existing corresponding-target requirements."""
     parameters = tool['parameters']
-    offset = {'feet':'offsets_mm', 'body':'foot_offsets_mm'}.get(tool['name'])
-    if offset is None:
+    paired = {'feet':('legs','offsets_mm',0,4),
+              'body':('legs','foot_offsets_mm',0,4),
+              'pose':('joints','angles_deg',0,len(JOINTS))}.get(tool['name'])
+    if paired is None:
         return parameters
+    names,targets,minimum,maximum=paired
     variants = []
-    for count in range(5):
+    for count in range(minimum,maximum+1):
         variant = copy.deepcopy(parameters)
-        for name in ('legs', offset):
+        for name in (names,targets):
             variant['properties'][name].update(minItems=count, maxItems=count)
         variants.append(variant)
     return {'oneOf':variants}
@@ -95,9 +93,10 @@ class Generator:
                 pass
             else:
                 if isinstance(decoded,dict):query=decoded
-        query = enrich(query)
         if self.encoding:
             query = model_query(query, self.encoding)
+        else:
+            query = enrich(query)
         if not isinstance(query, str):
             query = compact(query)
         return {'model':self.model,'lora':[],'temperature':0,'chat_template_kwargs':{'enable_thinking':False},

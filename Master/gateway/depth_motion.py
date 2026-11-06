@@ -26,6 +26,52 @@ def rigid(value):
     return transform
 
 
+def frame_attitude(samples, metadata):
+    """Interpolate device-clock attitude at CSI completion, never receipt time."""
+    import numpy as np
+    metadata = metadata or {}
+    stamp, boot = metadata.get("frame_completed_us"), metadata.get("boot_id")
+    base = dict(available=False, frame_completed_us=stamp, boot_id=boot,
+                time_basis="csi-transfer-completion", exposure_alignment_verified=False)
+    if type(stamp) is not int or stamp <= 0 or type(boot) is not int or boot < 0:
+        return dict(base, reason="Camera has no device frame completion timestamp/boot identity")
+    before = after = None
+    for sample in samples:
+        if sample.get("boot_id") != boot:
+            continue
+        t = sample.get("timestamp_us")
+        if type(t) is not int:
+            continue
+        if t <= stamp:
+            before = sample
+        if t >= stamp:
+            after = sample
+            break
+    if before is None or after is None:
+        return dict(base, reason="No same-boot IMU samples bracket camera frame completion")
+    if any(not s.get("available") for s in (before,after)):
+        return dict(base, reason="Camera IMU bracket contains unavailable fused attitude")
+    q = np.asarray([s.get("orientation_wxyz") for s in (before,after)], dtype=float)
+    if q.shape != (2,4) or not np.isfinite(q).all() or np.any(np.linalg.norm(q,axis=1) == 0):
+        return dict(base, reason="Camera IMU bracket has invalid quaternion")
+    q /= np.linalg.norm(q,axis=1)[:,None]
+    dot = float(q[0] @ q[1])
+    if dot < 0:
+        q[1] *= -1; dot = -dot
+    interval = after["timestamp_us"]-before["timestamp_us"]
+    fraction = (stamp-before["timestamp_us"])/interval if interval else 0.
+    angle = np.arccos(np.clip(dot,-1,1))
+    if abs(np.sin(angle)) < 1e-8:
+        value = (1-fraction)*q[0]+fraction*q[1]
+    else:
+        value = (np.sin((1-fraction)*angle)*q[0]+np.sin(fraction*angle)*q[1])/np.sin(angle)
+    value /= np.linalg.norm(value)
+    return dict(base, available=True, orientation_wxyz=value.tolist(),
+                bracket_us=[before["timestamp_us"],after["timestamp_us"]],
+                bracket_quality=[{key:s.get(key) for key in ("fresh","startup","gyro_recovery",
+                    "acceleration_recovery","accelerometer_ignored")} for s in (before,after)])
+
+
 def spatial_depth(depth, intrinsics, *, units, scale_source, intrinsics_source,
                   camera_to_body=None, extrinsics_source="unavailable",
                   metric_accuracy_verified=False):
@@ -98,7 +144,7 @@ class DepthMotion:
         self.instance = instance
         self.process_handle = None
 
-    def process(self, robot, epoch, counter, received, jpeg, timestamp, config):
+    def process(self, robot, epoch, counter, received, jpeg, timestamp, config, attitude=None):
         if self.process_handle is not None and self.process_handle.poll() is not None:
             self.close()
         if self.process_handle is None:
@@ -109,7 +155,7 @@ class DepthMotion:
                 env=worker_environment())
         request = dict(robot=robot, epoch=epoch, counter=counter,
                        received=received, timestamp=timestamp, instance=self.instance,
-                       jpeg=base64.b64encode(jpeg).decode(), config=config)
+                       jpeg=base64.b64encode(jpeg).decode(), config=config, attitude=attitude)
         proc = self.process_handle
         proc.stdin.write(json.dumps(request, allow_nan=False)+"\n")
         proc.stdin.flush()

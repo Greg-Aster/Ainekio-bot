@@ -56,6 +56,71 @@ def pose_motion(previous, current, seconds):
                 travelled_m=float(np.linalg.norm(displacement)))
 
 
+def quaternion_rotation(value):
+    w, x, y, z = np.asarray(value, dtype=float)/np.linalg.norm(value)
+    return np.array([[1-2*(y*y+z*z), 2*(x*y-z*w), 2*(x*z+y*w)],
+                     [2*(x*y+z*w), 1-2*(x*x+z*z), 2*(y*z-x*w)],
+                     [2*(x*z-y*w), 2*(y*z+x*w), 1-2*(x*x+y*y)]])
+
+
+def known_rotation_translation(points, pixels, intrinsics, rotation):
+    """Known-rotation absolute pose, using 3-D landmarks (not unit translation).
+
+    Same geometric problem as OpenGV absolute_pose::p2p:
+    https://laurentkneip.github.io/opengv/namespaceopengv_1_1absolute__pose.html
+    Here two-bearing hypotheses solve [I-bb'] t = -[I-bb'] R X;
+    inliers refine translation only. Existing PnPRansac defaults are retained:
+    100 hypotheses, 8-pixel residual, at least six supported landmarks.
+    """
+    import cv2
+    rotated = np.asarray(points) @ rotation.T
+    rays = np.column_stack([pixels,np.ones(len(pixels))]) @ np.linalg.inv(intrinsics).T
+    rays /= np.linalg.norm(rays,axis=1)[:,None]
+    projectors = np.eye(3)[None]-rays[:,:,None]*rays[:,None,:]
+    rhs = -np.einsum('nij,nj->ni',projectors,rotated)
+    def fit(indices):
+        a = projectors[indices].reshape(-1,3)
+        t, _, rank, _ = np.linalg.lstsq(a,rhs[indices].reshape(-1),rcond=None)
+        return t if rank == 3 else None
+    def errors(t):
+        camera = rotated+t
+        projected = camera @ intrinsics.T
+        predicted = projected[:,:2]/projected[:,2,None]
+        return np.where(camera[:,2] > 0, np.linalg.norm(predicted-pixels,axis=1), np.inf)
+    rng = np.random.default_rng(0)
+    keep, best_error = np.array([],dtype=int), np.inf
+    for _ in range(100):
+        t = fit(rng.choice(len(points),2,replace=False))
+        if t is None:
+            continue
+        error = errors(t)
+        indices = np.flatnonzero(error < 8.)
+        score = float(error[indices].sum())
+        if len(indices) > len(keep) or (len(indices) == len(keep) and score < best_error):
+            keep, best_error = indices, score
+    if len(keep) < 6:
+        raise ValueError("Camera known-rotation landmark pose fit failed")
+    t = fit(keep)
+    if t is None:
+        raise ValueError("Camera known-rotation translation is unobservable")
+    rvec = cv2.Rodrigues(rotation)[0]
+    # Reprojection Gauss-Newton with only the three translation columns.
+    for _ in range(20):
+        predicted, jacobian = cv2.projectPoints(points[keep],rvec,t,intrinsics,None)
+        residual = (predicted.reshape(-1,2)-pixels[keep]).reshape(-1)
+        step, _, rank, _ = np.linalg.lstsq(jacobian[:,3:6],-residual,rcond=None)
+        if rank < 3:
+            raise ValueError("Camera known-rotation translation is unobservable")
+        t += step
+        if np.linalg.norm(step) < 1e-10:
+            break
+    error = errors(t)
+    keep = np.flatnonzero(error < 8.)
+    if len(keep) < 6 or not np.isfinite(t).all():
+        raise ValueError("Camera known-rotation landmark refinement failed")
+    return t, keep, float(np.sqrt(np.mean(error[keep]**2)))
+
+
 class FeatureMap:
     """Track fixed 3-D landmarks rather than changes in predicted depth.
 
@@ -70,7 +135,7 @@ class FeatureMap:
         self.descriptors = None
         self.points = None
 
-    def process(self, rgb, depth, intrinsics):
+    def process(self, rgb, depth, intrinsics, camera_rotation):
         import cv2
         keypoints, descriptors = self.detector.detectAndCompute(
             cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY), None)
@@ -85,6 +150,7 @@ class FeatureMap:
             raise ValueError("Insufficient depth-supported landmarks for camera pose")
         rays = np.column_stack([pixels, np.ones(len(pixels))]) @ np.linalg.inv(intrinsics).T
         pose = np.eye(4)
+        pose[:3,:3] = camera_rotation
         quality = {"matches": 0, "inliers": 0, "reprojectionPixels": None}
         retained = None
         scale = 1.
@@ -99,24 +165,18 @@ class FeatureMap:
             old = np.array([m.queryIdx for m in matches])
             new = np.array([m.trainIdx for m in matches])
             points, observed = self.points[old], pixels[new]
-            found, rotation, translation, inliers = cv2.solvePnPRansac(
-                points, observed, intrinsics, None, flags=cv2.SOLVEPNP_EPNP)
-            if not found or inliers is None or len(inliers) < 6:
-                raise ValueError("Camera landmark pose fit failed")
-            keep = inliers.ravel()
-            rotation, translation = cv2.solvePnPRefineLM(
-                points[keep], observed[keep], intrinsics, None, rotation, translation)
+            rotation = camera_rotation.T
+            translation, keep, reprojection = known_rotation_translation(points, observed, intrinsics, rotation)
             camera_from_world = np.eye(4)
-            camera_from_world[:3, :3] = cv2.Rodrigues(rotation)[0]
-            camera_from_world[:3, 3] = translation.ravel()
+            camera_from_world[:3, :3] = rotation
+            camera_from_world[:3, 3] = translation
             pose = np.linalg.inv(camera_from_world)
-            predicted = points[keep] @ camera_from_world[:3, :3].T + translation.ravel()
+            predicted = points[keep] @ rotation.T + translation
             scale = float(np.median(predicted[:, 2]/z[new[keep]]))
             if not np.isfinite(pose).all() or not math.isfinite(scale) or scale <= 0:
                 raise ValueError("Camera landmark fit has invalid depth")
-            projected = cv2.projectPoints(points[keep], rotation, translation, intrinsics, None)[0].reshape(-1, 2)
-            quality = dict(matches=len(matches), inliers=len(keep),
-                           reprojectionPixels=float(np.sqrt(np.mean(np.sum((projected-observed[keep])**2, axis=1)))))
+            quality = dict(matches=len(matches), inliers=len(keep), reprojectionPixels=reprojection,
+                           rotationSource="capture-aligned-p4-fused-attitude")
             retained = (new[keep], points[keep])
         world = (rays*(z*scale)[:, None]) @ pose[:3, :3].T + pose[:3, 3]
         if retained is not None:
@@ -205,12 +265,26 @@ class Estimator:
         if state["intrinsics"] is None:
             state["intrinsics"] = intrinsics
             state["calibration_id"] = hashlib.sha256(json.dumps(
-                ["landmark-odometry-v1", self.model_id, config, intrinsics.tolist()], sort_keys=True).encode()).hexdigest()
+                ["imu-known-rotation-landmark-odometry-v2", self.model_id, config, intrinsics.tolist()], sort_keys=True).encode()).hexdigest()
             self.optics[(robot, optics_key)] = {k: state[k] for k in ("intrinsics", "calibration_id")}
         quality = {"matches": 0, "inliers": 0, "reprojectionPixels": None}
         tracking_error = None
+        attitude = request.get("attitude") or {}
+        camera_rotation = None
+        stamp = attitude.get("frame_completed_us")
         try:
-            state["pose"], quality = state["tracker"].process(rgb, depth, state["intrinsics"])
+            if not attitude.get("available"):
+                raise ValueError(attitude.get("reason", "Camera frame has no capture-aligned IMU attitude"))
+            if config.get("cameraToBody") is None:
+                raise ValueError("Camera-to-body transform is required for IMU-constrained pose")
+            current_rotation = quaternion_rotation(attitude["orientation_wxyz"])
+            if state.get("attitude_boot") != attitude["boot_id"]:
+                state.update(attitude_boot=attitude["boot_id"], attitude_reference=current_rotation,
+                             tracker=FeatureMap(), reference=uuid4().hex, pose=np.eye(4), motion_sample=None)
+            reference = state.setdefault("attitude_reference", current_rotation)
+            mounting = np.asarray(config["cameraToBody"])[:3,:3]
+            camera_rotation = mounting.T @ reference.T @ current_rotation @ mounting
+            state["pose"], quality = state["tracker"].process(rgb, depth, state["intrinsics"], camera_rotation)
         except (RuntimeError, ValueError, cv2.error) as error:
             # Approved recovery: the missing interval is unknown. Establish the
             # next local map with this image if it contains usable features.
@@ -218,22 +292,25 @@ class Estimator:
             state["reference"] = uuid4().hex
             state["pose"] = np.eye(4)
             state["tracker"] = FeatureMap()
-            try:
-                state["tracker"].process(rgb, depth, state["intrinsics"])
-            except (RuntimeError, ValueError, cv2.error):
-                pass
+            state.pop("attitude_reference", None)
+            if camera_rotation is not None:
+                state["attitude_reference"] = current_rotation
+                try:
+                    state["tracker"].process(rgb, depth, state["intrinsics"], np.eye(3))
+                except (RuntimeError, ValueError, cv2.error):
+                    pass
         motion = None
         if tracking_error is None:
             pose = body_pose(state["pose"], config.get("cameraToBody"))
             previous = state.get("motion_sample")
             if (previous is not None and previous[0] == state["reference"] and
-                    request["received"] > previous[1]):
-                motion = pose_motion(previous[2], pose, request["received"]-previous[1])
+                    stamp > previous[1]):
+                motion = pose_motion(previous[2], pose, (stamp-previous[1])/1e6)
                 state["path_m"] += motion["travelled_m"]
                 state["heading_rad"] += motion["turn_rad"]
             else:
                 state["path_m"], state["heading_rad"] = 0., 0.
-            state["motion_sample"] = (state["reference"], request["received"], pose.copy())
+            state["motion_sample"] = (state["reference"], stamp, pose.copy())
         else:
             state["motion_sample"] = None
             state["path_m"], state["heading_rad"] = 0., 0.
@@ -246,7 +323,7 @@ class Estimator:
         preview = cv2.resize(preview, (320, round(320*rgb.shape[0]/rgb.shape[1])))
         png = cv2.imencode(".png", preview)[1].tobytes()
         return dict(
-            available=tracking_error is None, source="moge2-landmark-odometry", scaleSource="learned-metric-estimate",
+            available=tracking_error is None, source="moge2-imu-landmark-odometry", scaleSource="learned-metric-estimate",
             reason="Camera tracking lost; new local reference established" if tracking_error else None,
             trackingError=tracking_error,
             metricAccuracyVerified=False, uncertainty={"metricMetres": None, **quality},
@@ -255,7 +332,9 @@ class Estimator:
             robotId=robot, epoch=request["epoch"], gatewayInstance=request["instance"],
             frameCounter=request["counter"], frameId=frame_id, frameTimestamp=request["timestamp"],
             observedAt=request["timestamp"], receivedAtMonotonic=request["received"],
-            clock="gateway-receipt", referenceId=state["reference"], calibrationId="estimated-"+state["calibration_id"],
+            clock="gateway-receipt", attitude=attitude,
+            motionClock="device-csi-transfer-completion", exposureAlignmentVerified=False,
+            referenceId=state["reference"], calibrationId="estimated-"+state["calibration_id"],
             modelId=self.model_id, referenceKind="local-odometry-no-loop-closure",
             position=camera_position(state["pose"], config.get("cameraToBody")) if tracking_error is None else None,
             velocity_body_m_s=(motion["velocity_body_m_s"]
@@ -263,7 +342,7 @@ class Estimator:
             yaw_rate_rad_s=motion["yaw_rate_rad_s"] if motion is not None else None,
             path_length_m=state["path_m"] if tracking_error is None else None,
             heading_change_rad=state["heading_rad"] if tracking_error is None else None,
-            motionIntervalS=(request["received"]-previous[1] if motion is not None else None),
+            motionIntervalS=((stamp-previous[1])/1e6 if motion is not None else None),
             distanceDefinition="Accumulated 3D odometry displacement within this local reference; estimated metric scale",
             intrinsics=state["intrinsics"].tolist(),
             depth=dict(units="estimated-metres", near=float(lo), far=float(hi),

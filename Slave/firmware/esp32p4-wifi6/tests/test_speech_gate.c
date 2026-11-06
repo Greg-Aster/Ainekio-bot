@@ -28,6 +28,27 @@ int main(void)
         assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, false, false, 2000, 15000, 1520000+i*20000));
     assert(!p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, false, false, 2000, 15000, 3520000));
     assert(!recording.wake_latched);
+    /* Wake acquisition has no independent three-second timer. A detector that
+     * initially misses speech must not discard the recording at that boundary. */
+    recording = (p4_speech_gate_t){0};
+    assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, true, false, 1500, 15000, 0));
+    for (int i=1; i<=200; ++i)
+        assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, false, false, 1500, 15000, i*20000));
+    assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, false, true, 1500, 15000, 4020000));
+    assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, false, false, 1500, 15000, 5500000));
+    assert(!p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, false, false, 1500, 15000, 5520000));
+    assert(!recording.wake_latched);
+    /* With no detected speech at all, only the selected wake maximum applies. */
+    assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, true, false, 1500, 5000, 6000000));
+    assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, false, false, 1500, 5000, 10980000));
+    assert(!p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, false, false, 1500, 5000, 11000000));
+    /* Pause seconds measure elapsed time, not how many buffered frames run. */
+    recording = (p4_speech_gate_t){0};
+    assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_VAD, false, true, 40, 15000, 12000000));
+    for (int i=1; i<=50; ++i)
+        assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_VAD, false, false, 40, 15000, 12000000+i));
+    assert(!p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_VAD, false, false, 40, 15000, 12040000));
+    recording = (p4_speech_gate_t){0};
     /* Another wake re-arms; the selected shorter maximum closes even speech. */
     assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, true, true, 1000, 5000, 4000000));
     assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_WAKE, false, true, 1000, 5000, 8980000));
@@ -40,6 +61,6 @@ int main(void)
     assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_VAD, false, false, 40, 15000, 10040000));
     assert(!p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_VAD, false, false, 40, 15000, 10060000));
     assert(p4_speech_gate_step(&recording, AINEKIO_MIC_GATE_OPEN, false, false, 40, 15000, 10080000));
-    puts("Speech pause, configured wake maximum, re-arm and session reset passed");
+    puts("Configured recording windows, no acquisition cutoff, pause, re-arm and reset passed");
     return 0;
 }

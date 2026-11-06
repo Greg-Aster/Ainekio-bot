@@ -18,12 +18,14 @@ const context = {window:{},Blob,URL:{createObjectURL(){return 'blob:test';},revo
       payload?.operation==='trial' ? {job:{id:'test-job',execute:false}} :
       payload?.operation==='corrections' ? {corrections:[{review_id:'review-1',title:'Wave trial',request:'Wave to an audience'}]} : {job_id:'test-job'}};
   }};
+node('motion-system').checked=true;
 vm.runInNewContext(fs.readFileSync('experiments/freestyle/body_control.js','utf8'),context);
 (async()=>{
   assert.equal(calls.length,0,'Loading the optional workspace must not enable recovery or send commands');
   const panel=created[0];
-  assert.equal(panel.dataset.workspacePanel,'poses');
-  assert.equal(node('[data-workspace-panel="poses"]').nextSibling,panel);
+  assert.equal(panel.dataset.motionSystem,'freestyle');
+  assert.equal(panel.dataset.workspacePanel,undefined,'Workspace navigation belongs to the containing Poses panel');
+  assert.equal(node('[data-workspace-panel="poses"]').children.includes(panel),true);
   node('robot-select').value='p4';
   node('[data-field="request"]').value='invent a greeting';
   await panel.listeners.click({target:{dataset:{action:'generate'}}});
@@ -41,11 +43,13 @@ vm.runInNewContext(fs.readFileSync('experiments/freestyle/body_control.js','utf8
   assert.deepEqual(calls.at(-1).payload,{operation:'corrections',robot_id:'another-body'});
   assert.equal(node('[data-field="correction"]').children[0].textContent,'Wave trial');
   const beforeOpen=calls.length;
-  await context.window.openFreestyleTrials();
-  assert.equal(panel.hidden,false);
-  assert.equal(node('[data-field="correction"]').scrolled,true);
+  node('[data-field="trials"]').open=true;
+  await node('[data-field="trials"]').listeners.toggle();
   assert.deepEqual(calls.slice(beforeOpen).filter(c=>c.payload).map(c=>c.payload.operation),['corrections'],
-    'Opening saved trials loads evidence without moving or publishing training data');
+    'Expanding saved trials loads evidence without moving or publishing training data');
+  assert.equal(panel.innerHTML.indexOf('Requested movement') < panel.innerHTML.indexOf('data-freestyle-training'),true);
+  assert.equal(panel.innerHTML.indexOf('data-freestyle-training') < panel.innerHTML.indexOf('Saved motion trials'),true);
+  assert.equal(panel.innerHTML.indexOf('Saved motion trials') < panel.innerHTML.indexOf('Freestyle settings'),true);
   node('[data-field="correction"]').value='review-1';
   await panel.listeners.click({target:{dataset:{action:'test-correction'}}});
   assert.deepEqual(calls.at(-1).payload,{operation:'test-correction',robot_id:'another-body',review_id:'review-1'});
@@ -59,6 +63,16 @@ vm.runInNewContext(fs.readFileSync('experiments/freestyle/body_control.js','utf8
   context.window.renderFreestyleStatus({settings:{p4:{endpoint:'http://localhost:8794',recover_events:true}},jobs:{}},'p4');
   assert.equal(node('[data-field="endpoint"]').value,'http://localhost:9000','Polling must preserve unsaved edits');
   assert.equal(calls.length,count,'Status rendering uses the existing dashboard update without extra requests');
+  node('robot-select').value='p4';
+  await panel.listeners.change({target:{dataset:{field:'endpoint'}}});
+  assert.deepEqual(calls.at(-1).payload,{operation:'configure',robot_id:'p4',endpoint:'http://localhost:9000',recover_events:true});
+  assert.equal(node('[data-field="settings-status"]').textContent,'Settings saved.');
+  node('[data-field="recovery"]').checked=false;
+  await panel.listeners.change({target:{dataset:{field:'recovery'}}});
+  assert.deepEqual(calls.at(-1).payload,{operation:'configure',robot_id:'p4',endpoint:'http://localhost:9000',recover_events:false});
+  assert.equal(calls.slice(count).filter(call=>call.payload).every(call=>call.payload.operation==='configure'),true,
+    'Changing settings saves configuration without generating or executing motion');
+  assert.doesNotMatch(panel.innerHTML,/data-action="configure"/,'Settings need no Apply button');
   context.window.renderFreestyleStatus({jobs:{}},'third-body');
   assert.equal(node('[data-field="result"]').textContent,'');
   assert.equal(node('[data-field="recovery"]').checked,false,'Settings follow the selected robot');

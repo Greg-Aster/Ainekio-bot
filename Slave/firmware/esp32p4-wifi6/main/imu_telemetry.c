@@ -73,13 +73,23 @@ size_t ainekio_imu_telemetry(const ainekio_p4_imu_status_t *sensor,
         h->below_calibration,h->above_calibration))return 0;
     for(unsigned j=0;j<12;j++)
         if(!append(text,capacity,&used,"%s%" PRId64,j?",":"",feedback->sampled_us[j]))return 0;
+    if(!append(text,capacity,&used,"],\"raw_adc\":["))return 0;
+    for(unsigned j=0;j<12;j++)
+        if(!append(text,capacity,&used,"%s%u",j?",":"",feedback->raw_adc[j]))return 0;
+    if(!append(text,capacity,&used,"],\"signal_millivolts\":["))return 0;
+    for(unsigned j=0;j<12;j++) {
+        if(!append(text,capacity,&used,"%s",j?",":""))return 0;
+        if(feedback->signal_millivolts[j]>=0) {
+            if(!append(text,capacity,&used,"%d",feedback->signal_millivolts[j]))return 0;
+        } else if(!append(text,capacity,&used,"null"))return 0;
+    }
     const char *names[]={"filtered_model_deg","velocity_deg_s","commanded_model_deg"};
     const float *columns[]={feedback->measured.position,feedback->measured.velocity,
         feedback->commanded.position};
     for(unsigned c=0;c<3;c++) {
         if(!append(text,capacity,&used,"],\"%s\":[",names[c]))return 0;
         for(unsigned j=0;j<12;j++) {
-            const bool present=(c==2?feedback->commanded_mask:feedback->usable_mask)&(1U<<j);
+            const bool present=(c==2?feedback->commanded_mask:feedback->measured_mask)&(1U<<j);
             if(!append(text,capacity,&used,"%s",j?",":""))return 0;
             if(present) {if(!append(text,capacity,&used,"%.6g",columns[c][j]/100.))return 0;}
             else if(!append(text,capacity,&used,"null"))return 0;

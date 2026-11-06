@@ -721,6 +721,7 @@ static size_t encode_tx(
             item->data.camera_meta.counter_base,
             item->data.camera_meta.origin,
             item->data.camera_meta.origin_id,
+            0, 0, /* V1 camera does not provide a device-clock completion time. */
             output,
             capacity
         );

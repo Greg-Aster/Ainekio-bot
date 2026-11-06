@@ -311,10 +311,12 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         frames = []
         service.subscribe_frames(frames.append)
         await connection._handle_control({'t': 'cam_meta', 'res': 'VGA', 'fps': 1,
-            'counter_base': 17, 'origin': 'request', 'origin_id': 31})
+            'counter_base': 17, 'origin': 'request', 'origin_id': 31, 'boot_id':0, 'frame_completed_us':123456})
         await connection._handle_binary(encode_binary_frame(CAMERA_JPEG_FRAME_TYPE, 17, b'\xff\xd8jpeg\xff\xd9'))
         await connection._handle_binary(encode_binary_frame(CAMERA_JPEG_FRAME_TYPE, 18, b'\xff\xd8preview\xff\xd9'))
         self.assertEqual(frames[0]['camera_metadata']['origin_id'], 31)
+        self.assertEqual(frames[0]['camera_metadata']['boot_id'], 0)
+        self.assertEqual(frames[0]['camera_metadata']['frame_completed_us'], 123456)
         self.assertEqual(frames[0]['epoch'], 4)
         self.assertNotIn('camera_metadata', frames[1])
         await connection._handle_control({'t': 'cam_meta', 'res': 'VGA', 'fps': 1,
@@ -582,6 +584,47 @@ class GatewayServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(socket.sent), before)
         sequence = await service.set_camera(**{**settings, "exposure_us": 0, "gain_x16": 0})
         self.assertEqual(socket.sent[-1]["gain_x16"], 0)
+        await connection._handle_control({"t": "ack", "seq": sequence})
+
+    async def test_camera_motion_exposure_has_independent_negotiation_and_correlated_receipt(self):
+        class Socket:
+            closed = False
+            def __init__(self): self.sent = []
+            async def send(self, raw): self.sent.append(json.loads(raw))
+        service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
+        socket = Socket()
+        connection = GatewayConnection(service, socket, "robot", 1, model="v2-12servo", capabilities={"camera": True})
+        service._connections["robot"] = connection
+        settings = dict(on=True, fps=5, resolution="VGA", max_exposure_us=10000, robot_id="robot")
+        for features in ((), ("camera_controls_v1",)):
+            connection.features = features
+            with self.assertRaisesRegex(GatewayError, "camera_motion_exposure_v1"):
+                await service.set_camera(**settings)
+        self.assertEqual(socket.sent, [])
+        self.assertEqual(connection.next_sequence, 1)
+        connection.features = ("camera_motion_exposure_v1",)
+        for value in (-1, 4294967296, 1.5, True):
+            with self.assertRaises(ValueError):
+                await service.set_camera(**{**settings, "max_exposure_us": value})
+        self.assertEqual(socket.sent, [])
+        for value in (10000, 4294967295, 0):
+            pending = asyncio.create_task(service.set_camera(**{**settings, "max_exposure_us": value}, wait_for_ack=True))
+            await asyncio.sleep(0)
+            self.assertFalse(pending.done())
+            seq = socket.sent[-1]["seq"]
+            self.assertEqual(socket.sent[-1], {"t": "cam", "seq": seq, "on": True, "fps": 5,
+                "res": "VGA", "max_exposure_us": value})
+            await connection._handle_control({"t": "ack", "seq": seq})
+            self.assertEqual(await pending, seq)
+        pending = asyncio.create_task(service.set_camera(**settings, wait_for_ack=True))
+        await asyncio.sleep(0)
+        await connection._handle_control({"t": "nak", "seq": socket.sent[-1]["seq"],
+            "code": "range", "msg": "Exposure ceiling is shorter than a sensor line"})
+        with self.assertRaisesRegex(GatewayError, "shorter than a sensor line"):
+            await pending
+        # Legacy callers omit the ceiling and keep the existing asynchronous API.
+        sequence = await service.set_camera(on=True, fps=5, resolution="VGA", robot_id="robot")
+        self.assertNotIn("max_exposure_us", socket.sent[-1])
         await connection._handle_control({"t": "ack", "seq": sequence})
 
     def test_gateway_liveness_defaults_match_physical_body_contract(self) -> None:
@@ -1445,7 +1488,7 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
             frame="camera-optical", depthKind="optical-axis-z", units="estimated-metres",
             available=True, values=[.5]*64, valid=[True]*64, imageSize=[640,480],
             cameraMatrix=[[550,0,320],[0,550,240],[0,0,1]], cameraToBody=None)
-        def process(robot, epoch, counter, received, jpeg, stamp, config):
+        def process(robot, epoch, counter, received, jpeg, stamp, config, attitude=None):
             index = len(processed)
             processed.append(counter)
             loop.call_soon_threadsafe(entered[index].set)
@@ -1549,7 +1592,7 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
 
     """Firmware-rate packets reach the existing gateway observation owner."""
 
-    def neural_fixture(self, *, resist_cancel=False):
+    def neural_fixture(self, *, resist_cancel=False, physical=False):
         from types import SimpleNamespace
         from protocol.control_v1 import BODY_COMMANDS_FEATURE, LOCOMOTION_FEATURE, WALK_NOMINAL_FEATURE, WALK_STEERING_FEATURE
         service = GatewayService(GatewayServiceConfig(tokens={"robot":"test"}))
@@ -1576,7 +1619,7 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
         requests = asyncio.Queue()
         async def call(path, payload=None):
             if path == "/status?history=0":
-                return {"model_id":"selected", "environment":{
+                return {"model_id":"selected", "kind":"physical-redq" if physical else "simulation", "environment":{
                     "reference_joint_deg":[0.]*12, "target_limits_deg":[[-90,90]]*12,
                     "foot_action_scale_mm":[30,20,30]}}
             future = asyncio.get_running_loop().create_future()
@@ -1599,6 +1642,102 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
             "nominal_sample":sample,"sampled_us":999000+20000*scan,"started_us":1000000,
             "command":"walk","activity":"moving","phase":"moving","expected_up":[0,0,1]}
         await connection._handle_control(packet)
+
+    async def test_camera_attitude_history_is_bounded_by_camera_freshness_and_boot(self):
+        service, connection, _, _ = self.neural_fixture()
+        service.configure_camera_attitude_history("robot", .04)
+        for scan in range(1,6):
+            await connection._handle_control(self.packet(scan))
+        stamps = [s['timestamp_us'] for s in connection.camera_attitudes]
+        self.assertEqual(stamps,[1039000,1059000,1079000,1099000])
+        result = service.camera_frame_attitude("robot",7,dict(boot_id=71,frame_completed_us=1069000))
+        self.assertTrue(result['available'])
+        self.assertEqual(result['bracket_us'],[1059000,1079000])
+        self.assertFalse(service.camera_frame_attitude("robot",8,dict(boot_id=71,frame_completed_us=1069000))['available'])
+        packet = self.packet(6); packet['data']['boot_id']=72
+        await connection._handle_control(packet)
+        self.assertEqual(len(connection.camera_attitudes),1)
+        self.assertFalse(service.camera_frame_attitude("robot",7,dict(boot_id=71,frame_completed_us=1069000))['available'])
+        service.configure_camera_attitude_history("robot",0.)
+        self.assertFalse(connection.camera_attitudes)
+        # Previously attached frame evidence is independent of later pruning.
+        self.assertEqual(result['bracket_us'],[1059000,1079000])
+        connection.cancel_pending()
+
+    async def test_physical_exploration_noise_belongs_to_walk_and_survives_updates(self):
+        from unittest.mock import patch
+        import numpy as np
+        from pink.cnrl import PinkNoiseProcess
+        service, connection, socket, requests = self.neural_fixture(physical=True)
+        service.walking_sources["robot"]["exploration_buffer_steps"] = 2
+        def process(size):
+            return PinkNoiseProcess(size, rng=np.random.default_rng(42))
+        expected = process((12,2))
+        with patch("pink.cnrl.PinkNoiseProcess", side_effect=process):
+            walk = await connection.send_command(dict(t="intent",name="walk",dir="fwd",steps=0,speed=50),
+                received_at=service.clock(), learning_trial=True)
+        state = connection.neural_walk
+        owner = state.exploration_noise
+        for scan in range(1,5):  # Cross a buffer boundary without replacing the Walk.
+            await self.neural_packet(connection, walk, scan, sample=scan-1)
+            payload, result = await asyncio.wait_for(requests.get(), 1)
+            self.assertTrue(payload["explore"])
+            np.testing.assert_array_equal(payload["noise"], expected.sample())
+            result.set_result({"model_id":"selected", "action":[.99]*12})
+            target = await asyncio.wait_for(socket.targets.get(), 1)
+            self.assertEqual(target["feet_mm"], [29.7,19.8,29.7]*4)
+            if scan == 2:
+                await service.queue_intent("walk", {"update":walk,"speed":90,"dir":"fwd","steps":0}, robot_id="robot")
+                self.assertIs(connection.neural_walk.exploration_noise, owner)
+        self.assertEqual(state.profile["exploration_noise"], "pink-noise-rl-2.0.1")
+        replacement = await connection.send_command(dict(t="intent",name="walk",dir="fwd",steps=0,speed=50),
+            received_at=service.clock(), learning_trial=True)
+        self.assertNotEqual(walk, replacement)
+        self.assertIsNot(connection.neural_walk.exploration_noise, owner)
+        await service.estop(robot_id="robot")
+        self.assertIsNone(connection.neural_walk)
+        ordinary = await service.queue_intent("walk", {"dir":"fwd","steps":0,"speed":50}, robot_id="robot")
+        self.assertIsNone(connection.neural_walk.exploration_noise)
+        await self.neural_packet(connection, ordinary, 6)
+        payload, result = await asyncio.wait_for(requests.get(), 1)
+        self.assertNotIn("noise", payload)
+        self.assertFalse(payload["explore"])
+        connection.cancel_pending()
+
+    async def test_native_demonstration_uses_real_observation_and_retires_with_walk(self):
+        service, connection, socket, requests = self.neural_fixture(physical=True)
+        original = service.neural_gait.call
+        retired, diagnostics = [], []
+        async def call(path, payload=None):
+            if path == '/collection-end':
+                retired.append(payload)
+                return {'retired': True}
+            return await original(path, payload)
+        service.neural_gait.call = call
+        service._record_diagnostic = diagnostics.append
+        walk = await connection.send_command(dict(t='intent',name='walk',dir='fwd',steps=0,speed=100),
+            received_at=service.clock(),learning_trial=True,collection_policy='native-c')
+        state = connection.neural_walk
+        self.assertIsNone(state.exploration_noise)
+        await self.neural_packet(connection,walk,1)
+        payload, result = await asyncio.wait_for(requests.get(),1)
+        self.assertNotIn('noise',payload)
+        demo = payload['demonstration']
+        self.assertEqual((demo['source'],demo['walk'],demo['epoch']),('native-c',walk,connection.epoch))
+        self.assertEqual(demo['device_us']/1e6,payload['observation']['observation_time_s'])
+        provenance = dict(source='native-c',owner=state.collection_owner,device_us=demo['device_us'],
+            nominal_joint_deg=[0.]*12,phase=.1,command=demo['command'])
+        result.set_result(dict(model_id='selected',action=[0.]*12,demonstration=provenance))
+        await asyncio.wait_for(socket.targets.get(),1)
+        await asyncio.sleep(0)
+        row = next(x for x in diagnostics if x.get('demonstration'))
+        self.assertEqual(row['demonstration'],provenance)
+        self.assertIn('policy_observation',row)
+        await service.estop(robot_id='robot')
+        await asyncio.sleep(0)
+        self.assertEqual(retired,[dict(robot_id='robot',owner=state.collection_owner)])
+        self.assertIsNone(connection.neural_walk)
+        connection.cancel_pending()
 
     async def test_neural_orientation_reference_preserves_tilt_and_quaternion_continuity(self):
         import math
@@ -1658,6 +1797,39 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
         row = next(row for row in diagnostics if row.get("event") == "neural_gait" and "action" in row)
         self.assertEqual((row["orientation_reference_yaw_rad"], row["orientation_reference_sign"]), reference)
         connection.cancel_pending()
+
+    async def test_pending_inputs_keep_all_sent_requests_until_observed_consumption(self):
+        from gateway.neural_gait.contract import PENDING_SCHEMA, recorded_observation
+        service, connection, socket, requests = self.neural_fixture()
+        walk = await service.queue_intent('walk', {'dir':'fwd','steps':0,'speed':50}, robot_id='robot')
+        state = connection.neural_walk
+        state.environment['observation_schema'] = PENDING_SCHEMA
+        try:
+            await self.neural_packet(connection, walk, 1)
+            for count in range(9):
+                request, future = await asyncio.wait_for(requests.get(), 1)
+                rows = request['observation']['pending_actions']
+                self.assertEqual(len(rows), count)  # More than controller FIFO8 is not truncated.
+                self.assertEqual([r[:12] for r in rows], [[(i+1)/20]*12 for i in range(count)])
+                if rows:
+                    self.assertGreater(rows[-1][13], 0, 'Prior send followed this sensor receipt but preceded this decision')
+                self.assertEqual(recorded_observation(request['observation'])['pending_actions'], rows)
+                await self.neural_packet(connection, walk, count+2)
+                future.set_result({'model_id':'selected','action':[(count+1)/20]*12})
+                target = await asyncio.wait_for(socket.targets.get(), 1)
+                self.assertNotIn('sent_monotonic_s', target)  # Host evidence is not a wire field.
+            request, future = await asyncio.wait_for(requests.get(), 1)
+            self.assertEqual(len(request['observation']['pending_actions']), 9)
+            await self.neural_packet(connection, walk, 11, sample=9)
+            future.set_result({'model_id':'selected','action':[.5]*12})
+            await asyncio.wait_for(socket.targets.get(), 1)
+            request, _ = await asyncio.wait_for(requests.get(), 1)
+            self.assertEqual(request['observation']['previous_action'], [.45]*12)
+            self.assertEqual(len(request['observation']['pending_actions']), 1)
+            self.assertEqual(request['observation']['pending_actions'][0][:12], [.5]*12)
+            self.assertEqual(list(state.sent_request_context), [10])
+        finally:
+            connection.cancel_pending()
 
     async def test_neural_walk_consumption_updates_and_finish_share_original_owner(self):
         service, connection, socket, requests = self.neural_fixture()
@@ -1930,6 +2102,26 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service.body_sensor_observation("robot")["feedback"]["scan"], 50)
         self.assertEqual(connection.last_status["servo_feedback"], health)
 
+    async def test_acquired_out_of_range_joint_readings_remain_visible(self):
+        from protocol.control_v1 import validate_control_message
+        from protocol.joints_v2 import JOINT_LABELS
+        service=GatewayService(GatewayServiceConfig(tokens={"robot":"test"}))
+        connection=GatewayConnection(service,object(),"robot",7,model="v2-12servo")
+        service._connections["robot"]=connection
+        packet=self.packet();feedback=packet["data"]["joint_feedback"]
+        feedback["filtered_model_deg"][0]=-26.05
+        feedback["velocity_deg_s"][0]=.02
+        feedback["raw_adc"]=[400]*12
+        feedback["signal_millivolts"]=[286]*12
+        validate_control_message(packet)
+        await connection._handle_control(packet)
+        joint=service.body_sensor_observation("robot")["joints"][JOINT_LABELS[0]]
+        self.assertEqual(joint["filtered_model_deg"],-26.05)
+        self.assertEqual(joint["raw_adc"],400)
+        self.assertEqual(joint["signal_millivolts"],286)
+        self.assertFalse(joint["feedback_usable"])
+        self.assertEqual(joint["feedback_faults"],["clipped","above_calibration"])
+
     async def test_old_firmware_and_reconnect_never_inherit_old_joint_observations(self):
         from protocol.control_v1 import validate_control_message
         service = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
@@ -1976,7 +2168,7 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
                 assert_matches_schema(bad, schema, schema)
         invalid = [("map", 1), ("sampled_us", [0]*11),
                    ("sampled_us", [original["data"]["joint_feedback"]["device_us"]+1]*12),
-                   ("filtered_model_deg", [0.]*12), ("velocity_deg_s", [None]*12),
+                   ("raw_adc", [4096]*12), ("velocity_deg_s", [None]*12),
                    ("commanded_model_deg", [None, None]+[0.]*10),
                    ("usable_mask", 4096), ("filtered_model_deg", [None, float("nan")]+[0.]*10)]
         for key, value in invalid:

@@ -85,8 +85,14 @@ def recovery_state(value):
             'derived_orientation') if k in imu}
     feedback = state.get('feedback')
     if isinstance(feedback, dict):
-        result['feedback'] = {k:feedback[k] for k in ('enabled', 'stalled_joints', 'no_progress_ms',
-            'waiting_joints') if k in feedback}
+        result['feedback'] = {k:feedback[k] for k in ('enabled', 'no_progress_ms',
+            'waiting_joints', 'last_reported_stalled_joints', 'last_stall_age_ms') if k in feedback}
+        if 'stalled_joints' in feedback:
+            # P4 retains the last reported stall; it is not a live jam flag.
+            result['feedback']['last_reported_stalled_joints']=feedback['stalled_joints']
+        if feedback.get('stall_clock_us') and 'device_us' in feedback:
+            result['feedback']['last_stall_age_ms']=round(
+                (feedback['device_us']-feedback['stall_clock_us'])/1000,1)
     # Servo precision is hundredths of a degree; raw precision remains recorded.
     def rounded(item):
         if isinstance(item, float): return round(item, 2)
@@ -106,7 +112,8 @@ def model_query(query, encoding):
     """
     if not isinstance(query, dict):
         return query
-    result = copy.deepcopy(query)
+    from .observations import enrich
+    result = enrich(query)
     event = result.get('event')
     kind = (event.get('type') or event.get('kind')) if isinstance(event, dict) else None
     if kind not in RECOVERY_EVENTS:
@@ -158,6 +165,22 @@ def model_query(query, encoding):
     if remaining is not None:
         summary['remaining_program'] = (encoding.encode(remaining)
             if remaining and isinstance(remaining[0], dict) else remaining)
+    goal = result.get('motion_goal')
+    if isinstance(goal, dict):
+        goal = copy.deepcopy(goal)
+        for key in ('interrupted_action','failed_action','completed_action'):
+            action = goal.get(key)
+            if isinstance(action, dict) and action.get('name') in encoding.tools:
+                goal[key] = encoding.encode([action])[0]
+        remaining_goal = goal.get('remaining_program')
+        if remaining_goal and isinstance(remaining_goal[0], dict):
+            goal['remaining_program'] = encoding.encode(remaining_goal)
+        result['motion_goal'] = goal
+        # The first event's plan is already in the goal. Later corrections
+        # retain their own progress without replacing that original objective.
+        for key in ('interrupted_action','failed_action','completed_action','remaining_program'):
+            if key in goal and summary.get(key) == goal[key]:
+                summary.pop(key, None)
     effect = latest_correction(result.get('history'))
     if effect:
         summary['last_correction'] = effect
@@ -214,11 +237,13 @@ class ProgramEncoding:
         for call in program:
             name, args = call['name'], call['arguments']
             names = self.tools[name]['parameters']['required']
+            if 'taper_deg' in names:
+                args = {'taper_deg':0, **args}
             if set(names) != set(args):
                 raise ValueError('Program arguments do not match the training contract: '+name)
             values = []
             for key in names:
-                value = copy.deepcopy(args[key])
+                value = copy.deepcopy(args.get(key, 0) if key == 'taper_deg' else args[key])
                 if key == 'joint': value = JOINTS.index(value)
                 elif key == 'joints': value = [JOINTS.index(j) for j in value]
                 elif key == 'legs': value = [LEGS.index(j) for j in value]

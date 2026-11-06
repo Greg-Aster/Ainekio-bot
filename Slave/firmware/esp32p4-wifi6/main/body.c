@@ -745,6 +745,11 @@ static bool host_frame_valid(const ainekio_v2_frame_t *frame,void *context)
     const ainekio_p4_calibration_t *mapping=context;
     return mapping->valid && ainekio_p4_joint_frame_in_travel(mapping->joints,frame);
 }
+static bool host_frame_project(ainekio_v2_frame_t *frame,void *context)
+{
+    const ainekio_p4_calibration_t *mapping=context;
+    return mapping->valid && ainekio_p4_joint_fit_frame(mapping->joints,frame);
+}
 
 static bool usable_attitude(const ainekio_p4_imu_status_t *s)
 {
@@ -889,6 +894,7 @@ static esp_err_t start_rise(const body_request_t *request,uint64_t now)
     body.next_frame=body.last_frame+UINT64_C(20000);
     retain_pose(&next->entry_from,&calibration);
     body.pose_valid=false; /* Shoulders have not been commanded yet. */
+    publish_execution(body.last_frame,true,false);
     memcpy(body.pulses,initial,sizeof(initial));publish(body.pulses);publish_motion();
     return ESP_OK;
 }
@@ -1088,6 +1094,9 @@ static esp_err_t start_motion_with_curve(const body_request_t *request, uint64_t
     body.next_channel_at = body.last_frame + UINT64_C(200000);
     body.next_frame = body.last_frame + UINT64_C(20000);
     memcpy(body.pulses, initial, sizeof(body.pulses));
+    /* The initial arm/write has already commanded the servos. Attribute its
+     * motion now, including IMU samples before the next scheduled frame. */
+    publish_execution(body.last_frame,!body.ramping,body.ramping);
     publish(body.pulses);
     publish_motion();
     return ESP_OK;
@@ -1151,6 +1160,7 @@ static esp_err_t start_freestyle(const body_request_t *request, uint64_t now)
     body.last_frame=esp_timer_get_time();body.next_frame=body.last_frame+UINT64_C(20000);
     memcpy(body.pulses,pulses,sizeof(pulses));
     retain_pose(&from,&calibration);
+    publish_execution(body.last_frame,true,false);
     publish(body.pulses);publish_motion();
     return ESP_OK;
 }
@@ -1531,15 +1541,21 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
             ainekio_v2_walk_state_t *walk=&motion->walk;
             const ainekio_p4_calibration_t mapping=ainekio_p4_calibration();
             if(!ainekio_v2_nominal_foot_pose(&walk->host_reference,
-                (const float (*)[3])walk->host_requested,host_frame_valid,(void *)&mapping,
-                &walk->pose,walk->host_anchors,walk->host_applied,walk->host_fit) ||
-               !ainekio_v2_walk_host_heading(walk,now,ainekio_p4_walking_feedback_enabled(),
-                usable_attitude(&imu),yaw,host_frame_valid,(void *)&mapping))return ESP_ERR_INVALID_ARG;
-            balance_frame(&walk->pose,(const double (*)[3])walk->host_anchors,now,&frame);
+                (const float (*)[3])walk->host_requested,host_frame_valid,host_frame_project,(void *)&mapping,
+                &walk->pose,walk->host_anchors,walk->host_applied,walk->host_fit))return ESP_ERR_INVALID_ARG;
+            /* Host neural targets already contain the policy's balance
+             * correction. Keep the calibrated output/ramp owner, but do not
+             * apply a second moving-balance or heading controller. */
+            frame=walk->pose.frame;
+            walk->heading_active=walk->heading_reduced=false;
+            walk->heading_error=0.;
+            walk->last_us=now;
+            body.balance=(ainekio_v2_balance_t){0};
+            body.balance_target_valid=body.balance_tracking_active=false;
             if(!fit_motion_frame(&frame))return ESP_ERR_INVALID_ARG;
             ainekio_v2_frame_t ramped;
-            ainekio_p4_joint_ramp_frame(&body.pose,frame.position,
-                100.*ainekio_v2_gait_joint_speed_limit(),(now-body.last_frame)/1e6,&ramped);
+            if(!ainekio_p4_joint_ramp_frame(&body.pose,frame.position,
+                100.*ainekio_v2_gait_joint_speed_limit(),(now-body.last_frame)/1e6,&ramped))return ESP_ERR_INVALID_ARG;
             frame=ramped;
             *nominal_sample=walk->host_sample;
         } else {
@@ -1878,7 +1894,7 @@ static esp_err_t accept_walk_target(const body_request_t *request)
     const ainekio_p4_calibration_t mapping=ainekio_p4_calibration();
     ainekio_v2_walk_pose_t pose;double anchors[4][3];float applied[4][3],fit[4];
     if(!ainekio_v2_nominal_foot_pose(&motion->walk.host_reference,target->feet_mm,
-        host_frame_valid,(void *)&mapping,&pose,anchors,applied,fit))return ESP_ERR_INVALID_ARG;
+        host_frame_valid,host_frame_project,(void *)&mapping,&pose,anchors,applied,fit))return ESP_ERR_INVALID_ARG;
     /* One accepted goal, sampled by the existing output owner. Superseded
      * samples are not queued as separate movements or completion receipts. */
     memcpy(motion->walk.host_requested,target->feet_mm,sizeof target->feet_mm);

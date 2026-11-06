@@ -16,7 +16,7 @@ typedef struct {
     void (*gate)(void *context, uint64_t session, bool open, bool wake_word);
     void (*camera_frame)(void *context, uint64_t session, ainekio_camera_origin_t origin,
                          uint32_t origin_id, ainekio_camera_resolution_t resolution,
-                         uint32_t counter, const uint8_t *jpeg, size_t length);
+                         uint32_t counter, uint64_t frame_completed_us, const uint8_t *jpeg, size_t length);
     void (*camera_failed)(void *context, uint64_t session, ainekio_camera_origin_t origin,
                           uint32_t origin_id, esp_err_t result);
 } ainekio_p4_media_callbacks_t;
@@ -58,11 +58,13 @@ esp_err_t ainekio_p4_media_say(uint32_t sequence, const char *asset_name);
 esp_err_t ainekio_p4_media_tts_push(const uint8_t pcm[AINEKIO_AUDIO_PAYLOAD_BYTES]);
 esp_err_t ainekio_p4_media_tts_end(void);
 uint32_t ainekio_p4_media_audio_cancel(void);
-/* Apply both profiles under the camera lock. NULL preserves the snapshot
- * resolution; its boot default is AUTO. These settings are not stored in NVS. */
+/* Apply settings under the camera lock. NULL preserves each optional setting.
+ * Snapshot defaults to AUTO; exposure ceiling defaults to zero (full automatic
+ * range). Positive ceilings retain AEC/AGC. These settings are not stored in NVS. */
 esp_err_t ainekio_p4_media_camera_configure(bool enabled, uint8_t fps,
                                            ainekio_camera_resolution_t resolution,
-                                           const ainekio_camera_resolution_t *snapshot_resolution);
+                                           const ainekio_camera_resolution_t *snapshot_resolution,
+                                           const uint32_t *max_exposure_us);
 esp_err_t ainekio_p4_media_snapshot(ainekio_camera_origin_t origin, uint32_t origin_id);
 void ainekio_p4_media_cancel_snapshots(void);
 ainekio_camera_capture_t ainekio_p4_media_camera_capture(void);

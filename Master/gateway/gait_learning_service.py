@@ -253,7 +253,8 @@ class GaitLearningService:
             # Do not persist arbitrary settings payloads or credentials.
             keep = {k: command[k] for k in ("t", "robot_id", "epoch", "seq", "name", "dir",
                 "gait", "speed", "stride", "rate", "forward", "turn", "lateral", "steps", "update",
-                "detach", "source", "geometry", "reference_cd", "twist", "walk", "sample", "feet_mm") if k in command}
+                "detach", "source", "geometry", "reference_cd", "twist", "walk", "sample", "feet_mm",
+                "sent_monotonic_s") if k in command}
             self._observe(robot, "commands", keep)
 
     def diagnostic(self, diagnostic):
@@ -263,15 +264,15 @@ class GaitLearningService:
         these rows identify which inference produced each requested target.
         Balance readbacks arrive through command results rather than the event
         subscription. Keep their actual settings, not arbitrary command data.
-        Motion terminals use that same diagnostic subscription. Preserve them
-        alongside sensor events so Finish, cancellation and Release remain
-        distinguishable after the connection ends.
+        Motion terminals and target acknowledgements use that same diagnostic
+        subscription. Preserve them alongside sensor events so Finish,
+        cancellation and Release remain distinguishable after the connection ends.
         """
         if (diagnostic.get("event") == "command_result"
-                and diagnostic.get("command_type") in {"intent", "stop"}):
+                and diagnostic.get("command_type") in {"intent", "stop", "walk_target"}):
             keep = {key: diagnostic[key] for key in (
                 "event", "robot_id", "epoch", "seq", "command_type", "t",
-                "name", "update", "detach", "source", "code", "msg",
+                "name", "update", "detach", "source", "walk", "sample", "code", "msg",
                 "execution_error") if key in diagnostic}
             self._observe(diagnostic.get("robot_id"), "events", copy.deepcopy(keep))
             return
@@ -288,9 +289,11 @@ class GaitLearningService:
             return
         keep = {key: diagnostic[key] for key in (
             "event", "robot_id", "epoch", "walk", "sample", "model_id", "checkpoint_id", "action",
-            "requested_foot_offset_mm", "observation_device_us", "observation_received_at",
+            "requested_foot_offset_mm", "observation_device_us", "observation_boot_id", "observation_received_at",
             "scan", "consumed_sample", "inference_elapsed_s", "source_profile", "error",
             "orientation_reference_yaw_rad", "orientation_reference_sign",
+            "learning_trial", "exploration_noise", "demonstration", "revision", "feedback_revision", "policy_observation",
+            "outcome", "outcome_evidence",
             "finish_sequence", "finish_superseded", "finish_error") if key in diagnostic}
         self._observe(diagnostic.get("robot_id"), "neural", copy.deepcopy(keep))
 
@@ -332,12 +335,17 @@ class GaitLearningService:
 
     async def _record(self, robot):
         r = self._runtime(robot)
-        r.update(after=0, boot=None, session=None, owned=False, window=None, poses=[], latest_imu=None)
+        # A failed stop leaves this service responsible for the same device
+        # trace. A new file does not transfer or discard that ownership.
+        if not r["owned"]:
+            r.update(after=0, boot=None, session=None)
+        r.update(window=None, poses=[], latest_imu=None)
         r["recording"] = r["root"]/("recordings/"+time.strftime("%Y%m%d-%H%M%S")+"-"+uuid4().hex[:8])
         if not r["banks"]:
             await self._load_banks(robot)
         depth_active = False
         cancellation = None
+        metadata_pending = True
         try:
             while not self.closed:
                 settings = self.settings.get(robot, {})
@@ -352,7 +360,7 @@ class GaitLearningService:
                             await self.depth_demand(robot, f"gait-learning:{robot}", needed, wait_for_measurement=False)
                             depth_active = needed
                     await self._apply_pending(robot)
-                    if r["session"] is None:
+                    if metadata_pending or r["session"] is None:
                         metadata = {
                             "calibration": await self.gateway.body_calibration("get", {}, robot_id=robot),
                             "feedback": await self.transport.request(robot, "servo-feedback", None),
@@ -373,6 +381,7 @@ class GaitLearningService:
                                 metadata["execution_settings"]["balance_settings"] = None
                                 metadata["execution_settings"]["balance_settings_error"] = str(error)
                         self._enqueue(r["recording"]/"metadata.jsonl", metadata)
+                        metadata_pending = False
                     started = time.monotonic()
                     payload = {"op": "trace_read", "after": r["after"]}
                     if r["session"]:

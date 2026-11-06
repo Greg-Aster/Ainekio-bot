@@ -64,72 +64,139 @@ class SemanticTeacherTests(unittest.TestCase):
                     self.assertLess(math.dist(trace['samples'][0]['feet_body_mm'][leg],
                                               trace['samples'][-1]['feet_body_mm'][leg]),.05)
 
-    def test_all_native_motions_preserve_paths_phase_boundaries_and_completion(self):
-        from .trajectory import track_sample
+    def test_native_motions_export_compact_stages_and_complete_endpoints(self):
         compiler,clips=legacy_sources()
-        catalog=json.loads((ROOT/'motions/gestures/catalog.json').read_text())
-        self.assertEqual(set(clips),{entry['command'] for entry in catalog['commands']})
         for name,clip in clips.items():
-            with self.subTest(motion=name):
-                taught=source_motion(name);action=taught['program'][1]
-                self.assertEqual([p['name'] for p in taught['program']],['face','trajectory'])
-                required=set(compiler.gesture_targets(clip['positions'],clip['phases']))
-                self.assertEqual(required,{round(t*120) for t in action['arguments']['checkpoints_s']})
-                self.assertEqual(taught['semantic_end_s'],clip['duration_s'])
-                state={'joints':{j:{'model_deg':v,'home_deg':None} for j,v in zip(JOINTS,taught['entry_model_deg'])},
-                       'joint_speed_limit_deg_s':180}
-                compiled=compile_motion(action,state)
-                self.assertAlmostEqual(compiled['curve']['clock'][-1][2],taught['intentional_hold_s'],places=6)
-                for j,value in zip(JOINTS,taught['final_model_deg']):
-                    self.assertAlmostEqual(compiled['end'][j],value,places=6)
-                curve=compiled['curve'];times=curve['times']
-                tracks=[[[t,q[j]/100,v[j]/100] for t,q,v in zip(times,curve['positions'],curve['velocities'])]
-                        for j in range(12)]
-                worst=0.
-                # Compare every original twelve-joint sample to the actual
-                # expanded upload, independently of the author's fitted bound.
-                for i,row in enumerate(clip['positions']):
-                    for j,track in enumerate(tracks):
-                        actual,_=track_sample(track,i/120,times)
-                        worst=max(worst,abs(actual-row[j]/100))
-                # Same certified fitting + numeric allowance as the maintained
-                # native source comparison (0.502 centidegrees).
-                self.assertLess(worst,.502/100)
+            taught=source_motion(name)
+            self.assertFalse(any(a['name']=='trajectory' for a in taught['program']))
+            self.assertLess(len(taught['program']),30)
+            state={'joints':{j:{'model_deg':v,'commanded_model_deg':v,'home_deg':0} for j,v in zip(JOINTS,taught['entry_model_deg'])},
+                   'joint_speed_limit_deg_s':180}
+            planned=None
+            for action in taught['program']:
+                if action['name'] not in ('face','hold'):planned=compile_motion(action,state,planned)['end']
+            for j,value in zip(JOINTS,taught['final_model_deg']):self.assertAlmostEqual(planned[j],value,places=2)
 
-    def test_training_snapshot_contains_the_complete_original_stretch(self):
-        import hashlib
+    def test_compact_stretch_crouches_extends_front_limbs_and_finishes_standing(self):
+        from .semantic_teachers import stretch_program
+        from .kinematics import foot_positions
+        program=stretch_program();entry=program[1]['arguments']['angles_deg']
+        state={'joints':{j:{'model_deg':v,'commanded_model_deg':v,'home_deg':0} for j,v in zip(JOINTS,entry)},'joint_speed_limit_deg_s':180}
+        planned=None;feet=[]
+        for action in program:
+            if action['name'] not in ('face','hold'):
+                planned=compile_motion(action,state,planned)['end'];feet.append(foot_positions(planned))
+        for leg in ('front_left','front_right'):
+            self.assertAlmostEqual(feet[3][leg][0]-feet[1][leg][0],35,delta=.04)
+            self.assertAlmostEqual(feet[1][leg][2]-feet[0][leg][2],20,delta=.04)
+        for j,value in zip(JOINTS,entry):self.assertAlmostEqual(planned[j],value,places=2)
+        self.assertEqual([a['arguments']['seconds'] for a in program if a['name']=='hold'],[.9,.7,.5])
+
+    def test_fresh_snapshot_has_three_natural_requests_per_reference_motion(self):
+        from collections import Counter
         from .compact_wire import ProgramEncoding
         dataset=Path(__file__).with_name('training-data')
-        tools=json.loads((dataset/'tools.json').read_text())
-        encoding=ProgramEncoding(tools)
         rows=[json.loads(line) for line in (dataset/'train.jsonl').read_text().splitlines() if line]
-        stretch=[r for r in rows if r['family']=='legacy_asset_stretch']
-        self.assertEqual(len({r['source_id'] for r in stretch}),3)
-        self.assertEqual({json.loads(r['query'])['request'] for r in stretch},
-                         {'Please stretch','Perform stretch.','Stand up, stretch, and finish standing.'})
-        original=source_motion('stretch')
-        for row in stretch:
+        recovery=[row for row in rows if row.get('recovery_evidence')]
+        self.assertEqual({json.loads(row['query'])['event']['type'] for row in recovery},
+                         {'servo_stall','servo_feedback_fault','tipped','rapid_movement'})
+        rows=[row for row in rows if row.get('reference_motion')]
+        counts=Counter(row['reference_motion'] for row in rows)
+        self.assertEqual(len(rows),72)
+        self.assertEqual(set(counts),set(legacy_sources()[1])|{'stand'})
+        self.assertEqual(set(counts.values()),{3})
+        self.assertEqual(len({row['query'] for row in rows}),72)
+        encoding=ProgramEncoding(json.loads((dataset/'tools.json').read_text()))
+        self.assertNotIn('trajectory',encoding.tools)
+        for row in rows:
+            query=json.loads(row['query'])
+            self.assertIn('request',query)
+            self.assertNotIn('degrees',query['request'])
+            self.assertNotIn('%',query['request'])
+            self.assertFalse(row['physical_qualification'])
+            program=encoding.decode(row['answers'])
+            self.assertLess(len(program),30)
+            state={'joints':{j:{'model_deg':q,'commanded_model_deg':q,'home_deg':0}
+                    for j,q in zip(JOINTS,row['reference_entry_model_deg'])},'joint_speed_limit_deg_s':180}
+            planned=None
+            for action in program:
+                if action['name'] in ('pose','move','feet','body','oscillate'):
+                    planned=compile_motion(action,state,planned)['end']
+            for joint,q in zip(JOINTS,row['reference_final_model_deg']):
+                self.assertAlmostEqual(planned[joint],q,places=2)
+        held_out=[json.loads(line) for line in (dataset/'evaluation.jsonl').read_text().splitlines() if line]
+        self.assertTrue(held_out)
+        self.assertFalse({row['id'] for row in held_out}&{row['id'] for row in rows})
+
+    def test_crouch_training_matches_legacy_with_operating_band(self):
+        from .compact_wire import ProgramEncoding
+        fixture=json.loads((ROOT/'tests/fixtures/crouch-mapping.json').read_text())
+        dataset=Path(__file__).with_name('training-data')
+        encoding=ProgramEncoding(json.loads((dataset/'tools.json').read_text()))
+        rows=[json.loads(line) for line in (dataset/'train.jsonl').read_text().splitlines() if line]
+        rows=[row for row in rows if row.get('reference_motion')=='crouch']
+        self.assertEqual(len(rows),3)
+        original=source_motion('crouch')
+        low,high=fixture['pulse_window_us']
+        for row in rows:
             program=encoding.decode(row['answers'])
             self.assertEqual(program,original['program'])
-            self.assertEqual(row['canonical_source_motion_sha256'],original['source_sha256'])
-            self.assertEqual(row['source_alignment']['source_samples'],805)
-            self.assertFalse(row['physical_qualification'])
-            self.assertEqual(row['qualification_basis'],'catalog_source_path_not_a_new_physical_trial')
-            self.assertNotIn('original_program',row)
-            observation={'joints':{j:{'model_deg':v,'home_deg':None} for j,v in
-                                    zip(JOINTS,original['entry_model_deg'])},'joint_speed_limit_deg_s':180}
-            compiled=compile_motion(program[1],observation)
-            for j,value in zip(JOINTS,original['final_model_deg']):
-                self.assertAlmostEqual(compiled['end'][j],value,places=6)
-            actual_holds=[b-a for a,b in program[1]['arguments']['holds_s']]
-            for a,b in zip(actual_holds,[.9,.7,.5]):self.assertAlmostEqual(a,b,places=8)
-        manifest=json.loads((dataset/'manifest.json').read_text())
-        for filename in ('train.jsonl','tools.json'):
-            self.assertEqual(manifest['files'][filename],hashlib.sha256((dataset/filename).read_bytes()).hexdigest())
+            self.assertEqual([a['arguments']['seconds'] for a in program if a['name']=='hold'],[2])
+            observation={'joint_speed_limit_deg_s':180,'joints':{
+                joint:{'model_deg':q,'commanded_model_deg':q,'home_deg':0}
+                for joint,q in zip(JOINTS,original['entry_model_deg'])}}
+            planned=None
+            for action in program:
+                if action['name']!='pose':continue
+                self.assertEqual(action['arguments']['speed_pct'],50)
+                compiled=compile_motion(action,observation,planned);planned=compiled['end']
+                for mapping,joint in zip(fixture['joints'],JOINTS):
+                    pulse=mapping['home_us']+(-1 if mapping['invert'] else 1)*(planned[joint]-mapping['home_cd']/100)*mapping['us_per_degree']
+                    self.assertGreaterEqual(pulse,low-.1)
+                    self.assertLessEqual(pulse,high+.1)
+
+    def test_compact_wave_preserves_all_three_source_cycles(self):
+        program=source_motion('wave')['program']
+        oscillations=[action['arguments'] for action in program if action['name']=='oscillate']
+        self.assertEqual(len(oscillations),1)
+        self.assertEqual(oscillations[0]['cycles'],3)
+        self.assertEqual(oscillations[0]['joint'],JOINTS[6])
+        self.assertEqual(oscillations[0]['amplitude_deg'],42)
+
+    def test_contextual_source_teacher_retains_compact_stages_and_enters_from_supplied_state(self):
+        import copy
+        from experiments.freestyle.compact_wire import ProgramEncoding
+        from experiments.freestyle.legacy_curriculum import contextual_example
+        from experiments.freestyle.motion_space import TOOLS
+        from experiments.freestyle.face_contract import face_tool
+        tools=[*TOOLS,face_tool()]
+        original=source_motion('stretch');encoding=ProgramEncoding(tools)
+        source={'id':'source','family':'legacy_asset_stretch','legacy_motion':'stretch',
+                'answers':encoding.encode(original['program']),
+                'canonical_source_motion_sha256':original['source_sha256'],
+                'source_alignment':{k:v for k,v in original.items() if k!='program'},
+                'physical_qualification':True}
+        snapshot=copy.deepcopy(source);observation=copy.deepcopy(self.state)
+        for state in observation['joints'].values():state['commanded_model_deg']=state['model_deg']
+        observation['joints'][JOINTS[0]].update(model_deg=15,commanded_model_deg=None)
+        row=contextual_example(source,observation,'Please stretch',tools)
+        program=encoding.decode(row['answers'])
+        self.assertEqual(source,snapshot)
+        self.assertEqual(program[0],original['program'][0])
+        self.assertEqual(program[1]['arguments']['angles_deg'],original['entry_model_deg'])
+        self.assertEqual(program,original['program'])
+        self.assertEqual(json.loads(row['query'])['observation']['joints']['model_deg'][0],15)
+        planned=None
+        for action in program:
+            if action['name'] not in ('face','hold'):planned=compile_motion(action,observation,planned)['end']
+        for j,value in zip(JOINTS,original['final_model_deg']):self.assertAlmostEqual(planned[j],value,places=6)
+        other=contextual_example(source,observation,'Perform stretch.',tools)
+        self.assertNotEqual(row['source_id'],other['source_id'])
+        self.assertFalse(row['physical_qualification'])
 
     def test_native_bow_stretch_holds_and_freaky_semantic_end(self):
         for name,durations in [('bow',[5.,.2]),('stretch',[.9,.7,.5])]:
-            actual=[b-a for a,b in source_motion(name)['program'][1]['arguments']['holds_s']]
+            actual=[a['arguments']['seconds'] for a in source_motion(name)['program'] if a['name']=='hold']
             self.assertEqual(len(actual),len(durations))
             for a,b in zip(actual,durations):self.assertAlmostEqual(a,b,places=8)
         full=json.loads((ROOT/'motions/gestures/freaky/source.json').read_text())
@@ -138,7 +205,7 @@ class SemanticTeacherTests(unittest.TestCase):
         self.assertLess(taught['semantic_end_s'],full['samples'][-1]['time_s'])
         self.assertEqual(taught['semantic_end_s'],contract['completion']['semantic_end_s'])
         expected=[math.degrees(v) for leg in contract['completion']['joint_angles_rad'] for v in leg]
-        for a,b in zip(taught['final_model_deg'],expected):self.assertAlmostEqual(a,b,places=6)
+        for a,b in zip(taught['final_model_deg'],expected):self.assertEqual(round(a*100),round(b*100))
 
     def test_retirement_follows_provenance_and_preserves_unrelated_commands(self):
         from .legacy_curriculum import obsolete_rows

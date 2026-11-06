@@ -281,6 +281,24 @@ static bool external_speech_active(void)
     return until != 0 && (int32_t)(until - now) > 0;
 }
 
+static void reset_microphone_inference(void)
+{
+    xSemaphoreTake(wake_mutex, portMAX_DELAY);
+    if (wake) ainekio_wake_word_reset(wake);
+    /* vad_create() owns a stateful WebRTC filter/noise estimator, not just a
+     * sensitivity value. A capture discontinuity must retire that history too.
+     * vad_reset_trigger() only resets the optional trigger, which we don't use. */
+    if (vad) vad_destroy(vad);
+    vad = vad_create((vad_mode_t)status.vad_mode);
+    xSemaphoreTake(mutex, portMAX_DELAY);
+    status.vad_ready = vad != NULL;
+    status.wake_ready = status.microphone_ready && status.vad_ready &&
+        wake && ainekio_wake_word_ready(wake);
+    xSemaphoreGive(mutex);
+    if (!vad) ESP_LOGE("p4_media", "speech detector reset failed: out of memory");
+    xSemaphoreGive(wake_mutex);
+}
+
 static void microphone_task(void *unused)
 {
     (void)unused;
@@ -328,7 +346,7 @@ static void microphone_task(void *unused)
                              esp_timer_get_time() >= microphone_after;
         const ainekio_microphone_gate_t gate = microphone_gate;
         const uint64_t frame_session = session;
-        const bool wake_enabled = status.wake_enabled;
+        const bool wake_enabled = status.wake_enabled && status.wake_ready;
         const uint16_t silence_ms = status.silence_ms;
         const uint16_t max_recording_ms = status.max_recording_ms;
         const uint32_t current_epoch = microphone_epoch;
@@ -347,8 +365,10 @@ static void microphone_task(void *unused)
             xSemaphoreTake(mutex, portMAX_DELAY);
             status.utterance_open = false;
             xSemaphoreGive(mutex);
-            if (was_open && frame_session && previous_session == frame_session && callbacks.gate)
+            if (was_open && frame_session && previous_session == frame_session && callbacks.gate) {
+                ESP_LOGI("p4_media", "recording closed: capture reset");
                 callbacks.gate(callbacks.context, frame_session, false, false);
+            }
             pre_count = pre_next = 0;
             was_open = false;
             recording = (p4_speech_gate_t){0};
@@ -356,12 +376,18 @@ static void microphone_task(void *unused)
             previous_epoch = current_epoch;
             previous_external_epoch = current_external_epoch;
             previous_external_active = current_external_active;
-            if (reset_gate) {
-                xSemaphoreTake(wake_mutex, portMAX_DELAY);
-                if (wake) ainekio_wake_word_reset(wake);
-                xSemaphoreGive(wake_mutex);
-            }
+            if (reset_gate) reset_microphone_inference();
             continue;
+        }
+        bool speech = false;
+        /* Feed the continuous listening stream, including the ambient audio
+         * before a wake. Feeding only latched utterances joins unrelated speech
+         * segments in the stateful filter and deprives it of room-noise input.
+         * PCM still leaves the body only when the selected gate opens. */
+        if (gate == AINEKIO_MIC_GATE_VAD || (gate == AINEKIO_MIC_GATE_WAKE && wake_enabled)) {
+            xSemaphoreTake(wake_mutex, portMAX_DELAY);
+            if (vad) speech = vad_process(vad, pcm, 16000, 20) == VAD_SPEECH;
+            xSemaphoreGive(wake_mutex);
         }
         bool detected = false;
         if (gate == AINEKIO_MIC_GATE_WAKE && !wake_enabled) recording = (p4_speech_gate_t){0};
@@ -376,14 +402,6 @@ static void microphone_task(void *unused)
                 status.wake_ready = status.wake_enabled = false;
                 xSemaphoreGive(mutex);
             }
-        }
-        bool speech = false;
-        /* Reuse the audio inference lock for VAD replacement/configuration.
-         * Only this task feeds VAD; commands cannot free it during inference. */
-        if (gate == AINEKIO_MIC_GATE_VAD || (gate == AINEKIO_MIC_GATE_WAKE && (recording.wake_latched || detected))) {
-            xSemaphoreTake(wake_mutex, portMAX_DELAY);
-            if (vad) speech = vad_process(vad, pcm, 16000, 20) == VAD_SPEECH;
-            xSemaphoreGive(wake_mutex);
         }
         const bool was_latched = recording.wake_latched || detected;
         const bool open = p4_speech_gate_step(&recording, gate, detected, speech,
@@ -404,6 +422,10 @@ static void microphone_task(void *unused)
             continue;
         }
         status.utterance_open = open;
+        if (was_open && !open)
+            ESP_LOGI("p4_media", "recording closed: %s",
+                gate == AINEKIO_MIC_GATE_WAKE && esp_timer_get_time() >= recording.wake_deadline
+                    ? "maximum duration" : "detected silence");
         if (open != was_open && callbacks.gate)
             callbacks.gate(callbacks.context, frame_session, open, detected);
         if (open && callbacks.microphone) {
@@ -589,6 +611,7 @@ esp_err_t ainekio_p4_media_microphone(bool enabled, ainekio_microphone_gate_t ga
     const uint16_t next_silence = speech && speech->has_silence_ms ? speech->silence_ms : status.silence_ms;
     const uint16_t next_maximum = speech && speech->has_max_recording_ms ? speech->max_recording_ms : status.max_recording_ms;
     const bool speech_changed = next_mode != status.vad_mode || next_silence != status.silence_ms || next_maximum != status.max_recording_ms;
+    const bool capture_changed = microphone_enabled != enabled || microphone_gate != gate || gain_changed || speech_changed;
     vad_handle_t next_vad = NULL;
     if (result == ESP_OK && next_mode != status.vad_mode) {
         next_vad = vad_create((vad_mode_t)next_mode);
@@ -622,7 +645,7 @@ esp_err_t ainekio_p4_media_microphone(bool enabled, ainekio_microphone_gate_t ga
             } else if (gain_changed) (void)esp_codec_dev_set_in_gain(codec, status.microphone_gain_db);
         }
     }
-    if (result == ESP_OK) {
+    if (result == ESP_OK && capture_changed) {
         status.microphone_rms = status.microphone_peak = 0;
         microphone_enabled = enabled;
         microphone_gate = gate;

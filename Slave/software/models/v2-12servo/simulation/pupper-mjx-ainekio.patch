@@ -1,0 +1,631 @@
+diff --git a/pupperv3_mjx/domain_randomization.py b/pupperv3_mjx/domain_randomization.py
+index c740171..6cb02a5 100644
+--- a/pupperv3_mjx/domain_randomization.py
++++ b/pupperv3_mjx/domain_randomization.py
+@@ -90,7 +90,7 @@ def domain_randomize(
+ 
+     friction, gain, bias, body_com, body_inertia, body_mass = rand(rng)
+ 
+-    in_axes = jax.tree_map(lambda x: None, sys)
++    in_axes = jax.tree_util.tree_map(lambda x: None, sys)
+     in_axes = in_axes.tree_replace({
+         "geom_friction": 0,
+         "actuator_gainprm": 0,
+diff --git a/pupperv3_mjx/environment.py b/pupperv3_mjx/environment.py
+index 5c30e3c..efb93ae 100644
+--- a/pupperv3_mjx/environment.py
++++ b/pupperv3_mjx/environment.py
+@@ -118,6 +118,8 @@ class PupperV3Env(PipelineEnv):
+         imu_latency_distribution: jax.Array = jp.array([0.5, 0.5]),  # TODO: Measure on pupper
+         desired_world_z_in_body_frame: jax.Array = jp.array([0.0, 0.0, 1.0]),
+         use_imu: bool = True,
++        hardware_profile: str | None = None,
++        system=None,
+     ):
+         """
+         Args:
+@@ -162,23 +164,44 @@ class PupperV3Env(PipelineEnv):
+             desired_world_z_in_body_frame (jax.Array): The desired world z in body frame.
+             use_imu (bool): Whether to use IMU.
+         """
+-        sys = mjcf.load(path)
++        sys = system if system is not None else utils.load_body(path, hardware_profile)
+         self._dt = environment_timestep  # this environment is 50 fps
+         sys = sys.tree_replace({"opt.timestep": physics_timestep})
+ 
+-        # override menagerie params for smoother policy
+-        sys = sys.replace(
+-            # dof_damping=sys.dof_damping.at[6:].set(DOF_DAMPING),
+-            actuator_gainprm=sys.actuator_gainprm.at[:, 0].set(position_control_kp),
+-            actuator_biasprm=sys.actuator_biasprm.at[:, 1].set(-position_control_kp).at[:, 2].set(-dof_damping),
+-        )
+-
+-        # override the default joint angles with default_pose
+-        sys.mj_model.keyframe("home").qpos[7:] = default_pose
+-
+-        n_frames = self._dt // sys.opt.timestep
++        # Explicit None selects gains authored in the body model. Stock Pupper
++        # configuration retains its original scalar gain overrides.
++        if position_control_kp is not None:
++            sys=sys.replace(actuator_gainprm=sys.actuator_gainprm.at[:,0].set(position_control_kp),
++                actuator_biasprm=sys.actuator_biasprm.at[:,1].set(-position_control_kp))
++        if dof_damping is not None:
++            sys=sys.replace(actuator_biasprm=sys.actuator_biasprm.at[:,2].set(-dof_damping))
++
++        # Model actuators identify the twelve commanded shafts. Closed-chain
++        # Ainekio legs also contain passive hinges, which are not observations
++        # or action dimensions. Their solved home angles stay in the MJCF.
++        controlled=sys.mj_model.actuator_trnid[:,0]
++        self._joint_qpos=np.asarray(sys.mj_model.jnt_qposadr[controlled])
++        self._joint_dof=np.asarray(sys.mj_model.jnt_dofadr[controlled])
++        sys.mj_model.keyframe("home").qpos[self._joint_qpos] = default_pose
++
++        n_frames = int(round(self._dt / physics_timestep))
+         super().__init__(sys, backend="mjx", n_frames=n_frames)
+ 
++        self._hardware = None
++        self._is_ainekio = hardware_profile is not None
++        if self._is_ainekio:
++            import json
++            from pathlib import Path
++            profile = json.loads(Path(hardware_profile).read_text())
++            mapping = sorted(profile["robot"]["calibration"], key=lambda j: j["id"])
++            self._home_deg = jp.array([m["home_cd"] / 100.0 for m in mapping], dtype=jp.float32)
++            self._pulse_home = jp.array([m["home_us"] for m in mapping], dtype=jp.float32)
++            self._pulse_scale = jp.array(
++                [(-1.0 if m["invert"] else 1.0) * m["us_per_degree"] for m in mapping],
++                dtype=jp.float32,
++            )
++            self._tick_us = jp.float32(4.069010416666667)
++
+         self._reward_config = reward_config
+         self._torso_geom_ids = body_name_to_geom_ids(sys.mj_model, torso_name)
+         self._torso_idx = mujoco.mj_name2id(sys.mj_model, mujoco.mjtObj.mjOBJ_BODY.value, torso_name)
+@@ -192,6 +215,9 @@ class PupperV3Env(PipelineEnv):
+         self._init_q = jp.array(sys.mj_model.keyframe("home").qpos)
+         self._default_pose = default_pose
+         self._desired_abduction_angles = desired_abduction_angles
++        # Ainekio's shoulder/carrier/crank order differs from Pupper's motor
++        # order. Preserve the reward formula while binding the actual shoulders.
++        self._abduction_indices = jp.array([0, 3, 6, 9] if self._is_ainekio else [1, 4, 7, 10])
+         self.lowers = joint_lower_limits
+         self.uppers = joint_upper_limits
+         feet_site = foot_site_names
+@@ -203,6 +229,12 @@ class PupperV3Env(PipelineEnv):
+         self._upper_leg_geom_ids = body_names_to_geom_ids(sys.mj_model, upper_leg_body_names)
+ 
+         self._foot_radius = foot_radius
++        if foot_radius is None:
++            masks=np.zeros((len(lower_leg_body_names),sys.mj_model.ngeom),dtype=bool)
++            for leg,name in enumerate(lower_leg_body_names):
++                masks[leg,body_name_to_geom_ids(sys.mj_model,name)]=True
++            self._foot_geom_masks=jp.asarray(masks)
++            self._ground_geom_mask=jp.asarray(sys.mj_model.geom_bodyid==0)
+         self._nv = sys.nv
+ 
+         # start pos randomization params
+@@ -223,7 +255,9 @@ class PupperV3Env(PipelineEnv):
+         self._resample_velocity_step = resample_velocity_step
+ 
+         # observation configuration
+-        self.observation_dim = 36  # 33 without orientation, 36 with orientation
++        # Hardware adds measured acceleration, feedback velocity, quality,
++        # jam bits and ages. Static joint limits remain model configuration.
++        self.observation_dim = 95 if self._hardware is not None else 36
+         self._observation_history = observation_history
+ 
+         # reward configuration
+@@ -314,7 +348,8 @@ class PupperV3Env(PipelineEnv):
+     def reset(self, rng: jax.Array) -> State:  # pytype: disable=signature-mismatch
+         rng, sample_command_key, sample_orientation_key, randomize_pos_key = jax.random.split(rng, 4)
+ 
+-        init_q = domain_randomization.randomize_qpos(self._init_q, self._start_position_config, rng=randomize_pos_key)
++        init_q = (self._init_q if self._start_position_config is None else
++            domain_randomization.randomize_qpos(self._init_q, self._start_position_config, rng=randomize_pos_key))
+ 
+         pipeline_state = self.pipeline_init(init_q, jp.zeros(self._nv))
+ 
+@@ -333,6 +368,12 @@ class PupperV3Env(PipelineEnv):
+             "desired_world_z_in_body_frame": self.sample_body_orientation(sample_orientation_key),
+         }
+ 
++        if self._hardware is not None:
++            trace=self._hardware_trace(pipeline_state)[None]
++            memory,measured=self._hardware.jax_reset(trace,self._default_pose)
++            state_info['sensor_memory']=memory
++            state_info['hardware']=measured
++
+         obs_history = jp.zeros(
+             self._observation_history * self.observation_dim, dtype=float
+         )  # store 15 steps of history
+@@ -356,27 +397,51 @@ class PupperV3Env(PipelineEnv):
+         state = state.tree_replace({"pipeline_state.qvel": qvel})
+ 
+         # Sample an action with random latency
+-        lagged_action, state.info["action_buffer"] = utils.sample_lagged_value(
+-            latency_key, state.info["action_buffer"], action, self._latency_distribution
+-        )
++        if self._hardware is None:
++            lagged_action, state.info["action_buffer"] = utils.sample_lagged_value(
++                latency_key, state.info["action_buffer"], action, self._latency_distribution)
++        else:
++            # The real PWM and acquisition path owns timing on Ainekio. Do not
++            # add Pupper's random one-frame actuator delay on top of it.
++            lagged_action=action
+ 
+         # Physics step
+         motor_targets = self._default_pose + lagged_action * self._action_scale
+         motor_targets = jp.clip(motor_targets, self.lowers, self.uppers)
+-        pipeline_state = self.pipeline_step(state.pipeline_state, motor_targets)
++        if self._is_ainekio:
++            pulse = jp.floor(self._pulse_home + (jp.rad2deg(motor_targets) - self._home_deg) * self._pulse_scale + 0.5)
++            width = jp.floor(pulse / self._tick_us + 0.5) * self._tick_us
++            motor_targets = jp.deg2rad(self._home_deg + (width - self._pulse_home) / self._pulse_scale)
++        if self._hardware is None:
++            pipeline_state = self.pipeline_step(state.pipeline_state, motor_targets)
++        else:
++            pipeline_state,trace,delivered=self._hardware_physics(state.pipeline_state,motor_targets)
++            memory,measured=self._hardware.jax_step(state.info['sensor_memory'],trace,delivered)
++            state.info['sensor_memory']=memory
++            state.info['hardware']=measured
+         x, xd = pipeline_state.x, pipeline_state.xd
+ 
+         # Observation data
+         obs = self._get_obs(pipeline_state, state.info, state.obs)
+-        joint_angles = pipeline_state.q[7:]
+-        joint_vel = pipeline_state.qd[6:]
++        joint_angles = pipeline_state.q[self._joint_qpos]
++        joint_vel = pipeline_state.qd[self._joint_dof]
+ 
+         # Foot contact data based on z-position
+         foot_pos = pipeline_state.site_xpos[self._feet_site_id]  # pytype: disable=attribute-error
+-        foot_contact_z = foot_pos[:, 2] - self._foot_radius
+-        contact = foot_contact_z < 1e-3  # a mm or less off the floor
+-        contact_filt_mm = contact | state.info["last_contact"]
+-        contact_filt_cm = (foot_contact_z < 3e-2) | state.info["last_contact"]
++        if self._foot_radius is None:
++            # Ainekio has shaped CAD soles, not Pupper's spherical feet.
++            contacts=pipeline_state.contact
++            first,second=contacts.geom1,contacts.geom2
++            touching=((self._foot_geom_masks[:,first] & self._ground_geom_mask[second]) |
++                      (self._foot_geom_masks[:,second] & self._ground_geom_mask[first]))
++            contact=jp.any(touching & (contacts.dist<0.0),axis=1)
++            contact_filt_mm=contact | state.info["last_contact"]
++            contact_filt_cm=contact_filt_mm
++        else:
++            foot_contact_z = foot_pos[:, 2] - self._foot_radius
++            contact = foot_contact_z < 1e-3  # a mm or less off the floor
++            contact_filt_mm = contact | state.info["last_contact"]
++            contact_filt_cm = (foot_contact_z < 3e-2) | state.info["last_contact"]
+         first_contact = (state.info["feet_air_time"] > 0) * contact_filt_mm
+         state.info["feet_air_time"] += self.dt
+ 
+@@ -388,45 +453,61 @@ class PupperV3Env(PipelineEnv):
+         done |= pipeline_state.x.pos[self._torso_idx - 1, 2] < self._terminal_body_z
+ 
+         # Reward
++        r_lin = rewards.reward_tracking_lin_vel(
++            state.info["command"],
++            x,
++            xd,
++            tracking_sigma=self._reward_config.rewards.tracking_sigma,
++        )
++        r_ang = rewards.reward_tracking_ang_vel(
++            state.info["command"],
++            x,
++            xd,
++            tracking_sigma=self._reward_config.rewards.tracking_sigma,
++        )
++        r_ori = rewards.reward_tracking_orientation(
++            state.info["desired_world_z_in_body_frame"],
++            x,
++            tracking_sigma=jp.maximum(self._reward_config.rewards.tracking_sigma, 0.05),
++        )
++        # Couple passive axis/orientation credit to active command tracking so a stationary
++        # robot cannot collect full orientation/zero-yaw credit while ignoring a move command,
++        # and couple linear velocity reward to yaw tracking so straight walking stays straight.
++        cmd_lin_active = jp.linalg.norm(state.info["command"][:2]) > self._stand_still_command_threshold
++        lin_gate = jp.where(cmd_lin_active, 0.15 + 0.85 * jp.clip(r_lin, 0.0, 1.0), 1.0)
++        ang_gate = 0.35 + 0.65 * jp.clip(r_ang, 0.0, 1.0)
+         rewards_dict = {
+-            "tracking_lin_vel": rewards.reward_tracking_lin_vel(
+-                state.info["command"],
+-                x,
+-                xd,
+-                tracking_sigma=self._reward_config.rewards.tracking_sigma,
+-            ),
+-            "tracking_ang_vel": rewards.reward_tracking_ang_vel(
+-                state.info["command"],
+-                x,
+-                xd,
+-                tracking_sigma=self._reward_config.rewards.tracking_sigma,
+-            ),
+-            "tracking_orientation": rewards.reward_tracking_orientation(
+-                state.info["desired_world_z_in_body_frame"],
+-                x,
+-                tracking_sigma=self._reward_config.rewards.tracking_sigma,
+-            ),
++            "tracking_lin_vel": r_lin * jp.where(cmd_lin_active, ang_gate, 1.0),
++            "tracking_ang_vel": r_ang * jp.where(jp.abs(state.info["command"][2]) > 0.05, 1.0, lin_gate),
++            "tracking_orientation": r_ori * lin_gate,
+             "lin_vel_z": rewards.reward_lin_vel_z(xd),
+             "ang_vel_xy": rewards.reward_ang_vel_xy(xd),
+             "orientation": rewards.reward_orientation(x),
+             "torques": rewards.reward_torques(pipeline_state.qfrc_actuator),  # pytype: disable=attribute-error
+             "joint_acceleration": rewards.reward_joint_acceleration(joint_vel, state.info["last_vel"], dt=self._dt),
+             "mechanical_work": rewards.reward_mechanical_work(
+-                pipeline_state.qfrc_actuator[6:], pipeline_state.qvel[6:]
++                pipeline_state.qfrc_actuator[self._joint_dof], pipeline_state.qvel[self._joint_dof]
+             ),
+             "action_rate": rewards.reward_action_rate(action, state.info["last_act"]),
+-            "stand_still": rewards.reward_stand_still(state.info["command"], joint_angles, self._default_pose, 0.1),
++            "stand_still": rewards.reward_stand_still(
++                state.info["command"], joint_angles, self._default_pose, self._stand_still_command_threshold
++            ),
+             "stand_still_joint_velocity": rewards.reward_stand_still(
+                 state.info["command"], joint_vel, jp.zeros(12), self._stand_still_command_threshold
+             ),
+             "abduction_angle": rewards.reward_abduction_angle(
+                 joint_angles,
+                 desired_abduction_angles=self._desired_abduction_angles,
++                joint_indices=self._abduction_indices,
+             ),
+             "feet_air_time": rewards.reward_feet_air_time(
+                 state.info["feet_air_time"],
+                 first_contact,
+                 state.info["command"],
++                command_threshold=self._stand_still_command_threshold,
++                contact=contact_filt_mm,
++                joint_angles=joint_angles,
++                default_pose=self._default_pose,
+             ),
+             "foot_slip": rewards.reward_foot_slip(
+                 pipeline_state,
+@@ -482,12 +563,41 @@ class PupperV3Env(PipelineEnv):
+         state = state.replace(pipeline_state=pipeline_state, obs=obs, reward=reward, done=done)
+         return state
+ 
++    def _hardware_trace(self,state):
++        return jp.concatenate((state.q[self._joint_qpos],
++            state.sensordata[self._accel_adr:self._accel_adr+3],
++            state.sensordata[self._gyro_adr:self._gyro_adr+3],jp.atleast_1d(state.time)))
++
++    def _hardware_physics(self,state,targets):
++        from gateway.neural_gait.native import motor_force_range
++        physical,delivered=self._hardware.jax_command(targets)
++        def advance(current,_):
++            lower,upper=motor_force_range(current.qd[self._joint_dof],
++                self._hardware_torque,self._hardware_speed,array=jp)
++            body=self.sys.tree_replace({'actuator_forcerange':jp.stack((lower,upper),axis=1)})
++            following=self._pipeline.step(body,current,physical,self._debug)
++            return following,self._hardware_trace(following)
++        following,trace=jax.lax.scan(advance,state,(),self._n_frames)
++        # Include the true initial transducer state. AutoReset can rewind to it
++        # without env.reset; the sensor bridge consumes it only on that rewind.
++        trace=jp.concatenate((self._hardware_trace(state)[None],trace))
++        return following,trace,delivered
++
+     def _get_obs(
+         self,
+         pipeline_state: base.State,
+         state_info: dict[str, Any],
+         obs_history: jax.Array,
+     ) -> jax.Array:
++        if self._hardware is not None:
++            measured=state_info['hardware']
++            gravity=math.rotate(jp.array([0.,0.,-1.]),math.quat_inv(measured[24:28]))
++            obs=jp.concatenate((measured[31:34],gravity,state_info['command'],
++                state_info['desired_world_z_in_body_frame'],measured[:12]-self._default_pose,
++                state_info['last_act'],measured[28:31],measured[12:24],measured[34:]))
++            obs=jp.clip(obs,-100.,100.)
++            return jp.concatenate((obs,obs_history[:-self.observation_dim]))
++
+         if self._use_imu:
+             inv_torso_rot = math.quat_inv(pipeline_state.x.rot[0])
+             local_body_angular_velocity = math.rotate(pipeline_state.xd.ang[0], inv_torso_rot)
+@@ -527,7 +637,7 @@ class PupperV3Env(PipelineEnv):
+             lagged_imu_data,  # noised angular velocity and gravity
+             state_info["command"],  # command
+             state_info["desired_world_z_in_body_frame"],  # desired body orientation
+-            pipeline_state.q[7:] - self._default_pose + motor_ang_noise,  # motor angles
++            pipeline_state.q[self._joint_qpos] - self._default_pose + motor_ang_noise,  # motor angles
+             state_info["last_act"] + last_action_noise,  # last action
+         ])
+ 
+@@ -543,5 +653,6 @@ class PupperV3Env(PipelineEnv):
+         return new_obs_history
+ 
+     def render(self, trajectory: List[base.State], camera: Optional[str] = None) -> Sequence[np.ndarray]:
+-        camera = camera or "track"
++        if not self._is_ainekio:
++            camera = camera or "track"
+         return super().render(trajectory, camera=camera)
+diff --git a/pupperv3_mjx/rewards.py b/pupperv3_mjx/rewards.py
+index 794b0cc..a8245f8 100644
+--- a/pupperv3_mjx/rewards.py
++++ b/pupperv3_mjx/rewards.py
+@@ -56,35 +56,71 @@ def reward_action_rate(act: jax.Array, last_act: jax.Array) -> jax.Array:
+ 
+ 
+ def reward_tracking_lin_vel(commands: jax.Array, x: Transform, xd: Motion, tracking_sigma) -> jax.Array:
+-    # Tracking of linear velocity commands (xy axes)
++    # Tracking of linear velocity commands (xy axes) plus directed progress gradient at v=0
+     local_vel = math.rotate(xd.vel[0], math.quat_inv(x.rot[0]))
+     lin_vel_error = jp.sum(jp.square(commands[:2] - local_vel[:2]))
+-    lin_vel_reward = jp.exp(-lin_vel_error / tracking_sigma)
+-    return lin_vel_reward
++    exp_reward = 0.5 * jp.exp(-lin_vel_error / tracking_sigma) + 0.5 * jp.exp(-lin_vel_error / (4.0 * tracking_sigma))
++    cmd_speed = jp.linalg.norm(commands[:2])
++    along_vel = jp.dot(local_vel[:2], commands[:2]) / (cmd_speed + 1e-5)
++    progress = jp.where(cmd_speed > 0.02, jp.clip(along_vel / (cmd_speed + 1e-5), -0.5, 1.0), 0.0)
++    return exp_reward + 0.5 * progress
+ 
+ 
+ def reward_tracking_ang_vel(commands: jax.Array, x: Transform, xd: Motion, tracking_sigma) -> jax.Array:
+-    # Tracking of angular velocity commands (yaw)
++    # Tracking of angular velocity commands (yaw) using rad^2/s^2 sigma scale plus directed yaw progress
+     base_ang_vel = math.rotate(xd.ang[0], math.quat_inv(x.rot[0]))
+     ang_vel_error = jp.square(commands[2] - base_ang_vel[2])
+-    return jp.exp(-ang_vel_error / tracking_sigma)
++    ang_sigma = jp.maximum(tracking_sigma, 0.05)
++    exp_reward = jp.exp(-ang_vel_error / ang_sigma)
++    yaw_cmd_abs = jp.abs(commands[2])
++    yaw_progress = jp.where(
++        yaw_cmd_abs > 0.05,
++        jp.clip((base_ang_vel[2] * jp.sign(commands[2])) / (yaw_cmd_abs + 1e-5), -0.5, 1.0),
++        0.0,
++    )
++    return exp_reward + 0.5 * yaw_progress
+ 
+ 
+ def reward_feet_air_time(
+     air_time: jax.Array,
+     first_contact: jax.Array,
+     commands: jax.Array,
+-    minimum_airtime: float = 0.1,
++    minimum_airtime: float = 0.08,
++    command_threshold: float = 0.05,
++    contact: jax.Array = None,
++    joint_angles: jax.Array = None,
++    default_pose: jax.Array = None,
+ ) -> jax.Array:
+-    # Reward air time.
+-    rew_air_time = jp.sum((air_time - minimum_airtime) * first_contact)
+-    rew_air_time *= math.normalize(commands[:3])[1] > 0.05  # no reward for zero command
+-    return rew_air_time
+-
+-
+-def reward_abduction_angle(joint_angles: jax.Array, desired_abduction_angles: jax.Array = jp.zeros(4)):
++    # Reward foot swing duration on touchdown (clamped to [0, 0.28]s so early learning is not penalized
++    # into foot-scuffling) plus continuous alternating diagonal gait & anti-phase leg swing credit.
++    active = jp.linalg.norm(commands[:3]) > command_threshold
++    clipped_air = jp.clip(air_time - 0.04, 0.0, 0.24)
++    rew_air_time = jp.sum(clipped_air * first_contact)
++    if contact is not None:
++        c = contact.astype(jp.float32)
++        # lower_leg_body_names order: [RL (0), RR (1), FL (2), FR (3)]
++        # Diagonal pairs: pair A = (RL=0, FR=3), pair B = (RR=1, FL=2)
++        diag_a_stance = c[0] * c[3] * (1.0 - c[1]) * (1.0 - c[2])
++        diag_b_stance = c[1] * c[2] * (1.0 - c[0]) * (1.0 - c[3])
++        three_foot_stance = jp.where(jp.sum(c) == 3.0, 0.4, 0.0)
++        # Penalize pronking (all 4 feet airborne) or left-right in-phase hopping (both rear or both front airborne)
++        same_girdle_hop = (1.0 - c[0]) * (1.0 - c[1]) + (1.0 - c[2]) * (1.0 - c[3])
++        rew_air_time += 0.15 * (diag_a_stance + diag_b_stance + three_foot_stance) - 0.08 * same_girdle_hop
++    if joint_angles is not None and default_pose is not None:
++        dq = joint_angles - default_pose
++        # Reward left-right anti-phase swing on carriers (1 vs 4, 7 vs 10) and cranks (2 vs 5, 8 vs 11)
++        # and diagonal in-phase coordination (RL=1,2 with FR=10,11; RR=4,5 with FL=7,8)
++        rear_anti = jp.clip(-(dq[1] * dq[4] + dq[2] * dq[5]), -0.3, 0.5)
++        front_anti = jp.clip(-(dq[7] * dq[10] + dq[8] * dq[11]), -0.3, 0.5)
++        diag_sync = jp.clip(dq[1] * dq[10] + dq[2] * dq[11] + dq[4] * dq[7] + dq[5] * dq[8], -0.3, 0.6)
++        rew_air_time += 0.20 * (rear_anti + front_anti + 0.5 * diag_sync)
++    return rew_air_time * active
++
++
++def reward_abduction_angle(joint_angles: jax.Array, desired_abduction_angles: jax.Array = jp.zeros(4),
++                           joint_indices=slice(1, None, 3)):
+     # Penalize abduction angle
+-    return jp.sum(jp.square(joint_angles[1::3] - desired_abduction_angles))
++    return jp.sum(jp.square(joint_angles[joint_indices] - desired_abduction_angles))
+ 
+ 
+ def reward_stand_still(
+@@ -103,7 +139,7 @@ def reward_stand_still(
+     """
+ 
+     # Penalize motion at zero commands
+-    return jp.sum(jp.abs(joint_angles - default_pose)) * (math.normalize(commands[:3])[1] < command_threshold)
++    return jp.sum(jp.abs(joint_angles - default_pose)) * (jp.linalg.norm(commands[:3]) < command_threshold)
+ 
+ 
+ def reward_foot_slip(
+diff --git a/pupperv3_mjx/utils.py b/pupperv3_mjx/utils.py
+index 371ee80..2112c3c 100644
+--- a/pupperv3_mjx/utils.py
++++ b/pupperv3_mjx/utils.py
+@@ -7,6 +7,8 @@ from pathlib import Path
+ from typing import Callable, List, Tuple
+ 
+ import jax
++import mujoco
++from brax.io import mjcf
+ import matplotlib.pyplot as plt
+ import mediapy as media
+ from flax.training import orbax_utils
+@@ -16,6 +18,18 @@ from orbax import checkpoint as ocp
+ import wandb
+ 
+ 
++def load_body(path, hardware_profile=None):
++    """Compile Ainekio with MuJoCo; keep stock Pupper's loader unchanged.
++
++    Brax's XML fuser copies fixed-body inertials without combining them. MJX
++    supports fixed bodies directly, so retain the compiled CAD tree and inertia
++    instead of rewriting the body to satisfy the legacy XML preprocessing.
++    """
++    if hardware_profile is not None:
++        return mjcf.load_model(mujoco.MjModel.from_xml_path(str(path)))
++    return mjcf.load(path)
++
++
+ def circular_buffer_push_back(buffer: jax.Array, new_value: jax.Array) -> jax.Array:
+     """
+     Shift a circular buffer back by one step and set the last element to a new value.
+@@ -98,7 +112,15 @@ def progress(
+     x_data.append(num_steps)
+     y_data.append(metrics["eval/episode_reward"])
+     ydataerr.append(metrics["eval/episode_reward_std"])
++    print(
++        f"[Step {num_steps:,}/{num_timesteps:,}] "
++        f"eval/episode_reward={float(metrics['eval/episode_reward']):.3f} "
++        f"+/- {float(metrics['eval/episode_reward_std']):.3f} "
++        f"(elapsed={(times[-1] - times[0]).total_seconds():.1f}s)",
++        flush=True,
++    )
+ 
++    plt.clf()
+     plt.xlim([0, num_timesteps * 1.25])
+     plt.ylim([min_y, max_y])
+ 
+@@ -107,9 +129,11 @@ def progress(
+     plt.title(f"y={y_data[-1]:.3f}")
+ 
+     plt.errorbar(x_data, y_data, yerr=ydataerr)
+-    plt.show()
++    plt.savefig("progress.png")
++    plt.close()
+ 
+-    wandb.log(metrics, step=num_steps)
++    if wandb.run is not None:
++        wandb.log(metrics, step=num_steps)
+ 
+ 
+ def fuzzy_search(obj, search_str: str, cutoff: float = 0.6):
+@@ -156,16 +180,14 @@ def set_mjx_custom_options(tree: ET.ElementTree, max_contact_points: int, max_ge
+     """
+     root = tree.getroot()
+     custom = root.find("custom")
+-    if custom is not None:
+-        for numeric in custom.findall("numeric"):
+-            name = numeric.get("name")
+-            if name == "max_contact_points":
+-                numeric.set("data", str(max_contact_points))
+-            elif name == "max_geom_pairs":
+-                numeric.set("data", str(max_geom_pairs))
+-
+-        return tree
+-    return None
++    if custom is None:
++        custom = ET.SubElement(root, 'custom')
++    for name, value in (('max_contact_points', max_contact_points), ('max_geom_pairs', max_geom_pairs)):
++        numeric = custom.find(f"numeric[@name='{name}']")
++        if numeric is None:
++            numeric = ET.SubElement(custom, 'numeric', name=name)
++        numeric.set('data', str(value))
++    return tree
+ 
+ 
+ def set_robot_starting_position(tree: ET.ElementTree, starting_pos: List, starting_quat: List = None):
+@@ -202,13 +224,14 @@ def set_robot_starting_position(tree: ET.ElementTree, starting_pos: List, starti
+ def save_checkpoint(current_step, make_policy, params, checkpoint_path: Path):
+     # save checkpoints
+     orbax_checkpointer = ocp.PyTreeCheckpointer()
+-    save_args = orbax_utils.save_args_from_target(params)
+-    path = Path(checkpoint_path) / Path(f"{current_step}")
+-    orbax_checkpointer.save(path.resolve(), params, force=True, save_args=save_args)
+-    wandb.log_model(
+-        path=path.as_posix(),
+-        name=f"checkpoint_{wandb.run.name}_{current_step}",
+-    )
++    try:
++        save_args = orbax_utils.save_args_from_target(params)
++        path = Path(checkpoint_path) / Path(f"{current_step}")
++        orbax_checkpointer.save(path.resolve(), params, force=True, save_args=save_args)
++    finally:
++        orbax_checkpointer.close()
++    if wandb.run is not None:
++        wandb.log_model(path=path.as_posix(), name=f"checkpoint_{wandb.run.name}_{current_step}")
+ 
+ 
+ def visualize_policy(
+@@ -222,6 +245,7 @@ def visualize_policy(
+     vx: float = 0.5,
+     vy: float = 0.4,
+     wz: float = 1.5,
++    camera: str | None = 'tracking_cam',
+ ):
+     """
+     Visualize a policy by creating a video of the robot's behavior.
+@@ -239,7 +263,8 @@ def visualize_policy(
+     wz (float): The rotational velocity.
+     """
+ 
+-    inference_fn = make_policy((params[0], params[1].policy))
++    policy_params = params[1].policy if hasattr(params[1], "policy") else params[1]
++    inference_fn = make_policy((params[0], policy_params))
+     jit_inference_fn = jax.jit(inference_fn)
+ 
+     # Make robot go forward, back, left, right
+@@ -279,18 +304,16 @@ def visualize_policy(
+     fps = int(1.0 / eval_env.dt / render_every)
+     media.write_video(
+         filename,
+-        eval_env.render(rollout[::render_every], camera="tracking_cam"),
++        eval_env.render(rollout[::render_every], camera=camera),
+         fps=fps,
+     )
+-    wandb.log(
+-        {
++    if wandb.run is not None:
++        wandb.log({
+             "eval/video/command/vx": vx,
+             "eval/video/command/vy": vy,
+             "eval/video/command/wz": wz,
+             "eval/video": wandb.Video(filename, format="mp4"),
+-        },
+-        step=current_step,
+-    )
++        }, step=current_step)
+ 
+ 
+ def activation_fn_map(activation_name: str):
+diff --git a/test/test_utils.py b/test/test_utils.py
+index 25d08f0..60dfe8b 100644
+--- a/test/test_utils.py
++++ b/test/test_utils.py
+@@ -1,6 +1,7 @@
+ import jax
+ import numpy as np
+ import pytest
++import xml.etree.ElementTree as ET
+ from jax import numpy as jp
+ 
+ from pupperv3_mjx.utils import (
+@@ -103,3 +104,27 @@ def test_sample_lagged_value_buffer_size_one():
+ 
+     # Check that the sampled action is within the expected range
+     assert jp.allclose(sampled_value, expected_value, atol=1e-5)
++
++
++def test_mjx_options_are_created_and_keep_existing_model_metadata():
++    from pupperv3_mjx.utils import set_mjx_custom_options
++
++    tree = ET.ElementTree(ET.fromstring('<mujoco><custom><numeric name="advertised_speed" data="9.52"/></custom></mujoco>'))
++    assert set_mjx_custom_options(tree, -1, -1) is tree
++    custom = tree.getroot().find('custom')
++    assert custom.find("numeric[@name='advertised_speed']").get('data') == '9.52'
++    assert custom.find("numeric[@name='max_contact_points']").get('data') == '-1'
++    assert custom.find("numeric[@name='max_geom_pairs']").get('data') == '-1'
++
++
++def test_checkpoint_is_saved_without_an_external_tracking_run(tmp_path, monkeypatch):
++    from pupperv3_mjx import utils
++
++    monkeypatch.setattr(utils.wandb, 'run', None)
++    def unexpected_upload(*args, **kwargs):
++        raise AssertionError('A local checkpoint must not upload an artifact')
++    monkeypatch.setattr(utils.wandb, 'log_model', unexpected_upload)
++    params = {'actor': np.array([1., 2., 3.], dtype=np.float32)}
++    utils.save_checkpoint(16, None, params, tmp_path)
++    restored = utils.ocp.PyTreeCheckpointer().restore(tmp_path/'16')
++    np.testing.assert_array_equal(restored['actor'], params['actor'])

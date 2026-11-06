@@ -36,11 +36,12 @@ class VirtualProducerFailed(RuntimeError):
 class LearnerInference:
     """One learner response to the existing gateway's pending inference call."""
 
-    def __init__(self, environment, model_id="training"):
+    def __init__(self, environment, model_id="training", current=None):
         self.environment = deepcopy(environment)
         self.model_id = model_id
         self.requests = asyncio.Queue()
         self.pending = None
+        self.current = current or (lambda context:True)
 
     async def call(self, path, payload=None):
         if path == "/status?history=0":
@@ -48,16 +49,35 @@ class LearnerInference:
         if path != "/infer":
             raise ValueError(f"Unsupported learner inference operation: {path}")
         response = asyncio.get_running_loop().create_future()
-        self.requests.put_nowait((deepcopy(payload["observation"]), response))
+        self.requests.put_nowait((deepcopy(payload["observation"]), response,
+                                 deepcopy(payload.get('walk_context'))))
         return await response
 
+    def _select(self, request):
+        if request[1].done():
+            return False
+        if not self.current(request[2]):
+            request[1].cancel()
+            return False
+        self.pending = request
+        return True
+
+    @property
+    def ready(self):
+        if self.pending is not None and self._select(self.pending):
+            return True
+        self.pending = None
+        while not self.requests.empty():
+            if self._select(self.requests.get_nowait()):
+                return True
+        return False
+
     async def observation(self):
-        if self.pending is not None and not self.pending[1].done():
+        if self.ready:
             return deepcopy(self.pending[0])
         while True:
             request = await self.requests.get()
-            if not request[1].done():
-                self.pending = request
+            if self._select(request):
                 return deepcopy(request[0])
 
     def respond(self, action):
@@ -157,7 +177,7 @@ sample attribution comes back through the real gateway sensor projection.
         self.token = secrets.token_hex(24)
         self.gateway = GatewayService(GatewayServiceConfig(tokens={self.robot_id: self.token}),
             clock=lambda: self.now_us()/1e6)
-        self.client = LearnerInference(environment, model_id)
+        self.client = LearnerInference(environment, model_id,self._inference_current)
         self.gateway.neural_gait = self.client
         profile = walking_profile(source_profile)
         if profile["source"] != "neural":
@@ -170,6 +190,36 @@ sample attribution comes back through the real gateway sensor projection.
         self.walk_connection = None
         self.started_us = None
         self.recovery = None
+        self.camera = None
+
+    def _inference_current(self, context):
+        """The existing gateway Walk remains the sole operation owner."""
+        state = self.connection.neural_walk
+        return bool(state is not None and self.connection._neural_current(state)
+            and context == {'gateway_instance':self.gateway.instance_id,'robot_id':self.robot_id,
+                'epoch':self.robot.epoch,'walk':state.sequence,'revision':state.revision})
+
+    async def enable_camera(self, profile):
+        """Use the production camera consumer, scheduler and MoGe worker."""
+        from gateway.plugins import CameraFramePlugin
+        self.camera = CameraFramePlugin(self.gateway, None,
+            max_frame_age_s=profile["max_frame_age_s"])
+        await self.camera.restore_depth({self.robot_id: profile["processing"]})
+        self.gateway.locomotion_measurement = self.camera.locomotion_measurement
+        await self.camera.depth_demand(self.robot_id, "virtual-walking", True,
+                                       wait_for_measurement=False)
+
+    async def camera_frame(self, frame, profile):
+        from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, encode_binary_frame
+        if frame is None:
+            return
+        metadata = dict(t="cam_meta", res=profile["resolution"],
+            fps=profile["capture_hz"], counter_base=frame["counter"],
+            frame_completed_us=frame["completed_us"],
+            boot_id=self.executor.telemetry(self.now_us())["data"]["boot_id"])
+        await self.robot.publish([metadata])
+        await self.robot.websocket.send(encode_binary_frame(
+            CAMERA_JPEG_FRAME_TYPE, frame["counter"], frame["jpeg"]))
 
     async def enable_recovery(self, endpoint, *, generate=None):
         """Opt in to the existing Freestyle event consumer for a scenario.
@@ -201,6 +251,29 @@ sample attribution comes back through the real gateway sensor projection.
         except BaseException:
             await self.close()
             raise
+        return self
+
+    async def reconnect_body(self, executor):
+        """Reset the virtual device while keeping its actual host services alive.
+
+        Production Body Control and loaded perception models survive a body
+        reconnect. Training episodes should have the same process ownership.
+        The normal connection epoch and depth reset retire old observations.
+        """
+        endpoint = self.robot.endpoint
+        await self.robot.close()
+        self.executor = executor
+        self.client.pending = None
+        while not self.client.requests.empty():
+            _, future, _ = self.client.requests.get_nowait()
+            if not future.done():
+                future.cancel()
+        self.targets = asyncio.Queue()
+        self.walk = self.walk_connection = self.started_us = None
+        self.robot = VirtualRobot(executor, endpoint, self.robot_id, self.token, self.now_us)
+        await self.robot.connect()
+        if self.camera is not None:
+            await self.camera.configure_depth(self.robot_id,self.client.environment['depth_camera']['processing'])
         return self
 
     @property
@@ -282,8 +355,7 @@ sample attribution comes back through the real gateway sensor projection.
             if pending is not None and pending.producer_error:
                 raise VirtualProducerFailed({"error": pending.producer_error, "walk": self.walk,
                                              "source": "gateway_pending_command"})
-        return ((self.client.pending is not None and not self.client.pending[1].done())
-                or not self.client.requests.empty())
+        return self.client.ready
 
     async def action(self, action):
         walk, connection = self.walk, self.walk_connection
@@ -341,6 +413,9 @@ sample attribution comes back through the real gateway sensor projection.
         if self.recovery is not None:
             await self.recovery.close()
             self.recovery = None
+        if self.camera is not None:
+            await self.camera.aclose()
+            self.camera = None
         if self.robot is not None:
             await self.robot.close()
         await self.gateway.close()

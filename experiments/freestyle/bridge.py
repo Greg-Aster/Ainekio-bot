@@ -44,6 +44,14 @@ class Bridge:
             self.settings = json.loads(self.settings_path.read_text())
         gateway.subscribe_events(self.event)
         gateway.subscribe_commands(self.command)
+        gateway.freestyle_recovery_state = self.recovery_state
+
+    def recovery_state(self, robot, epoch):
+        """Read actual recovery jobs, including generation and active execution."""
+        return any(job['robot_id']==robot and job['epoch']==epoch and job['execute']
+                   and job.get('event') and not job.get('cancellation_requested')
+                   and identifier in self.tasks and not self.tasks[identifier].done()
+                   for identifier,job in self.jobs.items())
 
     async def _compile_motion(self, action, observation, planned):
         # Python-heavy IK must not compete for the gateway interpreter's GIL.
@@ -55,6 +63,21 @@ class Bridge:
                 mp_context=multiprocessing.get_context('spawn'))
         return await asyncio.get_running_loop().run_in_executor(
             self.compiler_pool,worker_compile,action,observation,planned)
+
+    async def _compile_action(self, action, observation, planned, supplied):
+        try:
+            return await self.compiler(action,observation,planned)
+        except Exception as cause:
+            evidence=getattr(cause,'evidence',None) or {}
+            producer='supplied_program' if supplied else 'freestyle_generator'
+            if evidence.get('kind')=='invalid_pose':
+                prefix='Supplied motion program is invalid: ' if supplied else 'Freestyle generated an invalid program: '
+            else:
+                prefix='Supplied motion program could not be compiled: ' if supplied else 'Freestyle generated program could not be compiled: '
+            error=ValueError(prefix+str(cause))
+            error.evidence={**evidence,'kind':producer+'_invalid','producer':producer,
+                            'stage':'compilation','operation':action['name']}
+            raise error from cause
 
     async def _discard_trajectory(self,job,identifier,upload):
         try:
@@ -76,6 +99,11 @@ class Bridge:
         jobs = {key:{**{k:job[k] for k in ('id','robot_id','request','execute','state')},
                      'error':job.get('error'),'current_action':job.get('current_action'),
                      'completed_action':job.get('completed_action'),
+                     'operation_index':job.get('operation_index'),
+                     'completed_operation_index':job.get('completed_operation_index'),
+                     'pause_state':job.get('pause_state'),'pause_cursor':job.get('pause_cursor'),
+                     'start_index':job.get('start_index',0),'source':job.get('source'),
+                     'owns_motion':self.active.get(job['robot_id']) == key,
                      'latest_generation':job['programs'][-1] if job['programs'] else None,
                      'completed_commands':len(job['receipts'])} for key,job in self.jobs.items()}
         return {'settings':copy.deepcopy(self.settings), 'jobs':copy.deepcopy(jobs),
@@ -155,12 +183,13 @@ class Bridge:
                     'review_id':review_id})
 
     async def submit(self, robot, request, execute=False, event=None, *, job_id=None, on_start=None,
-                     program=None, source=None):
+                     program=None, source=None, start_index=0):
         setting = self.settings.get(robot, {'endpoint':'http://127.0.0.1:8794', 'recover_events':False})
         previous = self.active.get(robot)
         pending = [job for identifier,job in self.jobs.items() if identifier in self.tasks
                    and job['robot_id']==robot and 'recovery_owner' in job]
         history = []
+        motion_goal = None
         if event and previous:
             prior = self.jobs[previous]
             context = {'program_state':prior['state']}
@@ -175,6 +204,11 @@ class Bridge:
                 context['completed_action'] = copy.deepcopy(prior['completed_action'])
             if 'remaining_program' in prior:
                 context['remaining_program'] = copy.deepcopy(prior['remaining_program'])
+            motion_goal = copy.deepcopy(prior.get('motion_goal'))
+            if motion_goal is None:
+                motion_goal = {'request':prior['request'], **{key:copy.deepcopy(context[key])
+                    for key in ('program_state','interrupted_action','failed_action',
+                                'completed_action','remaining_program') if key in context}}
             history.append(context)
             effect = latest_correction(prior.get('history'))
             if effect:
@@ -195,8 +229,10 @@ class Bridge:
                 self.tasks[previous].cancel()
             job = {'id':job_id,'robot_id':robot,'request':request,'execute':execute,'event':event,
                    'epoch':epoch,'state':'generating','history':history,'programs':[],'receipts':[]}
+            if motion_goal is not None:
+                job['motion_goal'] = motion_goal
             if program is not None:
-                job.update(supplied_program=copy.deepcopy(program), source=copy.deepcopy(source))
+                job.update(supplied_program=copy.deepcopy(program), source=copy.deepcopy(source),start_index=start_index)
             if execute and event:
                 job['recovery_owner'] = previous
             self.jobs[job_id] = job
@@ -224,14 +260,57 @@ class Bridge:
                 if not task.cancelled():
                     raise
         return copy.deepcopy({key: job[key] for key in
-            ('id', 'robot_id', 'epoch', 'request', 'state', 'receipts', 'observation', 'error', 'last_sequence') if key in job})
+            ('id', 'robot_id', 'epoch', 'request', 'state', 'receipts', 'observation', 'error', 'last_sequence',
+             'operation_index','completed_operation_index','pause_state','pause_cursor','start_index') if key in job})
 
     async def cancel(self, job_id):
         job = self.jobs[job_id]
         task = self.tasks.get(job_id)
-        if task is not None and (self.active.get(job['robot_id']) == job_id or 'recovery_owner' in job):
+        if task is not None and not job.get('cancellation_requested') and (self.active.get(job['robot_id']) == job_id or 'recovery_owner' in job):
             job['cancellation_requested'] = True
             task.cancel()
+        return await self.result(job_id)
+
+    async def _stop_job(self, job, detach=False):
+        token = OWNER.set(job['id'])
+        try:
+            def still_owned(sequence):
+                if self.active.get(job['robot_id']) != job['id']:
+                    raise ValueError('Motion was replaced before stop dispatch')
+            options = {'detach':True} if detach else {}
+            seq = await self.gateway.estop(robot_id=job['robot_id'],on_sequence=still_owned,**options)
+            await self._receipt(job,seq,job['epoch'],acknowledgement=True)
+            if job.get('pause_requested'):
+                job['pause_state'] = 'released' if detach else 'paused'
+        finally:
+            OWNER.reset(token)
+
+    async def pause(self, job_id, *, release=False):
+        job = self.jobs[job_id]
+        if self.active.get(job['robot_id']) != job_id:
+            raise ValueError('This example no longer owns the robot')
+        if job.get('pause_state') == 'released' and not release:
+            return await self.result(job_id)
+        snapshot = (await self.gateway.status_snapshot())['robots'].get(job['robot_id'],{})
+        motion = ((snapshot.get('status') or {}).get('imu') or {}).get('motion') or {}
+        if motion.get('sequence') == job.get('last_sequence') and motion.get('trajectory'):
+            job['pause_cursor'] = copy.deepcopy(motion['trajectory'])
+        if job_id not in self.tasks:job.pop('pause_stop_attempted',None)
+        job['pause_requested'] = True
+        job['pause_detach'] = release
+        # Cancellation keeps the interrupted operation and performs the existing
+        # Stop before trajectory cleanup. A terminal/never-started job still
+        # needs the explicit operator Stop/Release below.
+        await self.cancel(job_id)
+        desired = 'released' if release else 'paused'
+        if job.get('pause_state') == 'released' and not release:
+            return await self.result(job_id)
+        if job.get('pause_state') != desired:
+            if job.get('pause_stop_attempted') and job.get('pause_state') is None:
+                raise ValueError(job.get('error') or 'The body did not acknowledge pause')
+            await self._stop_job(job,release)
+        self.record(job,'editing_paused',{'pause_state':job['pause_state'],
+            'operation_index':job.get('operation_index'), 'pause_cursor':job.get('pause_cursor')})
         return await self.result(job_id)
 
     async def observation(self, robot):
@@ -263,7 +342,7 @@ class Bridge:
                 'trajectory_progress':trajectory,
                 'expected_up':((imu or {}).get('motion') or {}).get('expected_up'),
                 'feedback':{k:feedback[k] for k in ('device_us','scan_us','enabled','stalled_joints','no_progress_ms',
-                    'waiting_joints','health') if k in feedback},
+                    'waiting_joints','stall_clock_us','health') if k in feedback},
                 'joint_speed_limit_deg_s':speed['joint_speed_limit_deg_s'],
                 'action':snapshot.get('body_command'), 'model':'v2-12servo'}
 
@@ -318,7 +397,7 @@ class Bridge:
         robot = job['robot_id']
         sequence_options = {'on_sequence':lambda seq:self._admit_recovery(job,seq)} if job['event'] else {}
         prepared = None
-        motion_names = ('move','pose','oscillate','feet','body','trajectory')
+        motion_names = ('move','pose','oscillate','feet','body')
         try:
             original_event = job['event']
             event = ({'type':original_event['data']['kind'], **original_event['data'],
@@ -337,6 +416,8 @@ class Bridge:
             if 'initial_observation' not in job:
                 job['initial_observation'] = copy.deepcopy(obs)
             request = {'request':job['request'],'observation':obs,'event':event,'history':job['history']}
+            if 'motion_goal' in job:
+                request['motion_goal'] = copy.deepcopy(job['motion_goal'])
             generation_index = len(job['programs'])
             supplied = 'supplied_program' in job and not job['programs']
             self.record(job, 'correction_trial_requested' if supplied else 'generation_requested',
@@ -361,10 +442,11 @@ class Bridge:
             program = result['program']
             planned = None
             planning_epoch = obs['epoch']
-            for index, action in enumerate(program):
+            for index in range(job.get('start_index',0),len(program)):
+                action = program[index]
                 name, args = action['name'], action['arguments']
                 if 'recovery_owner' in job and name in (
-                        'move','pose','oscillate','feet','body','gait','stop','release'):
+                        'move','pose','oscillate','feet','body','gait','stand','stop','release'):
                     obs = await self.connected_observation(job)
                     job['observation'] = obs
                     planned = None
@@ -375,6 +457,7 @@ class Bridge:
                         prepared[1].cancel()
                         await asyncio.gather(prepared[1],return_exceptions=True)
                         prepared = None
+                job['operation_index'] = index
                 job['current_action'] = action
                 job['remaining_program'] = copy.deepcopy(program[index+1:])
                 job['packet_progress'] = None
@@ -397,6 +480,7 @@ class Bridge:
                                 'generation_index':generation_index, 'action_index':index}, sequence=seq)
                     # Face admission is asynchronous; it is no longer the
                     # operation being submitted, nor a verified body target.
+                    job['completed_operation_index'] = index
                     job['current_action'] = None
                     continue
                 before = obs
@@ -410,7 +494,7 @@ class Bridge:
                         compiled = await compiling
                         prepared = None
                     else:
-                        compiled = await self.compiler(action,obs,planned)
+                        compiled = await self._compile_action(action,obs,planned,supplied)
                     frames = compiled.get('frames',[])
                     start, home, moving = (compiled[key] for key in ('start','home','moving'))
                     planned = compiled['end']
@@ -426,12 +510,18 @@ class Bridge:
                         next_action = program[following]
                         if next_action['name'] in motion_names:
                             prepared = (following,asyncio.create_task(
-                                self.compiler(next_action,obs,dict(planned))))
+                                self._compile_action(next_action,obs,dict(planned),supplied)))
                             break
                         if next_action['name'] not in ('face','hold'):
                             break
                     progress = {'completed_frames':0,'submitted_frames':None,'sequence':None}
                     job['packet_progress'] = progress
+                    for packet in packets(frames):
+                        progress['submitted_frames'] = packet
+                        seq = await self.gateway.queue_motion_plan(packet,end='hold',control='targets',robot_id=robot,**sequence_options)
+                        progress['sequence'] = seq
+                        await self._receipt(job,seq,obs['epoch'])
+                        progress['completed_frames'] += len(packet)
                     if 'curve' in compiled:
                         snapshot=(await self.gateway.status_snapshot())['robots'][robot]
                         if 'motion_curves_v1' not in snapshot.get('features',[]):
@@ -457,13 +547,10 @@ class Bridge:
                                 cleanup=asyncio.create_task(self._discard_trajectory(job,upload_id,upload))
                                 self.trajectory_cleanups.add(cleanup)
                                 cleanup.add_done_callback(self.trajectory_cleanups.discard)
-                    else:
-                        for packet in packets(frames):
-                            progress['submitted_frames'] = packet
-                            seq = await self.gateway.queue_motion_plan(packet,end='hold',control='targets',robot_id=robot,**sequence_options)
-                            progress['sequence'] = seq
-                            await self._receipt(job,seq,obs['epoch'])
-                            progress['completed_frames'] += len(packet)
+                elif name == 'stand':
+                    planned = None
+                    seq = await self.gateway.queue_intent('stand',{},robot_id=robot,**sequence_options)
+                    await self._receipt(job,seq,obs['epoch'])
                 elif name == 'gait':
                     planned = None
                     for intent in gait_intents(args):
@@ -481,6 +568,7 @@ class Bridge:
                 # Terminal receipt (or the authored hold) completes this
                 # operation. A fresh observation may await a reconnect; do not
                 # describe the already-finished operation as interrupted then.
+                job['completed_operation_index'] = index
                 job['completed_action'] = copy.deepcopy(action)
                 job['current_action'] = None
                 job['packet_progress'] = None
@@ -507,17 +595,12 @@ class Bridge:
                 job['history'].extend([initial,after])
                 self.record(job, 'operation_completed', {'generation_index':generation_index,
                             'action_index':index, 'before':initial, 'after':after})
-            job['state']='completed'
+            job['state']='completed_section' if job.get('start_index',0) else 'completed'
         except asyncio.CancelledError:
-            if job.get('stall_release_event') and self.active.get(robot)==job['id']:
-                await self._release_stalled_correction(job,job['stall_release_event'])
-            elif job.get('cancellation_requested') and job['state'] == 'executing' and self.active.get(robot) == job['id']:
+            if job.get('cancellation_requested') and job['state'] == 'executing' and self.active.get(robot) == job['id']:
                 try:
-                    def still_owned(sequence):
-                        if self.active.get(robot) != job['id']:
-                            raise ValueError('Motion was replaced before cancellation dispatch')
-                    seq = await self.gateway.estop(robot_id=robot, on_sequence=still_owned)
-                    await self._receipt(job, seq, job['epoch'], acknowledgement=True)
+                    if job.get('pause_requested'):job['pause_stop_attempted'] = True
+                    await self._stop_job(job,job.get('pause_detach',False))
                 except Exception as error:
                     job.update(state='error', error=str(error))
                 else:
@@ -525,10 +608,11 @@ class Bridge:
             else:
                 job['state']='superseded'
         except Exception as error:
-            job.update(state='error',error=str(error))
+            message=str(error)
+            job.update(state='error',error=message)
             if getattr(error,'evidence',None) is not None:
                 job['error_evidence'] = copy.deepcopy(error.evidence)
-            self.record(job, 'job_error', {'error':str(error), 'evidence':getattr(error,'evidence',None)})
+            self.record(job, 'job_error', {'error':message, 'evidence':getattr(error,'evidence',None)})
         finally:
             if prepared is not None:
                 prepared[1].cancel()
@@ -543,7 +627,8 @@ class Bridge:
             self.record(job, 'job_finished', {'state':job['state'], 'error':job.get('error'),
                         'execute':job['execute'], 'current_action':job.get('current_action'),
                         'completed_action':job.get('completed_action'),
-                        'packet_progress':job.get('packet_progress')})
+                        'packet_progress':job.get('packet_progress'),
+                        'start_index':job.get('start_index',0),'pause_state':job.get('pause_state')})
             OWNER.reset(token)
             self.tasks.pop(job['id'],None)
 
@@ -560,39 +645,6 @@ class Bridge:
             error.evidence = copy.deepcopy(receipt)
             raise error
 
-    async def _release_stalled_correction(self,job,event):
-        robot=job['robot_id'];token=OWNER.set(job['id'])
-        notice=copy.deepcopy(event)
-        notice['event_id']=str(event.get('event_id') or uuid4().hex)+':correction_failed'
-        notice['data'].update(correction_failed=True,outputs_released=False)
-        try:
-            @asynccontextmanager
-            async def still_owned(sequence):
-                current=(await self.gateway.status_snapshot())['robots'].get(robot)
-                if (current is None or current['epoch']!=job['epoch'] or
-                    self.active.get(robot)!=job['id'] or
-                    job.get('last_sequence')!=event['data']['command_sequence']):
-                    raise asyncio.CancelledError('Stalled correction was replaced before release admission')
-                yield
-            try:
-                seq=await self.gateway.estop(robot_id=robot,detach=True,on_sequence=still_owned)
-                await self._receipt(job,seq,job['epoch'],acknowledgement=True)
-                notice['data']['outputs_released']=True
-                job['error']='Corrective movement stalled again; servo outputs released.'
-            except asyncio.CancelledError:
-                job['state']='superseded'
-                raise
-            except Exception as error:
-                notice['data']['release_error']=str(error)
-                job['error']=str(error)
-            job['state']='error'
-            notice=self.gateway.body_events.event(robot,job['epoch'],'servo_stall',
-                notice['data'],notice['event_id'])
-            self.record(job,'stall_release_result',{'event':notice})
-            await self.gateway._publish_event(notice)
-        finally:
-            OWNER.reset(token)
-
     async def event(self,event):
         robot=event.get('robot_id'); setting=self.settings.get(robot,{})
         if event.get('t')=='connection':
@@ -603,7 +655,7 @@ class Bridge:
         if not setting.get('recover_events') or event.get('name')!='body_event':
             return
         data=event.get('data',{})
-        if data.get('correction_failed') or data.get('outputs_released'):
+        if data.get('outputs_released'):
             return
         if data.get('kind') not in ('servo_stall','servo_feedback_fault','tipped','rapid_movement','slip'):
             return
@@ -618,30 +670,6 @@ class Bridge:
             # replacement (particularly an operator's Stop).
             return
         previous=self.jobs.get(self.active.get(robot),{})
-        if (data.get('kind')=='servo_stall' and sequence and
-            (previous.get('event') or {}).get('data',{}).get('kind')=='servo_stall' and
-            'recovery_owner' not in previous and previous.get('last_sequence')==sequence):
-            if previous.get('stall_release_event'):
-                return
-            previous['stall_release_event']=copy.deepcopy(event)
-            self.record(previous,'stall_release_requested',{'event':event})
-            task=self.tasks.get(previous['id'])
-            if task is not None:
-                task.cancel()
-            else:
-                task=asyncio.create_task(self._release_stalled_correction(previous,event),
-                    name='freestyle-release-'+previous['id'])
-                self.tasks[previous['id']]=task
-                def finished(result):
-                    self.tasks.pop(previous['id'],None)
-                    if result.cancelled():
-                        previous['state']='superseded'
-                    elif (error:=result.exception()) is not None:
-                        previous.update(state='error',error=str(error))
-                    self.record(previous,'job_finished',{'state':previous['state'],
-                        'error':previous.get('error')})
-                task.add_done_callback(finished)
-            return
         request=previous.get('request') or 'Recover from the reported body event using the available observations.'
         await self.submit(robot,request,True,{**event,'data':{**data,
             'command_sequence':data.get('command_sequence',snapshot.get('body_command_sequence'))}})
@@ -663,6 +691,8 @@ class Bridge:
             self.active.pop(robot,None)
 
     async def close(self):
+        if self.gateway.freestyle_recovery_state == self.recovery_state:
+            self.gateway.freestyle_recovery_state = None
         self.gateway.unsubscribe_events(self.event)
         self.gateway.unsubscribe_commands(self.command)
         tasks=list(self.tasks.values())

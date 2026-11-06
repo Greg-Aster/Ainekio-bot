@@ -17,6 +17,7 @@ static portMUX_TYPE snapshot_lock=portMUX_INITIALIZER_UNLOCKED;
 static ainekio_p4_imu_status_t published;
 static bool gyro_calibration_requested;
 static double gyro_mean[3], gyro_m2[3];
+static ainekio_p4_imu_sample_callback_t sample_callback;
 
 esp_err_t ainekio_p4_imu_calibrate_gyro(void)
 {
@@ -140,9 +141,11 @@ static void poll_sample(void)
     ++state.samples;
     state.last_error=ESP_OK;
     calibrate_gyro_sample(&sample);
-    (void)ainekio_imu_update(&estimator,&sample);
+    const ainekio_imu_result_t accepted=ainekio_imu_update(&estimator,&sample);
     (void)ainekio_imu_observe(&estimator,after,&state.attitude);
     publish();
+    if(sample_callback && accepted!=AINEKIO_IMU_REJECTED)
+        sample_callback(&state.attitude,state.calibration_applied);
     return;
 failed:
     ++state.io_errors;
@@ -162,10 +165,11 @@ static void acquisition_task(void *unused)
     }
 }
 
-esp_err_t ainekio_p4_imu_start(void)
+esp_err_t ainekio_p4_imu_start(ainekio_p4_imu_sample_callback_t observer)
 {
     if (!state.configured) return state.last_error ? state.last_error : ESP_ERR_INVALID_STATE;
     if (state.running) return ESP_ERR_INVALID_STATE;
+    sample_callback=observer;
     state.running=true;
     publish();
     /* Acquire the 208 Hz sensor ahead of network serialization (priority 5)
@@ -173,6 +177,7 @@ esp_err_t ainekio_p4_imu_start(void)
      * preempts acquisition. Polling blocks between reads; no other owner
      * waits for the estimator. */
     if (xTaskCreate(acquisition_task,"p4_imu",4096,NULL,P4_SENSOR_IO_PRIORITY,NULL)!=pdPASS) {
+        sample_callback=NULL;
         state.running=false;state.last_error=ESP_ERR_NO_MEM;publish();
         return ESP_ERR_NO_MEM;
     }

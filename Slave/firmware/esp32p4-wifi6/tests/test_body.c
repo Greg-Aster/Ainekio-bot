@@ -1037,30 +1037,44 @@ static void face_playback_clock(void)
 static void notification_execution_context(void)
 {
     reset();leveling_enabled=false;
-    ainekio_command_t c=command(2001,AINEKIO_INTENT_WALK);
-    c.data.intent.data.walk.controls=1;c.data.intent.data.walk.speed_percent=50;
+    /* Recorded Walk26 armed its first pose at 802613140us. An IMU sample at
+     * 802658444us still reported the old released state until the next frame.
+     * Arming already writes PWM; execution context must cover that interval. */
+    ainekio_pca_emergency_disable(&driver,AINEKIO_PCA_FAULT_EMERGENCY);
+    clock_us=52042980;advance(20);
+    assert(ainekio_p4_body_status().execution.sampled_us==52062980);
+    clock_us=802613000;write_delay_us=140;
+    ainekio_command_t c=command(26,AINEKIO_INTENT_WALK);
+    c.data.intent.data.walk.controls=1;c.data.intent.data.walk.speed_percent=100;
+    driver_timeout=true;
+    assert(execute(&c)!=ESP_OK);
+    assert(!ainekio_p4_body_status().execution.command); /* Failed initial write. */
+    driver_timeout=false;
     assert(execute(&c)==ESP_OK);
-    assert(!ainekio_p4_body_status().execution.command); /* Admission is not execution. */
-    driver_timeout=true;advance(20);
-    assert(!ainekio_p4_body_status().execution.command); /* Failed writes explain no sample. */
-    driver_timeout=false;advance(20);
     ainekio_p4_execution_t e=ainekio_p4_body_status().execution;
-    assert(!strcmp(e.activity,"locomotion") && e.sequence==2001);
+    assert(!strcmp(e.activity,"locomotion") && e.sequence==26);
+    assert(e.sampled_us==802613140 && e.sampled_us==driver.state.last_frame_us);
     assert(e.started_us==e.sampled_us && e.expected_up_known);
     assert(!ainekio_p4_body_execution_at(e.sampled_us-1).command);
-    assert(ainekio_p4_body_execution_at(e.sampled_us).sequence==2001);
+    assert(ainekio_p4_body_execution_at(802658444).sequence==26);
+    clock_us=802658444;driver_timeout=true;
+    assert(!output_step(clock_us));
+    assert(ainekio_p4_body_status().execution.sampled_us==e.sampled_us);
+    driver_timeout=false;advance(20);
+    e=ainekio_p4_body_status().execution;
+    assert(e.sequence==26 && e.sampled_us>802658444);
     assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
     e=ainekio_p4_body_status().execution;
     assert(!strcmp(e.phase,"hold") && e.expected_up_known);
     ainekio_p4_body_event_t cancelled;
-    assert(ainekio_p4_body_event(&cancelled) && !cancelled.completed && cancelled.sequence==2001);
+    assert(ainekio_p4_body_event(&cancelled) && !cancelled.completed && cancelled.sequence==26);
     c=command(2002,AINEKIO_INTENT_EMOTE);strcpy(c.data.intent.data.asset,"upright");
-    assert(execute(&c)==ESP_OK);
-    assert(ainekio_p4_body_status().execution.sequence==2001);
     const uint64_t before_first_output=clock_us;
-    advance(20);
-    assert(ainekio_p4_body_execution_at(before_first_output).sequence==2001);
+    assert(execute(&c)==ESP_OK);
+    assert(ainekio_p4_body_execution_at(before_first_output).sequence==26);
     assert(ainekio_p4_body_execution_at(clock_us).sequence==2002);
+    assert(!strcmp(ainekio_p4_body_status().execution.phase,"entry"));
+    write_delay_us=0;
     assert(finish(120000).completed);
     e=ainekio_p4_body_status().execution;
     assert(!strcmp(e.command,"upright") && !strcmp(e.phase,"hold") && e.sequence==2002);
@@ -1069,7 +1083,14 @@ static void notification_execution_context(void)
     advance(1000);
     assert(!memcmp(e.expected_up,ainekio_p4_body_status().execution.expected_up,sizeof(e.expected_up)));
     ainekio_pca_emergency_disable(&driver,AINEKIO_PCA_FAULT_EMERGENCY);advance(20);
-    assert(!ainekio_p4_body_status().execution.expected_up_known);
+    e=ainekio_p4_body_execution_at(clock_us);
+    assert(!e.command && !e.expected_up_known && !e.sequence && e.sampled_us==clock_us);
+
+    c=command(2003,AINEKIO_INTENT_STAND);
+    assert(execute(&c)==ESP_OK && body.motion.startup_entry);
+    e=ainekio_p4_body_execution_at(clock_us);
+    assert(e.sequence==2003 && !strcmp(e.activity,"pose") && !strcmp(e.phase,"entry"));
+    assert(e.expected_up_known && e.sampled_us==driver.state.last_frame_us);
 }
 
 static void listening_feedback(void)
@@ -1537,6 +1558,9 @@ static void freestyle_execution(void)
     reset();leveling_enabled=false;shaft_feedback_enabled=true;
     ainekio_command_t c=freestyle(41,10000,2);
     assert(ainekio_p4_body_supports(&c));assert(execute(&c)==ESP_OK);
+    const ainekio_p4_execution_t initial=ainekio_p4_body_execution_at(clock_us);
+    assert(initial.sequence==41 && !strcmp(initial.activity,"freestyle"));
+    assert(initial.sampled_us==driver.state.last_frame_us && !initial.expected_up_known);
     const float start=body.pose.position[0];
     advance(20);
     assert(fabs(body.pose.position[0]-start)<=201.); /* <=100 degrees/s */
@@ -2416,18 +2440,104 @@ static ainekio_command_t host_target(unsigned seq,unsigned owner,unsigned sample
     assert(ainekio_control_decode_for_body(wire,strlen(wire),&message)==AINEKIO_DECODE_OK);
     return message.command;
 }
+static void host_walk_recorded_coupled_transition(void)
+{
+    reset();leveling_enabled=false;
+    const double saved_speed=ainekio_v2_gait_joint_speed_limit();
+    assert(ainekio_v2_joint_speed_set(2000));
+    const uint16_t home[12]={1760,2750,2870,1650,415,440,1650,2740,2750,1700,560,575};
+    const bool inverted[12]={false,true,true,true,false,false,true,true,true,false,false,false};
+    const uint16_t previous_us[12]={1887,2116,1587,1729,1449,1778,1734,1927,1799,1651,1059,1286};
+    for(unsigned j=0;j<12;j++)mapped_joints[j]=(ainekio_p4_joint_config_t){.channel=j,.invert=inverted[j],
+        .home_us=home[j],.home_cd=j%3==0?0:j%3==1?-3087:-11768,.us_per_degree=11.11111068725586F};
+    ainekio_command_t start=host_walk(2908);assert(execute(&start)==ESP_OK);advance(100);
+    /* Exact last written output from physical sample615. The destination616
+     * was accepted, but the old straight joint chord then failed closure. */
+    memcpy(last_written,previous_us,sizeof previous_us);memcpy(body.pulses,previous_us,sizeof previous_us);
+    retain_manual_reference();publish(body.pulses);
+    ainekio_command_t target=host_target(3524,2908,616,0);
+    const float desired[4][3]={
+        {-4.571684897F,14.378000498F,11.056041420F},
+        {19.888297319F,18.247160912F,-16.286560893F},
+        {26.945784688F,11.335481405F,-14.387429953F},
+        {22.631487250F,-5.139428973F,1.989708468F}};
+    memcpy(target.data.walk_target.feet_mm,desired,sizeof desired);
+    assert(execute(&target)==ESP_OK);
+    for(unsigned step=0;step<5;step++) {
+        ainekio_v2_frame_t previous=body.pose;
+        advance(20);
+        assert(body.motion.kind==MOTION_WALK&&body.motion.sequence==2908&&driver.state.armed);
+        assert(driver.state.fault==AINEKIO_PCA_FAULT_NONE);
+        assert(ainekio_v2_limits_frame(&body.pose));
+        assert(ainekio_p4_joint_frame_in_travel(mapped_joints,&body.pose));
+        for(unsigned j=0;j<12;j++)assert(fabs(body.pose.position[j]-previous.position[j])<=4000.01);
+    }
+    assert(body.motion.walk.host_consumed_sample==616);
+    assert(!memcmp(body.motion.walk.host_requested,desired,sizeof desired));
+    for(unsigned j=0;j<12;j++)assert(fabs(body.pose.position[j]-body.motion.walk.pose.frame.position[j])<.01);
+    ainekio_p4_body_event_t event;assert(!ainekio_p4_body_event(&event));
+    /* The ramp adds no queue/owner: Stop still holds immediately. */
+    assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
+    uint16_t held[12];memcpy(held,last_written,sizeof held);advance(100);
+    assert(!memcmp(held,last_written,sizeof held)&&driver.state.armed);
+    assert(ainekio_p4_body_event(&event)&&event.sequence==2908&&!event.completed);
+    assert(ainekio_v2_joint_speed_set((float)saved_speed));
+}
+
+static void host_walk_recorded_full_extension_neighborhood(void)
+{
+    /* Same request, PWM, IMU and tuning as the 141 physical failure. Prior
+     * balance correction is an explicit neighborhood fixture, not a claim
+     * that the recording preserved the controller's internal float state. */
+    reset();leveling_enabled=walking_feedback_enabled=true;
+    const double saved_speed=ainekio_v2_gait_joint_speed_limit();
+    const ainekio_v2_balance_tuning_t saved_tuning=leveling_tuning;
+    leveling_tuning=(ainekio_v2_balance_tuning_t){1,1,3,1.59280002};
+    assert(ainekio_v2_joint_speed_set(2000));
+    const uint16_t home[12]={1760,2750,2870,1650,415,440,1650,2740,2750,1700,560,575};
+    const bool inverted[12]={false,true,true,true,false,false,true,true,true,false,false,false};
+    const uint16_t previous_us[12]={1666,2286,1825,1561,710,1449,1617,2506,1934,1742,1139,1686};
+    for(unsigned j=0;j<12;j++)mapped_joints[j]=(ainekio_p4_joint_config_t){.channel=j,.invert=inverted[j],
+        .home_us=home[j],.home_cd=j%3==0?0:j%3==1?-3087:-11768,.us_per_degree=11.11111068725586F};
+    ainekio_command_t start=host_walk(1325);assert(execute(&start)==ESP_OK);advance(100);
+    memcpy(last_written,previous_us,sizeof previous_us);memcpy(body.pulses,previous_us,sizeof previous_us);
+    retain_manual_reference();publish(body.pulses);
+    ainekio_command_t target=host_target(1701,1325,376,0);
+    const float desired[4][3]={{-15.3274440765F,-14.6148824692F,14.6888270974F},
+        {11.8868109584F,-10.4907512665F,22.9214411974F},
+        {6.92455351353F,-17.6691424847F,10.7573613524F},
+        {27.2290509939F,18.4498083591F,-23.9786535501F}};
+    memcpy(target.data.walk_target.feet_mm,desired,sizeof desired);assert(execute(&target)==ESP_OK);
+    imu_status.calibration_applied=true;imu_status.attitude.available=imu_status.attitude.fresh=true;
+    const float q[4]={.990410805F,.0429054052F,.00428318558F,.131252095F};
+    const float rate[3]={-.589103162F,.221491158F,.308162421F};
+    memcpy(imu_status.attitude.orientation_wxyz,q,sizeof q);memcpy(imu_status.attitude.angular_rate_rad_s,rate,sizeof rate);
+    body.motion.walk.heading_acquired=true;body.motion.walk.heading_reference=.20913242714361113;
+    body.motion.walk.heading_measured=body.motion.walk.heading_last_yaw=.2594;
+    body.balance.correction[0]=.02;body.balance.correction[1]=-.01;
+    body.last_frame=159241830;body.motion.walk.last_us=159241778;
+    body.next_frame=clock_us=159256830;
+    assert(output_step(clock_us));advance(100);
+    assert(body.motion.kind==MOTION_WALK&&driver.state.armed&&driver.state.fault==AINEKIO_PCA_FAULT_NONE);
+    assert(body.motion.walk.host_consumed_sample==376);
+    assert(!memcmp(body.motion.walk.host_requested,desired,sizeof desired));
+    assert(ainekio_v2_limits_frame(&body.pose)&&ainekio_p4_joint_frame_in_travel(mapped_joints,&body.pose));
+    ainekio_p4_body_event_t event;assert(!ainekio_p4_body_event(&event));
+    leveling_tuning=saved_tuning;assert(ainekio_v2_joint_speed_set((float)saved_speed));
+}
+
 static void host_walk_ownership_and_finish(void)
 {
     reset();leveling_enabled=false;
     ainekio_command_t start=host_walk(101);
     assert(execute(&start)==ESP_OK);
-    advance(100);
     assert(body.motion.kind==MOTION_WALK && body.motion.walk.host_nominal);
     assert(body.motion.walk.phase==0. && body.motion.walk.host_consumed_sample==0);
     /* The IMU emitter can attribute startup before the producer sends sample1. */
     const ainekio_p4_execution_t initial=ainekio_p4_body_execution_at(esp_timer_get_time());
     assert(initial.sequence==101 && initial.host_nominal && initial.nominal_sample==0);
     assert(initial.sampled_us && initial.connection==17);
+    advance(100);
     /* A target accepted while the existing entry owner still emits geometry
      * is not consumed, including the frame that completes that entry. */
     body.motion.entering=true;body.motion.entry_start=clock_us;
@@ -2454,7 +2564,7 @@ static void host_walk_ownership_and_finish(void)
     ainekio_v2_walk_pose_t measured;double anchors[4][3];float applied[4][3],fit[4];
     const ainekio_p4_calibration_t mapping=ainekio_p4_calibration();
     assert(ainekio_v2_nominal_foot_pose(&body.motion.walk.host_reference,(const float (*)[3])offsets,
-        host_frame_valid,(void *)&mapping,&measured,anchors,applied,fit));
+        host_frame_valid,host_frame_project,(void *)&mapping,&measured,anchors,applied,fit));
     shaft_measured=measured.frame;shaft_measured_override=shaft_tracking_available=true;
     shaft_feedback_enabled=true;shaft_feedback_reached=false;
     ainekio_command_t finish_command=start;finish_command.sequence=107;
@@ -2499,20 +2609,26 @@ static void host_walk_ownership_and_finish(void)
     event=finish(20000);assert(event.sequence==302 && event.completed);
 }
 
-static void host_walk_uses_existing_leveling(void)
+static void host_walk_policy_owns_attitude(void)
 {
-    reset();
+    reset();walking_feedback_enabled=true;
     imu_status=(ainekio_p4_imu_status_t){.calibration_applied=true,
         .attitude={.available=true,.fresh=true,.orientation_wxyz={.9987502604f,.0499791693f,0,0}}};
     ainekio_command_t start=host_walk(401);assert(execute(&start)==ESP_OK);
     ainekio_command_t target=host_target(402,401,1,8);assert(execute(&target)==ESP_OK);
     advance(200);
-    assert(body.balance.sensor_usable && fabs(body.balance.correction[0])>.001);
+    assert(leveling_enabled); /* The global/native setting remains enabled. */
+    assert(!body.balance.sensor_usable && body.balance.correction[0]==0.);
+    assert(!body.motion.walk.heading_active && body.motion.walk.heading_error==0.);
     assert(body.motion.walk.host_consumed_sample==1 && body.motion.walk.host_requested[2][2]==8);
     assert(!learning_calls && !learning_begins);
-    const double correction=fabs(body.balance.correction[0]);
+    imu_status.attitude.orientation_wxyz[0]=cosf(.2f);
+    imu_status.attitude.orientation_wxyz[1]=0;
+    imu_status.attitude.orientation_wxyz[3]=sinf(.2f);
+    advance(200);
+    assert(walking_feedback_enabled && !body.motion.walk.heading_active && body.motion.walk.heading_error==0.);
     imu_status.attitude.fresh=false;advance(1000);
-    assert(!body.balance.sensor_usable && fabs(body.balance.correction[0])<correction);
+    assert(!body.balance.sensor_usable && body.balance.correction[0]==0.);
     assert(body.motion.kind==MOTION_WALK && driver.state.armed);
 }
 
@@ -2548,8 +2664,10 @@ int main(int argc,char **argv)
     generated_curve_ownership();
     admission_replies_keep_request_identity();
     controller_stop_and_receipts();
+    host_walk_recorded_coupled_transition();
+    host_walk_recorded_full_extension_neighborhood();
     host_walk_ownership_and_finish();
-    host_walk_uses_existing_leveling();
+    host_walk_policy_owns_attitude();
     freestyle_recorded_stand_path();
     freestyle_fitted_target_arrival();
     legacy_stand_foot_arrival();

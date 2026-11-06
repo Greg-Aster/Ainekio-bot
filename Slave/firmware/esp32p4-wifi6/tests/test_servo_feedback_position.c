@@ -48,6 +48,16 @@ int main(void)
         assert(observation.measured.velocity[j]==frame.velocity[j]);
         assert(observation.sampled_us[j]==1001+j);
     }
+    const unsigned observed_channel=sample.config.joint[4].channel;
+    sample.raw[observed_channel]=sample.filtered_raw[observed_channel]=400;
+    sample.millivolts[observed_channel]=286;
+    ainekio_p4_feedback_observe(&sample,mapping,targets,&observation);
+    assert(!(observation.usable_mask&(1U<<4)));
+    assert(observation.health.below_calibration&(1U<<4));
+    assert(fabs(observation.measured.position[4]+9666.6666667)<.01);
+    assert(observation.raw_adc[4]==400 && observation.signal_millivolts[4]==286);
+    assert(!ainekio_p4_feedback_frame(mapping,&frame));
+    sample.raw[observed_channel]=sample.filtered_raw[observed_channel]=2150;
     targets[mapping[0].channel]=0;
     sample.raw[sample.config.joint[1].channel]=4095;
     ainekio_p4_feedback_observe(&sample,mapping,targets,&observation);

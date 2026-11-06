@@ -8,6 +8,7 @@ target_compile_options(test_speech_gate PRIVATE -Wall -Wextra -Werror -Wpedantic
 add_test(NAME speech_recording_gate COMMAND test_speech_gate)
 add_executable(test_gait_trace test_gait_trace.c ../main/gait_trace.c)
 target_include_directories(test_gait_trace PRIVATE ../main)
+target_link_libraries(test_gait_trace PRIVATE ainekio_imu)
 target_compile_options(test_gait_trace PRIVATE -Wall -Wextra -Werror -Wpedantic -UNDEBUG)
 add_test(NAME gait_trace_ring COMMAND test_gait_trace)
 set(TRACE_JSON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../managed_components/espressif__cjson/cJSON")
@@ -21,7 +22,7 @@ add_test(NAME idle_rest_settings COMMAND test_idle_rest)
 add_executable(test_gait_trace_runtime test_gait_trace_runtime.c ../main/gait_trace.c "${TRACE_JSON_DIR}/cJSON.c")
 target_include_directories(test_gait_trace_runtime PRIVATE trace_shim ota_shim body_shim ../main
     ../components/ainekio_p4_media/include ../components/ainekio_pca9685/include "${TRACE_JSON_DIR}")
-target_link_libraries(test_gait_trace_runtime PRIVATE ainekio_imu ainekio_v2_motion m)
+target_link_libraries(test_gait_trace_runtime PRIVATE ainekio_imu ainekio_v2_motion ainekio_faces m)
 target_compile_options(test_gait_trace_runtime PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 add_test(NAME gait_trace_http COMMAND test_gait_trace_runtime)
 

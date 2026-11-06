@@ -56,6 +56,14 @@ class BodyEvents:
     def config(self, robot_id):
         return dict(self.settings.get(robot_id, DEFAULTS))
 
+    def observation(self, robot_id, epoch, imu):
+        """Read the existing detector state without inventing unavailable sensors."""
+        state = self.states.get(robot_id, {})
+        known = (self.config(robot_id)['tip_enabled'] and imu.get('available')
+                 and imu.get('fresh') and state.get('identity') == (epoch,imu.get('boot_id')))
+        return {'tipped':bool(state.get('tipped')) if known else None,
+                'slip':None}  # No host/hardware slip detector is implemented.
+
     def event(self, robot_id, epoch, kind, data, event_id=None):
         event = {"t": "event", "name": "body_event", "robot_id": robot_id,
                  "epoch": epoch, "event_id": event_id or uuid4().hex,

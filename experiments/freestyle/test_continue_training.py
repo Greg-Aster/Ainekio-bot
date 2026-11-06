@@ -43,3 +43,25 @@ class TrainingEvaluationTests(unittest.TestCase):
         self.assertIs(model.forward(labels=[1, 2]), model.result)
         model.training = False
         self.assertIs(model.forward(), model.result)
+
+
+class EvaluationMemoryTests(unittest.TestCase):
+    def test_evaluation_uses_fused_loss_without_changing_generation_or_environment(self):
+        import os
+        from unittest.mock import patch
+        class Model:
+            training=False
+            seen=[]
+            loss=object()
+            def forward(self,labels=None,fail=False):
+                self.seen.append(os.environ.get('UNSLOTH_RETURN_LOGITS'))
+                if fail:raise ValueError('failure')
+                return {'loss':self.loss,'logits':object()}
+        model=Model();loss_only_evaluation(model)
+        with patch.dict(os.environ,{'UNSLOTH_RETURN_LOGITS':'1'}):
+            self.assertIs(model.forward(labels=[1])['loss'],model.loss)
+            self.assertEqual(model.seen[-1],'0')
+            self.assertEqual(os.environ['UNSLOTH_RETURN_LOGITS'],'1')
+            model.forward();self.assertEqual(model.seen[-1],'1')
+            with self.assertRaises(ValueError):model.forward(labels=[1],fail=True)
+            self.assertEqual(os.environ['UNSLOTH_RETURN_LOGITS'],'1')

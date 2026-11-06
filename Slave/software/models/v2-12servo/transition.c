@@ -30,8 +30,14 @@ static bool coordinates(float a,float theta,float *phi,float *n,float *side)
     *side=offset<0.f?-1.f:1.f;
     float limit=cosine_limit(d,c>=0.f);
     if(!(limit>0.f))return false;
-    *n=c/limit;
-    return isfinite(*n)&&fabsf(*n)<1.f;
+    const float normalized=c/limit;
+    if(!isfinite(normalized))return false;
+    /* Both frames already passed the authoritative circle-closure test.
+     * Its boundary is reachable: normalized +/-1 must remain representable.
+     * Roundoff in this alternate cosine coordinate must not reject that same
+     * accepted geometry or change the exact commanded endpoint. */
+    *n=fmaxf(-1.f,fminf(1.f,normalized));
+    return true;
 }
 static bool path(float from_a,float from_t,float to_a,float to_t,path_t *p)
 {

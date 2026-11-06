@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import numpy as np
 
-from gateway.depth_motion import DepthMotion, settings, spatial_depth, worker_environment
-from gateway.depth_motion_worker import Estimator, FeatureMap, camera_position, body_pose, pose_motion, OPTICAL_TO_FORWARD
+from gateway.depth_motion import DepthMotion, settings, spatial_depth, worker_environment, frame_attitude
+from gateway.depth_motion_worker import Estimator, FeatureMap, camera_position, body_pose, pose_motion, OPTICAL_TO_FORWARD, known_rotation_translation, quaternion_rotation
 from gateway.dashboard.server import DashboardHttpServer
 from gateway.plugins import CameraFramePlugin, _CameraInput
 
@@ -247,6 +247,43 @@ class DepthWorkerLifecycleTests(unittest.TestCase):
 
 
 class DepthGeometryTests(unittest.TestCase):
+    def test_known_rotation_translation_with_outliers_and_mount_lever_arm(self):
+        import cv2
+        rng = np.random.default_rng(14)
+        points = rng.uniform([-1,-.7,2.], [1,.7,4.], (100,3))
+        k = np.array([[350.,0,160],[0,350.,120],[0,0,1.]])
+        mount = OPTICAL_TO_FORWARD.copy(); mount[:3,3] = [.105,0,-.014]
+        body = np.eye(4); body[:3,:3] = cv2.Rodrigues(np.array([.12,-.08,.3]))[0]
+        for translation in ([0.,0.,0.], [.08,-.03,.01]):
+            body[:3,3] = translation
+            camera = np.linalg.inv(mount) @ body @ mount
+            inverse = np.linalg.inv(camera)
+            pixels = cv2.projectPoints(points,cv2.Rodrigues(inverse[:3,:3])[0],inverse[:3,3],k,None)[0].reshape(-1,2)
+            pixels[:20] += rng.uniform(80,150,(20,2))
+            t, keep, error = known_rotation_translation(points,pixels,k,inverse[:3,:3])
+            np.testing.assert_allclose(t,inverse[:3,3],atol=1e-8)
+            self.assertEqual(len(keep),80)
+            self.assertLess(error,1e-7)
+            fitted = inverse.copy(); fitted[:3,3] = t
+            np.testing.assert_allclose(body_pose(np.linalg.inv(fitted),mount),body,atol=1e-8)
+        with self.assertRaisesRegex(ValueError,'pose fit|unobservable'):
+            known_rotation_translation(np.tile([0.,0.,2.],(20,1)),np.tile([160.,120.],(20,1)),k,np.eye(3))
+
+    def test_frame_attitude_interpolates_source_clock_and_quaternion_sign(self):
+        before = dict(boot_id=0,timestamp_us=100,available=True,fresh=True,startup=False,
+                      orientation_wxyz=[1.,0,0,0])
+        after = {**before,'timestamp_us':200,'orientation_wxyz':[-math.cos(.2),0,0,-math.sin(.2)]}
+        value = frame_attitude([before,after],dict(frame_completed_us=150,boot_id=0))
+        self.assertTrue(value['available'])
+        np.testing.assert_allclose(value['orientation_wxyz'],[math.cos(.1),0,0,math.sin(.1)])
+        self.assertEqual(value['bracket_us'],[100,200])
+        self.assertFalse(value['exposure_alignment_verified'])
+        self.assertFalse(frame_attitude([before,after],dict(frame_completed_us=201,boot_id=0))['available'])
+        self.assertFalse(frame_attitude([before,after],dict(frame_completed_us=150,boot_id=1))['available'])
+        self.assertFalse(frame_attitude([before,after],{})['available'])
+        self.assertFalse(frame_attitude([before,{**after,'available':False}],dict(frame_completed_us=150,boot_id=0))['available'])
+
+
     def test_spatial_projection_uses_camera_freshness_identity_and_receipt_age(self):
         from gateway.neural_gait.depth import project_depth
         grid = spatial_depth(np.ones((8,8)),np.eye(3),units="estimated-metres",
@@ -300,7 +337,8 @@ class DepthGeometryTests(unittest.TestCase):
         jpeg = cv2.imencode('.jpg',np.ones((120,160,3),np.uint8)*100)[1].tobytes()
         request = dict(robot="robot",instance="gateway",epoch=7,counter=42,received=123.,
             timestamp="2026-10-28T10:00:00+00:00", jpeg=base64.b64encode(jpeg).decode(),
-            config=settings({"mode":"moge-open3d","cameraToBody":OPTICAL_TO_FORWARD.tolist()}))
+            config=settings({"mode":"moge-open3d","cameraToBody":OPTICAL_TO_FORWARD.tolist()}),
+            attitude=dict(available=True,boot_id=0,frame_completed_us=1000000,orientation_wxyz=[1,0,0,0],bracket_us=[1000000,1000000]))
         with patch.object(FeatureMap,"process",side_effect=ValueError("tracking lost")):
             result = estimator.process(request)
         self.assertFalse(result["available"], "Odometry remains unavailable")
@@ -383,7 +421,7 @@ class DepthGeometryTests(unittest.TestCase):
         tracker = FeatureMap()
         for shift, scale in ((0,1.), (0,1.7), (6,.6), (12,2.)):
             target = cv2.warpAffine(texture, np.array([[1., 0, -shift], [0, 1, 0]]), (320, 240))
-            pose, quality = tracker.process(target, np.full((240,320),scale,np.float32), k)
+            pose, quality = tracker.process(target, np.full((240,320),scale,np.float32), k, np.eye(3))
             position = camera_position(pose)
             self.assertAlmostEqual(position["yMetres"], -shift/300., delta=.001)
             self.assertAlmostEqual(position["xMetres"], 0., delta=.001)
@@ -391,7 +429,24 @@ class DepthGeometryTests(unittest.TestCase):
 
     def test_featureless_frame_cannot_report_zero_motion(self):
         with self.assertRaisesRegex(ValueError, "Insufficient image features"):
-            FeatureMap().process(np.zeros((120,160,3),np.uint8), np.ones((120,160)), np.eye(3))
+            FeatureMap().process(np.zeros((120,160,3),np.uint8), np.ones((120,160)), np.eye(3), np.eye(3))
+
+    def test_missing_capture_attitude_preserves_depth_without_free_pose_fallback(self):
+        import cv2
+        estimator = object.__new__(Estimator)
+        estimator.states, estimator.optics, estimator.model_id = {}, {}, "test-model"
+        k = np.array([[150.,0,80],[0,150.,60],[0,0,1.]])
+        estimator.depth = Mock(return_value=(np.ones((120,160),np.float32),k))
+        jpeg=cv2.imencode('.jpg',np.ones((120,160,3),np.uint8)*100)[1].tobytes()
+        request=dict(robot="robot",instance="gateway",epoch=1,counter=1,received=1.,timestamp="now",
+            jpeg=base64.b64encode(jpeg).decode(),config=settings({"mode":"moge-open3d","cameraToBody":OPTICAL_TO_FORWARD.tolist()}))
+        with patch.object(FeatureMap,"process") as process:
+            result=estimator.process(request)
+        process.assert_not_called()
+        self.assertFalse(result['available'])
+        self.assertIsNone(result['position'])
+        self.assertIsNone(result['path_length_m'])
+        self.assertTrue(result['depthSpatial']['available'])
 
     def test_reconnection_resets_position_but_preserves_unchanged_optics(self):
         import cv2
@@ -401,7 +456,8 @@ class DepthGeometryTests(unittest.TestCase):
         estimator.depth = Mock(return_value=(np.ones((120,160),np.float32),k))
         jpeg=cv2.imencode('.jpg',np.ones((120,160,3),np.uint8)*100)[1].tobytes()
         request=dict(robot="robot",instance="gateway",epoch=1,counter=1,received=1.,timestamp="now",
-                     jpeg=base64.b64encode(jpeg).decode(),config=settings({"mode":"moge-open3d"}))
+                     jpeg=base64.b64encode(jpeg).decode(),config=settings({"mode":"moge-open3d","cameraToBody":OPTICAL_TO_FORWARD.tolist()}),
+                     attitude=dict(available=True,boot_id=0,frame_completed_us=1000000,orientation_wxyz=[1,0,0,0],bracket_us=[1000000,1000000]))
         with patch.object(FeatureMap,"process",return_value=(np.eye(4),{})):
             first=estimator.process(request)
             resumed=estimator.process({**request,"epoch":2})
@@ -427,7 +483,8 @@ class DepthGeometryTests(unittest.TestCase):
         estimator.depth = Mock(return_value=(np.ones((120,160),np.float32),k))
         jpeg = cv2.imencode('.jpg',np.ones((120,160,3),np.uint8)*100)[1].tobytes()
         request = dict(robot="robot",instance="gateway",epoch=1,counter=1,received=1.,timestamp="now",
-                       jpeg=base64.b64encode(jpeg).decode(),config=settings({"mode":"moge-open3d"}))
+                       jpeg=base64.b64encode(jpeg).decode(),config=settings({"mode":"moge-open3d","cameraToBody":OPTICAL_TO_FORWARD.tolist()}),
+                     attitude=dict(available=True,boot_id=0,frame_completed_us=1000000,orientation_wxyz=[1,0,0,0],bracket_us=[1000000,1000000]))
         quality = dict(matches=30, inliers=28, reprojectionPixels=.4)
         pose=np.eye(4);pose[2,3]=.02
         fits=[(np.eye(4),quality), ValueError("Camera landmark pose fit failed"),
@@ -450,10 +507,29 @@ class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.gateway = SimpleNamespace(instance_id="test", subscribe_frames=Mock(),
             unsubscribe_frames=Mock(), clock=lambda: 10.,
+            configure_camera_attitude_history=Mock(), camera_frame_attitude=Mock(return_value={"available":False,"reason":"fixture has no timed attitude"}),
             status=lambda: {"robots": {"robot": {"epoch": 1, "connection_state": "online"}}},
             _publish_event=AsyncMock())
         self.camera = CameraFramePlugin(self.gateway, None)
         self.addAsyncCleanup(self.camera.aclose)
+
+    async def test_metric_frame_owns_source_attitude_before_worker_runs(self):
+        self.camera._depth_settings['robot'] = settings({'mode':'moge-open3d'})
+        self.camera._metric_consumers['fixture'] = 'robot'
+        original = dict(available=True,boot_id=0,frame_completed_us=150,
+                        bracket_us=[100,200],orientation_wxyz=[1,0,0,0])
+        self.gateway.camera_frame_attitude.return_value = original
+        frame = _CameraInput('robot',1,7,10.,b'jpg',camera_metadata=dict(boot_id=0,frame_completed_us=150))
+        captured = []
+        def process(item, stamp):
+            captured.append(item.attitude)
+            return dict(available=False,robotId='robot',epoch=1,reason='fixture')
+        self.camera._process_metric = process
+        self.camera._queue_metric(frame,'2026-11-04T00:00:00+00:00')
+        self.gateway.camera_frame_attitude.return_value = dict(available=False,reason='history pruned')
+        await self.camera._metric_queue.join()
+        self.gateway.camera_frame_attitude.assert_called_once_with('robot',1,frame.camera_metadata)
+        self.assertEqual(captured,[original])
 
     async def test_each_body_keeps_its_requested_measurement_while_latest_frames_replace_only_that_body(self):
         from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
@@ -606,7 +682,7 @@ class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_body_disconnect_during_first_measurement_finishes_the_read(self):
         self.camera._metric_frames["robot"] = (_CameraInput("robot", 1, 1, 10., b"jpg"),
             "2026-10-22T00:00:00+00:00")
-        def process(*args):
+        def process(*args, **kwargs):
             self.gateway.status = lambda: {"robots": {}}
             return {"available": True, "robotId": "robot", "epoch": 1}
         self.camera._process_metric = process
@@ -623,7 +699,7 @@ class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(release.set)
         loop = asyncio.get_running_loop()
         calls = 0
-        def process(*args):
+        def process(*args, **kwargs):
             nonlocal calls
             calls += 1
             if calls == 1:

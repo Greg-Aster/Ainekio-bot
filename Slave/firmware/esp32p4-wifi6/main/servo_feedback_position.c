@@ -63,7 +63,8 @@ static bool joint_position(const ainekio_p4_feedback_snapshot_t *s,
 {
     const unsigned c=s->config.joint[j].channel;
     double neighbor;bool in_range;
-    if(!joint_pulse(s,j,pulse) ||
+    if(!s->config.enabled || !s->initialized || !(s->valid_mask&(1U<<c)) ||
+       !ainekio_feedback_position(&s->config.joint[j],s->filtered_raw[c],pulse,&in_range) ||
        !ainekio_feedback_position(&s->config.joint[j],s->filtered_raw[c]+1.,&neighbor,&in_range))return false;
     const double direction=mapping[j].invert?-1.:1.;
     frame->position[j]=mapping[j].home_cd+100.*direction*(*pulse-mapping[j].home_us)/mapping[j].us_per_degree;
@@ -77,7 +78,8 @@ bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,
     ainekio_v2_frame_t result=*frame;
     for(unsigned j=0;j<12;j++) {
         double pulse;
-        if(mapping[j].channel>=0 && !joint_position(&s,mapping,j,&pulse,&result))return false;
+        if(mapping[j].channel>=0 && (!joint_pulse(&s,j,&pulse) ||
+            !joint_position(&s,mapping,j,&pulse,&result)))return false;
     }
     *frame=result;return true;
 }
@@ -89,10 +91,16 @@ void ainekio_p4_feedback_observe(const ainekio_p4_feedback_snapshot_t *s,
         .scan=s->scan,.scan_us=s->scan_us,.revision=s->revision};
     ainekio_p4_feedback_health(s,&out->health);
     for(unsigned j=0;j<12;j++) {
-        out->sampled_us[j]=s->sampled_us[s->config.joint[j].channel];
+        const unsigned channel=s->config.joint[j].channel;
+        out->sampled_us[j]=s->sampled_us[channel];
+        out->raw_adc[j]=s->raw[channel];
+        out->signal_millivolts[j]=s->millivolts[channel];
         if(mapping[j].channel<0)continue;
         double pulse;
-        if(joint_position(s,mapping,j,&pulse,&out->measured))out->usable_mask|=1U<<j;
+        if(joint_position(s,mapping,j,&pulse,&out->measured)) {
+            out->measured_mask|=1U<<j;
+            if(joint_pulse(s,j,&pulse))out->usable_mask|=1U<<j;
+        }
         const unsigned target=targets[mapping[j].channel];
         if(target) {
             const double direction=mapping[j].invert?-1.:1.;

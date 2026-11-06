@@ -30,7 +30,7 @@ GEOMETRY = (
     Path(__file__).resolve().parents[3]
     / "Slave/software/models/v2-12servo/geometry.json"
 )
-ENVIRONMENT_VERSION = 14
+ENVIRONMENT_VERSION = 15
 # Versions6/7/8 changed reward accounting. Version9 also repairs the existing
 # native host-heading response. Input/action meanings and geometry are retained;
 # PPO continues from saved weights with fresh rollouts, not old transitions.
@@ -51,7 +51,10 @@ ENVIRONMENT_VERSION = 14
 # Version14 advances the native P4 output owner during physics integration,
 # independently of host-policy cadence. Earlier policies remain loadable, but
 # their recorded rollouts do not establish performance in the corrected plant.
-POLICY_ENVIRONMENT_VERSIONS = frozenset((5, 6, 7, 8, 9, 10, 11, 12, 13, 14))
+# Version15 lets the host policy own moving balance and yaw. It also adds the
+# opt-in terrain-contact proxy profile and measured proprioceptive history.
+# Older policies remain loadable; their rollouts predate this execution change.
+POLICY_ENVIRONMENT_VERSIONS = frozenset((5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15))
 # Explicit objective normalization, not measured hardware limits. The linear
 # scale is the current 30 mm/s training request; angular scale is independent
 # so lowering requested travel speed cannot amplify yaw-noise penalties.
@@ -239,6 +242,8 @@ def locomotion_reward(velocity_xy, yaw_rate, command, upright, height_ratio, *,
     return float(reward), components
 
 
+
+
 def command_limits(robot):
     limits=[]
     profile=json.loads((GEOMETRY.parent / "servo_profile.json").read_text())
@@ -301,6 +306,9 @@ def validate_scenarios(scenarios):
 
 @dataclass
 class EnvironmentConfig:
+    # Historical runs retain the complete assembly collision model. GPU
+    # locomotion uses CAD inertia and the existing hull/link/sole contacts.
+    collision_profile: str = "assembly"
     # Missing in historical artifacts: retain their original replay semantics.
     # New training requests select body_control explicitly at their entrypoint.
     execution_backend: str = "direct"
@@ -318,8 +326,9 @@ class EnvironmentConfig:
     robot: dict = field(default_factory=device_profile)
     target_limits_deg: list = field(default_factory=list)
     reference_joint_deg: list = field(default_factory=lambda: [0, 3.46, -21.63]*4)
-    # Initial walking search extent, not a physical capability restriction.
-    foot_action_scale_mm: list = field(default_factory=lambda: [30.0, 20.0, 30.0])
+    # Derive the full containing workspace for new configurations. Explicit
+    # serialized scales retain old checkpoints' learned action coordinates.
+    foot_action_scale_mm: list | None = None
     joint_speed_deg_s: float = field(default_factory=advertised_speed)
     motor_no_load_speed_deg_s: float = field(default_factory=advertised_speed)
     # Effective drive response after issued PWM; zero preserves old replays.
@@ -365,6 +374,8 @@ class EnvironmentConfig:
     locomotion_reward_weights: dict = field(default_factory=lambda: dict(LOCOMOTION_REWARD_WEIGHTS))
 
     def __post_init__(self):
+        if self.collision_profile not in {"assembly", "locomotion"}:
+            raise ValueError("Unknown robot collision profile")
         observation_size(self.observation_schema)
         if self.depth_camera and self.observation_schema==SCHEMA:
             raise ValueError("Depth camera requires the depth observation schema")
@@ -440,9 +451,13 @@ class EnvironmentConfig:
             raise ValueError("Expected twelve ordered finite exploration ranges")
         if self.physics_hz % self.control_hz:
             raise ValueError("Physics cadence must divide control cadence")
-        foot_offsets([0]*12, self.foot_action_scale_mm)
         if len(self.reference_joint_deg) != 12 or not all(math.isfinite(v) for v in self.reference_joint_deg):
             raise ValueError("Expected twelve finite standing reference angles")
+        if self.foot_action_scale_mm is None:
+            from .native import derive_foot_action_scale
+            self.foot_action_scale_mm = derive_foot_action_scale(
+                self.robot, self.reference_joint_deg, self.target_limits_deg)
+        foot_offsets([0]*12, self.foot_action_scale_mm)
         if type(self.balance_enabled) is not bool or len(self.balance_tuning) != 4 or not all(
                 math.isfinite(value) for value in self.balance_tuning):
             raise ValueError("Balance requires an enable flag and finite strength/damping/roll/pitch tuning")
@@ -492,6 +507,24 @@ def yquat(angle):
     return text([math.cos(angle / 2), 0, math.sin(angle / 2), 0])
 
 
+def collision_bottom(model, data, geom, direction=None):
+    """World-Z support of the retained mesh and primitive contact geometry."""
+    direction=np.asarray([0.,0.,1.] if direction is None else direction)
+    rotation=data.geom_xmat[geom].reshape(3,3)
+    normal=direction@rotation;center=data.geom_xpos[geom]@direction
+    kind=model.geom_type[geom];size=model.geom_size[geom]
+    if kind == mujoco.mjtGeom.mjGEOM_CAPSULE:
+        return float(center-size[0]-abs(normal[2])*size[1])
+    if kind == mujoco.mjtGeom.mjGEOM_SPHERE:
+        return float(center-size[0])
+    if kind == mujoco.mjtGeom.mjGEOM_BOX:
+        return float(center-abs(normal)@size)
+    mesh=model.geom_dataid[geom]
+    start=model.mesh_vertadr[mesh]
+    vertices=model.mesh_vert[start:start+model.mesh_vertnum[mesh]]
+    return float((vertices@normal).min()+center)
+
+
 def build_xml(config, *, include_assembly=True, include_visuals=True):
     m = reference()
     root = ET.Element("mujoco", model="ainekio-v2-four-bar")
@@ -510,7 +543,7 @@ def build_xml(config, *, include_assembly=True, include_visuals=True):
     )
     asset = ET.SubElement(root, "asset")
     world = ET.SubElement(root, "worldbody")
-    ET.SubElement(
+    floor = ET.SubElement(
         world, "geom", name="floor", type="plane", size="3 3 .05", rgba=".3 .35 .4 1"
     )
     # Compile every candidate into the static collision BVH. Reset disables
@@ -538,6 +571,19 @@ def build_xml(config, *, include_assembly=True, include_visuals=True):
         rgba=".8 .08 .05 1",
     )
     ET.SubElement(torso, "site", name="imu", size=".001")
+    if config.depth_camera.get("source") == "body_control_camera":
+        from gateway.depth_motion import rigid
+        camera = config.depth_camera
+        mounting = rigid(camera["cameraToBody"])
+        k = np.asarray(camera["cameraMatrix"], dtype=float)
+        # MuJoCo looks down -Z with +Y up; the real camera contract is OpenCV.
+        rotation = mounting[:3, :3] @ np.diag([1., -1., -1.])
+        ET.SubElement(torso, "camera", name="ainekio_camera",
+            pos=text(mounting[:3, 3]), quat=quat(rotation),
+            resolution=text(camera["imageSize"]), sensorsize="1 1",
+            focalpixel=text([k[0, 0], k[1, 1]]),
+            principalpixel=text([k[0, 2]-camera["imageSize"][0]/2,
+                                 k[1, 2]-camera["imageSize"][1]/2]))
     equality = ET.SubElement(root, "equality")
     actuators = ET.SubElement(root, "actuator")
     sensors = ET.SubElement(root, "sensor")
@@ -668,7 +714,17 @@ def build_xml(config, *, include_assembly=True, include_visuals=True):
             )
     if include_assembly:
         from .assembly import attach
-        attach(root, config, visuals=include_visuals)
+        attach(root, config, visuals=include_visuals, collision_profile=config.collision_profile)
+    if config.depth_camera.get('floor_texture') == 'checker':
+        # Visible virtual floor markings for the real image estimator. This
+        # changes appearance only; no position/depth labels enter the camera.
+        ET.SubElement(asset,'texture',name='camera_floor',type='2d',builtin='checker',
+            width='512',height='512',rgb1='.18 .22 .26',rgb2='.65 .68 .70',
+            mark='random',markrgb='.85 .40 .15',random='.08')
+        ET.SubElement(asset,'material',name='camera_floor',texture='camera_floor',
+            texrepeat='30 30',texuniform='true')
+        floor.set('material','camera_floor')
+        floor.set('rgba','1 1 1 1')
     return ET.tostring(root, encoding="unicode")
 
 
@@ -718,8 +774,10 @@ class GaitEnvironment(gym.Env):
         self.last_target = np.zeros(12)
         self.nominal_mass = self.model.body_mass.copy()
         self.nominal_inertia = self.model.body_inertia.copy()
-        from .depth import DepthCamera
-        self.depth_camera = DepthCamera(self.config.depth_camera) if self.config.depth_camera else None
+        from .depth import DepthCamera, RenderedCamera
+        camera_type = (RenderedCamera if self.config.depth_camera.get("source") == "body_control_camera"
+                       else DepthCamera)
+        self.depth_camera = camera_type(self.config.depth_camera) if self.config.depth_camera else None
         self.depth_measurement = None
         self.scenario = None
         self.scenario_id = "flat"
@@ -778,25 +836,25 @@ class GaitEnvironment(gym.Env):
         """
         robot=np.flatnonzero((self.model.geom_bodyid!=0)&
             ((self.model.geom_contype!=0)|(self.model.geom_conaffinity!=0)))
-        points=[]
-        for gid in robot:
-            mid=self.model.geom_dataid[gid];start=self.model.mesh_vertadr[mid]
-            vertices=self.model.mesh_vert[start:start+self.model.mesh_vertnum[mid]]
-            points.append(vertices@self.data.geom_xmat[gid].reshape(3,3).T+self.data.geom_xpos[gid])
-        points=np.concatenate(points)
+        axes=np.eye(3)
+        xy_min=np.array([min(collision_bottom(self.model,self.data,int(g),axis)
+                             for g in robot) for axis in axes[:2]])
+        xy_max=np.array([-min(collision_bottom(self.model,self.data,int(g),-axis)
+                              for g in robot) for axis in axes[:2]])
+        bottom=min(collision_bottom(self.model,self.data,int(g)) for g in robot)
+        top=-min(collision_bottom(self.model,self.data,int(g),-axes[2]) for g in robot)
         floor=self.model.geom("floor").id
         normal=self.data.geom_xmat[floor].reshape(3,3)[:,2]
-        separation=(points-self.data.geom_xpos[floor])@normal
+        separation=min(collision_bottom(self.model,self.data,int(g),normal) for g in robot)-self.data.geom_xpos[floor]@normal
         base=float(self.data.qpos[2])
-        low=base+(.001-float(separation.min()))/normal[2]
+        low=base+(.001-float(separation))/normal[2]
         high=low
-        xy_min,xy_max=points[:,:2].min(axis=0),points[:,:2].max(axis=0)
         for gid in np.flatnonzero(self._terrain_mask()):
             if gid==floor:continue
             extent=np.abs(self.data.geom_xmat[gid].reshape(3,3))@self.model.geom_size[gid]
             center=self.data.geom_xpos[gid]
             if np.all(center[:2]+extent[:2]>=xy_min) and np.all(center[:2]-extent[:2]<=xy_max):
-                high=max(high,base+center[2]+extent[2]-points[:,2].min()+.001)
+                high=max(high,base+center[2]+extent[2]-bottom+.001)
         terrain=np.flatnonzero(self._terrain_mask())
         def clear(height):
             self.data.qpos[2]=height;mujoco.mj_forward(self.model,self.data)
@@ -806,7 +864,7 @@ class GaitEnvironment(gym.Env):
         # Start the upper bracket a complete body-height above the support
         # envelope, away from near-contact GJK degeneracies. Bisection removes
         # this bracket padding; it is not an imposed drop height.
-        high+=float(np.ptp(points[:,2]))
+        high+=top-bottom
         if not clear(high):raise ValueError("Configured terrain cannot provide a clear vertical spawn bracket")
         for _ in range(32):
             middle=(low+high)/2
@@ -934,11 +992,8 @@ class GaitEnvironment(gym.Env):
                 self.model.geom_contype[gid] or self.model.geom_conaffinity[gid]
             ):
                 continue
-            mid = self.model.geom_dataid[gid]
-            start = self.model.mesh_vertadr[mid]
-            mesh = self.model.mesh_vert[start:start+self.model.mesh_vertnum[mid]]
-            world = mesh @ self.data.geom_xmat[gid].reshape(3,3).T + self.data.geom_xpos[gid]
-            bottom = min(bottom, float(((world-self.data.qpos[:3]) @ rotation)[:,2].min()))
+            bottom = min(bottom, collision_bottom(self.model,self.data,gid,rotation[:,2])
+                         -float(self.data.qpos[:3]@rotation[:,2]))
         return .001-bottom
 
     def device_time_us(self, episode_time_s=None):
@@ -1022,12 +1077,7 @@ class GaitEnvironment(gym.Env):
                 self.model.geom_contype[gid] or self.model.geom_conaffinity[gid]
             ):
                 continue
-            mesh = self.model.geom_dataid[gid]
-            start = self.model.mesh_vertadr[mesh]
-            vertices = self.model.mesh_vert[start:start+self.model.mesh_vertnum[mesh]]
-            rotation = self.data.geom_xmat[gid].reshape(3,3)
-            bottom = min(bottom, float((vertices @ rotation.T)[:,2].min()
-                                       + self.data.geom_xpos[gid,2]))
+            bottom = min(bottom, collision_bottom(self.model,self.data,gid))
         if self.scenario is None:
             self.data.qpos[2] -= bottom - 0.001
         else:
@@ -1194,6 +1244,8 @@ class GaitEnvironment(gym.Env):
                 for gid in np.flatnonzero(self.model.geom_bodyid == bid):
                     if not (self.model.geom_contype[gid] or self.model.geom_conaffinity[gid]):
                         continue
+                    if self.model.geom_type[gid] != mujoco.mjtGeom.mjGEOM_MESH:
+                        continue  # Actual CAD sole hulls own this measurement.
                     mid = self.model.geom_dataid[gid]
                     start = self.model.mesh_vertadr[mid]
                     mesh = self.model.mesh_vert[start:start+self.model.mesh_vertnum[mid]]
@@ -1395,8 +1447,10 @@ class GaitEnvironment(gym.Env):
             # external forces can back-drive it. Do not clip simulated qvel.
             speed = self.data.qvel[self.vadr]
             maximum = math.radians(self.config.motor_no_load_speed_deg_s)
-            self.model.actuator_forcerange[:, 0] = -self.config.torque_nm * np.clip(1+speed/maximum, 0, 1) * enabled
-            self.model.actuator_forcerange[:, 1] = self.config.torque_nm * np.clip(1-speed/maximum, 0, 1) * enabled
+            from .native import motor_force_range
+            lower,upper=motor_force_range(speed,self.config.torque_nm,maximum)
+            self.model.actuator_forcerange[:, 0] = lower*enabled
+            self.model.actuator_forcerange[:, 1] = upper*enabled
             if self.scenario is not None:
                 self._apply_scenario_pushes()
             mujoco.mj_step(self.model, self.data)
@@ -1543,6 +1597,8 @@ class GaitEnvironment(gym.Env):
 
     def close(self):
         self.body_model.close()
+        if self.depth_camera is not None and hasattr(self.depth_camera, "close"):
+            self.depth_camera.close()
         if self.renderer:
             self.renderer.close()
 
@@ -1553,3 +1609,113 @@ def make_environment(config, **kwargs):
         from .connected_environment import BodyControlEnvironment
         return BodyControlEnvironment(config, **kwargs)
     return GaitEnvironment(config, **kwargs)
+
+
+def mjx_locomotion_collisions(root, config):
+    """Keep CAD visuals/inertias with the existing mechanical contact model.
+
+    Chassis/sole hulls come from the maintained geometry. Link capsules are the
+    existing kinematic proxies, not detailed assembled self-contact geometry.
+    """
+    import copy
+    mechanical = ET.fromstring(build_xml(config, include_assembly=False))
+    source_bodies = {body.get('name'): body for body in mechanical.iter('body')}
+    source_meshes = {mesh.get('name'): mesh for mesh in mechanical.findall('./asset/mesh')}
+    assets = root.find('asset')
+    report = []
+    for body in root.iter('body'):
+        for geom in list(body.findall('geom')):
+            if geom.get('group') == '3':
+                body.remove(geom)
+        for original in source_bodies[body.get('name')].findall('geom'):
+            geom = copy.deepcopy(original)
+            # Assembly inertias remain authoritative, independent of contacts.
+            geom.set('mass', '0')
+            geom.set('group', '3')
+            body.append(geom)
+            mesh_name = geom.get('mesh')
+            if mesh_name is not None:
+                assets.append(copy.deepcopy(source_meshes[mesh_name]))
+            report.append(dict(body=body.get('name'), geom=geom.get('name'),
+                               type=geom.get('type'), mesh=mesh_name))
+    used = {geom.get('mesh') for geom in root.iter('geom') if geom.get('mesh')}
+    for mesh in list(assets.findall('mesh')):
+        if mesh.get('name') not in used:
+            assets.remove(mesh)
+    return report
+
+
+def export_mjcf(destination, config=None, *, collision_representation='cad'):
+    """Export the existing CAD model for the original MJX trainer; no rollout."""
+    from types import SimpleNamespace
+    config=config or EnvironmentConfig()
+    destination=Path(destination).resolve()
+    destination.parent.mkdir(parents=True,exist_ok=True)
+    root=ET.fromstring(build_xml(config))
+    contacts = (mjx_locomotion_collisions(root, config)
+                if collision_representation == 'locomotion' else [])
+    # Keep electrical limits in logical coordinates; passive closure hinges
+    # remain unactuated and are not assigned servo travel limits.
+    for name,limits in zip(JOINTS,config.target_limits_deg):
+        root.find(f".//joint[@name='{name}']").set('range',text(np.deg2rad(limits)))
+    model=mujoco.MjModel.from_xml_string(ET.tostring(root,encoding='unicode'))
+    data=mujoco.MjData(model)
+    joint_ids=[model.joint(name).id for name in JOINTS]
+    state=SimpleNamespace(model=model,data=data,qadr=model.jnt_qposadr[joint_ids])
+    GaitEnvironment.set_pose(state,np.deg2rad(config.reference_joint_deg))
+    # Place the actual CAD soles on the ground; retain the solved eight passive
+    # angles in the keyframe instead of applying a 12-value pose to 20 joints.
+    bottom=math.inf
+    for gid in range(model.ngeom):
+        if model.geom_bodyid[gid]==0 or not (model.geom_contype[gid] or model.geom_conaffinity[gid]):continue
+        mid=model.geom_dataid[gid]
+        if mid<0:continue
+        vertices=model.mesh_vert[model.mesh_vertadr[mid]:model.mesh_vertadr[mid]+model.mesh_vertnum[mid]]
+        rotation=data.geom_xmat[gid].reshape(3,3)
+        bottom=min(bottom,float((vertices@rotation.T)[:,2].min()+data.geom_xpos[gid,2]))
+    data.qpos[2]+=0.001-bottom
+    mujoco.mj_forward(model,data)
+    ET.SubElement(ET.SubElement(root,'keyframe'),'key',name='home',qpos=text(data.qpos),
+        ctrl=text(np.deg2rad(config.reference_joint_deg)))
+    ET.SubElement(ET.SubElement(root,'custom'),'numeric',name='advertised_servo_speed_rad_s',
+        data=text([math.radians(config.motor_no_load_speed_deg_s)]))
+    destination.write_text(ET.tostring(root,encoding='unicode'))
+    hardware=dict(source_root=str(Path(__file__).resolve().parents[3]),robot=config.robot,
+        advertised_speed_rad_s=math.radians(config.motor_no_load_speed_deg_s),torque_limit_nm=config.torque_nm,
+        processing='P4 feedback/calibration/jam and LSM6DS3/Fusion via native.py',
+        imu_calibration=None,
+        imu_axes='Virtual site is expressed in calibrated body axes; installed chip mounting/bias not captured',
+        fidelity='Recorded ADC/calibration; advertised speed; noise, stall torque and motor response unmeasured')
+    from .native import BodyModel
+    body = BodyModel(config.robot)
+    try:
+        hardware.update(foot_geometry=body.foot_geometry(),
+                        reference_joint_deg=config.reference_joint_deg,
+                        foot_action_scale_mm=config.foot_action_scale_mm,
+                        pwm_tick_us=body.pwm_output(config.reference_joint_deg)['tick_us'])
+    finally:
+        body.close()
+    destination.with_name(destination.stem+'-hardware.json').write_text(json.dumps(hardware,indent=2)+'\n')
+    result=dict(model=str(destination),geometry=representation_identity(),mass_kg=float(model.body_mass.sum()),
+        actuated_joint_names=list(JOINTS),actuated_qpos_indices=model.jnt_qposadr[joint_ids].tolist(),
+        actuated_dof_indices=model.jnt_dofadr[joint_ids].tolist(),
+        passive_joint_count=model.njnt-1-len(JOINTS),closure_constraints=model.neq,
+        default_pose_rad=np.deg2rad(config.reference_joint_deg).tolist(),home_height_m=float(data.qpos[2]),
+        position_control_kp=config.servo_kp,position_control_kd=config.servo_kd,
+        torque_limit_nm=config.torque_nm,advertised_speed_rad_s=math.radians(config.motor_no_load_speed_deg_s),
+        collision_representation=collision_representation,collision_contacts=contacts,
+        collision_qualification=('Maintained chassis/sole hulls and link capsule proxies; assembled self-contact unqualified'
+            if contacts else 'Prepared compound CAD collision meshes'),
+        fidelity='CAD geometry and owner-reported total mass; component inertia and actuator response are estimates',
+        qualification='MuJoCo geometry export only; MJX/Brax execution and physical walking unverified')
+    destination.with_suffix('.json').write_text(json.dumps(result,indent=2)+'\n')
+    return result
+
+
+if __name__=='__main__':
+    import argparse
+    parser=argparse.ArgumentParser(description='Export the maintained Ainekio CAD model, without training or robot I/O')
+    parser.add_argument('--export-mjcf',required=True)
+    parser.add_argument('--collision-representation', choices=('cad','locomotion'), default='cad')
+    args=parser.parse_args()
+    print(json.dumps(export_mjcf(args.export_mjcf, collision_representation=args.collision_representation),indent=2))

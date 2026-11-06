@@ -2,3 +2,5 @@ websockets==10.4
 numpy>=1.26,<3
 opencv-python-headless>=4.8,<5
 jsonschema>=4,<5
+pink-noise-rl==2.0.1
+cbor2==5.7.1

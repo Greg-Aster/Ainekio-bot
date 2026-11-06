@@ -1121,6 +1121,13 @@ static ainekio_decode_result_t decode_camera(
         return AINEKIO_DECODE_VALUE;
     }
     message->command.data.camera.fps = (uint8_t)fps;
+    if (object_get(parser, root, "max_exposure_us") >= 0) {
+        int64_t ceiling;
+        result = required_integer(parser, root, "max_exposure_us", 0, UINT32_MAX, &ceiling);
+        if (result != AINEKIO_DECODE_OK) return result;
+        message->command.data.camera.has_max_exposure_us = true;
+        message->command.data.camera.max_exposure_us = (uint32_t)ceiling;
+    }
     if (object_get(parser, root, "exposure_us") >= 0 || object_get(parser, root, "gain_x16") >= 0 ||
         object_get(parser, root, "jpeg_quality") >= 0) {
         int64_t exposure, gain, quality;

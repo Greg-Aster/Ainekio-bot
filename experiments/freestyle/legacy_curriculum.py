@@ -5,6 +5,7 @@ than another executor or importer. Raw trials, old datasets and fitted models
 are evidence; this command never calls a model or operates the robot.
 """
 import argparse
+import copy
 from collections import Counter
 from datetime import datetime, timezone
 import hashlib
@@ -55,7 +56,7 @@ def rows_at(path):
     return [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
 
 
-def native_examples(tools):
+def native_examples(tools, stretch_contexts=()):
     encoding = ProgramEncoding(tools)
     _, sources = legacy_sources()
     result = []
@@ -69,7 +70,7 @@ def native_examples(tools):
         program = demonstration['program']
         planned = None
         for action in program:
-            if action['name'] in ('pose','trajectory'):
+            if action['name'] in ('pose','move','feet','body','oscillate'):
                 planned = compile_motion(action,observation,planned)['end']
         if max(abs(planned[j]-q) for j,q in zip(JOINTS,demonstration['final_model_deg'])) > .005:
             raise ValueError(name+': compiled terminal pose differs from the source')
@@ -78,16 +79,90 @@ def native_examples(tools):
         answers = encoding.encode(program)
         identity = hashlib.sha256(compact([query,answers,demonstration['source_sha256']]).encode()).hexdigest()
         evidence = {k:v for k,v in demonstration.items() if k != 'program'}
-        result.append({'id':identity[:16], 'source_hash':identity,
+        example={'id':identity[:16], 'source_hash':identity,
                        'source_id':f"native-source:{name}:{demonstration['source_sha256']}",
                        'family':'legacy_asset_'+name, 'title':REQUESTS[name],
                        'query':query, 'answers':answers, 'split':'train',
                        'synthetic':True, 'physical_qualification':False,
-                       'qualification_basis':'catalog_source_path_not_a_new_physical_trial',
+                       'qualification_basis':'compact_source_stages_not_physically_reviewed',
                        'observation_origin':'synthetic canonical source entry; calibration unknown',
                        'teacher':'native twelve-servo catalog source and execution contract',
                        'canonical_source_motion_sha256':demonstration['source_sha256'],
-                       'legacy_motion':name, 'source_alignment':evidence})
+                       'legacy_motion':name, 'source_alignment':evidence}
+        if name=='stretch' and stretch_contexts:
+            for context in stretch_contexts:
+                if context.get('qualification_basis')=='owner_requested_compact_stretch_not_physically_reviewed':
+                    result.append(copy.deepcopy(context))
+                else:
+                    updated=_contextual_source(example,context['query'],tools)
+                    result.append({**context,**updated,'observation_origin':context['observation_origin']})
+        else:
+            result.append(example)
+    return result
+
+
+def contextual_example(source, observation, request, tools):
+    """Teach a complete source motion from supplied state, with its entry target.
+
+    This authors offline supervision only. It neither selects runtime behavior
+    nor labels a generated or source-derived movement as physically qualified.
+    """
+    query=compact(model_query(enrich({'request':request,'event':None,'history':[],
+                                     'observation':observation}),ProgramEncoding(tools)))
+    return _contextual_source(source,query,tools)
+
+
+def _contextual_source(source, query, tools):
+    """Regenerate source targets while preserving the already projected input."""
+    encoding=ProgramEncoding(tools)
+    program=encoding.decode(source['answers'])
+    if source['legacy_motion']!='stretch':
+        program.insert(1,{'name':'pose','arguments':{'joints':list(JOINTS),
+            'angles_deg':source['source_alignment']['entry_model_deg'],
+            'reference':'absolute','speed_pct':100,'taper_deg':0}})
+    answers=encoding.encode(program)
+    identity=hashlib.sha256(compact([query,answers,source['canonical_source_motion_sha256']]).encode()).hexdigest()
+    result=copy.deepcopy(source)
+    result.update(id=identity[:16],source_hash=identity,query=query,answers=answers,title=json.loads(query)['request'],
+                  source_id='native-context:'+source['legacy_motion']+':'+identity,
+                  source_reference_example_id=source['id'],physical_qualification=False,
+                  observation_origin='supplied state; recorded or synthetic origin identified by dataset author',
+                  qualification_basis='source_curve_and_entry_target_not_physically_reviewed')
+    return result
+
+
+def natural_examples(phrases, tools):
+    """Three owner-approved everyday requests per legacy reference program."""
+    encoding=ProgramEncoding(tools)
+    _,clips=legacy_sources()
+    if set(phrases)!=set(clips)|{'stand'}:
+        raise ValueError('Phrase list must cover the actual legacy catalog and standing')
+    result=[]
+    for name,requests in phrases.items():
+        if len(requests)!=3 or len(set(requests))!=3:
+            raise ValueError('Each motion needs three distinct natural requests')
+        if name=='stand':
+            owner=Path(__file__).resolve().parents[2]/'Slave/firmware/esp32p4-wifi6/main/body.c'
+            reference={'source_sha256':hashlib.sha256(owner.read_bytes()).hexdigest()}
+            program=[{'name':'stand','arguments':{}}]
+        else:
+            reference=source_motion(name);program=reference['program']
+        answers=encoding.encode(program)
+        for request in requests:
+            query=compact({'request':request})
+            identity=hashlib.sha256(compact([name,query,answers,reference['source_sha256']]).encode()).hexdigest()
+            result.append({'id':identity[:16],'family':'natural_legacy_'+name,'title':request,
+                'query':query,'answers':answers,'source_id':'natural-legacy:'+name+':'+identity,
+                'source_hash':identity,'synthetic':True,'physical_qualification':False,
+                'qualification_basis':'legacy_reference_poses_not_a_physical_trial',
+                'teacher':'legacy reference poses, compact movement stages and explicit holds',
+                'reference_motion':name,'reference_source_sha256':reference['source_sha256'],
+                **{'reference_'+key:reference[key] for key in
+                   ('entry_model_deg','final_model_deg','phases') if key in reference},
+                **({'native_operation':'stand',
+                    'reference_implementation':'Slave/firmware/esp32p4-wifi6/main/body.c',
+                    'qualification_basis':'native_stand_selection_not_a_physical_trial',
+                    'teacher':'Existing P4 Stand operation; no replacement joint pose'} if name=='stand' else {})})
     return result
 
 
@@ -118,10 +193,8 @@ def align(dataset, database, evidence, apply=False):
     training = rows_at(dataset/'train.jsonl')
     original_tools = json.loads((dataset/'tools.json').read_text())
     from .motion_space import TOOLS
-    trajectory = next(t for t in TOOLS if t['name']=='trajectory')
-    tools = original_tools if any(t['name']=='trajectory' for t in original_tools) else original_tools+[trajectory]
-    if next(t for t in tools if t['name']=='trajectory') != trajectory:
-        raise ValueError('The dataset already has a different trajectory contract')
+    from .face_contract import face_tool
+    tools = [*TOOLS, face_tool()]
     references={p.name:rows_at(p) for p in dataset.glob('*.jsonl') if p.name!='train.jsonl'}
     with sqlite3.connect(f'file:{database}?mode=ro',uri=True) as db:
         stored=list(db.execute('SELECT id,revision,payload FROM examples'))
@@ -132,9 +205,16 @@ def align(dataset, database, evidence, apply=False):
                             for name,text in db.execute("SELECT key,value FROM metadata WHERE key LIKE 'file:%.jsonl'")}
     if live_tools not in (original_tools,tools):
         raise ValueError('Dataset and editable library use different operation contracts')
-    replacements = native_examples(tools)
+    contexts=[r for r in training if r.get('family')=='legacy_asset_stretch']
+    replacements = native_examples(tools,contexts)
+    stretch_source=source_motion('stretch')['source_sha256']
+    protected_references=[r for rows in [*references.values(),*library_references.values()] for r in rows
+                          if r.get('family')=='legacy_asset_stretch' and (
+                              r.get('qualification_basis')=='owner_requested_compact_stretch_not_physically_reviewed'
+                              or (r.get('source_id','').startswith('native-context:stretch:')
+                                  and r.get('canonical_source_motion_sha256')==stretch_source))]
     selected, aliases = obsolete_rows(training+current+
-        [r for rows in [*references.values(),*library_references.values()] for r in rows],replacements)
+        [r for rows in [*references.values(),*library_references.values()] for r in rows],replacements+protected_references)
     retired_training = [r for r in training if r['id'] in selected]
     retired_library = [r for r in current if r['id'] in selected]
     retired_references={name:[r for r in rows if r['id'] in selected] for name,rows in references.items()}
@@ -147,7 +227,8 @@ def align(dataset, database, evidence, apply=False):
     native_ids = {r['id'] for r in replacements}
     retained = [r for r in training if r['id'] not in selected and r['id'] not in native_ids]
     updated = retained+replacements
-    report = {'source':'native twelve-servo gesture catalog', 'motions':len(replacements),
+    report = {'source':'native twelve-servo gesture catalog', 'motions':len({r.get('legacy_motion','stretch') for r in replacements}),
+              'source_examples':len(replacements),
               'training_before':len(training), 'training_after':len(updated),
               'retired_training_rows':len(retired_training),
               'retired_training_families':dict(Counter(r['family'] for r in retired_training)),
@@ -158,8 +239,9 @@ def align(dataset, database, evidence, apply=False):
               'retired_library_reference_rows':{name:len(rows) for name,rows in retired_library_references.items()},
               'training_launched':False, 'model_changed':False, 'physical_trials':0,
               'evidence':str(evidence),
-              'assets':[{'motion':r['legacy_motion'],'example_id':r['id'],
-                         'actions':len(r['answers']),**r['source_alignment']} for r in replacements]}
+              'assets':[{'motion':r.get('legacy_motion','stretch'),'example_id':r['id'],
+                         'actions':len(r['answers']),**r.get('source_alignment',
+                            {k:v for k,v in source_motion('stretch').items() if k!='program'})} for r in replacements]}
     if not apply:return report
     evidence.mkdir(parents=True,exist_ok=False)
     shutil.copytree(dataset,evidence/'dataset-before')
@@ -194,7 +276,7 @@ def align(dataset, database, evidence, apply=False):
         'updated_at':datetime.now(timezone.utc).isoformat(),
         **{k:v for k,v in report.items() if k != 'assets'},
         'assets':[{k:r[k] for k in ('motion','example_id','source_sha256','execution_contract_sha256',
-                                   'semantic_end_s','path_error_bound_deg','scalar_curve_knots')}
+                                   'semantic_end_s','representation')}
                   for r in report['assets']]}
     (dataset/'train.jsonl').write_text(''.join(compact(r)+'\n' for r in updated))
     (dataset/'tools.json').write_text(compact(tools)+'\n')

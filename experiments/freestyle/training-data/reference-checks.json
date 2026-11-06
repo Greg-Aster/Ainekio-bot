@@ -1,0 +1,146 @@
+[
+  {
+    "motion": "sit",
+    "operations": 6,
+    "target_chars": 450,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "rest",
+    "operations": 8,
+    "target_chars": 641,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "wave",
+    "operations": 14,
+    "target_chars": 976,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "dance",
+    "operations": 25,
+    "target_chars": 2951,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "swim",
+    "operations": 20,
+    "target_chars": 1954,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "point",
+    "operations": 14,
+    "target_chars": 961,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "nod",
+    "operations": 9,
+    "target_chars": 932,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "pushup",
+    "operations": 20,
+    "target_chars": 1385,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "bow",
+    "operations": 8,
+    "target_chars": 550,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "cute",
+    "operations": 28,
+    "target_chars": 2362,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "freaky",
+    "operations": 14,
+    "target_chars": 972,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "worm",
+    "operations": 5,
+    "target_chars": 346,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "shake",
+    "operations": 15,
+    "target_chars": 1305,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "shrug",
+    "operations": 15,
+    "target_chars": 1591,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "dead",
+    "operations": 20,
+    "target_chars": 1077,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "celebrate",
+    "operations": 25,
+    "target_chars": 2614,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "stretch",
+    "operations": 12,
+    "target_chars": 522,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "surprised",
+    "operations": 27,
+    "target_chars": 2316,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "sad",
+    "operations": 14,
+    "target_chars": 1050,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "curious",
+    "operations": 14,
+    "target_chars": 1113,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "lay_down",
+    "operations": 15,
+    "target_chars": 814,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "upright",
+    "operations": 13,
+    "target_chars": 1154,
+    "reference_terminal_error_deg": 0.0
+  },
+  {
+    "motion": "crouch",
+    "operations": 4,
+    "target_chars": 258,
+    "reference_terminal_error_deg": 0
+  },
+  {
+    "motion": "stand",
+    "operations": 2,
+    "target_chars": 141,
+    "reference_terminal_error_deg": 0.0
+  }
+]

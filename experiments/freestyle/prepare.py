@@ -33,7 +33,8 @@ def prepare(dataset, trainer_path, base, revision):
     measurements = []
     splits = [name for name in ('train', 'evaluation', 'test', 'regression-evaluation',
                                 'recovery-probe', 'stand-evaluation', 'stand-test')
-              if (dataset/(name+'.jsonl')).exists()]
+              if (dataset/(name+'.jsonl')).exists() and
+                                (dataset/(name+'.jsonl')).read_text().strip()]
     for split in splits:
         for row in trainer.read_rows(dataset/(split+".jsonl")):
             tokens = trainer.tokenize_row(tokenizer, row, None)

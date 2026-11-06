@@ -1,4 +1,5 @@
 import math
+from collections import deque
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -28,6 +29,23 @@ def executing(command="walk", activity="locomotion", phase="motion", tilt=0, sta
 
 
 class BodyEventTests(unittest.TestCase):
+    def test_input_projection_reads_detector_state_and_preserves_unknown_measurements(self):
+        body=BodyEvents()
+        first=sample(1)
+        self.assertIsNone(body.observation('p4',1,first)['tipped'])
+        body.observe('p4',1,first)
+        self.assertFalse(body.observation('p4',1,first)['tipped'])
+        body.observe('p4',1,sample(2,90))
+        tip=sample(300002,90)
+        body.observe('p4',1,tip)
+        self.assertTrue(body.observation('p4',1,tip)['tipped'])
+        self.assertIsNone(body.observation('p4',1,tip)['slip'])
+        self.assertIsNone(body.observation('p4',2,tip)['tipped'])
+        self.assertIsNone(body.observation('p4',1,{**tip,'fresh':False})['tipped'])
+        clear=sample(300003)
+        body.observe('p4',1,clear)
+        self.assertFalse(body.observation('p4',1,clear)['tipped'])
+
     def test_reaction_face_does_not_hide_a_fall_or_repeat_a_tipped_episode(self):
         body = BodyEvents(clock=lambda: 0.0)
         body.observe("p4", 1, sample(1, rate=4))
@@ -354,7 +372,10 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
         for sequence,released in ((0,True),(941,True),(0,False),(941,False)):
             connection = object.__new__(GatewayConnection)
             connection.robot_id, connection.epoch = "p4", 17
-            connection.service = SimpleNamespace(body_events=BodyEvents(), _publish_event=AsyncMock())
+            connection.service = SimpleNamespace(body_events=BodyEvents(), _publish_event=AsyncMock(),
+                clock=lambda:0.,_camera_attitude_windows={})
+            connection.neural_walk=None
+            connection.camera_attitudes=deque()
             message = {"t": "event", "name": "servo_stall", "event_id": "7:1200000",
                        "clock_us": 1200000, "seq": sequence, "joint_mask": 48, "outputs_released": released}
             validate_control_message(message)
@@ -392,7 +413,10 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
     async def test_reaction_face_does_not_hide_imu_or_fall_recovery_events(self):
         connection = object.__new__(GatewayConnection)
         connection.robot_id, connection.epoch, connection.last_status = "p4", 17, None
-        connection.service = SimpleNamespace(body_events=BodyEvents(), _publish_event=AsyncMock())
+        connection.service = SimpleNamespace(body_events=BodyEvents(), _publish_event=AsyncMock(),
+                clock=lambda:0.,_camera_attitude_windows={})
+        connection.neural_walk=None
+        connection.camera_attitudes=deque()
         for at, tilt, rate, token in [(1, 90, 4, "be_reaction"),
                                       (300001, 90, 4, "be_reaction"),
                                       (300002, 0, 0, ""), (300003, 0, 4, "")]:
@@ -407,7 +431,10 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
     async def test_only_unexpected_events_reach_the_existing_adapter_reaction_path(self):
         connection = object.__new__(GatewayConnection)
         connection.robot_id, connection.epoch, connection.last_status = "p4", 17, None
-        connection.service = SimpleNamespace(body_events=BodyEvents(), _publish_event=AsyncMock())
+        connection.service = SimpleNamespace(body_events=BodyEvents(), _publish_event=AsyncMock(),
+                clock=lambda:0.,_camera_attitude_windows={})
+        connection.neural_walk=None
+        connection.camera_attitudes=deque()
         movement = executing()
         await connection._handle_control({"t": "event", "name": "imu",
                                           "data": sample(1, rate=4, motion=movement)})

@@ -77,3 +77,21 @@ class RecoveryContextTests(unittest.TestCase):
             self.assertEqual(projected['history'][0]['remaining_program'],[['stand']])
             self.assertEqual(projected,model_query(projected,ProgramEncoding([])))
             self.assertEqual(query,original)
+
+    def test_original_goal_survives_a_different_failed_recovery_plan(self):
+        from .migrate_targets import CONTRACT
+        encoding=ProgramEncoding(CONTRACT)
+        goal={'request':'Please lie down.','interrupted_action':['pose',[1],[.94],'absolute',50,0],
+              'remaining_program':[['pose',list(range(12)),[-32.52,33.34,50.91]*4,'absolute',50,0],['hold',1.8]]}
+        current={'name':'feet','arguments':{'legs':['rear_left'],'offsets_mm':[[0,0,10]],
+                 'speed_pct':50,'taper_deg':0}}
+        query={'request':'Please lie down.','event':{'type':'servo_stall','joints':[1]},
+            'motion_goal':goal,'observation':{},'history':[{'program_state':'executing',
+                'interrupted_action':current,'remaining_program':[['hold',.1]]}]}
+        before=copy.deepcopy(query)
+        projected=model_query(query,encoding)
+        self.assertEqual(projected['motion_goal'],goal)
+        self.assertEqual(projected['history'][0]['interrupted_action'],encoding.encode([current])[0])
+        self.assertEqual(projected['history'][0]['remaining_program'],[['hold',.1]])
+        self.assertEqual(query,before)
+        self.assertEqual(model_query(projected,encoding),projected)

@@ -57,7 +57,7 @@ test('desktop settings open the configured MetaHuman owner page and preserve bod
   node('body-connection-form').fire('submit');
   node('desktop-connection-address').value = 'https://desktop.example.invalid/';
   node('desktop-connection-form').fire('submit');
-  assert.deepEqual(opened.at(-1), ['https://desktop.example.invalid/monitor#body-connection', '_blank', 'noopener,noreferrer']);
+  assert.deepEqual(opened.at(-1), ['https://desktop.example.invalid/#view=chat&sidebar=monitor&section=body-connection', '_blank', 'noopener,noreferrer']);
   const saved = JSON.parse(stored.get('ainekio-connections-v1'));
   assert.equal(saved.local, 'http://another-host:8791/');
   assert.equal(saved.desktop, 'https://desktop.example.invalid');

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-set(PROJECT_VER "0.8.136-p4-speech-settings")
+set(PROJECT_VER "0.8.150-p4-foot-projection")
 set(EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../../software/core"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/faces"
                         "${CMAKE_CURRENT_LIST_DIR}/../../software/imu"
@@ -20,6 +20,7 @@ set_property(TARGET ${AINEKIO_HOSTED_LIB} PROPERTY SOURCES ${AINEKIO_HOSTED_SOUR
 include(cmake/idf_dw_gdma.cmake)
 include(cmake/idf_panic_log.cmake)
 include(cmake/idf_websocket_write.cmake)
+include(cmake/idf_video_timestamp.cmake)
 
 # Asset images exist only for the explicitly selected full partition layout.
 # Building this target never changes a device's existing partition table.

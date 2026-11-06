@@ -113,6 +113,17 @@ class MotionLibrary:
         with closing(self.connect()) as db:
             return ProgramEncoding(self.tools(db)).decode(answers)
 
+    def encode_program(self, program):
+        with closing(self.connect()) as db:
+            encoding = ProgramEncoding(self.tools(db))
+        schema = {'type':'array','items':{'oneOf':[
+            {'type':'object','required':['name','arguments'],'additionalProperties':False,
+             'properties':{'name':{'const':name},'arguments':tool['parameters']}}
+            for name,tool in encoding.tools.items()]}}
+        error = next(Draft202012Validator(schema).iter_errors(program),None)
+        if error:raise ValueError('Invalid named motion program: '+error.message)
+        return self.validate(encoding.encode(program))
+
     def import_dataset(self, dataset, *, extend_contract=False, expected_revisions=None, retired_references=()):
         dataset = Path(dataset)
         tools = json.loads((dataset/'tools.json').read_text())
@@ -252,7 +263,10 @@ class MotionLibrary:
                             'superseded_kinematic_evidence', 'motion_structure_sha256', 'canonical_source_motion_sha256',
                             'reviewed_request_specification', 'operator_assessment', 'semantic_assessment',
                             'goals', 'spatial_goals', 'returns_to_start', 'ending_policy', 'repair_review',
-                            'face_cues', 'rehearsal', 'legacy_motion', 'source_alignment'):
+                            'face_cues', 'rehearsal', 'legacy_motion', 'source_alignment',
+                            'reference_source_sha256', 'reference_entry_model_deg',
+                            'reference_final_model_deg', 'reference_phases',
+                            'native_operation', 'reference_implementation'):
                     row.pop(key, None)
                 row.update(physical_qualification=False, synthetic=True,
                            qualification_basis='user_edited_not_physically_reviewed',
@@ -324,6 +338,7 @@ class MotionLibrary:
             rows=retained
             discarded_ids={row['id'] for row in discarded}
             for original in snapshot['rows']:
+                if original['id'] in discarded_ids:continue
                 key=(original['job_id'],original['generation_index'])
                 if key in protected:continue
                 row=copy.deepcopy(original)

@@ -185,6 +185,23 @@ class RecordedBridgeTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(rows[0]['execution_source']['review_id'], review_id)
             self.assertEqual(rows[0]['answers'], program)
 
+    async def test_editor_section_trial_does_not_become_whole_motion_training_evidence(self):
+        from experiments.freestyle.recordings import reviewed_training
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'evidence.sqlite';recorder=Recorder(path)
+            bridge=Bridge(FakeGateway(),FakeTransport(),recorder=recorder)
+            program=[{'name':'hold','arguments':{'seconds':0}},
+                     {'name':'move','arguments':{'joint':'front_right_carrier','angle_deg':20,'reference':'absolute','speed_pct':50}}]
+            try:
+                submitted=await bridge.submit('robot','manual example',True,program=program,
+                    source={'kind':'motion_library','example_id':'one'},start_index=1)
+                await bridge.result(submitted['job_id'])
+                await bridge.review('robot',submitted['job_id'],'success')
+                recorder.flush()
+                self.assertEqual(reviewed_training(path)['rows'],[])
+                self.assertEqual(bridge.jobs[submitted['job_id']]['state'],'completed_section',bridge.jobs[submitted['job_id']].get('error'))
+            finally:await bridge.close();recorder.close()
+
     async def test_reviews_preserve_failures_and_only_export_executed_success(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)/'evidence.sqlite'

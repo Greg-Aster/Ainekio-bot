@@ -15,20 +15,18 @@ from .prepare_wire import build
 
 
 class CompactWireTests(unittest.TestCase):
-    def test_curve_recovery_preserves_full_curve_and_actual_player_progress(self):
-        encoding=ProgramEncoding([*TOOLS,face_tool()])
-        action={'name':'trajectory','arguments':{'joints':[JOINTS[0]],
-            'tracks':[[[0,10,0],[1,20,0],[2,10,0]]],'checkpoints_s':[1],
-            'holds_s':[],'expected_up':[],'speed_pct':50,'taper_deg':0}}
+    def test_tapered_target_recovery_preserves_compact_action_and_actual_player_progress(self):
+        encoding=ProgramEncoding(TOOLS)
+        action={'name':'move','arguments':{'joint':JOINTS[0],'angle_deg':20,'reference':'current','speed_pct':50,'taper_deg':5}}
         progress={'source_us':1250000,'checkpoint':2,'waiting':False,'sequence':27,'sampled_us':2000000}
         q={'request':'finish the bow','event':{'type':'servo_stall','joints':[0]},
            'observation':{'joints':{},'features':['motion_curves_v1'],'trajectory_progress':progress},
            'history':[{'program_state':'executing','interrupted_action':action,'remaining_program':[]}]}
         result=model_query(q,encoding)
         self.assertEqual(result['observation']['trajectory_progress'],progress)
-        self.assertEqual(result['observation']['features'],['motion_curves_v1'])
         self.assertEqual(encoding.decode([result['history'][0]['interrupted_action']]),[action])
         self.assertEqual(result['history'][0]['remaining_program'],[])
+        self.assertNotIn('trajectory',encoding.tools)
 
     def test_recovery_projection_preserves_current_measurements_and_correlated_receipts(self):
         from .observations import enrich
@@ -49,7 +47,7 @@ class CompactWireTests(unittest.TestCase):
     def test_feedback_fault_keeps_calibrated_domain_and_interrupted_goal(self):
         encoding=ProgramEncoding([*TOOLS,face_tool()])
         action={'name':'feet','arguments':{'legs':['front_right'],
-            'offsets_mm':[[0,0,30]],'speed_pct':50}}
+            'offsets_mm':[[0,0,30]],'speed_pct':50,'taper_deg':0}}
         query={'request':'stretch then stand','event':{'type':'servo_feedback_fault',
             'joints':[{'id':10,'reasons':['below_calibration']}],'outputs_released':False},
             'observation':{'joints':{JOINTS[10]:{'model_deg':-39.57,
@@ -67,10 +65,10 @@ class CompactWireTests(unittest.TestCase):
 
     def test_recovery_keeps_goal_and_unfinished_complex_plan_without_copied_logs(self):
         encoding=ProgramEncoding([*TOOLS,face_tool()])
-        move={'name':'move','arguments':{'joint':JOINTS[6],'angle_deg':-60,'reference':'absolute','speed_pct':20}}
-        wave={'name':'oscillate','arguments':{'joint':JOINTS[6],'amplitude_deg':4,'cycles':3,'speed_pct':15}}
+        move={'name':'move','arguments':{'joint':JOINTS[6],'angle_deg':-60,'reference':'absolute','speed_pct':20,'taper_deg':0}}
+        wave={'name':'oscillate','arguments':{'joint':JOINTS[6],'amplitude_deg':4,'cycles':3,'speed_pct':15,'taper_deg':0}}
         finish={'name':'pose','arguments':{'joints':list(JOINTS),
-            'angles_deg':[0,3.46,-21.63]*4,'reference':'absolute','speed_pct':50}}
+            'angles_deg':[0,3.46,-21.63]*4,'reference':'absolute','speed_pct':50,'taper_deg':0}}
         query={'request':'Wave then stand','event':{'type':'servo_stall','joints':[6],
                'outputs_released':False,'event_id':'diagnostic','thresholds':{'unused':10}},
                'observation':{'joints':{JOINTS[6]:{'model_deg':-50.,'commanded_model_deg':-60.,
@@ -100,7 +98,7 @@ class CompactWireTests(unittest.TestCase):
             (source/'manifest.json').write_text('{}')
             faces=tools[-1]['parameters']['properties']['expr']['enum']
             move={'name':'move','arguments':{'joint':JOINTS[0],'angle_deg':12.123456,
-                                           'reference':'current','speed_pct':50}}
+                                           'reference':'current','speed_pct':50,'taper_deg':0}}
             rows=[{'id':str(i),'query':json.dumps({'request':'Move the rear left shoulder.'}),
                    'answers':[copy.deepcopy(move)],'family':'move'} for i in range(2*len(faces))]
             existing={'id':'expressive','query':json.dumps({'request':'Greet me.'}),
@@ -132,7 +130,7 @@ class CompactWireTests(unittest.TestCase):
                 def __enter__(self):return self
                 def __exit__(self,*args):pass
                 def read(self):return json.dumps({'choices':[{'finish_reason':'stop','message':{
-                    'content':'[["face","happy"],["move",0,12.5,"current",50]]'}}]}).encode()
+                    'content':'[["face","happy"],["move",0,12.5,"current",50,0]]'}}]}).encode()
             def response(req):
                 captured.update(json.loads(req.data))
                 return Reply()
@@ -142,7 +140,7 @@ class CompactWireTests(unittest.TestCase):
             state=json.loads(captured['messages'][0]['content'])['observation']
             self.assertEqual(state['joints']['model_deg'],[3.5])
             self.assertEqual(result['program'][1],{'name':'move','arguments':{
-                'joint':JOINTS[0],'angle_deg':12.5,'reference':'current','speed_pct':50}})
+                'joint':JOINTS[0],'angle_deg':12.5,'reference':'current','speed_pct':50,'taper_deg':0}})
             self.assertNotIn('max_tokens',captured)
 
     def test_program_roundtrip_keeps_generated_targets_timing_and_face_changes(self):
@@ -150,8 +148,8 @@ class CompactWireTests(unittest.TestCase):
         program = [
             {'name':'face','arguments':{'expr':'wave'}},
             {'name':'pose','arguments':{'joints':[JOINTS[0],JOINTS[11]],'angles_deg':[-3.14159265,42.1234567],
-                                       'reference':'current','speed_pct':72}},
-            {'name':'feet','arguments':{'legs':['front_left','rear_right'],'offsets_mm':[[1,2,3],[-1,-2,-3]],'speed_pct':32.7}},
+                                       'reference':'current','speed_pct':72,'taper_deg':0}},
+            {'name':'feet','arguments':{'legs':['front_left','rear_right'],'offsets_mm':[[1,2,3],[-1,-2,-3]],'speed_pct':32.7,'taper_deg':0}},
             {'name':'hold','arguments':{'seconds':2.45}},
             {'name':'face','arguments':{'expr':'happy'}}]
         original = copy.deepcopy(program)

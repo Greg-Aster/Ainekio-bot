@@ -181,6 +181,7 @@ class CalibrationOwnerTests(unittest.IsolatedAsyncioTestCase):
         callbacks = []
         gateway = SimpleNamespace(instance_id='gateway', subscribe_frames=callbacks.append,
             unsubscribe_frames=callbacks.remove, _publish_event=AsyncMock(), clock=lambda: 10.,
+            configure_camera_attitude_history=lambda *args: None,
             status=lambda: {'robots': {'robot': {'epoch': 1, 'connection_state': 'online'}}})
         camera = CameraFramePlugin(gateway, None, max_frame_age_s=1.5)
         self.addAsyncCleanup(camera.aclose)

@@ -1,6 +1,7 @@
 #include "joint_calibration.h"
 #include "ainekio/v2_limits.h"
 #include "ainekio/v2_walk.h"
+#include "ainekio/v2_learning.h"
 
 #include <assert.h>
 #include <math.h>
@@ -304,8 +305,125 @@ static void test_installed_mechanical_travel(void)
     }
 }
 
+static bool recorded_frame_valid(const ainekio_v2_frame_t *frame,void *context)
+{ return ainekio_p4_joint_frame_in_travel(context,frame); }
+static bool recorded_frame_project(ainekio_v2_frame_t *frame,void *context)
+{ return ainekio_p4_joint_fit_frame(context,frame); }
+
+static void test_recorded_host_target_preserves_linkage_through_full_rate_ramp(void)
+{
+    /* Physical Walk2908, 20261104-141328-b9541835: last written sample615
+     * followed by accepted target616. The front-left intermediate joint chord
+     * cannot close even though its endpoints and PWM mapping are valid. */
+    const uint16_t home[12]={1760,2750,2870,1650,415,440,1650,2740,2750,1700,560,575};
+    const uint8_t invert[12]={0,1,1,1,0,0,1,1,1,0,0,0};
+    const uint16_t previous_us[12]={1887,2116,1587,1729,1449,1778,1734,1927,1799,1651,1059,1286};
+    const float desired[4][3]={
+        {-4.571684897F,14.378000498F,11.056041420F},
+        {19.888297319F,18.247160912F,-16.286560893F},
+        {26.945784688F,11.335481405F,-14.387429953F},
+        {22.631487250F,-5.139428973F,1.989708468F}};
+    ainekio_p4_joint_config_t mapping[12];ainekio_v2_frame_t initial,reference={0};
+    for(unsigned j=0;j<12;j++) {
+        mapping[j]=(ainekio_p4_joint_config_t){.channel=j,.invert=invert[j],.home_us=home[j],
+            .home_cd=j%3==0?0:j%3==1?-3087:-11768,.us_per_degree=11.11111068725586F};
+        reference.position[j]=(float[]){0,346,-2163}[j%3];
+    }
+    /* Physical imitation input row27, 20261105-075415-c2eafb4e, actor3000:
+     * a 0.163-degree carrier boundary error used to halve the entire stride.
+     * Nominal targets reuse calibrated Cartesian projection, while legacy
+     * residual corrections retain their original scalar-fit contract. */
+    const float boundary[4][3]={
+        {-19.919277F,-1.966776F,4.405593F},
+        {-45.183193F,-2.048863F,4.303583F},
+        {-.117400F,-2.034141F,3.718738F},
+        {-38.735844F,-1.963999F,6.155737F}};
+    ainekio_v2_frame_t residual,unbounded;
+    float residual_applied[4][3],residual_fit[4];
+    assert(ainekio_v2_feet_offset(&reference,boundary,&unbounded));
+    assert(!recorded_frame_valid(&unbounded,mapping));
+    assert(ainekio_v2_learning_offsets_apply(boundary,&reference,recorded_frame_valid,
+        mapping,&residual,residual_applied,residual_fit)==.5F);
+    assert(residual_fit[1]==.5F);
+    ainekio_v2_walk_pose_t projected;double projected_anchors[4][3];
+    float projected_applied[4][3],projected_fit[4],origin[4][3],feet[4][3];
+    assert(ainekio_v2_nominal_foot_pose(&reference,boundary,recorded_frame_valid,
+        recorded_frame_project,mapping,&projected,projected_anchors,projected_applied,projected_fit));
+    assert(recorded_frame_valid(&projected.frame,mapping));
+    assert(ainekio_v2_feet_forward(&reference,origin)==15);
+    assert(ainekio_v2_feet_forward(&projected.frame,feet)==15);
+    for(unsigned leg=0;leg<4;leg++) {
+        assert(projected_fit[leg]==1.F);
+        double error=0.;
+        for(unsigned axis=0;axis<3;axis++) {
+            double actual=feet[leg][axis]-origin[leg][axis];
+            assert(fabs(projected_applied[leg][axis]-actual)<.0001);
+            error+=pow(actual-boundary[leg][axis],2);
+            if(leg!=1)assert(fabs(actual-boundary[leg][axis])<.0001);
+        }
+        assert(sqrt(error)<.11); /* 0.098mm correction, not a 22.6mm lost stroke. */
+    }
+    assert(projected_applied[1][0]<-45.F);
+    /* Small steps across that calibrated endpoint remain small in foot space. */
+    float previous_foot[3]={0};
+    for(unsigned step=0;step<=20;step++) {
+        ainekio_v2_frame_t requested=projected.frame;
+        requested.position[4]+=-40.F+4.F*step;
+        float desired_nearby[4][3];assert(ainekio_v2_feet_forward(&requested,feet)==15);
+        for(unsigned leg=0;leg<4;leg++)for(unsigned axis=0;axis<3;axis++)
+            desired_nearby[leg][axis]=feet[leg][axis]-origin[leg][axis];
+        ainekio_v2_walk_pose_t resolved;
+        assert(ainekio_v2_nominal_foot_pose(&reference,(const float (*)[3])desired_nearby,
+            recorded_frame_valid,recorded_frame_project,mapping,&resolved,projected_anchors,
+            projected_applied,projected_fit));
+        assert(recorded_frame_valid(&resolved.frame,mapping));
+        for(unsigned axis=0;axis<3;axis++) {
+            if(step)assert(fabs(projected_applied[1][axis]-previous_foot[axis])<.1);
+            previous_foot[axis]=projected_applied[1][axis];
+        }
+    }
+    assert(ainekio_p4_joint_unmap_frame(mapping,previous_us,&initial));
+    ainekio_v2_walk_pose_t pose;double anchors[4][3];float applied[4][3],fit[4];
+    assert(ainekio_v2_nominal_foot_pose(&reference,desired,recorded_frame_valid,recorded_frame_project,mapping,&pose,anchors,applied,fit));
+    for(unsigned l=0;l<4;l++)assert(fit[l]==1.F);
+    assert(ainekio_v2_limits_frame(&initial)&&ainekio_v2_limits_frame(&pose.frame));
+    double remaining=0.;for(unsigned j=0;j<12;j++)remaining=fmax(remaining,fabs(pose.frame.position[j]-initial.position[j]));
+    ainekio_v2_frame_t chord=initial;
+    for(unsigned j=0;j<12;j++)chord.position[j]+=(float)(4000./remaining*(pose.frame.position[j]-initial.position[j]));
+    assert(!ainekio_v2_limits_frame(&chord));
+    uint16_t pulses[12];assert(ainekio_p4_joint_map_frame(mapping,&chord,pulses));
+    for(unsigned j=0;j<12;j++)assert(pulses[j]>=500&&pulses[j]<=2800);
+    const double speeds[]={60./.11,2000.},intervals[]={.01,.02,.025,.04};
+    for(unsigned speed=0;speed<2;speed++)for(unsigned interval=0;interval<4;interval++) {
+        ainekio_v2_frame_t from=initial;
+        bool arrived=false;
+        for(unsigned step=0;step<1000&&!arrived;step++) {
+            ainekio_v2_frame_t next;
+            assert(ainekio_p4_joint_ramp_frame(&from,pose.frame.position,speeds[speed]*100.,intervals[interval],&next));
+            assert(ainekio_v2_limits_frame(&next));
+            assert(ainekio_p4_joint_frame_in_travel(mapping,&next));
+            double travelled=0.;arrived=true;
+            for(unsigned j=0;j<12;j++) {
+                travelled=fmax(travelled,fabs(next.position[j]-from.position[j]));
+                if(next.position[j]!=pose.frame.position[j])arrived=false;
+            }
+            const double budget=speeds[speed]*100.*intervals[interval];
+            assert(travelled<=budget+.01);
+            if(!arrived)assert(fabs(travelled-budget)<.02); /* Uses the configured rate, no hidden multiplier. */
+            from=next;
+        }
+        assert(arrived);
+        /* A replacement target uses the current geometry immediately. */
+        ainekio_v2_frame_t reversed;
+        assert(ainekio_p4_joint_ramp_frame(&from,initial.position,speeds[speed]*100.,intervals[interval],&reversed));
+        assert(ainekio_v2_limits_frame(&reversed));
+        assert(ainekio_p4_joint_frame_in_travel(mapping,&reversed));
+    }
+}
+
 int main(void)
 {
+    test_recorded_host_target_preserves_linkage_through_full_rate_ramp();
     test_installed_mechanical_travel();
     test_installed_walk_mapping();
     test_recommended_mounting_home_matches_inversion();
