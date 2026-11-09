@@ -6,6 +6,7 @@ import http.client
 import importlib.util
 import json
 import math
+import os
 import re
 import struct
 import sys
@@ -122,6 +123,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
             path=password_store.path.with_name("dashboard-sessions.json"),
             password_revision=password_store.revision(),
         )
+        self.no_login = os.environ.get("AINEKIO_DASHBOARD_NO_LOGIN", "0") == "1"
         self.login_limiter = LoginRateLimiter()
         self.authentication_lock = threading.RLock()
         self.stop_latched = False
@@ -1242,7 +1244,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _session(self) -> DashboardSession | None:
         with self.server.authentication_lock:
-            return self.server.sessions.get(self._session_token())
+            session = self.server.sessions.get(self._session_token())
+            if session is None and getattr(self.server, "no_login", False):
+                token, session = self.server.sessions.create()
+                self._auto_session_token = token
+            return session
 
     def _require_session(self) -> DashboardSession | None:
         session = self._session()
@@ -1326,6 +1332,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
     def _security_headers(self) -> None:
+        auto_token = getattr(self, "_auto_session_token", None)
+        if auto_token:
+            self._auto_session_token = None
+            self.send_header(
+                "Set-Cookie",
+                f"{SESSION_COOKIE}={auto_token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_TTL_SECONDS}",
+            )
         self.send_header("Cache-Control", "no-store")
         self.send_header(
             "Content-Security-Policy",

@@ -136,10 +136,24 @@ class RobotHotspot:
             )
         except OSError as exc:
             raise GatewayError(f"Could not {action} the robot hotspot: {exc}") from exc
-        _, error = await process.communicate()
+        _, error_bytes = await process.communicate()
         if process.returncode:
-            detail = error.decode(errors="replace").strip()
-            raise GatewayError(f"Could not {action} the robot hotspot: {detail or ', '.join(units)}")
+            detail = error_bytes.decode(errors="replace").strip()
+            if TARGET in detail:
+                fallback_units = UNITS if enabled else tuple(reversed(UNITS))
+                try:
+                    process = await asyncio.create_subprocess_exec(
+                        "systemctl", "--no-ask-password", action, *fallback_units,
+                        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                    )
+                except OSError as exc:
+                    raise GatewayError(f"Could not {action} the robot hotspot: {exc}") from exc
+                _, error_bytes = await process.communicate()
+                if process.returncode:
+                    detail = error_bytes.decode(errors="replace").strip()
+                    raise GatewayError(f"Could not {action} the robot hotspot: {detail or ', '.join(fallback_units)}")
+            else:
+                raise GatewayError(f"Could not {action} the robot hotspot: {detail or ', '.join(units)}")
         with self._network_lock:
             self._network_cache_until = 0
         if enabled:
