@@ -201,6 +201,8 @@ class Estimator:
         self.torch = torch
         self.states = {}
         self.optics = {}
+        self.frames = {}
+        self.contacts = {}
 
     def depth(self, rgb, level, intrinsics):
         """Use the installed network and geometry solver, with fixed optics.
@@ -315,6 +317,31 @@ class Estimator:
             state["motion_sample"] = None
             state["path_m"], state["heading_rad"] = 0., 0.
         frame_id = f"ainekio-camera-{request['instance']}-{robot}-{request['epoch']}-{request['counter']}"
+        frames = self.__dict__.setdefault("frames", {})
+        contacts = self.__dict__.setdefault("contacts", {})
+        gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+        identity = dict(
+            robotId=robot, epoch=request["epoch"], gatewayInstance=request["instance"],
+            frameCounter=request["counter"], frameId=frame_id,
+            frameTimestamp=request["timestamp"], observedAt=request["timestamp"],
+            receivedAtMonotonic=request["received"], clock="gateway-receipt",
+            referenceId=state["reference"], calibrationId="estimated-"+state["calibration_id"])
+        previous_frame = frames.get(robot)
+        if previous_frame is not None:
+            old_gray, _, _, _, old_identity = previous_frame
+            for contact in contacts.values():
+                if contact["robotId"] != robot or not contact.get("available"):
+                    continue
+                if contact["currentFrameId"] != old_identity["frameId"] or old_identity["epoch"] != request["epoch"] or old_gray.shape != gray.shape:
+                    contact.update(available=False, reason="Ground contact frame continuity lost")
+                    continue
+                pixel = np.array(contact["pixel"], np.float32).reshape(1, 1, 2)
+                tracked, valid, _ = cv2.calcOpticalFlowPyrLK(old_gray, gray, pixel, None)
+                if tracked is None or valid is None or not valid[0, 0]:
+                    contact.update(available=False, reason="Selected ground contact optical tracking lost")
+                else:
+                    contact.update(pixel=tracked.reshape(2).tolist(), currentFrameId=frame_id)
+        frames[robot] = (gray, depth, state["intrinsics"].copy(), config.get("cameraToBody"), identity)
         good = depth[depth > 0]
         lo, hi = np.quantile(good, [.02, .98])
         normalized = np.clip((depth-lo)/max(float(hi-lo), np.finfo(float).eps), 0, 1)
@@ -356,6 +383,104 @@ class Estimator:
             depthPreview="data:image/png;base64,"+base64.b64encode(png).decode(),
             inferenceMs=(time.perf_counter()-started)*1000)
 
+    def _range_current(self, frame_id, point):
+        frames = self.__dict__.setdefault("frames", {})
+        for robot, (gray, depth, intrinsics, camera_to_body, identity) in frames.items():
+            if identity["frameId"] != frame_id:
+                continue
+            xy = np.asarray([point.get("x"), point.get("y")], dtype=float)
+            if xy.shape != (2,) or not np.isfinite(xy).all() or np.any(xy < 0) or np.any(xy > 1):
+                raise ValueError("groundContact must be normalized")
+            h, w = depth.shape
+            px, py = float(xy[0] * w), float(xy[1] * h)
+            ix = min(max(int(round(px)), 0), w - 1)
+            iy = min(max(int(round(py)), 0), h - 1)
+            z = float(depth[iy, ix])
+            if not math.isfinite(z) or z <= 0:
+                return {"available": False, "reason": "Selected contact has no valid depth sample"}
+            ray = np.linalg.inv(intrinsics) @ np.array([px, py, 1.0])
+            body_from_camera = (OPTICAL_TO_FORWARD if camera_to_body is None
+                                else np.asarray(camera_to_body, dtype=float))
+            body = body_from_camera @ np.r_[ray * z, 1.0]
+            return {
+                **identity, "available": True,
+                "source": "selected-ground-contact-moge2-depth",
+                "scaleSource": "learned-metric-estimate",
+                "metricAccuracyVerified": False,
+                "coordinateOrigin": "body" if camera_to_body is not None else "camera",
+                "groundContact": point, "point": point,
+                "horizontalOffset": float(0.5 - xy[0]),
+                "rangeMetres": float(np.linalg.norm(body[:2])),
+                "uncertaintyMetres": None,
+            }
+        return {"available": False, "reason": "Selected contact source frame is no longer retained"}
+
+    def range(self, request):
+        import cv2
+        frames = self.__dict__.setdefault("frames", {})
+        contacts = self.__dict__.setdefault("contacts", {})
+        frame_id = request.get("frameId")
+        point = request.get("point") or {}
+        source_frame = request.get("sourceFrame")
+        gateway_instance = request.get("instance")
+        xy = np.asarray([point.get("x"), point.get("y")], dtype=float)
+        if xy.shape != (2,) or not np.isfinite(xy).all() or np.any(xy < 0) or np.any(xy > 1):
+            raise ValueError("groundContact must be normalized")
+        if source_frame is not None and source_frame.get("frameId") != frame_id:
+            raise ValueError("Retained source identity differs from selected frame")
+        key = (frame_id, float(xy[0]), float(xy[1]))
+        if key not in contacts:
+            for robot, (gray, _, _, _, identity) in frames.items():
+                if identity["frameId"] == frame_id:
+                    if source_frame is not None and (
+                            source_frame.get("robotId") != robot or
+                            source_frame.get("epoch") != identity["epoch"] or
+                            (gateway_instance is not None and source_frame.get("gatewayInstance") != gateway_instance)):
+                        return {"available": False, "reason": "Retained source identity differs from current body camera"}
+                    contacts[key] = {
+                        "robotId": robot, "available": True, "currentFrameId": frame_id,
+                        "referenceFrameTimestamp": source_frame.get("frameTimestamp") if source_frame else identity.get("frameTimestamp"),
+                        "pixel": (xy * [gray.shape[1], gray.shape[0]]).tolist(),
+                    }
+                    break
+        if key not in contacts and source_frame is not None:
+            robot = source_frame.get("robotId")
+            current = frames.get(robot)
+            if current is not None:
+                gray, _, _, _, identity = current
+                if source_frame.get("epoch") != identity["epoch"] or (
+                        gateway_instance is not None and source_frame.get("gatewayInstance") != gateway_instance):
+                    return {"available": False, "reason": "Selected source belongs to a different body epoch"}
+                jpeg = base64.b64decode(source_frame["jpeg"], validate=True)
+                old_gray = cv2.imdecode(np.frombuffer(jpeg, np.uint8), cv2.IMREAD_GRAYSCALE)
+                if old_gray is None or old_gray.shape != gray.shape:
+                    return {"available": False, "reason": "Selected source image geometry unavailable or changed"}
+                source_pixel = (xy * [gray.shape[1], gray.shape[0]]).astype(np.float32).reshape(1, 1, 2)
+                tracked, valid, _ = cv2.calcOpticalFlowPyrLK(old_gray, gray, source_pixel, None)
+                if tracked is None or valid is None or not valid[0, 0]:
+                    return {"available": False, "reason": "Selected source-to-current optical correspondence lost"}
+                contacts[key] = {
+                    "robotId": robot, "available": True,
+                    "currentFrameId": identity["frameId"], "pixel": tracked.reshape(2).tolist(),
+                    "referenceFrameTimestamp": source_frame.get("frameTimestamp"),
+                }
+        contact = contacts.get(key)
+        if not contact:
+            return {"available": False, "reason": "Exact ground-contact source frame is not retained"}
+        if not contact["available"]:
+            return {**contact, "referenceFrameId": frame_id, "referencePoint": point}
+        gray, _, _, _, _ = frames[contact["robotId"]]
+        current = np.array(contact["pixel"]) / [gray.shape[1], gray.shape[0]]
+        if np.any(current < 0) or np.any(current > 1):
+            contact.update(available=False, reason="Selected ground contact left the image")
+            return {**contact, "referenceFrameId": frame_id, "referencePoint": point}
+        result = self._range_current(contact["currentFrameId"], {"x": float(current[0]), "y": float(current[1])})
+        return {
+            **result, "referenceFrameId": frame_id, "referencePoint": point,
+            "referenceFrameTimestamp": contact.get("referenceFrameTimestamp"),
+            "contactSource": "explicit-selected-ground-contact", "trackingSource": "optical-flow",
+        }
+
 
 def main():
     estimator = None
@@ -366,8 +491,16 @@ def main():
                 request = json.loads(line)
                 if "reset" in request:
                     if estimator is not None:
-                        estimator.states.pop(request["reset"], None)
+                        robot = request["reset"]
+                        estimator.states.pop(robot, None)
+                        estimator.frames.pop(robot, None)
+                        estimator.contacts = {k: v for k, v in estimator.contacts.items() if v.get("robotId") != robot}
                     result = {"reset": True}
+                elif "range" in request:
+                    if estimator is None:
+                        result = {"available": False, "reason": "Depth worker has no retained camera frame"}
+                    else:
+                        result = estimator.range(request["range"])
                 else:
                     if estimator is None:
                         estimator = Estimator()

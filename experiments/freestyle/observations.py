@@ -61,6 +61,7 @@ def enrich(value):
         if length:
             w,x,y,z=[n/length for n in quaternion]
             result['derived_orientation']={
+                **(result['derived_orientation'] if isinstance(result.get('derived_orientation'),dict) else {}),
                 'roll_degrees':math.degrees(math.atan2(2*(w*x+y*z),1-2*(x*x+y*y))),
                 'pitch_degrees':math.degrees(math.asin(max(-1,min(1,2*(w*y-z*x))))),
                 'tilt_degrees':math.degrees(math.acos(max(-1,min(1,1-2*(x*x+y*y))))) }

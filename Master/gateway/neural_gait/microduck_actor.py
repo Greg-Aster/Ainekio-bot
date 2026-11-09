@@ -2,8 +2,7 @@
 import os
 import numpy as np
 
-from .contract import (DEPTH_SCHEMA, OBSERVATION_SIZE, PROPRIO_SCHEMAS,
-                       PROPRIO_CAMERA_SCHEMA, PROPRIO_SIZE, observation_size)
+from .contract import DEPTH_SCHEMA, OBSERVATION_SIZE, PROPRIO_SCHEMA, observation_size
 
 SENSOR_GROUPS = {
     "joint_feedback": [(0, 24)],
@@ -25,7 +24,7 @@ class MicroduckActor:
         self.output = self.session.get_outputs()[0]
         metadata = self.session.get_modelmeta().custom_metadata_map
         self.schema = metadata.get("ainekio_schema")
-        if (self.schema not in (DEPTH_SCHEMA, *PROPRIO_SCHEMAS)
+        if (self.schema not in (DEPTH_SCHEMA, PROPRIO_SCHEMA)
                 or self.input.shape != [1, observation_size(self.schema)] or self.output.shape != [1, 12]
                 or metadata.get("ainekio_action") != "normalized-foot-offsets-v1"):
             raise ValueError("MicroDuck export does not match Ainekio's sensor/foot-action contract")
@@ -51,10 +50,8 @@ def sensor_influence(actor, observations):
     baseline, _ = actor.predict(observations)
     result = {}
     groups = SENSOR_GROUPS
-    if actor.schema in PROPRIO_SCHEMAS:
+    if actor.schema == PROPRIO_SCHEMA:
         groups = {"joint_feedback": [(0,24)], "imu": [(24,33)]}
-        if actor.schema == PROPRIO_CAMERA_SCHEMA:
-            groups["camera"] = [(PROPRIO_SIZE, PROPRIO_SIZE+64)]
     for name, ranges in groups.items():
         differences = []
         for start, stop in ranges:

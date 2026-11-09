@@ -248,7 +248,7 @@ def command_limits(robot):
     limits=[]
     profile=json.loads((GEOMETRY.parent / "servo_profile.json").read_text())
     for j in sorted(robot["calibration"],key=lambda j:j["id"]):
-        pulses=profile["pulse_range_us"] if j["id"]%3==0 else [500,2800]
+        pulses=profile["pulse_range_us"]
         limits.append(sorted(j["home_cd"]/100+(-1 if j["invert"] else 1)*(p-j["home_us"])/j["us_per_degree"] for p in pulses))
     return limits
 

@@ -43,7 +43,7 @@ class Kinematics:
         self.pulse_home = jnp.array([row['home_us'] for row in mapping], jnp.float32).reshape(4,3)
         self.pulse_scale = jnp.array([(-1 if row['invert'] else 1)*row['us_per_degree']
                                      for row in mapping], jnp.float32).reshape(4,3)
-        endpoints = (jnp.array([500.,2800.])[:,None,None]-self.pulse_home)*100/self.pulse_scale+self.home
+        endpoints = (jnp.array([300.,2950.])[:,None,None]-self.pulse_home)*100/self.pulse_scale+self.home
         self.low = jnp.min(endpoints, axis=0).at[:,0].set(-jnp.inf)
         self.high = jnp.max(endpoints, axis=0).at[:,0].set(jnp.inf)
         self.reference = jnp.asarray(reference_deg, jnp.float32).reshape(4,3)*100
@@ -118,7 +118,7 @@ class Kinematics:
 
     def valid(self, q, home, pulse_home, pulse_scale):
         pulse = self.pulse(q,home,pulse_home,pulse_scale)
-        return jnp.all(jnp.isfinite(q)) & jnp.all((pulse>=1)&(pulse<=65535)) & jnp.all((pulse[1:]>=500)&(pulse[1:]<=2800))
+        return jnp.all(jnp.isfinite(q)) & jnp.all((pulse>=1)&(pulse<=65535)) & jnp.all((pulse[1:]>=300)&(pulse[1:]<=2950))
 
     def bounded(self, q, low, high, leg):
         target, target_valid = self.point(q,leg)

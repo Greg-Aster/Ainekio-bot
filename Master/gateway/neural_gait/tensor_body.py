@@ -36,8 +36,8 @@ class TensorBody:
         self.home=tensor([m["home_cd"]/100 for m in mapping]).reshape(4,3)
         self.pulse_home=tensor([m["home_us"] for m in mapping]).reshape(4,3)
         self.pulse_scale=tensor([(-1 if m["invert"] else 1)*m["us_per_degree"] for m in mapping]).reshape(4,3)
-        a=self.home+(500-self.pulse_home)/self.pulse_scale
-        b=self.home+(2800-self.pulse_home)/self.pulse_scale
+        a=self.home+(300-self.pulse_home)/self.pulse_scale
+        b=self.home+(2950-self.pulse_home)/self.pulse_scale
         self.low=torch.minimum(a,b)*math.pi/180
         self.high=torch.maximum(a,b)*math.pi/180
         self.low[:,0]=-torch.inf;self.high[:,0]=torch.inf
@@ -175,7 +175,7 @@ class TensorBody:
         valid=valid&torch.where(in_bounds,True,projected_ok)
         pulse=self.pulse_home+(torch.rad2deg(q)-self.home)*self.pulse_scale
         pulse=torch.floor(pulse+.5)
-        valid=valid&((pulse[...,1:]>=500)&(pulse[...,1:]<=2800)).all(-1)
+        valid=valid&((pulse[...,1:]>=300)&(pulse[...,1:]<=2950)).all(-1)
         valid=valid&((pulse>=1)&(pulse<=65535)).all(-1)
         index=valid.to(torch.int64).argmax(1)
         selected=torch.gather(q,1,index[:,None,:,None].expand(-1,1,4,3)).squeeze(1)

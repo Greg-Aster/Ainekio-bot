@@ -6,20 +6,16 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from gateway.neural_gait.contract import PROPRIO_CAMERA_SCHEMA, JOINTS, observation_size
+from gateway.neural_gait.contract import PROPRIO_SCHEMA, JOINTS, observation_size
 from Emulator.tests.test_neural_gait_sensors import robot_fixture
 
 
 def config_fixture():
     from gateway.neural_gait.environment import EnvironmentConfig
     return EnvironmentConfig(robot=robot_fixture(), target_limits_deg=[[-80.,80.]]*12,
-        foot_action_scale_mm=[30.,20.,30.], observation_schema=PROPRIO_CAMERA_SCHEMA,
+        foot_action_scale_mm=[30.,20.,30.], observation_schema=PROPRIO_SCHEMA,
         episode_seconds=40., command=[.08,.04,1.], imu_prehistory_s=4.,
-        control_hz=50, physics_hz=500,
-        depth_camera=dict(imageSize=[8,8], cameraMatrix=[[8,0,4],[0,8,4],[0,0,1]],
-            cameraToBody=[[0,0,1,0],[-1,0,0,0],[0,-1,0,0],[0,0,0,1]],
-            capture_hz=10., latency_s=.02, dropout_probability=0., noise_std_m=0.,
-            provenance={"basis":"Synthetic optical test fixture; not installed calibration"}))
+        control_hz=50, physics_hz=500)
 
 
 @unittest.skipUnless(importlib.util.find_spec("onnxruntime") and importlib.util.find_spec("rsl_rl"),
@@ -31,7 +27,7 @@ class MicroduckActorTests(unittest.TestCase):
         import torch
         from tensordict import TensorDict
         from rsl_rl.models import MLPModel
-        size = observation_size(PROPRIO_CAMERA_SCHEMA)
+        size = observation_size(PROPRIO_SCHEMA)
         torch.manual_seed(17)
         values = torch.randn(16,size)
         policy = MLPModel(TensorDict({"actor":values},batch_size=[16]),
@@ -46,7 +42,7 @@ class MicroduckActorTests(unittest.TestCase):
                           input_names=export.input_names,output_names=export.output_names,
                           dynamo=False)
         model=onnx.load(str(path))
-        onnx.helper.set_model_props(model, {"ainekio_schema":PROPRIO_CAMERA_SCHEMA,
+        onnx.helper.set_model_props(model, {"ainekio_schema":PROPRIO_SCHEMA,
             "ainekio_action":"normalized-foot-offsets-v1"})
         onnx.save(model,str(path))
         return policy, values[:2].numpy()
@@ -109,7 +105,7 @@ class MicroduckActorTests(unittest.TestCase):
             self.export(run/"policy.onnx")
             config=config_fixture()
             save_json(run/"manifest.json",dict(kind="microduck-mjlab",algorithm="PPO",
-                environment=asdict(config),schema=PROPRIO_CAMERA_SCHEMA,policy="policy.onnx",
+                environment=asdict(config),schema=PROPRIO_SCHEMA,policy="policy.onnx",
                 representation=representation_identity(),environment_version=ENVIRONMENT_VERSION))
             runtime=Runtime(root)
             runtime.load("abcd")
@@ -120,7 +116,7 @@ class MicroduckActorTests(unittest.TestCase):
                 result=runtime.infer(env.observation())
                 self.assertEqual(result["execution"],"preview_only")
                 self.assertEqual(len(result["action"]),12)
-                self.assertEqual(result["schema"],PROPRIO_CAMERA_SCHEMA)
+                self.assertEqual(result["schema"],PROPRIO_SCHEMA)
             finally:
                 env.close()
 
@@ -208,28 +204,6 @@ class MicroduckTaskTests(unittest.TestCase):
             self.assertEqual(progress['state'],'error')
             self.assertEqual(progress['steps'],73728)
 
-    def test_camera_expansion_preserves_learned_proprioceptive_actor(self):
-        import torch
-        from types import SimpleNamespace
-        from tensordict import TensorDict
-        from rsl_rl.models import MLPModel
-        from gateway.neural_gait.contract import PROPRIO_SIZE, SPATIAL_FEATURES
-        from gateway.neural_gait.microduck import initialize_camera
-        def model(size,output):
-            return MLPModel(TensorDict({'actor':torch.zeros(2,size)},batch_size=[2]),
-                            {'actor':['actor']},'actor',output,hidden_dims=(16,),obs_normalization=True)
-        old_actor=model(PROPRIO_SIZE,12);old_critic=model(PROPRIO_SIZE+3,1)
-        actor=model(PROPRIO_SIZE+SPATIAL_FEATURES,12);critic=model(PROPRIO_SIZE+SPATIAL_FEATURES+3,1)
-        with tempfile.TemporaryDirectory() as directory:
-            torch.save(dict(actor_state_dict=old_actor.state_dict(),critic_state_dict=old_critic.state_dict()),
-                       Path(directory)/'learner.pt')
-            initialize_camera(SimpleNamespace(alg=SimpleNamespace(actor=actor,critic=critic)),directory,'cpu')
-        inputs=torch.randn(2,PROPRIO_SIZE)
-        added=torch.randn(2,SPATIAL_FEATURES)
-        actual=actor(TensorDict({'actor':torch.cat((inputs,added),-1)},batch_size=[2]))
-        expected=old_actor(TensorDict({'actor':inputs},batch_size=[2]))
-        torch.testing.assert_close(actual,expected)
-
     def test_actual_upstream_factory_is_adapted_to_closed_chain_quadruped(self):
         import mujoco
         from gateway.neural_gait.microduck import make_config, sensor_observations, MG90SActuatorCfg
@@ -255,8 +229,60 @@ class MicroduckTaskTests(unittest.TestCase):
         self.assertIn('nan_state',cfg.terminations)
         self.assertEqual(cfg.rewards['foot_clearance'].weight,-.2)
         self.assertNotIn('air_time',cfg.rewards)
+        self.assertIs(cfg.rewards['alternating_stride'].func,microduck_mdp.alternating_stride)
+        self.assertIs(cfg.terminations['body_collapsed'].func,microduck_mdp.body_collapsed)
         self.assertIs(cfg.events['push_robot'].func,microduck_mdp.push_robot)
         self.assertIs(cfg.curriculum['walking_difficulty'].func,microduck_mdp.WalkingDifficulty)
+
+    def test_pupper_anti_hop_diagonal_stride_and_scoot_prevention(self):
+        import torch
+        from types import SimpleNamespace
+        from gateway.neural_gait import microduck_mdp as mdp
+        command=torch.tensor([[.15,0.,0.]]).expand(3,-1)
+        curriculum=SimpleNamespace(widths=torch.tensor([.1,.1,.5]),
+                                   score_sum=torch.zeros(3),score_count=torch.zeros(3),elapsed=torch.zeros(3))
+        # Row 0: diagonal trot stance (RL=1, RR=0, FL=0, FR=1), upright
+        # Row 1: front-leg hop (RL=1, RR=1, FL=0, FR=0), upright
+        # Row 2: rear pelvis pitched down/scooting (up_b_x = +0.55, up_b_z = +0.835)
+        found=torch.tensor([[1.,0.,0.,1.],[1.,1.,0.,0.],[1.,1.,1.,1.]])
+        grav=torch.tensor([[0.,0.,-1.],[0.,0.,-1.],[-.55,0.,-.835]])
+        robot=SimpleNamespace(root_link_lin_vel_b=torch.zeros(3,3),
+            root_link_ang_vel_b=torch.zeros(3,3),projected_gravity_b=grav)
+        env=SimpleNamespace(scene={'robot':SimpleNamespace(data=robot),
+            'feet_ground_contact':SimpleNamespace(data=SimpleNamespace(found=found))},
+            command_manager=SimpleNamespace(get_command=lambda name:command),
+            curriculum_manager=SimpleNamespace(get_term_cfg=lambda name:SimpleNamespace(func=curriculum)),
+            extras={'log':{}})
+        stride=mdp.alternating_stride(env)
+        self.assertGreater(float(stride[0]),0.)
+        self.assertLess(float(stride[1]),0.)
+        collapsed=mdp.body_collapsed(env)
+        self.assertEqual(collapsed.tolist(),[False,False,True])
+        upright=mdp.upright_cost(env)
+        self.assertGreater(float(upright[2]),float(upright[0])+0.5)
+        # Lifting one front and one rear swing foot by 25 mm while stance feet stay grounded must NOT trigger body_collapsed,
+        # whereas retracting both rear legs (+20 mm, +22 mm) while extending FR (-12 mm) MUST trigger body_collapsed.
+        foot_b_mm=torch.tensor([
+            [[0.,0.,0.],[0.,0.,25.],[0.,0.,25.],[0.,0.,0.]],
+            [[0.,0.,20.1],[0.,0.,22.4],[0.,0.,12.9],[0.,0.,-11.6]],
+            [[0.,0.,0.],[0.,0.,25.],[0.,0.,25.],[0.,0.,0.]],
+        ])
+        body_mock=SimpleNamespace(O=torch.zeros(2),origin=torch.zeros(4,3),
+                                  forward=lambda q:(foot_b_mm,torch.ones(3,4,dtype=torch.bool)),
+                                  q0=torch.zeros(4,3))
+        feet_mock=SimpleNamespace(body=body_mock,sensors=SimpleNamespace(joint=torch.zeros(3,12),joint_velocity=torch.zeros(3,12)),
+                                  mean_dq=torch.zeros(3,12),mean_foot_pos_m=torch.zeros(3,4,3),foot_home_pos_m=torch.zeros(4,3),
+                                  mean_amp_q=torch.tensor([[0.25,0.25,0.25,0.25],[0.40,0.05,0.40,0.05],[0.40,0.05,0.40,0.05]]),
+                                  mean_amp_z_m=torch.tensor([[0.015,0.015,0.015,0.015],[0.025,0.002,0.025,0.002],[0.025,0.002,0.025,0.002]]))
+        env.action_manager=SimpleNamespace(get_term=lambda name:feet_mock)
+        self.assertEqual(mdp.body_collapsed(env).tolist(),[False,True,True])
+        curriculum.difficulty=torch.tensor([0.,0.,0.5])
+        found[:]=torch.tensor([[1.,0.,0.,1.]])
+        grav[:]=torch.tensor([[0.,0.,-1.]])
+        stride_sym=mdp.alternating_stride(env)
+        # Row 0 (flat, symmetric) beats Row 1 (flat, asymmetric); Row 2 (uneven terrain difficulty=0.5) disables symmetry penalty
+        self.assertGreater(float(stride_sym[0]),float(stride_sym[1])+0.3)
+        self.assertGreater(float(stride_sym[2]),float(stride_sym[1])+0.1)
 
     def test_tracking_rewards_progress_and_allows_early_foot_lift(self):
         import torch

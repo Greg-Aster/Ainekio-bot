@@ -73,6 +73,7 @@ class TensorSensors:
         interval=torch.as_tensor(dt,device=self.device)
         active=interval>0
         dt=interval.clamp_min(1e-9)
+        positions=torch.nan_to_num(positions,nan=0.,posinf=0.,neginf=0.)
         pulse=self.pulse_home+(torch.rad2deg(positions)-self.home)*self.scale
         raw=self.interpolate(pulse,self.curve_pulse,self.curve_raw)
         raw=torch.round(raw+torch.randn_like(raw)*self.config.feedback_noise_raw_std).clamp(0,4095)
@@ -97,6 +98,8 @@ class TensorSensors:
 
     def imu(self,accel,gyro,dt,ids=None):
         ids=slice(None) if ids is None else ids
+        accel=torch.nan_to_num(accel,nan=0.,posinf=0.,neginf=0.)
+        gyro=torch.nan_to_num(gyro,nan=0.,posinf=0.,neginf=0.)
         accel=accel+torch.randn_like(accel)*self.config.imu_accel_noise_std
         gyro=gyro+torch.randn_like(gyro)*self.config.imu_gyro_noise_std
         accel=torch.round(accel/(.000488*9.80665)).clamp(-32768,32767)*(.000488*9.80665)

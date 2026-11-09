@@ -7,7 +7,7 @@ const test = require('node:test');
 const base = path.join(__dirname, '../../Master/gateway/dashboard/static');
 const html = fs.readFileSync(path.join(base, 'dashboard.html'), 'utf8');
 
-function fixture(saved = new Map(), compact = false) {
+function fixture(saved = new Map(), compact = false, pathname = '/') {
   const nodes = new Map();
   let activeElement = null;
   function node(id) {
@@ -37,7 +37,7 @@ function fixture(saved = new Map(), compact = false) {
   node('tool-workspace').querySelectorAll=()=>panels;
   const media={matches:compact, addEventListener(type,fn){this.change=fn;}};
   const context={console,navigator:{},document:{getElementById:node,body:node('body'),querySelectorAll(){return [];}},
-    window:{matchMedia(){return media;},addEventListener(){}},
+    window:{location:{pathname},matchMedia(){return media;},addEventListener(){}},
     localStorage:{getItem(key){return saved.get(key)??null;},setItem(key,value){saved.set(key,value);}},
     fetch(){throw new Error('Navigation must not send robot commands');}};
   let source=fs.readFileSync(path.join(base,'dashboard.js'),'utf8');
@@ -104,4 +104,12 @@ test('navigation owns Space and arrow presses but preserves release of an alread
   sidebar.fire('keyup',{code:'Space',stopPropagation(){stopped=true;}});assert.equal(stopped,true);
   sidebar.fire('keydown',{code:'Escape',stopPropagation(){}});
   assert.equal(f.node('tool-sidebar').hidden,true);assert.equal(f.active(),f.node('tools-toggle'));
+});
+
+test('cockpit route opens the fast cockpit workspace directly',()=>{
+  const saved=new Map([['ainekio-workspace','overview']]);
+  const f=fixture(saved,false,'/cockpit');
+  assert.equal(f.node('nav-cockpit').attributes['aria-current'],'page');
+  assert.equal(f.node('cockpit-section').hidden,false);
+  assert.equal(f.node('cockpit-button').attributes['aria-pressed'],'true');
 });

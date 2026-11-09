@@ -27,6 +27,234 @@ def legacy_sources():
     return compiler,{clip['command']:clip for clip in compiler.load_gestures(ROOT)}
 
 
+def clamp_goal(goal, name):
+    """Keep compact stage targets within the nominal 500..2750 us operating margin."""
+    if name=='crouch':
+        return list(goal)
+    result=list(goal)
+    for leg in range(4):
+        sh,ca,cr=result[3*leg:3*leg+3]
+        result[3*leg:3*leg+3]=(max(-9850,min(8900,sh)),
+                               max(-2250,min(16600,ca)),
+                               max(-10650,min(7750,cr)))
+    return result
+
+
+def stage_goals(name, phase, rows, clip_source, previous):
+    """Unloaded foot-lift transitions and bounded posture stages per source phase."""
+    pname=phase['name']
+    begin,end=[round(t*120) for t in phase['source_interval_s']]
+    stand_row=[0,94,-2125]*4
+    if name in ('celebrate','cute','surprised','swim'):
+        wide=[-2280,2859,-2877]*4
+        lift=[-1305,-1400,-2400]
+        if pname=='lower_onto_belly':
+            g1=list(stand_row);g1[0:3]=lift;g1[9:12]=lift
+            g2=list(stand_row);g2[0:3]=wide[0:3];g2[9:12]=wide[9:12]
+            g3=list(g2);g3[3:6]=lift;g3[6:9]=lift
+            g4=list(wide)
+            return [g1,g2,g3,g4,clamp_goal(rows[end],name)]
+        if pname=='return_to_standing':
+            g1=list(wide)
+            g2=list(wide);g2[0:3]=lift;g2[9:12]=lift
+            g3=list(wide);g3[0:3]=stand_row[0:3];g3[9:12]=stand_row[9:12]
+            g4=list(g3);g4[3:6]=lift;g4[6:9]=lift
+            return [g1,g2,g3,g4,list(stand_row)]
+    if name in ('sit','wave','point','shrug','upright'):
+        lift_r=[0,-832,-199]
+        plant_r=[0,2324,715]
+        if pname in ('lower_into_sit','sit_down','squat_rear_legs','Sit upright','sit'):
+            g1=list(stand_row);g1[0:3]=lift_r
+            g2=list(stand_row);g2[0:3]=plant_r
+            g3=list(g2);g3[3:6]=lift_r
+            g4=list(g2);g4[3:6]=plant_r
+            sit_goal=clamp_goal(rows[end],name)
+            if name=='shrug':
+                sit_goal[2]=-2663;sit_goal[5]=-2663
+            return [g1,g2,g3,g4,sit_goal]
+        if pname in ('return_to_standing','Return to standing'):
+            g1=list(stand_row);g1[0:3]=plant_r;g1[3:6]=plant_r
+            g2=list(g1);g2[0:3]=lift_r
+            g3=list(g1);g3[0:3]=stand_row[0:3]
+            g4=list(g3);g4[3:6]=lift_r
+            return [g1,g2,g3,g4,list(stand_row)]
+        if name=='wave' and pname=='extend_carrier_and_crank':
+            g=clamp_goal(rows[end],name);g[6]=-5600
+            return [g]
+        if name=='shrug' and pname=='Palms-out double shrug':
+            middle=(begin+end)//2
+            landmarks=[]
+            for first,last in ((begin,middle),(middle,end)):
+                peak=max(range(first,last+1),key=lambda i:sum(
+                    (rows[i][j]-rows[first][j])**2 for j in range(12)))
+                landmarks.extend(sorted({peak,last}))
+            goals=[]
+            for lm in landmarks:
+                g=clamp_goal(rows[lm],name)
+                g[0:6]=[0,-2250,-2663,0,-2250,-2663]
+                goals.append(g)
+            return goals
+        if name=='shrug' and pname in ('Lift both forelegs','Lower both forelegs'):
+            g=clamp_goal(rows[end],name)
+            g[0:6]=[0,-2250,-2663,0,-2250,-2663]
+            return [g]
+        if name=='upright':
+            if pname=='front_left_back':
+                g1=list(previous);g1[6:9]=[359,-1231,-4500]
+                g2=[0,5069,5124,0,5069,5124,614,-2250,-6200,0,3318,1322]
+                return [g1,g2]
+            if pname=='brace_shift':
+                return [[0,5070,5121,0,5070,5121,614,-2250,-6200,0,3317,1324]]
+            if pname=='front_right_back':
+                g1=[0,5093,5134,0,5093,5134,615,-2250,-6200,318,-1231,-4500]
+                g2=[0,5095,5135,0,5095,5135,615,-2250,-6200,615,-2250,-6200]
+                return [g1,g2]
+    if name=='rest' and pname=='lower_into_rest':
+        lift_r=[0,-832,-199]
+        plant_r=[0,2185,608]
+        g1=list(stand_row);g1[0:3]=lift_r;g1[9:12]=lift_r
+        g2=list(stand_row);g2[0:3]=plant_r;g2[9:12]=plant_r
+        g3=list(g2);g3[3:6]=lift_r;g3[6:9]=lift_r
+        g4=list(plant_r*4)
+        return [g1,g2,g3,g4,[0,-2250,1998]*4]
+    if name in ('lay_down','dead'):
+        leg_map={'Lift and place FL':0,'Lift and place FR':1,'Lift and place RL':2,'Lift and place RR':3}
+        if pname in leg_map and begin<400:
+            leg=leg_map[pname]
+            g1=list(previous);g1[3*leg:3*leg+3]=[-941,600,740]
+            g2=list(previous);g2[3*leg:3*leg+3]=[-1635,6417,1615]
+            return [g1,g2]
+        if name=='dead' and pname in ('Lift and place RL','Lift and place RR') and begin>=600:
+            leg=2 if pname.endswith('RL') else 3
+            g1=list(previous);g1[3*leg:3*leg+3]=[-4200,6348,7750]
+            g2=list(previous);g2[3*leg:3*leg+3]=[-2333,9862,6562]
+            return [g1,g2]
+    if name=='bow':
+        brace=[0,-275,-1366]*4
+        lift_f=[0,-1800,-2400]
+        plant_f=[0,5500,3500]
+        if pname=='brace_stance':
+            return [brace]
+        if pname=='stretch_front_into_bow':
+            g1=list(brace);g1[6:9]=lift_f
+            g2=list(brace);g2[6:9]=plant_f
+            g3=list(g2);g3[9:12]=lift_f
+            g4=list(g2);g4[9:12]=plant_f
+            return [g1,g2,g3,g4,[0,742,732,0,742,732,0,12082,7572,0,12082,7572]]
+        if pname=='raise_front':
+            g1=list(brace);g1[6:9]=plant_f;g1[9:12]=plant_f
+            g2=list(g1);g2[6:9]=lift_f
+            g3=list(g1);g3[6:9]=brace[6:9]
+            g4=list(g3);g4[9:12]=lift_f
+            return [g1,g2,g3,g4,brace]
+        if pname=='return_to_standing':
+            return [list(stand_row)]
+    if name=='worm':
+        if pname.startswith('body_wave_'):
+            return [clamp_goal(rows[begin+48],name),clamp_goal(rows[begin+144],name),clamp_goal(rows[end],name)]
+        if pname=='return_to_standing':
+            return [list(stand_row)]
+    if name=='pushup':
+        top=[0,-1766,-2102,0,-1766,-2102,0,2381,-3280,0,2381,-3280]
+        bottom=[0,-680,3023,0,-680,3023,0,-863,3157,0,-863,3157]
+        if pname=='squat_rear_legs' or pname.endswith('_up'):
+            return [top]
+        if pname.endswith('_down'):
+            return [bottom]
+        if pname=='return_to_standing':
+            return [list(stand_row)]
+    if name=='curious':
+        base=[0,-1146,-2239]*4
+        if pname=='prepare_curious':
+            return [base]
+        if pname=='look_right':
+            g1=[0,-1800,-2800,0,600,-1200,0,-1600,-2800,1200,-1800,-3200]
+            g2=[0,-1800,-2800,0,600,-1200,0,-1600,-2800,1200,-470,-1000]
+            return [g1,g2]
+        if pname=='look_right_return':
+            g1=[0,-1800,-2800,0,600,-1200,0,-1600,-2800,0,-1800,-3200]
+            return [g1,base]
+        if pname=='look_left':
+            g1=[0,600,-1200,0,-1800,-2800,-1200,-1800,-3200,0,-1600,-2800]
+            g2=[0,600,-1200,0,-1800,-2800,-1200,-470,-1000,0,-1600,-2800]
+            return [g1,g2]
+        if pname=='look_left_return':
+            g1=[0,600,-1200,0,-1800,-2800,0,-1800,-3200,0,-1600,-2800]
+            return [g1,base]
+        if pname=='inquisitive_front_lean':
+            return [[0,-1030,-2031,0,-1030,-2031,0,-2200,-2789,0,-2200,-2789]]
+        if pname=='inquisitive_front_lean_return':
+            return [base]
+    if name=='sad':
+        soft=[0,-781,-2176]*4
+        droop=[0,465,93,0,465,93,0,-1504,962,0,-1504,962]
+        lift_f=[0,-1800,-2400]
+        if pname=='soften_stance':
+            return [soft]
+        if pname=='droop_front':
+            g1=list(soft);g1[6:9]=lift_f
+            g2=list(soft);g2[6:9]=droop[6:9]
+            g3=list(g2);g3[9:12]=lift_f
+            return [g1,g2,g3,droop]
+        if pname=='left_front_slump':
+            return [[0,108,-301,0,378,436,0,-1723,362,0,-1756,1335]]
+        if pname in ('center_after_left_slump','center_after_right_slump'):
+            return [droop]
+        if pname=='right_front_slump':
+            return [[0,380,436,0,110,-301,0,-1753,1337,0,-1721,363]]
+        if pname=='lift_sad_droop':
+            g1=list(droop);g1[6:9]=lift_f
+            g2=list(droop);g2[6:9]=soft[6:9]
+            g3=list(g2);g3[9:12]=lift_f
+            return [g1,g2,g3,soft]
+    if name=='dance':
+        neutral=[0,-1005,-2263]*4
+        if pname=='settle_into_dance' or pname.startswith('rebound_'):
+            return [neutral]
+        if pname=='rock_left':
+            return [[0,-600,-1600,-800,-2150,-3500,0,-600,-1600,-800,-2150,-3500]]
+        if pname=='rock_right':
+            return [[-800,-2150,-3500,0,-600,-1600,-800,-2150,-3500,0,-600,-1600]]
+    if name=='nod':
+        up=[0,-1850,-2200,0,-1850,-2200,0,2200,-3400,0,2200,-3400]
+        down=[0,400,-800,0,400,-800,0,-2150,-2600,0,-2150,-2600]
+        if pname=='crouch_rear_right' or pname.endswith('_up'):
+            return [up]
+        if pname.endswith('_down'):
+            return [down]
+        if pname=='return_to_standing':
+            return [list(stand_row)]
+    if name=='shake':
+        prep=[0,-285,-730,0,-285,-730,0,-2150,-2500,0,-2150,-2500]
+        peak=[0,1861,326,0,1861,326,0,-1600,-1623,0,-1600,-1623]
+        if pname=='prepare_shake' or pname.endswith('_return'):
+            return [prep]
+        if pname.startswith('rear_pair_shake_'):
+            return [peak]
+    if name=='freaky':
+        brace=[0,-2150,-2500,0,-1600,-2015,0,-2150,-2500,0,-1600,-2015]
+        if pname=='lower_into_asymmetric_ground_pose':
+            return [brace]
+        if pname in ('raise_right_front_shoulder','fold_right_front_linkage'):
+            g=list(brace);g[9:12]=[-6128,-2150,-2196]
+            return [g]
+        if pname=='replace_right_front_sole':
+            return [brace]
+        if pname=='return_to_standing':
+            return [list(stand_row)]
+        g=list(brace);g[9:12]=clamp_goal(rows[end],name)[9:12]
+        return [g]
+    landmarks=[end]
+    if pname!='three_playful_waves':
+        for leg in range(4):
+            clearances=[row['sole_clearance_mm'][leg] for row in clip_source[begin:end+1]]
+            peak=max(range(len(clearances)),key=clearances.__getitem__)
+            if clearances[peak]>max(clearances[0],clearances[-1])+.01:
+                landmarks.append(begin+peak)
+        landmarks=sorted(set(landmarks))
+    return [clamp_goal(rows[lm],name) for lm in landmarks]
+
+
 @lru_cache(maxsize=None)
 def source_motion(name):
     """Compact authored stages; source paths are provenance, not curve targets."""
@@ -35,7 +263,8 @@ def source_motion(name):
     compiler,clips=legacy_sources();clip=clips[name];rows=clip['positions']
     clip_source=json.loads((ROOT/'motions/gestures'/name/'source.json').read_text())['samples']
     number=lambda value:round(value/100,2)
-    entry=[number(v) for v in rows[0]]
+    initial_row=list(rows[0]) if name=='crouch' else [0,94,-2125]*4
+    entry=[number(v) for v in initial_row]
     if name=='stretch':
         # Owner's requested crouch, front-limb extension, holds and standing finish.
         # The old Blender/source curve lacks the accepted extension.
@@ -44,7 +273,7 @@ def source_motion(name):
     else:
         program=[call('face',expr=name),call('pose',joints=list(JOINTS),
             angles_deg=entry,reference='absolute',speed_pct=50,taper_deg=0)]
-        previous=list(rows[0])
+        previous=list(initial_row)
         for phase in clip['phases']:
             begin,end=[round(t*120) for t in phase['source_interval_s']]
             if phase.get('moving_joint_indices')==[] or 'hold' in phase['name'].lower():
@@ -58,29 +287,8 @@ def source_motion(name):
                 amplitude=round((max(values)-min(values))/2,2)
                 program.append(call('oscillate',joint=JOINTS[joint],amplitude_deg=amplitude,
                                     cycles=3,speed_pct=50,taper_deg=0))
-                previous=list(rows[end])
                 continue
-            landmarks=[end]
-            # Keep the source's lifted-foot waypoint before placing the foot.
-            # Phase endpoints alone erase the step and teach floor dragging.
-            if phase['name']!='three_playful_waves':
-                for leg in range(4):
-                    clearances=[row['sole_clearance_mm'][leg] for row in clip_source[begin:end+1]]
-                    peak=max(range(len(clearances)),key=clearances.__getitem__)
-                    if clearances[peak]>max(clearances[0],clearances[-1])+.01:
-                        landmarks.append(begin+peak)
-                landmarks=sorted(set(landmarks))
-            if name=='shrug' and phase['name']=='Palms-out double shrug':
-                # Retain each authored shrug's outer pose and return, instead
-                # of collapsing the whole phase into one terminal pose.
-                middle=(begin+end)//2
-                landmarks=[]
-                for first,last in ((begin,middle),(middle,end)):
-                    peak=max(range(first,last+1),key=lambda i:sum(
-                        (rows[i][j]-rows[first][j])**2 for j in range(12)))
-                    landmarks.extend(sorted({peak,last}))
-            for landmark in landmarks:
-                goal=rows[landmark]
+            for goal in stage_goals(name,phase,rows,clip_source,previous):
                 ids=[i for i,(a,b) in enumerate(zip(previous,goal)) if round(a)!=round(b)]
                 if ids:
                     travel=max(abs(goal[i]-previous[i]) for i in ids)/100
@@ -88,7 +296,7 @@ def source_motion(name):
                         angles_deg=[number(goal[i]) for i in ids],reference='absolute',speed_pct=50,
                         taper_deg=round(min(10,.2*travel),2) if name in ('sit','rest','crouch') else 0))
                 previous=list(goal)
-        final=[number(v) for v in rows[-1]]
+        final=[number(v) for v in previous]
     path=ROOT/'motions/gestures'/name/'source.json'
     return {'program':program,'source_path':str(path.relative_to(ROOT.parents[3])),
             'source_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -104,14 +312,16 @@ def stretch_program(entry=None):
     """Editable compact stretch; geometry checked, physical acceptance separate."""
     from .runtime import JOINTS
     entry=entry if entry is not None else [0,.94,-21.25]*4
-    body=lambda dz:call('body',translation_mm=[0,0,dz],rotation_deg=[0,0,0],
-                        legs=[],foot_offsets_mm=[],speed_pct=100,taper_deg=0)
-    hands=lambda dx:call('feet',legs=['front_left','front_right'],offsets_mm=[[dx,0,0]]*2,
-                         speed_pct=100,taper_deg=0)
+    body=lambda dx,dz:call('body',translation_mm=[dx,0,dz],rotation_deg=[0,0,0],
+                           legs=[],foot_offsets_mm=[],speed_pct=100,taper_deg=0)
+    step=lambda leg,dx,h=18:[
+        call('feet',legs=[leg],offsets_mm=[[0,0,h]],speed_pct=100,taper_deg=0),
+        call('feet',legs=[leg],offsets_mm=[[dx,0,-h]],speed_pct=100,taper_deg=0)]
     return [call('face',expr='stretch'),
             call('pose',joints=list(JOINTS),angles_deg=entry,reference='absolute',speed_pct=100,taper_deg=0),
-            body(-20),hands(30),call('hold',seconds=.9),hands(5),call('hold',seconds=.7),
-            hands(-35),body(20),
+            *step('front_left',30),*step('front_right',30),
+            body(0,-16),call('hold',seconds=.9),body(-5,0),call('hold',seconds=.7),
+            body(5,16),*step('front_left',-30),*step('front_right',-30),
             call('pose',joints=list(JOINTS),angles_deg=entry,reference='absolute',speed_pct=100,taper_deg=0),
             call('hold',seconds=.5),call('face',expr='stand')]
 
@@ -121,12 +331,12 @@ def call(name, **arguments):
 
 
 def feet(legs, offsets, seconds=.6):
-    return call('feet', legs=legs, offsets_mm=offsets, seconds=seconds)
+    return call('feet', legs=legs, offsets_mm=offsets, speed_pct=100, taper_deg=0)
 
 
 def body(translation=(0,0,0), rotation=(0,0,0), seconds=.8):
     return call('body', translation_mm=list(translation), rotation_deg=list(rotation),
-                legs=[], foot_offsets_mm=[], seconds=seconds)
+                legs=[], foot_offsets_mm=[], speed_pct=100, taper_deg=0)
 
 
 def path(leg, points, seconds=.5):

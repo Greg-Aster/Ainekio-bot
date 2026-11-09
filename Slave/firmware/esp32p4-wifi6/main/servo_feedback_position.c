@@ -47,8 +47,7 @@ static bool arrival_pulse(const ainekio_p4_feedback_snapshot_t *s,unsigned j,
     const ainekio_feedback_joint_t *joint=&s->config.joint[j];
     const unsigned c=joint->channel;
     double raw_pulse;bool in_range;
-    return (target==joint->point[0].pulse_us || target==joint->point[2].pulse_us) &&
-        s->config.enabled && s->initialized && (s->valid_mask&(1U<<c)) &&
+    return s->config.enabled && s->initialized && (s->valid_mask&(1U<<c)) &&
         s->raw[c]!=0 && s->raw[c]!=4095 &&
         ainekio_feedback_position(joint,s->raw[c],&raw_pulse,&in_range) &&
         ainekio_feedback_position(joint,s->filtered_raw[c],pulse,&in_range) &&
@@ -67,7 +66,7 @@ static bool joint_position(const ainekio_p4_feedback_snapshot_t *s,
        !ainekio_feedback_position(&s->config.joint[j],s->filtered_raw[c],pulse,&in_range) ||
        !ainekio_feedback_position(&s->config.joint[j],s->filtered_raw[c]+1.,&neighbor,&in_range))return false;
     const double direction=mapping[j].invert?-1.:1.;
-    frame->position[j]=mapping[j].home_cd+100.*direction*(*pulse-mapping[j].home_us)/mapping[j].us_per_degree;
+    frame->position[j]=(float)ainekio_p4_joint_pulse_to_cd(&mapping[j],*pulse);
     frame->velocity[j]=100.*direction*(neighbor-*pulse)*s->velocity_raw_s[c]/mapping[j].us_per_degree;
     return true;
 }
@@ -82,6 +81,18 @@ bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,
             !joint_position(&s,mapping,j,&pulse,&result)))return false;
     }
     *frame=result;return true;
+}
+void ainekio_p4_feedback_walk_frame(const ainekio_p4_joint_config_t *mapping,
+    ainekio_v2_frame_t *frame)
+{
+    ainekio_p4_feedback_snapshot_t s;ainekio_p4_feedback_snapshot(&s);
+    for(unsigned j=0;j<12;j++) {
+        if(mapping[j].channel<0)continue;
+        const unsigned c=s.config.joint[j].channel;
+        if(s.raw[c]==0 || s.raw[c]==4095)continue;
+        double pulse;
+        (void)joint_position(&s,mapping,j,&pulse,frame);
+    }
 }
 void ainekio_p4_feedback_observe(const ainekio_p4_feedback_snapshot_t *s,
     const ainekio_p4_joint_config_t *mapping,const uint16_t *targets,
@@ -103,9 +114,7 @@ void ainekio_p4_feedback_observe(const ainekio_p4_feedback_snapshot_t *s,
         }
         const unsigned target=targets[mapping[j].channel];
         if(target) {
-            const double direction=mapping[j].invert?-1.:1.;
-            out->commanded.position[j]=mapping[j].home_cd+
-                100.*direction*((double)target-mapping[j].home_us)/mapping[j].us_per_degree;
+            out->commanded.position[j]=(float)ainekio_p4_joint_pulse_to_cd(&mapping[j],(double)target);
             out->commanded_mask|=1U<<j;
         }
     }

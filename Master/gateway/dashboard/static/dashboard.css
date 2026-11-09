@@ -427,7 +427,8 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
 .navigation-group button:hover { color: var(--ink); background: var(--surface); }
 .navigation-group button[aria-current="page"] { color: #fff; background: #263f4d; border-color: #41677f; }
 .tool-workspace { min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--line); border-radius: 8px; background: #202326; scrollbar-gutter: stable; }
-.tool-workspace > .control-section { margin: 0; padding: 1.25rem; border: 0; }
+.tool-workspace > .control-section { margin: 0; padding: 1.25rem; border: 0; border-bottom: 1px solid var(--line); }
+.tool-workspace > .control-section:last-child { border-bottom: 0; }
 .tool-workspace .settings-grid { display: block; }
 .tool-workspace .settings-card { min-width: 0; padding: 0; border: 0; }
 .tool-workspace .section-heading { margin-bottom: 1rem; }
@@ -563,3 +564,1316 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
 .motion-training-library .motion-code-toggle { display: inline-flex; align-items: center; gap: .5rem; margin: .35rem 0; }
 .motion-raw-target { max-height: 22rem; overflow: auto; padding: .5rem; border: 1px solid var(--line); font-size: .75rem; }
 .motion-raw-target .motion-operation-current { background: var(--surface-hover); }
+
+/* Refined Body Control layout: safety bar, collapsible camera, neural gait, and compact editors. */
+.dashboard-page .safety-bar { justify-content: space-between; flex-wrap: wrap; gap: .75rem 1.25rem; }
+.safety-primary { display: flex; align-items: center; gap: 1rem; min-width: 0; flex: 1 1 260px; }
+.safety-status-group { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem 1rem; }
+.safety-toggle { min-height: 36px; padding: .25rem .65rem; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); font-size: .78rem; }
+.safety-pill { padding: .3rem .6rem; border: 1px solid var(--line); border-radius: 5px; background: var(--dark); }
+
+.camera-header-actions { align-items: center; }
+.camera-header-actions .settings-check { min-height: 36px; padding: .2rem .55rem; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); font-size: .78rem; }
+.dashboard-grid.camera-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.dashboard-grid.camera-collapsed .primary-view-container { overflow: visible; }
+.dashboard-grid.camera-collapsed .primary-view-section { padding: .6rem 0; }
+.dashboard-grid.camera-collapsed .primary-view-section .section-heading { margin-bottom: 0; }
+
+.neural-quick-card { display: grid; gap: .75rem; padding: .85rem; border: 1px solid #3c5a70; border-radius: 6px; background: #1c2831; }
+.neural-quick-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6rem; }
+.neural-quick-header button { min-height: 36px; padding: .35rem .7rem; font-size: .8rem; }
+.neural-scale-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); align-items: end; gap: .6rem; }
+.neural-scale-grid button { min-height: 42px; }
+
+.neural-active-banner { margin: .5rem 0 .85rem; padding: .65rem .85rem; border-left: 4px solid var(--blue); border-radius: 4px; background: #1c2831; font-weight: 650; font-size: .88rem; }
+.neural-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: end; gap: .75rem; margin: .75rem 0; }
+.neural-form-grid label { display: grid; gap: .35rem; min-width: 0; }
+.neural-model-card { margin: .85rem 0; padding: .85rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); display: grid; gap: .65rem; }
+.neural-model-row { display: grid; grid-template-columns: minmax(200px, 1fr) auto; align-items: end; gap: .65rem; }
+.neural-model-row label { display: grid; gap: .35rem; min-width: 0; }
+.legacy-gait-history-details { margin-top: 1.25rem; padding: .75rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.legacy-gait-history-details > summary { cursor: pointer; font-weight: 650; color: var(--muted); font-size: .85rem; }
+
+.mode-switch-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; margin-bottom: .75rem; padding: .4rem .75rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.mode-switch-bar .motion-system-toggle { margin: 0; min-height: 38px; }
+.mode-switch-hint { margin: 0; color: var(--muted); font-size: .8rem; }
+.freestyle-panel pre:empty, .motion-training-library pre:empty { display: none; }
+
+#servo-feedback-config, #servo-feedback-calibration {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  align-items: end;
+  gap: .65rem;
+}
+#servo-feedback-config > p,
+#servo-feedback-config > button,
+#servo-feedback-calibration > h4,
+#servo-feedback-calibration > p,
+#servo-feedback-calibration > .command-row,
+#servo-feedback-calibration > .table-scroll {
+  grid-column: 1 / -1;
+}
+
+/* Mobile & touch experience: natural page scroll, sticky Stop, bottom dock, and thumb-first controls. */
+.mobile-nav { display: none; }
+.sidebar-backdrop { display: none; }
+
+@media (max-width: 1050px) {
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 28;
+    background: rgba(8, 10, 12, 0.65);
+    backdrop-filter: blur(2px);
+  }
+  .tool-sidebar {
+    position: fixed;
+    z-index: 30;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(290px, 84vw);
+    padding-bottom: 5rem;
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.65);
+  }
+}
+
+@media (max-width: 820px) {
+  button, input, select, textarea {
+    font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  input[type="range"] {
+    min-height: 38px;
+  }
+  .dashboard-page {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: visible;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+  }
+  .dashboard-page .app-header {
+    min-height: 48px;
+    padding: 0.4rem 0.65rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .dashboard-page .brand-mark,
+  .dashboard-page .product-name {
+    display: none;
+  }
+  .brand-block {
+    gap: 0.45rem;
+    min-width: 0;
+  }
+  .brand-block h1 {
+    font-size: 0.98rem;
+    white-space: nowrap;
+  }
+  #tools-toggle {
+    min-height: 36px;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.8rem;
+  }
+  .dashboard-page .header-actions {
+    width: auto;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+  .connection-state {
+    order: 0;
+    font-size: 0.72rem;
+    max-width: 5.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dashboard-page .header-actions select {
+    width: auto;
+    min-width: 78px;
+    max-width: 122px;
+    min-height: 36px;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.82rem;
+  }
+  #settings-button {
+    min-height: 36px;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+  .icon-button {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    flex-shrink: 0;
+    font-size: 1.15rem;
+  }
+  .dashboard-page .safety-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    min-height: 0;
+    padding: 0.45rem 0.65rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.38rem;
+    background: rgba(20, 22, 25, 0.96);
+    backdrop-filter: blur(8px);
+  }
+  .safety-primary {
+    flex: 0 0 auto;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  .dashboard-page .stop-button {
+    width: auto;
+    min-width: 128px;
+    min-height: 42px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.82rem;
+    flex-shrink: 0;
+  }
+  .dashboard-page .command-result {
+    font-size: 0.78rem;
+    line-height: 1.25;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .safety-status-group {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.35rem 0.5rem;
+  }
+  .safety-toggle {
+    min-height: 28px;
+    padding: 0.15rem 0.45rem;
+    font-size: 0.72rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .safety-toggle input {
+    width: 16px;
+    height: 16px;
+    min-height: 16px;
+    margin: 0;
+  }
+  .safety-pill {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.72rem;
+  }
+  .dashboard-shell {
+    display: block;
+    flex: 1 1 auto;
+  }
+  .dashboard-grid,
+  .dashboard-grid.camera-collapsed {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.5rem;
+  }
+  .primary-view-container {
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .primary-view-container .primary-view-section {
+    height: auto;
+    padding: 0.45rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .primary-view-container .section-heading {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 32px;
+    margin: 0;
+    padding: 0;
+    gap: 0.4rem;
+  }
+  .primary-view-container .section-kicker {
+    display: none;
+  }
+  .camera-header-actions {
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+  .camera-header-actions button,
+  .camera-header-actions .safety-toggle {
+    min-height: 32px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .primary-view-container .camera-recognition-toggle {
+    margin: 0 0 0.25rem;
+    min-height: 32px;
+    font-size: 0.76rem;
+  }
+  .primary-view-container .camera-preview {
+    display: block;
+    min-height: 0;
+  }
+  .primary-view-container .camera-stage {
+    min-height: 96px;
+    max-height: 36vh;
+    height: auto;
+    grid-template-rows: none;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .primary-view-container .camera-image-plane {
+    width: 100%;
+    height: auto;
+    max-height: 36vh;
+  }
+  .primary-view-container .camera-frame {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 36vh;
+    object-fit: contain;
+  }
+  .primary-view-container .camera-detection-status {
+    margin: 0.25rem 0 0;
+    font-size: 0.72rem;
+  }
+  .primary-view-container .simulator-frame {
+    height: 260px;
+  }
+  .tool-workspace {
+    overflow: visible;
+    height: auto;
+    flex: 1 1 auto;
+  }
+  .tool-workspace > .control-section {
+    padding: 0.85rem 0.75rem 1.1rem;
+  }
+  .tool-workspace .section-heading {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Thumb-first Movement workspace: place directional drive pad right below header on mobile */
+  body:not([data-active-workspace="speeds"]) [data-workspace-panel="motion speeds"],
+  body:not([data-active-workspace="controllers"]) [data-workspace-panel="motion controllers"] {
+    display: none !important;
+  }
+  #settings-button,
+  #metahuman-connection,
+  .primary-view-container .camera-recognition-toggle,
+  .primary-view-container .camera-detection-status,
+  #walk-native-hint,
+  #walk-neural-hint,
+  #walk-steering p,
+  #walk-neural-quick-controls,
+  #motion-system-hint,
+  [data-freestyle-training],
+  .motion-training-library,
+  .freestyle-panel details[data-field="trials"],
+  .freestyle-panel details:last-of-type {
+    display: none !important;
+  }
+  .telemetry-grid > div:nth-child(4),
+  .telemetry-grid > div:nth-child(6),
+  .telemetry-grid > div:nth-child(7),
+  .telemetry-grid > div:nth-child(8),
+  .telemetry-grid > div:nth-child(9),
+  .telemetry-grid > div:nth-child(10),
+  .telemetry-grid > div:nth-child(11) {
+    display: none;
+  }
+  .motion-section {
+    display: flex;
+    flex-direction: column;
+  }
+  .motion-section > .section-heading { order: 1; }
+  .motion-section > #motion-availability { order: 2; margin-bottom: 0.5rem; font-size: 0.84rem; }
+  .motion-section > .motion-pad {
+    order: 3;
+    width: min(260px, 80vw);
+    margin: 0.25rem auto 1rem;
+    gap: 0.55rem;
+  }
+  .motion-section > .walk-controls { order: 4; margin-bottom: 0; }
+  .motion-key {
+    min-height: 68px;
+    font-size: 1.45rem;
+    border-radius: 10px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+  }
+  .walk-controls .command-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  .walk-controls .command-row button {
+    min-height: 46px;
+  }
+
+  /* Mobile Poses, Emotes & Freestyle layout */
+  .emote-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  .emote-grid button {
+    min-height: 46px;
+    padding: 0.45rem 0.55rem;
+    font-size: 0.84rem;
+    line-height: 1.2;
+  }
+  .freestyle-request {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  .freestyle-request > label {
+    grid-column: 1 / -1;
+    margin: 0.4rem 0 0.1rem;
+  }
+  .freestyle-request > button {
+    margin: 0;
+    min-height: 46px;
+  }
+  .freestyle-request > button[data-action="execute"] {
+    background: var(--blue-fill);
+    border-color: #4da3d3;
+    color: #fff;
+  }
+  .motion-library-list > li {
+    grid-template-columns: 2.35rem minmax(0, 1fr);
+    gap: 0.45rem;
+    margin-bottom: 0.25rem;
+  }
+  .motion-library-play {
+    width: 2.35rem;
+    height: 2.35rem;
+    font-size: 0.95rem;
+  }
+  .motion-library-list summary {
+    min-height: 2.35rem;
+    padding: 0.4rem 0.55rem;
+    display: flex;
+    align-items: center;
+  }
+  .neural-model-row {
+    grid-template-columns: 1fr;
+  }
+  .tool-workspace #balance-tuning-controls {
+    grid-template-columns: 1fr;
+  }
+
+  /* Fixed bottom quick-switch dock on mobile */
+  .mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 25;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.2rem;
+    padding: 0.3rem 0.35rem calc(0.3rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line);
+    background: rgba(16, 18, 20, 0.97);
+    backdrop-filter: blur(10px);
+  }
+  .mobile-nav button {
+    min-height: 48px;
+    padding: 0.25rem 0.15rem;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    font-size: 0.68rem;
+    font-weight: 650;
+    line-height: 1.1;
+  }
+  .mobile-nav button .mobile-nav-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+  .mobile-nav button.is-active,
+  .mobile-nav button[aria-current="page"] {
+    color: #fff;
+    background: #263f4d;
+    border-color: #41677f;
+  }
+}
+
+/* Ainekio Control Cockpit — Full-Screen Game HUD */
+.cockpit-header-button {
+  border-color: #3f6a86;
+  background: #1d3646;
+  color: #e8f5ff;
+  font-weight: 700;
+}
+.cockpit-header-button.is-active {
+  background: var(--blue-fill);
+  border-color: #6bc1f2;
+  color: #fff;
+}
+
+body[data-active-workspace="cockpit"] {
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+  padding-bottom: 0;
+  background: #06090c;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body[data-active-workspace="cockpit"] .app-header,
+body[data-active-workspace="cockpit"] .safety-bar,
+body[data-active-workspace="cockpit"] #tool-sidebar,
+body[data-active-workspace="cockpit"] #sidebar-backdrop,
+body[data-active-workspace="cockpit"] #mobile-nav {
+  display: none !important;
+}
+
+body[data-active-workspace="cockpit"] .dashboard-grid {
+  display: block;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#neural-gait-video {
+  width: 100%;
+  max-width: 640px;
+}
+#depth-motion-preview {
+  max-width: 100%;
+}
+#ground-calibration-image {
+  max-width: 100%;
+  height: auto;
+  touch-action: none;
+}
+
+/* Full-screen background camera viewport in Cockpit mode */
+body[data-active-workspace="cockpit"] .primary-view-container {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: #06090c;
+  overflow: hidden;
+}
+body[data-active-workspace="cockpit"] .camera-view-section {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0 !important;
+  border: none;
+  border-radius: 0;
+  background: #06090c;
+}
+body[data-active-workspace="cockpit"] .camera-view-section > .section-heading,
+body[data-active-workspace="cockpit"] .camera-recognition-toggle,
+body[data-active-workspace="cockpit"] #camera-detection-status {
+  display: none !important;
+}
+body[data-active-workspace="cockpit"] #camera-view-body {
+  display: block !important;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+body[data-active-workspace="cockpit"] .camera-preview,
+body[data-active-workspace="cockpit"] .camera-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: #06090c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body[data-active-workspace="cockpit"] .camera-image-plane:not([hidden]) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: #06090c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body[data-active-workspace="cockpit"] #camera-view:not([hidden]) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+}
+body[data-active-workspace="cockpit"] #camera-view-message:not([hidden]) {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0.65rem 1.1rem;
+  border-radius: 999px;
+  background: rgba(14, 19, 24, 0.78);
+  border: 1px solid rgba(120, 148, 168, 0.28);
+  color: var(--muted);
+  font-size: 0.88rem;
+  pointer-events: none;
+}
+
+/* Floating HUD layer */
+body[data-active-workspace="cockpit"] #tool-workspace {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#cockpit-section.cockpit-section {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  width: 100vw;
+  height: 100dvh;
+  margin: 0;
+  padding: max(0.4rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right)) max(0.45rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left)) !important;
+  border: none !important;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  overflow: hidden;
+  pointer-events: none;
+}
+#cockpit-section.cockpit-section[hidden] {
+  display: none !important;
+}
+
+/* Top HUD Bar — Slim Floating Ribbon */
+.cockpit-hud-top {
+  pointer-events: auto;
+  justify-self: center;
+  width: 100%;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.28rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid rgba(110, 145, 170, 0.3);
+  background: rgba(11, 16, 21, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.42);
+  min-width: 0;
+}
+.cockpit-hud-cluster {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.32rem;
+  min-width: 0;
+  flex-shrink: 0;
+}
+.cockpit-hud-title {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  color: #e8f5ff;
+  white-space: nowrap;
+}
+.cockpit-hud-top .connection-state {
+  font-size: 0.72rem;
+  max-width: none;
+  white-space: nowrap;
+}
+.cockpit-hud-top .state-chip {
+  padding: 0.18rem 0.42rem;
+  font-size: 0.66rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.cockpit-attitude-pill {
+  font-size: 0.7rem;
+  font-weight: 650;
+  padding: 0.16rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(24, 33, 41, 0.85);
+  border: 1px solid rgba(110, 145, 170, 0.28);
+  color: #b7c8d6;
+  white-space: nowrap;
+}
+.cockpit-hud-toast {
+  margin: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #cfe7f8;
+  padding: 0.16rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(22, 36, 48, 0.72);
+  border: 1px solid rgba(88, 180, 232, 0.25);
+  max-width: 22rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cockpit-hud-toast.error {
+  color: #ffb3b9;
+  background: rgba(88, 22, 30, 0.82);
+  border-color: rgba(255, 107, 120, 0.55);
+}
+.cockpit-hud-pill-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-height: 30px;
+  padding: 0.16rem 0.48rem;
+  border-radius: 7px;
+  border: 1px solid rgba(110, 145, 170, 0.35);
+  background: rgba(25, 34, 42, 0.85);
+  font-size: 0.73rem;
+  font-weight: 650;
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cockpit-hud-pill-toggle input[type="checkbox"] {
+  width: 14px !important;
+  height: 14px !important;
+  min-height: 14px !important;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--blue);
+}
+.cockpit-hud-btn {
+  min-height: 30px;
+  padding: 0.2rem 0.52rem;
+  border-radius: 7px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: rgba(28, 39, 49, 0.88);
+  border: 1px solid rgba(110, 145, 170, 0.38);
+  white-space: nowrap;
+}
+.cockpit-hud-btn.is-active {
+  background: var(--blue-fill);
+  border-color: #6bc1f2;
+  color: #fff;
+}
+.cockpit-exit-btn {
+  background: rgba(34, 45, 55, 0.9);
+  border-color: rgba(120, 150, 175, 0.42);
+}
+.cockpit-talk-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+.cockpit-talk-button {
+  min-height: 30px;
+  padding: 0.2rem 0.62rem;
+  border: 1.5px solid #4d90b8;
+  border-radius: 999px;
+  background: rgba(26, 56, 74, 0.92);
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 750;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+.cockpit-talk-dot {
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 50%;
+  background: #58b4e8;
+  box-shadow: 0 0 6px rgba(88, 180, 232, 0.8);
+}
+#cockpit-section .cockpit-mic-meter {
+  width: 32px !important;
+  height: 6px !important;
+  margin: 0 !important;
+}
+.cockpit-talk-button.is-listening {
+  background: #881f29;
+  border-color: #ff7582;
+  animation: cockpit-pulse 1.15s infinite ease-in-out;
+}
+.cockpit-talk-button.is-listening .cockpit-talk-dot {
+  background: #ff4d5b;
+  box-shadow: 0 0 10px #ff4d5b;
+}
+@keyframes cockpit-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 77, 91, 0.5); }
+  50% { box-shadow: 0 0 0 7px rgba(255, 77, 91, 0); }
+}
+#cockpit-section .cockpit-stop-btn {
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 30px !important;
+  padding: 0.2rem 0.6rem !important;
+  border-radius: 7px;
+  font-size: 0.74rem !important;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  gap: 0.32rem;
+}
+#cockpit-section .cockpit-stop-btn .stop-symbol {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+}
+
+/* Center HUD Modal Area */
+.cockpit-hud-center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  pointer-events: none;
+}
+.cockpit-voice-banner {
+  pointer-events: auto;
+  margin: 0 0 0.35rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(124, 26, 36, 0.9);
+  border: 1px solid #ff7582;
+  color: #fff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.cockpit-modal-card {
+  pointer-events: auto;
+  width: min(620px, 94vw);
+  max-height: min(72dvh, 440px);
+  overflow-y: auto;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(118, 158, 186, 0.42);
+  background: rgba(12, 18, 24, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75);
+  touch-action: pan-y;
+}
+.cockpit-settings-header,
+.cockpit-emotes-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(110, 145, 170, 0.25);
+}
+.cockpit-settings-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.cockpit-emotes-header h3 {
+  margin: 0;
+  font-size: 0.94rem;
+}
+.cockpit-emotes-header .motion-system-toggle {
+  margin: 0;
+  min-height: 30px;
+}
+.cockpit-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.42rem;
+}
+.cockpit-setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.42rem 0.58rem;
+  border: 1px solid rgba(110, 145, 170, 0.25);
+  border-radius: 8px;
+  background: rgba(23, 31, 39, 0.88);
+  cursor: pointer;
+}
+.cockpit-setting-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.cockpit-setting-row strong {
+  font-size: 0.78rem;
+  color: var(--ink);
+}
+.cockpit-setting-row span {
+  font-size: 0.69rem;
+}
+#cockpit-section .cockpit-setting-row input[type="checkbox"] {
+  width: 1.15rem !important;
+  height: 1.15rem !important;
+  min-height: 1.15rem !important;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--blue);
+}
+.cockpit-freestyle-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  margin-bottom: 0.55rem;
+}
+#cockpit-section .cockpit-freestyle-form input,
+#cockpit-section .cockpit-freestyle-form button {
+  min-height: 34px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+}
+#cockpit-section .cockpit-emote-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 0.35rem;
+  max-height: 38dvh;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+#cockpit-section .cockpit-emote-grid button {
+  min-height: 32px;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.73rem;
+}
+
+/* Bottom HUD Gamepad Zones */
+.cockpit-hud-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.6rem;
+  width: 100%;
+  pointer-events: none;
+}
+
+/* Bottom-Left Thumbstick Zone */
+.cockpit-hud-left {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.32rem;
+  width: clamp(148px, 20vw, 192px);
+  padding: 0.48rem 0.55rem;
+  border-radius: 14px;
+  border: 1px solid rgba(110, 145, 170, 0.3);
+  background: rgba(11, 16, 21, 0.68);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.48);
+}
+.cockpit-joystick {
+  position: relative;
+  width: clamp(120px, 18vmin, 160px);
+  height: clamp(120px, 18vmin, 160px);
+  border-radius: 50%;
+  border: 2px solid rgba(98, 152, 188, 0.55);
+  background: radial-gradient(circle at center, rgba(30, 44, 56, 0.86) 0%, rgba(15, 21, 27, 0.9) 74%, rgba(10, 14, 18, 0.95) 100%);
+  box-shadow: inset 0 4px 16px rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  cursor: grab;
+  flex-shrink: 0;
+}
+.cockpit-joystick.is-active {
+  border-color: #6bc1f2;
+  box-shadow: inset 0 4px 16px rgba(0, 0, 0, 0.7), 0 0 0 3px rgba(88, 180, 232, 0.25);
+  cursor: grabbing;
+}
+.cockpit-joystick-ring {
+  position: absolute;
+  width: 62%;
+  height: 62%;
+  border-radius: 50%;
+  border: 1px dashed rgba(154, 163, 173, 0.28);
+  pointer-events: none;
+}
+.cockpit-joystick-crosshair-h,
+.cockpit-joystick-crosshair-v {
+  position: absolute;
+  background: rgba(154, 163, 173, 0.16);
+  pointer-events: none;
+}
+.cockpit-joystick-crosshair-h {
+  width: 84%;
+  height: 1px;
+}
+.cockpit-joystick-crosshair-v {
+  width: 1px;
+  height: 84%;
+}
+.cockpit-axis-label {
+  position: absolute;
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  color: rgba(180, 200, 216, 0.65);
+  pointer-events: none;
+}
+.cockpit-axis-label.top { top: 5px; }
+.cockpit-axis-label.bottom { bottom: 5px; }
+.cockpit-axis-label.left { left: 7px; }
+.cockpit-axis-label.right { right: 7px; }
+.cockpit-joystick-knob {
+  width: clamp(42px, 6.5vmin, 54px);
+  height: clamp(42px, 6.5vmin, 54px);
+  border-radius: 50%;
+  border: 2px solid #82d0fa;
+  background: radial-gradient(circle at 35% 30%, #55ace0 0%, #245c7d 70%, #173d54 100%);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+.cockpit-joystick.is-active .cockpit-joystick-knob {
+  border-color: #bce8ff;
+}
+.cockpit-stick-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.22rem;
+  width: 100%;
+}
+.cockpit-joystick-status {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #d7ecfa;
+  text-align: center;
+  line-height: 1.1;
+}
+.cockpit-speed-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+  width: 100%;
+}
+.cockpit-speed-control span {
+  white-space: nowrap;
+}
+#cockpit-section .cockpit-speed-control input[type="range"] {
+  flex: 1;
+  min-width: 54px;
+  height: 18px !important;
+  min-height: 18px !important;
+  padding: 0 !important;
+  margin: 0;
+  accent-color: var(--blue);
+}
+#cockpit-section .cockpit-finish-btn {
+  min-height: 24px;
+  width: 100%;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 650;
+  border-radius: 6px;
+}
+
+/* Bottom-Right Postures & Quick Emotes Arcade Pad */
+.cockpit-hud-right {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  width: clamp(220px, 34vw, 310px);
+  padding: 0.48rem 0.55rem;
+  border-radius: 14px;
+  border: 1px solid rgba(110, 145, 170, 0.3);
+  background: rgba(11, 16, 21, 0.68);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.48);
+}
+.cockpit-posture-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.28rem;
+}
+.cockpit-quick-emotes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.28rem;
+}
+#cockpit-section .cockpit-arcade-btn {
+  min-height: 30px;
+  padding: 0.18rem 0.25rem;
+  border-radius: 7px;
+  font-size: 0.7rem;
+  font-weight: 650;
+  background: rgba(25, 34, 43, 0.88);
+  border: 1px solid rgba(110, 145, 170, 0.32);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#cockpit-section .cockpit-arcade-btn.posture {
+  font-weight: 750;
+  background: rgba(31, 53, 70, 0.9);
+  border-color: rgba(98, 158, 198, 0.48);
+  color: #eaf6ff;
+}
+#cockpit-section .cockpit-more-emotes-btn {
+  min-height: 30px;
+  width: 100%;
+  padding: 0.2rem 0.5rem;
+  border-radius: 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(28, 46, 60, 0.9);
+  border: 1px solid rgba(98, 158, 198, 0.42);
+  color: #d9f0ff;
+}
+#cockpit-section .cockpit-more-emotes-btn.is-active {
+  background: var(--blue-fill);
+  border-color: #6bc1f2;
+  color: #fff;
+}
+
+/* Mobile Portrait Layout (narrow vertical screens) */
+@media (max-width: 680px) and (orientation: portrait) {
+  .cockpit-hud-title,
+  .cockpit-attitude-pill,
+  #cockpit-battery-chip,
+  #cockpit-snap-button,
+  #cockpit-section .cockpit-mic-meter {
+    display: none !important;
+  }
+  .cockpit-hud-top {
+    flex-wrap: wrap;
+    padding: 0.25rem 0.4rem;
+    gap: 0.25rem 0.35rem;
+  }
+  .cockpit-hud-cluster {
+    gap: 0.25rem;
+  }
+  .cockpit-hud-right-cluster {
+    margin-left: auto;
+  }
+  .cockpit-hud-toast {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: 100%;
+    text-align: center;
+    padding: 0.1rem 0.4rem;
+    font-size: 0.68rem;
+  }
+  .cockpit-hud-btn,
+  .cockpit-hud-pill-toggle,
+  .cockpit-talk-button,
+  #cockpit-section .cockpit-stop-btn {
+    min-height: 27px !important;
+    padding: 0.14rem 0.42rem !important;
+    font-size: 0.68rem !important;
+  }
+  .cockpit-hud-bottom {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    align-items: end;
+    gap: 0.38rem;
+  }
+  .cockpit-hud-left {
+    width: 100%;
+    padding: 0.38rem;
+    gap: 0.22rem;
+  }
+  .cockpit-joystick {
+    width: 108px;
+    height: 108px;
+  }
+  .cockpit-joystick-knob {
+    width: 38px;
+    height: 38px;
+  }
+  .cockpit-hud-right {
+    width: 100%;
+    padding: 0.38rem;
+    gap: 0.24rem;
+  }
+  .cockpit-posture-grid,
+  .cockpit-quick-emotes {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.22rem;
+  }
+  #cockpit-section .cockpit-arcade-btn {
+    min-height: 28px;
+    padding: 0.12rem 0.15rem;
+    font-size: 0.65rem;
+  }
+  #cockpit-section .cockpit-more-emotes-btn {
+    min-height: 27px;
+    font-size: 0.67rem;
+  }
+}
+
+/* Mobile Landscape Layout (short horizontal screens like a handheld console) */
+@media (max-height: 540px), ((max-width: 960px) and (orientation: landscape)) {
+  #cockpit-section.cockpit-section {
+    padding: max(0.25rem, env(safe-area-inset-top)) max(0.45rem, env(safe-area-inset-right)) max(0.28rem, env(safe-area-inset-bottom)) max(0.45rem, env(safe-area-inset-left)) !important;
+    gap: 0.2rem;
+  }
+  .cockpit-hud-title,
+  .cockpit-attitude-pill,
+  #cockpit-battery-chip,
+  #cockpit-section .cockpit-mic-meter {
+    display: none !important;
+  }
+  .cockpit-hud-top {
+    flex-wrap: nowrap;
+    padding: 0.18rem 0.42rem;
+    gap: 0.3rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .cockpit-hud-top::-webkit-scrollbar {
+    display: none;
+  }
+  .cockpit-hud-toast {
+    max-width: 12rem;
+    font-size: 0.68rem;
+    padding: 0.1rem 0.4rem;
+  }
+  .cockpit-hud-btn,
+  .cockpit-hud-pill-toggle,
+  .cockpit-talk-button,
+  #cockpit-section .cockpit-stop-btn {
+    min-height: 25px !important;
+    padding: 0.12rem 0.42rem !important;
+    font-size: 0.68rem !important;
+  }
+  .cockpit-hud-left {
+    width: clamp(122px, 20vw, 152px);
+    padding: 0.32rem 0.4rem;
+    gap: 0.18rem;
+    border-radius: 12px;
+  }
+  .cockpit-joystick {
+    width: clamp(92px, 30dvh, 118px);
+    height: clamp(92px, 30dvh, 118px);
+  }
+  .cockpit-joystick-knob {
+    width: clamp(32px, 10dvh, 42px);
+    height: clamp(32px, 10dvh, 42px);
+  }
+  .cockpit-joystick-status {
+    display: none;
+  }
+  .cockpit-speed-control {
+    font-size: 0.62rem;
+  }
+  #cockpit-section .cockpit-finish-btn {
+    min-height: 21px;
+    font-size: 0.62rem;
+    padding: 0.08rem 0.3rem;
+  }
+  .cockpit-hud-right {
+    width: clamp(195px, 36vw, 260px);
+    padding: 0.32rem 0.4rem;
+    gap: 0.2rem;
+    border-radius: 12px;
+  }
+  .cockpit-posture-grid,
+  .cockpit-quick-emotes {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.2rem;
+  }
+  #cockpit-section .cockpit-arcade-btn,
+  #cockpit-section .cockpit-more-emotes-btn {
+    min-height: 24px;
+    padding: 0.1rem 0.2rem;
+    font-size: 0.64rem;
+  }
+  .cockpit-modal-card {
+    max-height: 78dvh;
+    padding: 0.55rem 0.7rem;
+  }
+}

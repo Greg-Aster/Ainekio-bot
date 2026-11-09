@@ -32,12 +32,15 @@ def versions(directory, progress, *, comparison=False):
         return rows
     result = json.loads((directory/'progress.json').read_text())
     evaluation = json.loads((directory/'evaluation.json').read_text())['candidate']
+    manifest_path = directory/'manifest.json'
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    policy = manifest.get('policy') or 'policy.zip'
     selection = directory/'selection.json'
     if selection.exists():
-        return [dict(json.loads(selection.read_text()), policy='policy.zip', evaluation=evaluation)]
+        return [dict(json.loads(selection.read_text()), policy=policy, evaluation=evaluation)]
     return [dict(id=result.get('selected_checkpoint_id', f"{result['steps']:09d}"),
                  steps=result['steps'], imitation_updates=result.get('imitation_updates', 0),
-                 policy='policy.zip', evaluation=evaluation)]
+                 policy=policy, evaluation=evaluation)]
 
 
 def labelled(frame, lines):

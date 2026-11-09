@@ -14,7 +14,7 @@ movement, firmware installation or Body Control restart was performed for this a
 
 ## Task-directed locomotion owns the purpose and endpoint
 
-The shared [goal-directed locomotion contract](../../../metahuman/docs/robot/BODY_CAPABILITIES.md#movement-and-posture)
+The shared [goal-directed locomotion contract](../../../metahuman/docs/robot/BODY_CAPABILITIES.md#motion-and-posture)
 already assigns goal selection to MetaHuman and progress/execution to Core Active
 Task. The owner reaffirmed this scope on October 28: the robot moves to follow a
 line/person, investigate an object, explore, or perform another selected task.

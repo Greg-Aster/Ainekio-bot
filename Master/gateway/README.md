@@ -228,13 +228,17 @@ run seed. Learner saves approximately every million transitions also update
 
 Task revision 3 retains the tanh Gaussian actor with transformed likelihood,
 bounded-action entropy and deterministic ONNX output. Linear and yaw tracking
-have independent Cauchy scores (0.1 m/s and 0.5 rad/s widths), each subtracting
-its stationary baseline. Forward progress therefore does not depend on first
+have independent Cauchy scores (0.1 m/s and 0.5 rad/s widths), each normalized
+by its positive headroom over the stationary baseline so every nonzero command
+has full unit tracking scale. Forward progress therefore does not depend on first
 solving yaw tracking. Standing commands have zero ideal tracking reward and
 penalize drift. Small normalized action-change, action-size and standing-pose
-costs regularize motion. The four-foot mean air-time bonus has weight 0.5 and
-moving/upright gating with a `0.25 + 0.75 * quality` floor; early stepping can
-receive credit before tracking succeeds. Clearance weight is -0.2.
+costs regularize motion, while prolonged air-hang (>0.35 s) and stalled-stance
+(>0.60 s) costs prevent single-leg holding or stationary freezing when a moving
+twist is commanded. The four-foot mean air-time bonus has weight 1.0 and
+moving/upright gating with a `0.3 + 0.7 * progress` floor; early stepping can
+receive credit before tracking succeeds. Clearance weight is -0.2 with a 15 mm
+quadruped foot-lift target.
 
 The existing `nan_state` termination is retained and checks current integration
 state as well as upstream derived body/contact state, avoiding a final-substep
@@ -248,15 +252,12 @@ unearned terrain progression. Use 40–60-second episodes for sustained evaluati
 The parent `cfg.sim.mujoco` alone owns integration options; child XML options
 are removed before attachment.
 
-Training starts with `ainekio-neural-gait-v7-proprio`: fifteen 50 Hz samples of
+Training uses `ainekio-neural-gait-v7-proprio`: fifteen 50 Hz samples of
 fourth-wire joint angles/velocities, gyro, acceleration, projected gravity,
-commanded twist and previous actions (720 features). The camera stage uses
-`ainekio-neural-gait-v8-proprio-camera`, adding the existing 147-value optical
-depth contract. The critic alone receives privileged body velocity. Audio is
-outside low-level gait control. Optical rays include camera latency, dropout and
-noise; they do not run MoGe on rendered frames or establish physical camera fidelity.
-The final requested sensor-complete policy requires the camera stage and
-sensor-response evaluation; a proprioceptive checkpoint is an intermediate.
+commanded twist and previous actions (720 features). The critic alone receives
+privileged body velocity. Camera perception and audio are outside low-level
+MicroDuck gait control; high-level perception systems observe the environment
+separately and issue velocity commands to the walking system.
 
 Install the upstream locked stack separately so it does not upgrade the existing
 SB3/physical-learning environment:
@@ -271,8 +272,7 @@ uv pip install --python build/microduck-training-env/bin/python \
 Headless RunPod PyTorch containers also need `libegl1`, `libgl1`, `libglfw3`
 and `libglib2.0-0` installed before importing MuJoCo with `MUJOCO_GL=egl`.
 
-Use a recorded Ainekio environment containing robot calibration and the explicit
-`depth_camera` profile, preserving its measurement provenance and error assumptions.
+Use a recorded Ainekio environment containing robot calibration.
 The task samples forward velocity from -0.15 to +0.20 m/s, lateral velocity from
 -0.06 to +0.06 m/s and yaw rate from -1 to +1 rad/s, including standing requests.
 Friction spans 0.4–1.2 from the start. All initial patches are flat with zero
@@ -291,15 +291,12 @@ PYTHONPATH=Master:Slave/software MUJOCO_GL=egl TORCHINDUCTOR_COMPILE_THREADS=2 \
   --num-envs 64 --iterations 5 --device cuda:0
 ```
 
-For proprioceptive training, replace the smoke budget with `--num-envs 1024
+For full proprioceptive training, replace the smoke budget with `--num-envs 1024
 --steps 20000000`. World count should fit available GPU memory. Resume with
-`--resume /path/to/run`. Extend a learned proprioceptive checkpoint with
-`--stage camera --initialize-from /path/to/proprio-run` in a new run directory.
-This preserves learned proprioceptive weights and starts camera weights at zero;
-further PPO training must learn useful camera responses.
+`--resume /path/to/run`, and evaluate a completed run with `--evaluate --directory /path/to/run`.
 
 The existing service accepts `recipe:"microduck-mjlab-v1"`, `environment`,
-`steps`, `workers`, `device`, `seed`, `stage` and `initialize_from`. Its existing
+`steps`, `workers`, `device` and `seed`. Its existing
 training-process owner runs the imported learner. Budgets round up to full
 24-step PPO rollouts per world. `AINEKIO_MICRODUCK_PYTHON` selects a different
 installation of the separate environment.

@@ -83,9 +83,10 @@ class Generator:
             self.identity['encoding_sha256'] = hashlib.sha256(Path(__file__).with_name('compact_wire.py').read_bytes()).hexdigest()
         self.identity['response_schema_sha256']=hashlib.sha256(compact(self.schema).encode()).hexdigest()
 
-    def _payload(self, request, observation=None, event=None, history=None):
-        query = request if observation is None and event is None and not history else {
-            'request':request,'event':event,'observation':observation,'history':history or []}
+    def _payload(self, request, observation=None, event=None, history=None, motion_goal=None):
+        query = request if observation is None and event is None and not history and motion_goal is None else {
+            'request':request,'event':event,'observation':observation,'history':history or [],
+            **({'motion_goal':motion_goal} if motion_goal is not None else {})}
         if isinstance(query,str):
             try:
                 decoded=json.loads(query)
@@ -114,10 +115,10 @@ class Generator:
             raise ValueError('Freestyle LoRA is not loaded: '+self.adapter_file)
         return [{'id':adapter['id'],'scale':1}]
 
-    def generate(self, request, observation=None, event=None, history=None):
+    def generate(self, request, observation=None, event=None, history=None, motion_goal=None):
         if self.big_brother is not None:
-            return asyncio.run(self.async_generate(request, observation, event, history))
-        payload = self._payload(request, observation, event, history)
+            return asyncio.run(self.async_generate(request, observation, event, history, motion_goal=motion_goal))
+        payload = self._payload(request, observation, event, history, motion_goal=motion_goal)
         started = time.perf_counter()
         if self.adapter_file is not None:
             with urllib.request.urlopen(self._adapter_endpoint()) as response:
@@ -128,8 +129,8 @@ class Generator:
             result = json.load(response)
         return self._program(result, started)
 
-    async def async_generate(self, request, observation=None, event=None, history=None):
-        payload = self._payload(request, observation, event, history)
+    async def async_generate(self, request, observation=None, event=None, history=None, motion_goal=None):
+        payload = self._payload(request, observation, event, history, motion_goal=motion_goal)
         started = time.perf_counter()
         if self.big_brother is not None:
             result = await self.big_brother.complete(payload)

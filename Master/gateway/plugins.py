@@ -781,12 +781,34 @@ class CameraFramePlugin:
             return {**measurement, "available": False, "frameCurrent": False, "reason": "Camera observation exceeds configured camera freshness"}
         return {**measurement, "frameCurrent": True}
 
+    def _range_metric(self, frame_id, point, source_frame=None):
+        robot = (source_frame or {}).get("robotId")
+        if robot is None:
+            prefix = f"ainekio-camera-{self.gateway.instance_id}-"
+            if isinstance(frame_id, str) and frame_id.startswith(prefix):
+                parts = frame_id[len(prefix):].rsplit("-", 2)
+                if len(parts) == 3:
+                    robot = parts[0]
+        if robot is None:
+            for candidate, measurement in self._metric_latest.items():
+                if measurement.get("frameId") == frame_id:
+                    robot = candidate
+                    break
+        if (robot is not None and self._depth_settings.get(robot, {}).get("mode") == "moge-open3d") or (
+                robot is None and any(cfg.get("mode") == "moge-open3d" for cfg in self._depth_settings.values())):
+            if self._depth_motion is None:
+                return {"available": False, "reason": "Depth worker has no retained camera frame"}
+            return self._depth_motion.range(frame_id, point, source_frame)
+        return self._metric_owner().range(frame_id, point, source_frame)
+
     async def selected_ground_range(self, frame_id, point, source_frame=None):
-        result = await self._metric_call("range", frame_id, point, source_frame)
+        result = await asyncio.get_running_loop().run_in_executor(
+            self._metric_executor, self._range_metric, frame_id, point, source_frame)
         if not result.get("available"):
             return result
         measurement = self.locomotion_measurement(result.get("robotId"))
-        if not measurement.get("available"):
+        if not (measurement.get("frameCurrent") and (
+                measurement.get("available") or (measurement.get("depthSpatial") or {}).get("available"))):
             return {**result, "available": False, "reason": measurement.get("reason")}
         return {**result, "expiresAt": measurement.get("expiresAt")}
 

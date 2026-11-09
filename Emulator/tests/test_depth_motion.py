@@ -502,6 +502,36 @@ class DepthGeometryTests(unittest.TestCase):
         self.assertEqual(resumed["calibrationId"],first["calibrationId"])
         self.assertAlmostEqual(resumed["position"]["xMetres"],.02)
 
+    def test_selected_ground_contact_range_and_optical_flow_tracking(self):
+        import cv2
+        rng = np.random.default_rng(9)
+        texture = cv2.GaussianBlur(rng.integers(0, 256, (120, 160, 3), dtype=np.uint8), (3, 3), 0)
+        shifted = cv2.warpAffine(texture, np.array([[1., 0, 8.], [0, 1, 0]]), (160, 120))
+        estimator = object.__new__(Estimator)
+        estimator.states, estimator.optics, estimator.model_id = {}, {}, "test-model"
+        k = np.array([[160., 0, 80.], [0, 160., 60.], [0, 0, 1.]])
+        depth_map = np.full((120, 160), 1.5, np.float32)
+        estimator.depth = Mock(return_value=(depth_map, k))
+        encode = lambda img: base64.b64encode(cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 98])[1].tobytes()).decode()
+        base_req = dict(robot="robot", instance="gateway", epoch=1, counter=10, received=5.,
+                        timestamp="2026-11-07T10:00:00+00:00", jpeg=encode(texture),
+                        config=settings({"mode": "moge-open3d", "cameraToBody": OPTICAL_TO_FORWARD.tolist()}))
+        first = estimator.process(base_req)
+        ranged = estimator.range({"frameId": first["frameId"], "point": {"x": 0.5, "y": 0.5}, "instance": "gateway"})
+        self.assertTrue(ranged["available"])
+        self.assertEqual(ranged["source"], "selected-ground-contact-moge2-depth")
+        self.assertAlmostEqual(ranged["rangeMetres"], 1.5, places=3)
+        self.assertAlmostEqual(ranged["horizontalOffset"], 0.0, places=3)
+        self.assertEqual(ranged["referenceFrameId"], first["frameId"])
+        self.assertEqual(ranged["referencePoint"], {"x": 0.5, "y": 0.5})
+        second = estimator.process({**base_req, "counter": 11, "received": 5.2, "jpeg": encode(shifted)})
+        tracked = estimator.range({"frameId": first["frameId"], "point": {"x": 0.5, "y": 0.5}, "instance": "gateway"})
+        self.assertTrue(tracked["available"])
+        self.assertEqual(tracked["frameId"], second["frameId"])
+        self.assertEqual(tracked["referenceFrameId"], first["frameId"])
+        self.assertEqual(tracked["referencePoint"], {"x": 0.5, "y": 0.5})
+        self.assertLess(tracked["horizontalOffset"], -0.03)
+
 
 class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -767,6 +797,32 @@ class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("Depth unload failed", observed.output[0])
         finally:
             depth.close.side_effect = None
+
+    async def test_selected_ground_range_routes_to_moge_depth_when_configured(self):
+        self.camera._depth_settings["robot"] = settings({"mode": "moge-open3d"})
+        self.camera._metric_latest["robot"] = {
+            "available": False, "robotId": "robot", "epoch": 1, "receivedAtMonotonic": 10.,
+            "frameId": "ainekio-camera-test-robot-1-5",
+            "expiresAt": "2026-11-07T10:00:05+00:00",
+            "depthSpatial": {"available": True},
+        }
+        depth = Mock()
+        depth.range.return_value = {
+            "available": True, "robotId": "robot", "epoch": 1,
+            "frameId": "ainekio-camera-test-robot-1-5",
+            "referenceFrameId": "ainekio-camera-test-robot-1-5",
+            "groundContact": {"x": 0.4, "y": 0.6},
+            "referencePoint": {"x": 0.4, "y": 0.6},
+            "horizontalOffset": 0.1, "rangeMetres": 0.85,
+        }
+        self.camera._depth_motion = depth
+        ranged = await self.camera.selected_ground_range(
+            "ainekio-camera-test-robot-1-5", {"x": 0.4, "y": 0.6})
+        self.assertTrue(ranged["available"])
+        self.assertEqual(ranged["rangeMetres"], 0.85)
+        self.assertEqual(ranged["horizontalOffset"], 0.1)
+        self.assertEqual(ranged["expiresAt"], "2026-11-07T10:00:05+00:00")
+        depth.range.assert_called_once_with("ainekio-camera-test-robot-1-5", {"x": 0.4, "y": 0.6}, None)
 
 
 if __name__ == "__main__":

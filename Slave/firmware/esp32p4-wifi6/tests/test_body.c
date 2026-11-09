@@ -16,7 +16,6 @@ static bool leveling_enabled=true;
 static ainekio_v2_balance_tuning_t leveling_tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
 ainekio_v2_balance_tuning_t ainekio_p4_balance_tuning(void) { return leveling_tuning; }
 static bool walking_feedback_enabled;
-static unsigned learning_calls,learning_begins;
 bool ainekio_p4_walking_feedback_enabled(void) { return walking_feedback_enabled; }
 bool ainekio_p4_balance_enabled(void) { return leveling_enabled; }
 static ainekio_p4_imu_status_t imu_status;
@@ -94,6 +93,11 @@ bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,ainekio_
      * it at the crouch shoulder angle; real feedback reads its potentiometer. */
     for(unsigned i=0;i<12;i++)if(!measured[i])measured[i]=modeled[i];
     return ainekio_p4_joint_unmap_frame(mapping,measured,frame);
+}
+void ainekio_p4_feedback_walk_frame(const ainekio_p4_joint_config_t *mapping,
+    ainekio_v2_frame_t *frame)
+{
+    (void)ainekio_p4_feedback_frame(mapping,frame);
 }
 bool ainekio_p4_feedback_check(const ainekio_p4_joint_config_t *mapping,
     const uint16_t *targets,int64_t commanded_us,uint16_t *waiting)
@@ -221,7 +225,7 @@ static void reset(void)
     ainekio_p4_body_listen(false);
     memset(commanded,0,sizeof(commanded));driver=(ainekio_pca9685_t){.state={.generation=1,.ready=true}};
     system_state=AINEKIO_STATE_IDLE;rest_seconds=180;speaker_busy=false;
-    walking_feedback_enabled=false;learning_calls=learning_begins=0;
+    walking_feedback_enabled=false;
     saved_motion_rate=1.F;leveling_enabled=true;leveling_tuning=AINEKIO_V2_BALANCE_TUNING_DEFAULT;
     shaft_feedback_enabled=shaft_feedback_reached=shaft_jam_enabled=false;shaft_wait_mask=0xfff;
     shaft_jam_checks=0;
@@ -1230,13 +1234,13 @@ static void imu_posture_feedback(float joint_speed,float motion_rate)
     assert(execute(&c)==ESP_OK);
     while(body.motion.entering){advance(20);assert(body.active);}
     imu_status.attitude.fresh=true;advance(1000);
-    assert(body.motion.kind==MOTION_WALK && body.balance.sensor_usable);
+    assert(body.motion.kind==MOTION_WALK && !body.balance.sensor_usable && !ainekio_p4_body_status().balance_active);
     double phase=body.motion.walk.phase;
     leveling_enabled=false;advance(1000);
     assert(body.motion.kind==MOTION_WALK && body.motion.walk.phase>phase && body.active);
     assert(driver.state.armed && !ainekio_p4_body_status().balance_active);
     leveling_enabled=true;advance(20);
-    assert(ainekio_p4_body_status().balance_active);
+    assert(!ainekio_p4_body_status().balance_active);
     phase=body.motion.walk.phase;
     imu_status.attitude.fresh=false;advance(1000);
     assert(body.motion.kind==MOTION_WALK && body.motion.walk.phase>phase && body.active);
@@ -1656,7 +1660,7 @@ static void freestyle_fitted_target_arrival(void)
     ainekio_v2_frame_t resolved={.geometry_id=ainekio_v2_walk_geometry_id};
     for(unsigned j=0;j<12;j++)resolved.position[j]=requested[j];
     assert(ainekio_p4_joint_fit_frame(mapped_joints,&resolved));
-    assert(fabs(resolved.position[4]-requested[4])>500);
+    assert(resolved.position[4]==requested[4]);
     ainekio_command_t c=freestyle(47,100000,2);
     for(unsigned j=0;j<12;j++) {
         c.data.motion_plan.frames[0].targets[j]=requested[j];
@@ -1666,7 +1670,7 @@ static void freestyle_fitted_target_arrival(void)
     advance(1000);
     assert(body.motion.freestyle.target_written && shaft_goal_checks);
     assert(body.motion.freestyle.plan.frames[0].targets[4]==requested[4]);
-    assert(body.motion.target_adjusted_joints&(1U<<4));
+    assert(body.motion.target_adjusted_joints==0);
     assert(body.motion.freestyle.index==0);
     ainekio_p4_body_event_t event;assert(!ainekio_p4_body_event(&event));
     /* Neither fitting nor time grants arrival: actual feedback still owns it. */
@@ -1675,10 +1679,10 @@ static void freestyle_fitted_target_arrival(void)
     shaft_sample_available=true;
     event=finish(2000);
     assert(event.completed && event.sequence==47 && event.result==ESP_OK);
-    assert(event.target_adjusted_joints&(1U<<4));
-    assert(event.position_verification==1); /* Original authored pose was changed. */
-    assert(last_written[4]==500);
-    puts("Freestyle fitted goals: exact Wave replay reaches measured applied targets and reports authored adjustments.");
+    assert(event.target_adjusted_joints==0);
+    assert(event.position_verification==2);
+    assert(last_written[4]==438);
+    puts("Freestyle fitted goals: exact Wave replay reaches measured applied targets without artificial pulse clamping.");
 
     /* Replay the calibrated spatial teaching path through the production
      * output owner with unequal simulated shaft speeds. All three sweeps and
@@ -2109,12 +2113,14 @@ static void walking_heading_feedback(void)
         measured+=body.motion.walk.body_yaw-yaw-.065*(body.motion.walk.phase-phase);
     }
     ainekio_p4_body_status_t status=ainekio_p4_body_status();
-    assert(status.walking_feedback_active && status.walking_turn_percent>0. && !status.balance_active);
+    /* On-chip MicroDuck owns IMU attitude and yaw directly; external balance
+     * and legacy PI heading controllers stay inactive during walking. */
+    assert(!status.walking_feedback_active && status.walking_turn_percent==0. && !status.balance_active);
     assert(body.motion.walk.fast_stroke);
-    walking_feedback_enabled=false;learning_calls=learning_begins=0;
-    double phase=body.motion.walk.phase,correction=body.motion.walk.feedback_turn;
+    walking_feedback_enabled=false;
+    double phase=body.motion.walk.phase;
     advance(2000);
-    assert(body.motion.walk.phase>phase && fabs(body.motion.walk.feedback_turn)<fabs(correction)*.02);
+    assert(body.motion.walk.phase>phase && fabs(body.motion.walk.feedback_turn)==0.);
     assert(!ainekio_p4_body_status().walking_feedback_active && !leveling_enabled);
 }
 
@@ -2249,6 +2255,19 @@ static void measured_walk_finish(void)
     assert(execute(&c)==ESP_OK);
     ainekio_p4_body_event_t e=finish(40000);
     assert(e.completed && e.sequence==846 && !shaft_goal_checks);
+    /* Unarmed Walk with measured shaft feedback arms at the measured physical
+     * shaft positions and ramps smoothly instead of jumping all 12 servos. */
+    reset();leveling_enabled=false;shaft_simulated=true;
+    ainekio_v2_rise_t rise;assert(ainekio_v2_rise_begin(&rise));
+    uint16_t crouch_pulses[12];assert(ainekio_p4_frame_pulses(&rise.crouch.frame,crouch_pulses));
+    for(unsigned i=0;i<12;i++)shaft_pulses[i]=crouch_pulses[i];
+    ainekio_pca_disarm(&driver);output_step(clock_us);
+    c=command(847,AINEKIO_INTENT_WALK);
+    c.data.intent.data.walk.steps=1;c.data.intent.data.walk.controls=1;c.data.intent.data.walk.speed_percent=50;
+    assert(execute(&c)==ESP_OK && driver.state.armed);
+    assert(!memcmp(last_written,crouch_pulses,sizeof crouch_pulses));
+    e=finish(40000);
+    assert(e.completed && e.sequence==847);
 }
 
 static void measured_freestyle_targets(void)
@@ -2550,7 +2569,6 @@ static void host_walk_ownership_and_finish(void)
     advance(20);
     assert(body.motion.walk.host_consumed_sample==1 && body.execution.nominal_sample==1 && body.execution.host_nominal);
     assert(body.motion.sequence==101 && body.motion.walk.phase==0.);
-    assert(!learning_calls && !learning_begins);
     sample=host_target(103,101,1,0);assert(execute(&sample)!=ESP_OK);
     sample=host_target(104,999,2,0);assert(execute(&sample)!=ESP_OK);
     sample=host_target(105,101,2,10);assert(execute(&sample)==ESP_OK);
@@ -2621,7 +2639,6 @@ static void host_walk_policy_owns_attitude(void)
     assert(!body.balance.sensor_usable && body.balance.correction[0]==0.);
     assert(!body.motion.walk.heading_active && body.motion.walk.heading_error==0.);
     assert(body.motion.walk.host_consumed_sample==1 && body.motion.walk.host_requested[2][2]==8);
-    assert(!learning_calls && !learning_begins);
     imu_status.attitude.orientation_wxyz[0]=cosf(.2f);
     imu_status.attitude.orientation_wxyz[1]=0;
     imu_status.attitude.orientation_wxyz[3]=sinf(.2f);
@@ -2630,6 +2647,25 @@ static void host_walk_policy_owns_attitude(void)
     imu_status.attitude.fresh=false;advance(1000);
     assert(!body.balance.sensor_usable && body.balance.correction[0]==0.);
     assert(body.motion.kind==MOTION_WALK && driver.state.armed);
+
+    /* On-chip MicroDuck scales horizontal stride immediately without slowing
+     * policy cadence, and retains contact anchors on post-Walk balance hold. */
+    reset();leveling_enabled=true;
+    imu_status=(ainekio_p4_imu_status_t){.calibration_applied=true,
+        .attitude={.available=true,.fresh=true,.orientation_wxyz={cosf(.03f),sinf(.03f),0,0}}};
+    ainekio_command_t md=command(410,AINEKIO_INTENT_WALK);
+    md.data.intent.data.walk.steps=1;
+    md.data.intent.data.walk.controls=1;
+    md.data.intent.data.walk.speed_percent=100;
+    assert(execute(&md)==ESP_OK);
+    advance(20);
+    assert(body.motion.walk.stride_percent==100. && body.microduck_steps==1);
+    ainekio_p4_body_event_t done=finish(20000);
+    assert(done.completed && done.sequence==410);
+    assert(body.balance_hold && body.balance_contacts);
+    advance(200);
+    for(unsigned j=0;j<12;j++)
+        assert(fabsf(body.pose.position[j]-body.microduck_reference.position[j])<2500.f);
 }
 
 static void admission_replies_keep_request_identity(void)
@@ -2713,8 +2749,3 @@ int main(int argc,char **argv)
     puts("Production body: 12 locomotion variants, finite walk, all clips, smooth entry, updates, replacement, stop, delayed resumption, mapping/driver faults, partial assembly and calibration passed.");
     return 0;
 }
-
-void ainekio_p4_learning_begin(ainekio_v2_walk_state_t *walk){(void)walk;learning_begins++;}
-void ainekio_p4_learning_frame(const ainekio_v2_walk_state_t *walk,uint32_t sequence,uint64_t now,
-    ainekio_v2_frame_t *frame,bool (*valid)(const ainekio_v2_frame_t *,void *),void *context)
-{(void)walk;(void)sequence;(void)now;(void)frame;(void)valid;(void)context;learning_calls++;}

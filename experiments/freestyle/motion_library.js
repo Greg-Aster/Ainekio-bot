@@ -13,7 +13,7 @@
     <button type="button" data-action="next">Next</button>
     <button type="button" data-action="last">Last</button>
   </div>`;
-  panel.innerHTML = `<details data-field="browser" open><summary>Training data</summary>
+  panel.innerHTML = `<details data-field="browser"><summary>Training data</summary>
       <p class="field-help">Editable examples for future training exports. Saving does not update the loaded model.</p>
       <form data-field="search-form" class="motion-library-search">
         <label>Find a motion <input type="search" data-field="search" placeholder="Title, request or motion family"></label>

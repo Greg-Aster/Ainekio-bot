@@ -1,4 +1,3 @@
-#include "gait_learning.h"
 #include "ota.h"
 #include "idle_rest.h"
 #include "logs.h"
@@ -399,12 +398,6 @@ static esp_err_t servo_feedback(httpd_req_t *r)
     return ainekio_p4_feedback_http(r);
 }
 
-static esp_err_t gait_learning(httpd_req_t *r)
-{
-    if(!authorized(r))return response(r,"401 Unauthorized","{\"error\":\"pairing_token_required\"}");
-    return ainekio_p4_learning_http(r);
-}
-
 static esp_err_t trajectory(httpd_req_t *r)
 {
     if(!authorized(r))return response(r,"401 Unauthorized","{\"error\":\"pairing_token_required\"}");
@@ -435,8 +428,6 @@ static esp_err_t trajectory(httpd_req_t *r)
 static const httpd_uri_t maintenance_endpoints[] = {
         {.uri="/api/idle-rest", .method=HTTP_GET, .handler=idle_rest},
         {.uri="/api/idle-rest", .method=HTTP_POST, .handler=idle_rest},
-        {.uri="/api/gait-learning", .method=HTTP_GET, .handler=gait_learning},
-        {.uri="/api/gait-learning", .method=HTTP_POST, .handler=gait_learning},
         {.uri="/api/trajectory", .method=HTTP_POST, .handler=trajectory},
         {.uri="/api/servo-feedback", .method=HTTP_GET, .handler=servo_feedback},
         {.uri="/api/servo-feedback", .method=HTTP_POST, .handler=servo_feedback},
@@ -453,7 +444,6 @@ size_t ainekio_p4_maintenance_endpoint_count(void)
 
 esp_err_t ainekio_p4_maintenance_register(httpd_handle_t server)
 {
-    ainekio_p4_learning_init();
     for (size_t i=0; i<ainekio_p4_maintenance_endpoint_count(); ++i) {
         esp_err_t result = httpd_register_uri_handler(server, &maintenance_endpoints[i]);
         if (result != ESP_OK) return result;

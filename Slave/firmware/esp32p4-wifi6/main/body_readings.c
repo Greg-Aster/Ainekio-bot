@@ -152,8 +152,7 @@ cJSON *ainekio_p4_feedback_status_json(void)
            ainekio_feedback_position(j,s.raw[j->channel],&measured,&in_range)) {
             cJSON_AddNumberToObject(v,"measured_us",measured);
             cJSON_AddBoolToObject(v,"in_calibrated_range",in_range);
-            double degrees=(measured-m->home_us)/m->us_per_degree;
-            cJSON_AddNumberToObject(v,"model_deg",m->home_cd/100.+(m->invert?-degrees:degrees));
+            cJSON_AddNumberToObject(v,"model_deg",ainekio_p4_joint_pulse_to_cd(m,measured)/100.);
             if(target)cJSON_AddNumberToObject(v,"error_us",target-measured);
             double filtered,neighbor;
             if(ainekio_feedback_position(j,s.filtered_raw[j->channel],&filtered,&in_range)&&

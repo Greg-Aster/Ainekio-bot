@@ -4349,7 +4349,7 @@ class NativeDemonstrationTests(unittest.TestCase):
         robot = robot_fixture()
         # Synthetic horn offsets make the rear-right native swing cross the
         # installed PWM limits. These are fixture values, not captured hardware.
-        robot['calibration'][4]['home_us'] = 765
+        robot['calibration'][4]['home_us'] = 565
         robot['calibration'][5]['home_us'] = 1900
         reference = [0, 3.46, -21.63] * 4
         limits = [[-180, 180]] * 12

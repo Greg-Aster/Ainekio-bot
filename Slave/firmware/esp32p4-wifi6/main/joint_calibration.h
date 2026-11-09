@@ -28,6 +28,13 @@ bool ainekio_p4_joint_map_frame(const ainekio_p4_joint_config_t *joints,
 
 bool ainekio_p4_joint_unmap_frame(const ainekio_p4_joint_config_t *joints,
                                 const uint16_t *pulses,ainekio_v2_frame_t *frame);
+/* Authoritative single-joint pulse-to-model-centidegree conversion. */
+static inline double ainekio_p4_joint_pulse_to_cd(
+    const ainekio_p4_joint_config_t *joint, double pulse_us)
+{
+    const double direction = joint->invert ? -1. : 1.;
+    return joint->home_cd + 100. * direction * (pulse_us - joint->home_us) / joint->us_per_degree;
+}
 /* Owner-measured carrier/crank collision endpoints; shoulders are unchanged. */
 bool ainekio_p4_joint_fit_frame(const ainekio_p4_joint_config_t *joints,ainekio_v2_frame_t *frame);
 bool ainekio_p4_joint_frame_in_travel(const ainekio_p4_joint_config_t *joints,const ainekio_v2_frame_t *frame);

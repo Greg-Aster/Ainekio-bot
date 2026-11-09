@@ -613,6 +613,13 @@ class Bridge:
             if getattr(error,'evidence',None) is not None:
                 job['error_evidence'] = copy.deepcopy(error.evidence)
             self.record(job, 'job_error', {'error':message, 'evidence':getattr(error,'evidence',None)})
+            if (job['execute'] and not job.get('event') and setting.get('recover_events')
+                    and self.active.get(robot)==job['id']
+                    and isinstance(getattr(error,'evidence',None),dict)
+                    and error.evidence.get('position_verified') is False):
+                await self.submit(robot,job['request'],True,{
+                    'robot_id':robot,'epoch':job['epoch'],'name':'body_event',
+                    'data':{'kind':'servo_stall'}})
         finally:
             if prepared is not None:
                 prepared[1].cancel()
@@ -655,7 +662,7 @@ class Bridge:
         if not setting.get('recover_events') or event.get('name')!='body_event':
             return
         data=event.get('data',{})
-        if data.get('outputs_released'):
+        if data.get('outputs_released') or data.get('motion_policy')=='continue_authored_motion':
             return
         if data.get('kind') not in ('servo_stall','servo_feedback_fault','tipped','rapid_movement','slip'):
             return

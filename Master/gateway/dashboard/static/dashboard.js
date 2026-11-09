@@ -4,6 +4,9 @@
   const HELD_MOTION_STEPS = 10;
 
   let audioSession = null;
+  let tapToTalkActive = false;
+  let tapToTalkRestoreGate = null;
+  let latestFreestyleStatus = null;
   const audioForms = {
     microphone: { edited: false, pending: null, revision: 0 },
     wake: { edited: false, pending: null, revision: 0 },
@@ -17,6 +20,8 @@
   let selectedRobotId = null;
   let motionSystemRobot = null;
   let motionSystemEdited = false;
+  let walkSystemRobot = null;
+  let walkSystemEdited = false;
   let bodyEventsRobot = null;
   let bodyEventsEdited = false;
   let bodyEventsSaving = false;
@@ -29,6 +34,7 @@
   let directionalWalking = false;
   let neuralWalking = false;
   let steeringSupported = false;
+  let lateralSupported = false;
   let runningSupported = false;
   let crabSupported = false;
   const balanceTuningKeys = ["strength", "damping", "roll_deg", "pitch_deg"];
@@ -172,9 +178,15 @@
 
   function showResult(message, error = false) {
     const output = byId("command-result");
-    if (!output) return;
-    output.textContent = message;
-    output.classList.toggle("error", error);
+    if (output) {
+      output.textContent = message;
+      output.classList.toggle("error", error);
+    }
+    const hudToast = byId("cockpit-hud-toast");
+    if (hudToast) {
+      hudToast.textContent = message;
+      hudToast.classList?.toggle?.("error", error);
+    }
   }
 
   function filterFaces() {
@@ -516,8 +528,29 @@
     const db = rms > 0 ? 20 * Math.log10(rms) : -Infinity;
     const clipping = Boolean(fresh && audio.listening && audio.peak >= 0.99);
     const meter = byId("microphone-level");
-    meter.value = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+    const meterPercent = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+    meter.value = meterPercent;
     meter.classList.toggle("clipping", clipping);
+    if (byId("cockpit-mic-level")) {
+      byId("cockpit-mic-level").value = meterPercent;
+      byId("cockpit-mic-level").classList?.toggle?.("clipping", clipping);
+    }
+    if (fresh && audio) {
+      if (audio.on && audio.gate === "open") tapToTalkActive = true;
+      else if (!audioForms.microphone.pending) tapToTalkActive = false;
+    } else if (!online) {
+      tapToTalkActive = false;
+    }
+    if (byId("cockpit-talk-button")) {
+      const micAvailable = Boolean(online && (!entry?.capabilities || entry.capabilities.microphone !== false));
+      byId("cockpit-talk-button").disabled = !micAvailable;
+      byId("cockpit-talk-button").classList?.toggle?.("is-listening", tapToTalkActive);
+      byId("cockpit-talk-button").setAttribute?.("aria-pressed", String(tapToTalkActive));
+      text("cockpit-talk-label", tapToTalkActive ? "Done Talking · Tap to Send" : "Tap to Talk");
+      text("cockpit-talk-status", !online ? "Robot offline — connect to use voice." :
+        tapToTalkActive ? `Recording directly to MetaHuman (wake word bypassed)${db > -60 ? ` · ${db.toFixed(1)} dBFS` : ""} — tap again to send.` :
+        `${audio?.wake_enabled || status?.wake_enabled ? "Wake word active" : "Wake word off"} — tap to talk directly if wake word doesn't respond.`);
+    }
     text("microphone-level-status", !online ? "Robot offline" : supported && !fresh ? "Waiting for input level" :
       entry.external_speech_active ? (audio?.external_speech ? "Listening suppressed during external speech" : "External speech: host audio suppressed; robot notification unconfirmed") :
       supported && !audio.on ? "Microphone off" : !listening ? "Listening paused during speaker playback" :
@@ -693,7 +726,7 @@
         {dir: entry.active_walk.dir, gait: entry.active_walk.gait || "walk"} : null;
       if (adoptedWalk && activeWalkProfile && canSteer()) {
         const defaults = directionVector(activeWalkProfile.dir);
-        setSteeringVector(entry.active_walk.forward ?? defaults[0], entry.active_walk.turn ?? defaults[1]);
+        setSteeringVector(entry.active_walk.forward ?? defaults[0], entry.active_walk.turn ?? defaults[1], entry.active_walk.lateral ?? 0);
       }
     }
     if (activeWalkProfile && directionalWalking) {
@@ -708,8 +741,10 @@
     for (const id of ["walk-direction", "walk-gait", "walk-continuous"]) byId(id).disabled = activeWalkSequence !== null || pending;
     if (canSteer()) byId("walk-direction").disabled = false;
     byId("walk-steering").hidden = !canSteer();
+    if (byId("walk-lateral-field")) byId("walk-lateral-field").hidden = !canSteer() || !lateralSupported;
     byId("walk-apply").textContent = activeWalkSequence === null ? "Start" : "Apply to current movement";
     byId("walk-finish").disabled = activeWalkSequence === null;
+    if (byId("cockpit-walk-finish")) byId("cockpit-walk-finish").disabled = activeWalkSequence === null;
     byId("walk-cycles-field").hidden = directionalWalking && byId("walk-continuous").checked;
     byId("walk-cycles").disabled = activeWalkSequence !== null || (directionalWalking && byId("walk-continuous").checked);
   }
@@ -725,8 +760,14 @@
     slider.max = extended ? "200" : "100";
     if (Number(slider.value) > Number(slider.max)) slider.value = slider.max;
     byId("walk-speed-value").textContent = `${slider.value}%`;
+    if (byId("cockpit-speed")) {
+      byId("cockpit-speed").max = slider.max;
+      byId("cockpit-speed").value = slider.value;
+      text("cockpit-speed-value", `${slider.value}%`);
+    }
     byId("walk-run-hint").hidden = neuralWalking || !extended || gait === "run";
     byId("walk-steering").hidden = !canSteer();
+    if (byId("walk-lateral-field")) byId("walk-lateral-field").hidden = !canSteer() || !lateralSupported;
   }
 
   function canSteer() {
@@ -737,11 +778,15 @@
     return ({ fwd: [100, 0], back: [-100, 0], turn_l: [0, 100], turn_r: [0, -100] })[direction] || [0, 0];
   }
 
-  function setSteeringVector(forward, turn) {
+  function setSteeringVector(forward, turn, lateral = Number(byId("walk-lateral")?.value || 0)) {
     byId("walk-forward").value = String(forward);
     byId("walk-turn").value = String(turn);
     byId("walk-forward-value").textContent = `${forward}%`;
     byId("walk-turn-value").textContent = `${turn}%`;
+    if (byId("walk-lateral")) {
+      byId("walk-lateral").value = String(lateral);
+      text("walk-lateral-value", `${lateral}%`);
+    }
   }
 
   async function driveHeldVector(forward, turn) {
@@ -750,7 +795,7 @@
       return;
     }
     heldDirection = "steering";
-    setSteeringVector(forward, turn);
+    setSteeringVector(forward, turn, 0);
     await applyWalking();
   }
 
@@ -766,6 +811,7 @@
 
   function walkingParameters(steps, direction = byId("walk-direction").value) {
     const params = { dir: directionalWalking ? direction : "fwd", steps };
+    if (!neuralWalking && calibrationEntry?.model === "v2-12servo") params.source = "native";
     if (directionalWalking) params.gait = byId("walk-gait").value;
     if (!variableWalking) return params;
     if (byId("walk-mode").value === "auto") params.speed = Number(byId("walk-speed").value);
@@ -773,6 +819,8 @@
     if (canSteer()) {
       params.forward = Number(byId("walk-forward").value);
       params.turn = Number(byId("walk-turn").value);
+      const lateral = Number(byId("walk-lateral")?.value || 0);
+      if (lateralSupported && (lateral !== 0 || activeWalkSequence !== null)) params.lateral = lateral;
     }
     return params;
   }
@@ -855,6 +903,14 @@
       el.disabled = !servoFeedbackSupported || servoFeedbackWriting;
     });
     const data = servoFeedbackData;
+    if (byId("cockpit-jam-toggle")) {
+      const separateJam = typeof data?.jam_enabled === "boolean";
+      const jamOn = Boolean(data && (separateJam ? data.jam_enabled : (data.stand_enabled && data.no_progress_ms)));
+      byId("cockpit-jam-toggle").disabled = !servoFeedbackSupported || servoFeedbackWriting || !data;
+      byId("cockpit-jam-toggle").checked = jamOn;
+      text("cockpit-jam-state", !servoFeedbackSupported ? "Connect a P4 robot" : !data ? "Reading from robot…" :
+        jamOn ? `Active · ${data.no_progress_ms ?? 1000} ms window` : "Off");
+    }
     if (!servoFeedbackSupported) {
       text("servo-feedback-status", "Connect a P4 with servo feedback firmware.");
       byId("servo-feedback-rows").replaceChildren();
@@ -1033,6 +1089,19 @@
     byId("balance-reference").disabled = !balanceTuningSupported || !balanceData || balanceBusy || !balanceAttitude(balanceEntry);
     byId("balance-gyro-calibrate").disabled = !balanceSupported || balanceBusy ||
       !(balanceEntry?.features || []).includes("balance_feedback_v1");
+    if (byId("cockpit-balance-toggle")) {
+      byId("cockpit-balance-toggle").disabled = !balanceSupported || !balanceData || balanceBusy;
+      byId("cockpit-balance-toggle").checked = Boolean(balanceData?.enabled);
+      const active = balanceEntry?.status?.balance?.active;
+      text("cockpit-balance-state", !balanceSupported ? "Connect P4 robot" : !balanceData ? "Reading…" :
+        balanceData.enabled ? (active ? "On · actively leveling" : "On · holding level") : "Off");
+    }
+    if (byId("cockpit-walking-feedback-toggle")) {
+      byId("cockpit-walking-feedback-toggle").disabled = !walking || !balanceData || balanceBusy;
+      byId("cockpit-walking-feedback-toggle").checked = Boolean(balanceData?.walking_enabled);
+      text("cockpit-walking-feedback-state", !walking ? "Unavailable on this body" : !balanceData ? "Reading…" :
+        balanceData.walking_enabled ? "On · IMU heading hold active" : "Off");
+    }
   }
 
   let learnedCandidate = null, learnedRobot = null, learnedReadAt = 0, learnedReading = false;
@@ -1172,6 +1241,11 @@
       "IMU unavailable or stale — no live angle.");
     text("balance-tilt", attitude ?
       `Measured: roll ${angle(attitude.roll)} (positive = left up) · pitch ${angle(attitude.pitch)} (positive = nose up).` : "");
+    if (byId("cockpit-attitude-readout")) {
+      text("cockpit-attitude-readout", attitude ?
+        `R ${angle(attitude.roll)} · P ${angle(attitude.pitch)}${b?.active ? " · LVL" : ""}` :
+        "IMU --");
+    }
     text("balance-error", attitude && balanceData && balanceTuningSupported ?
       `Offset from saved targets: roll ${angle(attitude.roll-balanceData.roll_deg)} · pitch ${angle(attitude.pitch-balanceData.pitch_deg)}. Zero is on target. Moving motions also include their programmed body angle.` : "");
     text("balance-correction", online && Number.isFinite(b?.roll_correction_rad) && Number.isFinite(b?.pitch_correction_rad) ?
@@ -1471,7 +1545,13 @@
 
   function renderMotionSystemControls() {
     const freestyle = byId("motion-system").checked;
+    if (byId("cockpit-motion-system")) byId("cockpit-motion-system").checked = freestyle;
     byId("named-poses-emotes").hidden = freestyle;
+    if (byId("motion-system-hint")) {
+      text("motion-system-hint", freestyle
+        ? "Freestyle generates custom motions or runs training examples. Toggle to Legacy library for one-click preset emotes."
+        : "Legacy library sends one-click preset poses and emotes directly to the robot.");
+    }
     document.querySelectorAll('[data-motion-system="freestyle"]').forEach(panel => { panel.hidden = !freestyle; });
   }
 
@@ -1485,6 +1565,53 @@
     renderMotionSystemControls();
   }
 
+  function renderWalkSystemControls(entry = calibrationEntry) {
+    neuralWalking = entry?.active_walk
+      ? entry.active_walk.source === "host"
+      : walkSystemEdited
+        ? Boolean(byId("walk-system").checked)
+        : entry?.walking_source?.source === "neural";
+    const microduckOrNeural = neuralWalking || entry?.model === "v2-12servo";
+    byId("walk-gait-field").hidden = microduckOrNeural;
+    byId("walk-mode-field").hidden = microduckOrNeural;
+    byId("walk-continuous-field").hidden = microduckOrNeural;
+    byId("walk-native-hint").hidden = neuralWalking;
+    byId("walk-neural-hint").hidden = !neuralWalking;
+    if (byId("cockpit-walk-system-toggle")) {
+      byId("cockpit-walk-system-toggle").checked = Boolean(neuralWalking);
+      text("cockpit-walk-system-state", neuralWalking ? "Host neural policy active" : "On-chip MicroDuck (50 Hz P4) active");
+    }
+    if (byId("walk-neural-quick-controls")) byId("walk-neural-quick-controls").hidden = !neuralWalking;
+    if (microduckOrNeural) {
+      if (!entry?.active_walk) byId("walk-gait").value = "walk";
+      byId("walk-continuous").checked = true;
+      byId("walk-mode").value = "auto";
+      byId("walk-advanced").hidden = true;
+      byId("walk-stride").disabled = true;
+      byId("walk-speed-field").hidden = false;
+      const saved = entry?.walking_source || {};
+      if (byId("walk-neural-forward") && !byId("walk-neural-forward").value)
+        byId("walk-neural-forward").value = String(saved.forward_m_s ?? (byId("neural-walking-forward")?.value || 0.15));
+      if (byId("walk-neural-lateral") && !byId("walk-neural-lateral").value)
+        byId("walk-neural-lateral").value = String(saved.lateral_m_s ?? (byId("neural-walking-lateral")?.value || 0.08));
+      if (byId("walk-neural-yaw") && !byId("walk-neural-yaw").value)
+        byId("walk-neural-yaw").value = String(saved.yaw_rad_s ?? (byId("neural-walking-yaw")?.value || 1.0));
+    }
+  }
+
+  function walkSystemScale(id, savedValue, fallback) {
+    const input = byId(id);
+    const parsed = Number(input?.value);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    const saved = Number(savedValue);
+    if (Number.isFinite(saved) && saved > 0) {
+      if (input) input.value = String(saved);
+      return saved;
+    }
+    if (input) input.value = String(fallback);
+    return fallback;
+  }
+
   function setupMotionControls() {
     byId("motion-system").addEventListener("change", async () => {
       motionSystemEdited = true;
@@ -1496,6 +1623,34 @@
           "Motion system saved", () => robot === selectedRobotId);
         if (robot === selectedRobotId) {
           if ((byId("motion-system").checked ? "freestyle" : "library") === system) motionSystemEdited = false;
+          await refreshStatus();
+        }
+      } catch (_error) { /* command displays the error */ }
+    });
+    byId("walk-system").addEventListener("change", async () => {
+      walkSystemEdited = true;
+      const useNeural = Boolean(byId("walk-system").checked);
+      const source = useNeural ? "neural" : "native";
+      if (byId("neural-walking-source")) byId("neural-walking-source").value = source;
+      renderWalkSystemControls(calibrationEntry);
+      updateWalkingStatus(calibrationEntry);
+      updateSpeedRange();
+      const robot = selectedRobotId;
+      const savedSource = calibrationEntry?.walking_source || {};
+      const profile = useNeural
+        ? {
+            source: "neural",
+            forward_m_s: walkSystemScale("neural-walking-forward", savedSource.forward_m_s, 0.15),
+            lateral_m_s: walkSystemScale("neural-walking-lateral", savedSource.lateral_m_s, 0.08),
+            yaw_rad_s: walkSystemScale("neural-walking-yaw", savedSource.yaw_rad_s, 1.0),
+          }
+        : { source: "native" };
+      try {
+        await command("/api/neural-gait", { op: "walking-source", profile },
+          useNeural ? "Host neural gait selected" : "On-chip MicroDuck selected",
+          () => robot === selectedRobotId);
+        if (robot === selectedRobotId) {
+          if ((byId("walk-system").checked ? "neural" : "native") === source) walkSystemEdited = false;
           await refreshStatus();
         }
       } catch (_error) { /* command displays the error */ }
@@ -1552,12 +1707,16 @@
     byId("walk-speed").addEventListener("change", () => applyWalking(false, true));
     byId("walk-direction").addEventListener("change", () => {
       if (!canSteer()) return;
-      setSteeringVector(...directionVector(byId("walk-direction").value));
+      setSteeringVector(...directionVector(byId("walk-direction").value), 0);
       return applyWalking(false, true);
     });
-    for (const id of ["walk-forward", "walk-turn"]) {
-      byId(id).addEventListener("input", () => {
-        setSteeringVector(Number(byId("walk-forward").value), Number(byId("walk-turn").value));
+    for (const id of ["walk-forward", "walk-turn", "walk-lateral"]) {
+      byId(id)?.addEventListener("input", () => {
+        setSteeringVector(
+          Number(byId("walk-forward").value),
+          Number(byId("walk-turn").value),
+          Number(byId("walk-lateral")?.value || 0),
+        );
         return applyWalking(false, true);
       });
     }
@@ -2377,6 +2536,8 @@
     if (saved) {
       const form = byId("camera-form");
       form.elements.on.checked = saved.on;
+      if (byId("camera-quick-on")) byId("camera-quick-on").checked = Boolean(saved.on);
+      if (byId("cockpit-camera-toggle")) byId("cockpit-camera-toggle").checked = Boolean(saved.on);
       form.elements.fps.value = saved.fps;
       form.elements.res.value = saved.resolution;
       if (saved.snapshot_resolution) form.elements.snapshot_res.value = saved.snapshot_resolution;
@@ -2413,12 +2574,13 @@
   }
 
   function setupCameraSettings() {
-    byId("camera-form").elements.motion_exposure.addEventListener("change", updateMotionExposureInput);
-    byId("camera-form").addEventListener("submit", (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
+    const form = byId("camera-form");
+    form.elements.motion_exposure.addEventListener("change", updateMotionExposureInput);
+    const submitCameraForm = () => {
       const values = new FormData(form);
       const payload = { on: form.elements.on.checked, fps: Number(values.get("fps")), res: values.get("res") };
+      if (byId("camera-quick-on")) byId("camera-quick-on").checked = form.elements.on.checked;
+      if (byId("cockpit-camera-toggle")) byId("cockpit-camera-toggle").checked = form.elements.on.checked;
       if (!form.elements.snapshot_res.disabled) payload.snapshot_res = values.get("snapshot_res");
       if (!form.querySelector("fieldset[data-camera-controls]").disabled) {
         payload.exposure_us = Math.round(Number(values.get("exposure_ms")) * 1000);
@@ -2430,7 +2592,36 @@
           Math.round(Number(values.get("max_exposure_ms")) * 1000);
       }
       command("/api/camera", payload, "Camera settings applied and saved");
+    };
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitCameraForm();
     });
+    if (byId("camera-quick-on")) {
+      byId("camera-quick-on").addEventListener("change", () => {
+        form.elements.on.checked = byId("camera-quick-on").checked;
+        submitCameraForm();
+      });
+    }
+    if (byId("cockpit-camera-toggle")) {
+      byId("cockpit-camera-toggle").addEventListener("change", () => {
+        form.elements.on.checked = byId("cockpit-camera-toggle").checked;
+        submitCameraForm();
+      });
+    }
+    if (byId("camera-collapse-button")) {
+      let cameraCollapsed = readLocal("ainekio-camera-collapsed", false);
+      const applyCameraCollapsed = (collapsed, persist = true) => {
+        cameraCollapsed = Boolean(collapsed);
+        byId("dashboard-grid")?.classList?.toggle("camera-collapsed", cameraCollapsed);
+        if (byId("camera-view-body")) byId("camera-view-body").hidden = cameraCollapsed;
+        byId("camera-collapse-button").setAttribute?.("aria-expanded", String(!cameraCollapsed));
+        byId("camera-collapse-button").textContent = cameraCollapsed ? "Show preview" : "Hide preview";
+        if (persist) writeLocal("ainekio-camera-collapsed", cameraCollapsed);
+      };
+      applyCameraCollapsed(cameraCollapsed, false);
+      byId("camera-collapse-button").addEventListener("click", () => applyCameraCollapsed(!cameraCollapsed));
+    }
   }
 
   function setupForms() {
@@ -2767,6 +2958,9 @@
     const sidebar = byId("tool-sidebar");
     const workspace = byId("tool-workspace");
     const toggle = byId("tools-toggle");
+    const backdrop = byId("sidebar-backdrop");
+    const mobileTools = byId("mobile-tools-button");
+    const mobileNavButtons = Array.from(byId("mobile-nav")?.querySelectorAll?.("[data-open-workspace]") || []);
     const buttons = Array.from(sidebar.querySelectorAll("[data-workspace]"));
     const panels = Array.from(workspace.querySelectorAll("[data-workspace-panel]"));
     const groups = Array.from(sidebar.querySelectorAll("[data-navigation-group]"));
@@ -2779,8 +2973,11 @@
     function showSidebar(open, remember = true) {
       expanded = open;
       sidebar.hidden = !open;
+      if (backdrop) backdrop.hidden = !(open && compact.matches);
       document.body.classList.toggle("tools-collapsed", !open);
       toggle.setAttribute("aria-expanded", String(open));
+      mobileTools?.setAttribute?.("aria-expanded", String(open));
+      mobileTools?.classList?.toggle?.("is-active", open);
       if (remember && !compact.matches) writeLocal("ainekio-tools-expanded", open);
     }
 
@@ -2789,6 +2986,7 @@
       name = button.dataset.workspace;
       if (current) scrollPositions.set(current, workspace.scrollTop);
       current = name;
+      if (document.body.dataset) document.body.dataset.activeWorkspace = name;
       panels.forEach(panel => {
         panel.hidden = !panel.dataset.workspacePanel.split(" ").includes(name);
       });
@@ -2796,19 +2994,31 @@
         if (item === button) item.setAttribute("aria-current", "page");
         else item.removeAttribute("aria-current");
       });
+      mobileNavButtons.forEach(item => {
+        const active = item.dataset.openWorkspace === name;
+        item.classList?.toggle?.("is-active", active);
+        if (active) item.setAttribute?.("aria-current", "page");
+        else item.removeAttribute?.("aria-current");
+      });
+      if (byId("cockpit-button")) {
+        byId("cockpit-button").classList?.toggle?.("is-active", name === "cockpit");
+        byId("cockpit-button").setAttribute?.("aria-pressed", String(name === "cockpit"));
+      }
       button.closest("details").open = true;
       byId("settings-button").setAttribute("aria-expanded", String(settingsPages.includes(name)));
       if (settingsPages.includes(name) && selectedRobotId) byId("token-robot-id").value = selectedRobotId;
       writeLocal("ainekio-workspace", name);
       workspace.scrollTop = scrollPositions.get(name) || 0;
       if (focus) {
-        const panel = panels.find(item => !item.hidden && item.dataset.workspacePanel === name);
-        const heading = panel.querySelector("h2, h3");
-        heading.tabIndex = -1;
-        heading.focus({ preventScroll: true });
+        const panel = panels.find(item => !item.hidden && item.dataset.workspacePanel.split(" ").includes(name));
+        const heading = panel?.querySelector("h2, h3");
+        if (heading) {
+          heading.tabIndex = -1;
+          heading.focus({ preventScroll: true });
+        }
       }
       if (compact.matches) showSidebar(false, false);
-      if (name === "learning-history") gaitHistoryView?.refresh();
+      if (name === "learning-history" || name === "neural-gait") gaitHistoryView?.refresh();
     }
 
     groups.forEach(group => {
@@ -2816,7 +3026,12 @@
       group.addEventListener("toggle", () => writeLocal(`ainekio-tools-group-${group.dataset.navigationGroup}`, group.open));
     });
     buttons.forEach(button => button.addEventListener("click", () => showWorkspace(button.dataset.workspace)));
+    document.querySelectorAll("[data-open-workspace]").forEach(button => {
+      button.addEventListener("click", () => showWorkspace(button.dataset.openWorkspace));
+    });
     toggle.addEventListener("click", () => showSidebar(!expanded));
+    mobileTools?.addEventListener?.("click", () => showSidebar(!expanded));
+    backdrop?.addEventListener?.("click", () => showSidebar(false));
     byId("settings-button").addEventListener("click", () => showWorkspace("connections"));
     byId("settings-close-button").addEventListener("click", () => {
       byId("password-form").reset();
@@ -2825,7 +3040,7 @@
     });
     // Navigation keys belong to these UI controls, not to the drive shortcuts.
     // No robot action is sent when selecting, opening or closing a tool.
-    [sidebar, toggle, byId("settings-button"), byId("settings-close-button")].forEach(element => {
+    [sidebar, toggle, mobileTools, byId("settings-button"), byId("settings-close-button")].filter(Boolean).forEach(element => {
       for (const type of ["keydown", "keyup"]) element.addEventListener(type, event => {
         if (event.code === "Space" || (type === "keydown" && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code))) event.stopPropagation();
         if (event.code === "Escape" && expanded) { showSidebar(false); toggle.focus(); }
@@ -2833,7 +3048,10 @@
     });
     compact.addEventListener("change", () => showSidebar(compact.matches ? false : readLocal("ainekio-tools-expanded", true), false));
     showSidebar(expanded, false);
-    showWorkspace(readLocal("ainekio-workspace", "overview"), false);
+    const initialWorkspace = window.location?.pathname === "/cockpit"
+      ? "cockpit"
+      : readLocal("ainekio-workspace", "overview");
+    showWorkspace(initialWorkspace, false);
   }
 
   function setupSecurity() {
@@ -2974,6 +3192,28 @@
       button.hidden = (button.dataset.emote === "crab" && (entry?.features || []).includes("crab_gait_v1")) ||
         (declared !== null && !declared.includes(button.dataset.emote || button.dataset.intent));
     });
+    const cockpitGrid = byId("cockpit-emote-grid");
+    if (cockpitGrid) {
+      cockpitGrid.querySelectorAll("[data-installed-motion]").forEach((button) => {
+        if (!declared || !declared.includes(button.dataset.emote)) button.remove();
+      });
+      const existingCockpit = new Set(Array.from(cockpitGrid.querySelectorAll("[data-emote], [data-intent]"),
+        (button) => button.dataset.emote || button.dataset.intent));
+      for (const name of declared || []) {
+        if (dedicated.has(name) || existingCockpit.has(name)) continue;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.emote = name;
+        button.dataset.installedMotion = "";
+        button.textContent = name.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
+        cockpitGrid.append(button);
+        existingCockpit.add(name);
+      }
+      cockpitGrid.querySelectorAll("[data-emote], [data-intent]").forEach((button) => {
+        button.hidden = (button.dataset.emote === "crab" && (entry?.features || []).includes("crab_gait_v1")) ||
+          (declared !== null && !declared.includes(button.dataset.emote || button.dataset.intent));
+      });
+    }
   }
 
   function updateRobotSettings(entry) {
@@ -3155,6 +3395,14 @@
       restoreCameraSettings(saved);
       cameraSettingsRobotId = selectedRobotId;
     }
+    const currentDepth = payload.depth_settings?.[selectedRobotId] || {};
+    if (byId("cockpit-depth-source")) {
+      byId("cockpit-depth-source").disabled = !selectedRobotId;
+      byId("cockpit-depth-source").value = currentDepth.mode || "ground-plane";
+      text("cockpit-depth-source-state", currentDepth.mode === "moge-open3d"
+        ? "MoGe-2 metric depth + 3D odometry"
+        : "Calibrated floor plane");
+    }
     const measurement = entry?.locomotion_measurement;
     if (measurement) {
       const { depthPreview, camera, ...details } = measurement;
@@ -3182,9 +3430,10 @@
     });
     directionalWalking = Boolean(entry && entry.model === "v2-12servo" && (entry.features || []).includes("walk_controls_v2"));
     steeringSupported = Boolean(directionalWalking && (entry.features || []).includes("walk_steering_v1"));
+    lateralSupported = Boolean(steeringSupported && (entry.features || []).includes("walk_lateral_v1"));
     variableWalking = directionalWalking || Boolean(entry && entry.model === "v2-12servo" && (entry.features || []).includes("walk_controls_v1"));
-    runningSupported = Boolean(directionalWalking && (entry.features || []).includes("run_gait_v1") && bodyCommandAvailable("run"));
-    crabSupported = Boolean(directionalWalking && (entry.features || []).includes("crab_gait_v1") && bodyCommandAvailable("crab"));
+    runningSupported = false;
+    crabSupported = false;
     byId("walk-gait").querySelector('[value="crab"]').disabled = !crabSupported;
     if (!crabSupported && byId("walk-gait").value === "crab") byId("walk-gait").value = "walk";
     byId("walk-gait").querySelector('[value="run"]').disabled = !runningSupported;
@@ -3194,20 +3443,14 @@
     Array.from(byId("walk-direction").options).forEach(option => { option.disabled = !bodyCommandAvailable(directionCommands[option.value]); });
     byId("walk-controls").hidden = !variableWalking;
     byId("walk-fields").disabled = !variableWalking || !bodyCommandAvailable("walk");
-    neuralWalking = entry?.active_walk ? entry.active_walk.source === "host" : entry?.walking_source?.source === "neural";
-    byId("walk-gait-field").hidden = neuralWalking;
-    byId("walk-mode-field").hidden = neuralWalking;
-    byId("walk-continuous-field").hidden = neuralWalking;
-    byId("walk-native-hint").hidden = neuralWalking;
-    byId("walk-neural-hint").hidden = !neuralWalking;
-    if (neuralWalking) {
-      if (!entry?.active_walk) byId("walk-gait").value = "walk";
-      byId("walk-continuous").checked = true;
-      byId("walk-mode").value = "auto";
-      byId("walk-advanced").hidden = true;
-      byId("walk-stride").disabled = true;
-      byId("walk-speed-field").hidden = false;
+    if (walkSystemRobot !== selectedRobotId) {
+      walkSystemRobot = selectedRobotId;
+      walkSystemEdited = false;
     }
+    if (!walkSystemEdited) {
+      byId("walk-system").checked = entry?.walking_source?.source === "neural";
+    }
+    renderWalkSystemControls(entry);
     updateWalkingStatus(entry);
     updateSpeedRange();
     const installedMotions = (entry && entry.capabilities && entry.capabilities.commands || []).filter((name) => name !== "stop");
@@ -3313,10 +3556,24 @@
     connection.classList.toggle("online", connectionState === "online");
     connection.classList.toggle("stale", connectionState === "stale");
     connection.classList.toggle("offline", !entry);
+    const cockpitConnection = byId("cockpit-connection-pill");
+    if (cockpitConnection) {
+      cockpitConnection.textContent = connectionLabel;
+      cockpitConnection.title = connection.textContent;
+      cockpitConnection.classList?.toggle?.("online", connectionState === "online");
+      cockpitConnection.classList?.toggle?.("stale", connectionState === "stale");
+      cockpitConnection.classList?.toggle?.("offline", !entry);
+    }
     const state = status ? status.state : "unknown";
     text("body-state", state);
     byId("body-state").className = `state-chip ${state}`;
-    text("status-battery", status ? status.power_monitor_ready === false ? "Not monitored" : `${Number(status.vbat).toFixed(2)} V` : "--");
+    const batteryLabel = status ? status.power_monitor_ready === false ? "Not monitored" : `${Number(status.vbat).toFixed(2)} V` : "--";
+    text("status-battery", batteryLabel);
+    if (byId("cockpit-state-chip")) {
+      text("cockpit-state-chip", state);
+      byId("cockpit-state-chip").className = `state-chip ${state}`;
+    }
+    if (byId("cockpit-battery-chip")) text("cockpit-battery-chip", batteryLabel);
     text("status-feedback", feedbackHealthMessage(status?.servo_feedback));
     text("status-rssi", status ? `${status.rssi} dBm` : "--");
     text("status-heap", status ? `${Math.round(status.heap / 1024)} KiB` : "--");
@@ -3405,6 +3662,14 @@
         if (generation === statusGeneration) {
           renderStatus(payload);
           updateMotionSystem(payload);
+          latestFreestyleStatus = payload.freestyle || null;
+          if (byId("cockpit-recovery-toggle")) {
+            const fSettings = payload.freestyle?.settings?.[selectedRobotId] || {};
+            byId("cockpit-recovery-toggle").checked = fSettings.recover_events === true;
+            text("cockpit-recovery-state", fSettings.recover_events === true
+              ? "Active · recovers from jams & falls"
+              : "Off · manual recovery only");
+          }
           gaitHistoryView?.update(selectedRobotId, payload.robots?.[selectedRobotId]?.gait_training);
           window.renderFreestyleStatus?.(payload.freestyle, selectedRobotId);
           window.renderMotionLibraryStatus?.(payload.freestyle, selectedRobotId, payload.robots?.[selectedRobotId]);
@@ -3510,6 +3775,15 @@
     byId("behavior-control-enabled").checked = settings.enabled;
     byId("behavior-control-enabled").disabled = false;
     byId("behavior-control-form").querySelector("button").disabled = false;
+    if (byId("quick-behavior-enabled")) {
+      byId("quick-behavior-enabled").checked = settings.enabled;
+      byId("quick-behavior-enabled").disabled = false;
+    }
+    if (byId("cockpit-metahuman-toggle")) {
+      byId("cockpit-metahuman-toggle").checked = settings.enabled;
+      byId("cockpit-metahuman-toggle").disabled = false;
+      text("cockpit-metahuman-state", settings.enabled ? "On · AI companion commands enabled" : "Off · AI companion commands blocked");
+    }
     const pending = settings.unresolvedActions?.length || 0;
     const tasks = (settings.executions || []).filter(task => ["running", "waiting"].includes(task.status));
     text("behavior-control-status", `MetaHuman connected · ${settings.enabled ? "On" : "Off"} · saved` +
@@ -3530,6 +3804,7 @@
         text("behavior-control-status", `MetaHuman control unavailable: ${error.message}`);
         byId("behavior-control-enabled").disabled = true;
         byId("behavior-control-form").querySelector("button").disabled = true;
+        if (byId("quick-behavior-enabled")) byId("quick-behavior-enabled").disabled = true;
       }
     } finally { behaviorBusy = false; }
   }
@@ -3654,19 +3929,17 @@
       } catch (error) { showResult(error.message, true); }
       finally { recognitionSaving = false; void refreshStatus(); }
     });
-    byId("behavior-control-enabled").addEventListener("change", () => {
-      behaviorEdited = true;
-      behaviorRevision++;
-      text("behavior-control-status", "Unsaved robot control selection.");
-    });
-    byId("behavior-control-form").addEventListener("submit", async event => {
-      event.preventDefault();
+    const saveBehaviorControl = async (enabled) => {
       if (behaviorBusy) return;
       behaviorBusy = true;
       behaviorRevision++;
-      const enabled = byId("behavior-control-enabled").checked;
+      byId("behavior-control-enabled").checked = enabled;
       byId("behavior-control-enabled").disabled = true;
       byId("behavior-control-form").querySelector("button").disabled = true;
+      if (byId("quick-behavior-enabled")) {
+        byId("quick-behavior-enabled").checked = enabled;
+        byId("quick-behavior-enabled").disabled = true;
+      }
       try {
         const settings = await request("/api/behavior-control", {method: "POST", body: JSON.stringify({enabled})});
         behaviorEdited = false;
@@ -3675,7 +3948,22 @@
         text("behavior-control-status", `${error.message}. The result is unconfirmed; reading current state.`);
         behaviorEdited = false;
       } finally { behaviorBusy = false; behaviorReadAt = 0; }
+    };
+    byId("behavior-control-enabled").addEventListener("change", () => {
+      behaviorEdited = true;
+      behaviorRevision++;
+      if (byId("quick-behavior-enabled")) byId("quick-behavior-enabled").checked = byId("behavior-control-enabled").checked;
+      text("behavior-control-status", "Unsaved robot control selection.");
     });
+    byId("behavior-control-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      await saveBehaviorControl(byId("behavior-control-enabled").checked);
+    });
+    if (byId("quick-behavior-enabled")) {
+      byId("quick-behavior-enabled").addEventListener("change", () => {
+        void saveBehaviorControl(byId("quick-behavior-enabled").checked);
+      });
+    }
   }
 
   function setupNeuralGait() {
@@ -3684,34 +3972,63 @@
     let busy = false;
     let lastStatus = null;
     let profileRobot = null, profileEdited = false, profileRevision = 0;
+    const formatRunId = (id) => /^[0-9a-f]{16,}$/i.test(String(id || '')) ? String(id).slice(-8) : String(id || '');
     for (const id of ['source','forward','lateral','yaw'])
       byId(`neural-walking-${id}`).addEventListener('input', () => {
         profileRobot = selectedRobotId; profileEdited = true; profileRevision++;
+        if (id !== 'source' && byId(`walk-neural-${id}`)) {
+          byId(`walk-neural-${id}`).value = byId(`neural-walking-${id}`).value;
+        }
       });
-    byId('neural-walking-save').addEventListener('click', async () => {
+    for (const id of ['forward','lateral','yaw']) {
+      if (byId(`walk-neural-${id}`)) {
+        byId(`walk-neural-${id}`).addEventListener('input', () => {
+          byId(`neural-walking-${id}`).value = byId(`walk-neural-${id}`).value;
+          profileRobot = selectedRobotId; profileEdited = true; profileRevision++;
+        });
+      }
+    }
+    const saveWalkingSourceProfile = async (forceSource = null) => {
       const robotId = selectedRobotId, revision = profileRevision;
       try {
+        if (forceSource) byId('neural-walking-source').value = forceSource;
         const profile = {source:byId('neural-walking-source').value};
         if (profile.source === 'neural') {
-          profile.forward_m_s = Number(byId('neural-walking-forward').value);
-          profile.lateral_m_s = Number(byId('neural-walking-lateral').value);
-          profile.yaw_rad_s = Number(byId('neural-walking-yaw').value);
+          profile.forward_m_s = Number(byId('neural-walking-forward').value || byId('walk-neural-forward')?.value || 0.15);
+          profile.lateral_m_s = Number(byId('neural-walking-lateral').value || byId('walk-neural-lateral')?.value || 0.08);
+          profile.yaw_rad_s = Number(byId('neural-walking-yaw').value || byId('walk-neural-yaw')?.value || 1.0);
         }
         await request('/api/neural-gait', {method:'POST', body:JSON.stringify({
           op:'walking-source', robot_id:robotId, profile})});
         if (selectedRobotId === robotId && profileRevision === revision) {
           profileEdited = false; profileRevision++;
+          walkSystemEdited = false;
+          byId('walk-system').checked = profile.source === 'neural';
+          if (calibrationEntry) calibrationEntry.walking_source = profile;
+          renderWalkSystemControls(calibrationEntry);
+          updateWalkingStatus(calibrationEntry);
+          updateSpeedRange();
           text('neural-walking-result', 'Saved for new Walk requests. No movement started.');
+          showResult('Neural walking speed scales saved');
         }
-      } catch(error) { if (selectedRobotId === robotId) text('neural-walking-result', error.message); }
-    });
-    async function operate(op, checkpointId = null) {
+      } catch(error) {
+        if (selectedRobotId === robotId) {
+          text('neural-walking-result', error.message);
+          showResult(error.message, true);
+        }
+      }
+    };
+    byId('neural-walking-save').addEventListener('click', () => saveWalkingSourceProfile());
+    if (byId('walk-neural-scale-save')) {
+      byId('walk-neural-scale-save').addEventListener('click', () => saveWalkingSourceProfile('neural'));
+    }
+    async function operate(op, checkpointId = null, explicitModelId = null) {
       if (busy) return;
       busy = true;
       const robotId = selectedRobotId, profileAtRequest = profileRevision;
       try {
         const payload = {op, robot_id:robotId};
-        const model = byId('neural-gait-model').value;
+        const model = explicitModelId || byId('neural-gait-model').value;
         if (op === 'progress') { payload.op = 'render'; payload.progress = true; payload.model_id = model; }
         if (['load','render'].includes(op)) payload.model_id = model;
         if (op === 'load' && checkpointId !== null) payload.checkpoint_id = checkpointId;
@@ -3739,6 +4056,7 @@
           payload.steps = Number(byId('neural-gait-steps').value);
           if (op === 'resume') payload.resume = model;
           else {
+            payload.recipe = 'microduck-mjlab-v1';
             payload.workers = Number(byId('neural-gait-workers').value);
             if (byId('neural-gait-commands').value.trim())
               payload.commands = JSON.parse(byId('neural-gait-commands').value);
@@ -3747,7 +4065,7 @@
           }
         }
         const result = await request('/api/neural-gait', {method:'POST', body:JSON.stringify(payload)});
-        if (selectedRobotId !== robotId) return;
+        if (robotId && selectedRobotId && selectedRobotId !== robotId) return;
         if (op.startsWith('physical-')) {
           text('neural-gait-physical-result', op === 'physical-create'
             ? `Created physical run ${result.run_id}. Select its actor to use it. No movement started.`
@@ -3760,37 +4078,77 @@
           return;
         }
         const status = op === 'status' || op === 'load' ? result : await request('/api/neural-gait', {
-          method:'POST', body:JSON.stringify({op:'status', robot_id:robotId})});
-        if (selectedRobotId !== robotId) return;
-        if (profileRobot !== robotId) { profileRobot = robotId; profileEdited = false; }
+          method:'POST', body:JSON.stringify({op:'status', robot_id:robotId || selectedRobotId})});
+        if (robotId && selectedRobotId && selectedRobotId !== robotId) return;
+        if (profileRobot !== selectedRobotId) { profileRobot = selectedRobotId; profileEdited = false; }
         if (status.walking_source && !profileEdited && profileRevision === profileAtRequest) {
           byId('neural-walking-source').value = status.walking_source.source;
-          for (const [field,key] of [['forward','forward_m_s'],['lateral','lateral_m_s'],['yaw','yaw_rad_s']])
-            byId(`neural-walking-${field}`).value = status.walking_source[key] ?? '';
+          if (!walkSystemEdited) byId('walk-system').checked = status.walking_source.source === 'neural';
+          for (const [field,key] of [['forward','forward_m_s'],['lateral','lateral_m_s'],['yaw','yaw_rad_s']]) {
+            const val = status.walking_source[key] ?? '';
+            byId(`neural-walking-${field}`).value = val;
+            if (byId(`walk-neural-${field}`)) byId(`walk-neural-${field}`).value = val;
+          }
         }
         const select = byId('neural-gait-model');
-        select.replaceChildren(...status.runs.map(run => {
-          const option = document.createElement('option');
-          option.value = run.id;
-          option.textContent = run.kind === 'physical-redq'
-            ? `${run.id.slice(-8)} · physical · ${run.state} · ${run.steps || 0} training updates`
-            : `${run.id.slice(-8)} · simulation · ${run.state} · ${run.imitation_updates || 0} imitation updates + ${run.steps || 0} RL steps`;
-          return option;
-        }));
+        const formatRunOptionText = run => {
+          const labelId = formatRunId(run.id);
+          const kindLabel = run.kind === 'physical-redq' ? 'physical'
+            : run.kind === 'pupper-mjx' ? 'pupper-mjx'
+            : run.kind === 'microduck-mjlab' ? (run.id.startsWith('8533681d') ? 'microduck (v12)' : 'microduck')
+            : 'simulation';
+          return run.kind === 'physical-redq'
+            ? `${labelId} · ${kindLabel} · ${run.state} · ${(run.steps || 0).toLocaleString()} training updates`
+            : `${labelId} · ${kindLabel} · ${run.state} · ${run.imitation_updates ? `${run.imitation_updates.toLocaleString()} imitation + ` : ''}${(run.steps || 0).toLocaleString()} RL steps`;
+        };
+        const nextSig = status.runs.map(r => `${r.id}:${r.state}:${r.steps}:${r.has_policy}`).join('|');
+        if (select.dataset.sig !== nextSig && document.activeElement !== select) {
+          select.dataset.sig = nextSig;
+          select.replaceChildren(...status.runs.map(run => {
+            const option = document.createElement('option');
+            option.value = run.id;
+            option.textContent = formatRunOptionText(run);
+            return option;
+          }));
+        }
         if (op === 'physical-create' && status.runs.some(run => run.id === result.run_id)) select.value = result.run_id;
+        else if (op === 'load' && status.model_id) select.value = status.model_id;
         else if (status.runs.some(run => run.id === model)) select.value = model;
         else if (status.model_id) select.value = status.model_id;
+        for (const quickId of ['walk-neural-model-select', 'cockpit-neural-model-select']) {
+          const quickSelect = byId(quickId);
+          if (quickSelect && document.activeElement !== quickSelect) {
+            const runnable = status.runs.filter(run => run.has_policy && (run.kind === 'pupper-mjx' || run.kind === 'microduck-mjlab' || run.kind === 'physical-redq' || run.id === status.model_id));
+            const quickSig = runnable.map(r => `${r.id}:${r.steps}`).join('|');
+            if (quickSelect.dataset.sig !== quickSig) {
+              quickSelect.dataset.sig = quickSig;
+              quickSelect.replaceChildren(...runnable.map(run => {
+                const option = document.createElement('option');
+                option.value = run.id;
+                option.textContent = formatRunOptionText(run);
+                return option;
+              }));
+            }
+            if (status.model_id && runnable.some(run => run.id === status.model_id)) {
+              quickSelect.value = status.model_id;
+            }
+          }
+        }
         if (!byId('neural-gait-environment').value.trim())
           byId('neural-gait-environment').value = JSON.stringify(status.defaults, null, 2);
         text('neural-gait-status', JSON.stringify(status, null, 2));
-        text('neural-gait-selection', status.model_id
-          ? `Active model: ${status.model_id.slice(-8)} · ${status.checkpoint_id || 'published final policy'}`
-          : 'No model selected.');
+        const activeText = status.model_id
+          ? `Active model: ${formatRunId(status.model_id)} · ${status.checkpoint_id || 'published final policy'}`
+          : 'No neural policy selected.';
+        text('neural-gait-selection', activeText);
+        if (byId('walk-neural-active-model')) text('walk-neural-active-model', activeText);
+        if (op === 'load') showResult(activeText);
         lastStatus = status;
         renderRun(status, op, result);
       } catch (error) {
-        if (selectedRobotId === robotId) {
+        if (!robotId || selectedRobotId === robotId) {
           text('neural-gait-summary', error.message);
+          if (op === 'load') showResult(error.message, true);
           if (op.startsWith('physical-')) text('neural-gait-physical-result', error.message);
         }
       }
@@ -3886,9 +4244,362 @@
     for (const op of ['train','resume','load','render','progress','preview','physical-create','physical-train','physical-trial'])
       byId(`neural-gait-${op}`).addEventListener('click', () => void operate(op));
     byId('neural-gait-model').addEventListener('change', () => { if (lastStatus) renderRun(lastStatus); });
+    for (const quickId of ['walk-neural-model-select', 'cockpit-neural-model-select']) {
+      if (byId(quickId)) {
+        byId(quickId).addEventListener('change', e => {
+          const chosen = e.target.value;
+          if (chosen) {
+            byId('neural-gait-model').value = chosen;
+            void operate('load', null, chosen);
+          }
+        });
+      }
+    }
     byId('neural-gait-refresh').addEventListener('click', () => void operate('status'));
     panel.addEventListener('toggle', () => { if (panel.open) void operate('status'); });
-    setInterval(() => { if (panel.open && !panel.closest('[hidden]')) void operate('status'); }, 5000);
+    void operate('status');
+    setInterval(() => {
+      if (!lastStatus || (panel.open && !panel.closest('[hidden]')) || !byId('walk-controls')?.hidden || !byId('cockpit-settings-drawer')?.hidden) {
+        void operate('status');
+      }
+    }, 5000);
+  }
+
+  function setupCockpit() {
+    if (!byId("cockpit-section")) return;
+
+    const settingsBtn = byId("cockpit-settings-toggle");
+    const settingsDrawer = byId("cockpit-settings-drawer");
+    const emotesBtn = byId("cockpit-emotes-toggle");
+    const emotesDrawer = byId("cockpit-emotes-drawer");
+
+    const setSettingsOpen = (open) => {
+      if (!settingsDrawer) return;
+      settingsDrawer.hidden = !open;
+      settingsBtn?.setAttribute?.("aria-expanded", String(open));
+      settingsBtn?.classList?.toggle?.("is-active", open);
+    };
+
+    const setEmotesOpen = (open) => {
+      if (!emotesDrawer) return;
+      emotesDrawer.hidden = !open;
+      emotesBtn?.setAttribute?.("aria-expanded", String(open));
+      emotesBtn?.classList?.toggle?.("is-active", open);
+    };
+
+    if (settingsBtn && settingsDrawer) {
+      settingsBtn.addEventListener("click", () => {
+        const nextOpen = settingsDrawer.hidden;
+        if (nextOpen) setEmotesOpen(false);
+        setSettingsOpen(nextOpen);
+      });
+    }
+    if (byId("cockpit-settings-close")) {
+      byId("cockpit-settings-close").addEventListener("click", () => setSettingsOpen(false));
+    }
+
+    if (emotesBtn && emotesDrawer) {
+      emotesBtn.addEventListener("click", () => {
+        const nextOpen = emotesDrawer.hidden;
+        if (nextOpen) setSettingsOpen(false);
+        setEmotesOpen(nextOpen);
+      });
+    }
+    if (byId("cockpit-emotes-close")) {
+      byId("cockpit-emotes-close").addEventListener("click", () => setEmotesOpen(false));
+    }
+
+    if (byId("cockpit-stop-button")) {
+      byId("cockpit-stop-button").addEventListener("click", () => stopMotion("Emergency stop sent", true));
+    }
+    if (byId("cockpit-snap-button")) {
+      byId("cockpit-snap-button").addEventListener("click", () => command("/api/snap", {}, "Snapshot requested"));
+    }
+
+    if (byId("cockpit-balance-toggle")) {
+      byId("cockpit-balance-toggle").addEventListener("change", () => {
+        byId("balance-enabled").value = String(byId("cockpit-balance-toggle").checked);
+        balanceFormEdited();
+        void operateBalance("save");
+      });
+    }
+
+    if (byId("cockpit-walking-feedback-toggle")) {
+      byId("cockpit-walking-feedback-toggle").addEventListener("change", () => {
+        byId("walking-feedback-enabled").value = String(byId("cockpit-walking-feedback-toggle").checked);
+        void operateBalance("walking");
+      });
+    }
+
+    if (byId("cockpit-jam-toggle")) {
+      byId("cockpit-jam-toggle").addEventListener("change", () => {
+        const config = byId("servo-feedback-config");
+        if (!config) return;
+        const checked = byId("cockpit-jam-toggle").checked;
+        if (checked) config.elements.enabled.checked = true;
+        config.elements.jam_enabled.checked = checked;
+        if (typeof servoFeedbackData?.jam_enabled !== "boolean") {
+          config.elements.stand_enabled.checked = checked;
+        }
+        void readServoFeedback({
+          op: "configure",
+          enabled: config.elements.enabled.checked,
+          stand_enabled: config.elements.stand_enabled.checked,
+          ...(typeof servoFeedbackData?.jam_enabled === "boolean" ? { jam_enabled: checked } : {}),
+          tolerance_us: Number(config.elements.tolerance_us.value),
+          ...(Number.isFinite(servoFeedbackData?.arrival_tolerance_us)
+            ? { arrival_tolerance_us: Number(config.elements.arrival_tolerance_us.value) } : {}),
+          no_progress_ms: Number(config.elements.no_progress_ms.value),
+          progress_us: Number(config.elements.progress_us.value),
+        });
+      });
+    }
+
+    if (byId("cockpit-recovery-toggle")) {
+      byId("cockpit-recovery-toggle").addEventListener("change", async () => {
+        if (!selectedRobotId) return;
+        const recover_events = byId("cockpit-recovery-toggle").checked;
+        const endpoint = latestFreestyleStatus?.settings?.[selectedRobotId]?.endpoint || "http://127.0.0.1:8794";
+        try {
+          await request("/api/freestyle", {
+            method: "POST",
+            body: JSON.stringify({ operation: "configure", robot_id: selectedRobotId, endpoint, recover_events }),
+          });
+          showResult(recover_events ? "Freestyle auto-recovery enabled" : "Freestyle auto-recovery disabled");
+          await refreshStatus();
+        } catch (error) {
+          showResult(error.message, true);
+        }
+      });
+    }
+
+    if (byId("cockpit-walk-system-toggle")) {
+      byId("cockpit-walk-system-toggle").addEventListener("change", () => {
+        byId("walk-system").checked = byId("cockpit-walk-system-toggle").checked;
+        byId("walk-system").dispatchEvent(new Event("change"));
+      });
+    }
+
+    if (byId("cockpit-metahuman-toggle")) {
+      byId("cockpit-metahuman-toggle").addEventListener("change", () => {
+        if (byId("quick-behavior-enabled")) {
+          byId("quick-behavior-enabled").checked = byId("cockpit-metahuman-toggle").checked;
+          byId("quick-behavior-enabled").dispatchEvent(new Event("change"));
+        }
+      });
+    }
+
+    if (byId("cockpit-depth-source")) {
+      byId("cockpit-depth-source").addEventListener("change", async () => {
+        if (!selectedRobotId) return;
+        const mode = byId("cockpit-depth-source").value;
+        const depthForm = byId("depth-motion-form");
+        if (depthForm?.elements?.mode) depthForm.elements.mode.value = mode;
+        const resolution_level = Number(depthForm?.elements?.resolution_level?.value ?? 0);
+        const rawTransform = depthForm?.elements?.cameraToBody?.value?.trim?.() || "";
+        try {
+          await request("/api/camera/depth", {
+            method: "POST",
+            body: JSON.stringify({
+              robot_id: selectedRobotId,
+              mode,
+              resolution_level,
+              cameraToBody: rawTransform ? JSON.parse(rawTransform) : null,
+            }),
+          });
+          text("cockpit-depth-source-state", mode === "moge-open3d"
+            ? "MoGe-2 metric depth + 3D odometry"
+            : "Calibrated floor plane");
+          text("depth-motion-status", "Distance source saved. Processing starts when a consumer requests measurements.");
+          showResult(mode === "moge-open3d" ? "Vision source: MoGe-2 + 3D odometry" : "Vision source: Calibrated floor plane");
+          await refreshStatus();
+        } catch (error) {
+          showResult(error.message, true);
+        }
+      });
+    }
+
+    if (byId("cockpit-talk-button")) {
+      byId("cockpit-talk-button").addEventListener("click", async () => {
+        const micForm = byId("microphone-form");
+        const wakeForm = byId("wake-form");
+        if (!tapToTalkActive) {
+          const wakeReady = !micForm?.querySelector?.('[value="wake"]')?.disabled;
+          tapToTalkRestoreGate = (wakeForm?.elements?.enabled?.checked && wakeReady) ? "wake" : "vad";
+          tapToTalkActive = true;
+          byId("cockpit-talk-button").classList?.add?.("is-listening");
+          byId("cockpit-talk-button").setAttribute?.("aria-pressed", "true");
+          text("cockpit-talk-label", "Done · Send");
+          if (byId("cockpit-talk-status")) byId("cockpit-talk-status").hidden = false;
+          text("cockpit-talk-status", "Listening — speak now, then tap Done to send to MetaHuman.");
+          if (micForm?.elements) {
+            micForm.elements.on.checked = true;
+            micForm.elements.gate.value = "open";
+          }
+          await submitAudioSettings("microphone", { on: true, gate: "open" });
+        } else {
+          const wakeReady = !micForm?.querySelector?.('[value="wake"]')?.disabled;
+          const restoreGate = tapToTalkRestoreGate || ((wakeForm?.elements?.enabled?.checked && wakeReady) ? "wake" : "vad");
+          tapToTalkActive = false;
+          tapToTalkRestoreGate = null;
+          byId("cockpit-talk-button").classList?.remove?.("is-listening");
+          byId("cockpit-talk-button").setAttribute?.("aria-pressed", "false");
+          text("cockpit-talk-label", "Tap to Talk");
+          text("cockpit-talk-status", "Utterance closed and sent to MetaHuman.");
+          if (byId("cockpit-talk-status")) byId("cockpit-talk-status").hidden = true;
+          if (micForm?.elements) {
+            micForm.elements.on.checked = true;
+            micForm.elements.gate.value = restoreGate;
+          }
+          await submitAudioSettings("microphone", { on: true, gate: restoreGate });
+        }
+      });
+    }
+
+    if (byId("cockpit-speed")) {
+      byId("cockpit-speed").addEventListener("input", () => {
+        byId("walk-speed").value = byId("cockpit-speed").value;
+        updateSpeedRange();
+      });
+      byId("cockpit-speed").addEventListener("change", () => applyWalking(false, true));
+    }
+
+    if (byId("cockpit-walk-finish")) {
+      byId("cockpit-walk-finish").addEventListener("click", () => applyWalking(true));
+    }
+
+    if (byId("cockpit-motion-system")) {
+      byId("cockpit-motion-system").addEventListener("change", () => {
+        byId("motion-system").checked = byId("cockpit-motion-system").checked;
+        byId("motion-system").dispatchEvent(new Event("change"));
+      });
+    }
+
+    if (byId("cockpit-freestyle-form")) {
+      byId("cockpit-freestyle-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const input = byId("cockpit-freestyle-input");
+        const description = input?.value?.trim();
+        if (!description) return;
+        setEmotesOpen(false);
+        await command("/api/request-motion", { description }, "Freestyle motion sent");
+      });
+    }
+
+    if (byId("cockpit-quick-emotes")) {
+      byId("cockpit-quick-emotes").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-emote]");
+        if (!button || button.disabled || !bodyCommandAvailable(button.dataset.emote)) return;
+        sendNamedMotion("emote", button.dataset.emote, `${button.textContent.trim()} sent`);
+      });
+    }
+
+    if (byId("cockpit-emote-grid")) {
+      byId("cockpit-emote-grid").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-emote]");
+        if (!button || button.disabled || !bodyCommandAvailable(button.dataset.emote)) return;
+        setEmotesOpen(false);
+        sendNamedMotion("emote", button.dataset.emote, `${button.textContent.trim()} sent`);
+      });
+    }
+
+    const joystick = byId("cockpit-joystick");
+    const knob = byId("cockpit-joystick-knob");
+    if (joystick && knob) {
+      let activePointerId = null;
+      let lastForward = 0;
+      let lastTurn = 0;
+      let lastSentAt = 0;
+
+      const setKnobOffset = (dx, dy) => {
+        const transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
+        if (typeof knob.animate === "function") {
+          knob.animate([{ transform }, { transform }], { duration: 0, fill: "forwards" });
+        } else if (knob.style) {
+          knob.style.transform = transform;
+        }
+      };
+
+      const updateJoystickFromEvent = (event, forceSend = false) => {
+        const rect = joystick.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const maxRadius = Math.max(24, rect.width * 0.36);
+        let dx = event.clientX - cx;
+        let dy = event.clientY - cy;
+        const dist = Math.hypot(dx, dy);
+        if (dist > maxRadius) {
+          dx = (dx / dist) * maxRadius;
+          dy = (dy / dist) * maxRadius;
+        }
+        setKnobOffset(dx, dy);
+        const normX = dx / maxRadius;
+        const normY = dy / maxRadius;
+        const mag = Math.hypot(normX, normY);
+        const forward = mag < 0.14 ? 0 : Math.max(-100, Math.min(100, Math.round(-normY * 100)));
+        const turn = mag < 0.14 ? 0 : Math.max(-100, Math.min(100, Math.round(-normX * 100)));
+        if (forward === 0 && turn === 0) {
+          text("cockpit-joystick-status", "Centered");
+        } else {
+          const fwdLabel = forward >= 0 ? `F+${forward}%` : `B${forward}%`;
+          const turnLabel = turn === 0 ? "0°" : turn > 0 ? `L+${turn}%` : `R${turn}%`;
+          text("cockpit-joystick-status", `${fwdLabel} · ${turnLabel}`);
+        }
+
+        const now = Date.now();
+        if (canSteer()) {
+          if (forceSend || (forward === 0 && turn === 0 && (lastForward !== 0 || lastTurn !== 0)) ||
+              ((Math.abs(forward - lastForward) >= 8 || Math.abs(turn - lastTurn) >= 8) && now - lastSentAt >= 70)) {
+            lastForward = forward;
+            lastTurn = turn;
+            lastSentAt = now;
+            void driveHeldVector(forward, turn);
+          }
+        } else {
+          let cardinal = null;
+          if (mag >= 0.25) {
+            if (Math.abs(normY) >= Math.abs(normX)) cardinal = normY < 0 ? "fwd" : "back";
+            else cardinal = normX < 0 ? "turn_l" : "turn_r";
+          }
+          if (cardinal === null && heldDirection !== null) {
+            void stopMotion("Movement released");
+          } else if (cardinal !== null && cardinal !== heldDirection) {
+            void beginHeldMotion(cardinal);
+          }
+        }
+      };
+
+      const releaseJoystick = (event) => {
+        if (activePointerId === null || (event && event.pointerId !== undefined && event.pointerId !== activePointerId)) return;
+        activePointerId = null;
+        joystick.classList?.remove?.("is-active");
+        setKnobOffset(0, 0);
+        lastForward = 0;
+        lastTurn = 0;
+        text("cockpit-joystick-status", "Centered");
+        if (canSteer()) {
+          void driveHeldVector(0, 0);
+        } else if (heldDirection !== null) {
+          void stopMotion("Movement released");
+        }
+      };
+
+      joystick.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        activePointerId = event.pointerId;
+        joystick.setPointerCapture?.(event.pointerId);
+        joystick.classList?.add?.("is-active");
+        updateJoystickFromEvent(event, true);
+      });
+      joystick.addEventListener("pointermove", (event) => {
+        if (event.pointerId !== activePointerId) return;
+        event.preventDefault();
+        updateJoystickFromEvent(event, false);
+      });
+      joystick.addEventListener("pointerup", releaseJoystick);
+      joystick.addEventListener("pointercancel", releaseJoystick);
+      joystick.addEventListener("lostpointercapture", releaseJoystick);
+    }
   }
 
   async function setupDashboard() {
@@ -3933,6 +4644,7 @@
     setupRobotSettings();
     setupFaceLibrary();
     setupNeuralGait();
+    setupCockpit();
     await refreshStatus();
     runCameraView();
     statusTimer = window.setInterval(refreshStatus, 1000);

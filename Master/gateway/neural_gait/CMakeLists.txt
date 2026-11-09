@@ -9,7 +9,7 @@ set(PCA "${P4}/../components/ainekio_pca9685")
 set(JSON "${P4}/../managed_components/espressif__cjson/cJSON")
 add_library(gait_native SHARED native.c virtual_body.c "${PCA}/pca9685.c" "${P4}/joint_calibration.c"
   "${P4}/servo_feedback_model.c" "${P4}/servo_feedback_position.c"
-  "${P4}/controller_motion.c" "${P4}/body_readings.c" "${P4}/trajectory_program.c" "${P4}/gait_learning.c" "${P4}/imu_telemetry.c" "${JSON}/cJSON.c"
+  "${P4}/controller_motion.c" "${P4}/body_readings.c" "${P4}/trajectory_program.c" "${P4}/imu_telemetry.c" "${JSON}/cJSON.c"
   "${IMU}/imu.c" "${IMU}/vendor/Fusion/Fusion/FusionAhrs.c")
 target_include_directories(gait_native PRIVATE "${PCA}/include" "${P4}" "${IMU}/include"
   "${CMAKE_CURRENT_BINARY_DIR}/motion/walk"

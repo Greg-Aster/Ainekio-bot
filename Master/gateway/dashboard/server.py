@@ -50,6 +50,7 @@ ROBOT_MAINTENANCE = {
 }
 STATIC_FILES = {
     "/": ("dashboard.html", "text/html; charset=utf-8", True),
+    "/cockpit": ("dashboard.html", "text/html; charset=utf-8", True),
     "/login": ("login.html", "text/html; charset=utf-8", False),
     "/assets/dashboard.css": ("dashboard.css", "text/css; charset=utf-8", False),
     "/assets/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8", False),
@@ -1328,7 +1329,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'self'; connect-src 'self'; img-src 'self' blob:; "
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' blob:; "
             "frame-src http://127.0.0.1:8765",
         )
         self.send_header("Referrer-Policy", "no-referrer")

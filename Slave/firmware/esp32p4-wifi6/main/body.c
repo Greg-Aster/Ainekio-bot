@@ -1,4 +1,3 @@
-#include "gait_learning.h"
 #include "body.h"
 #include "logs.h"
 #include <stdio.h>
@@ -9,6 +8,7 @@
 #include "gait_trace_runtime.h"
 #include "trajectory_program.h"
 #include "ainekio/v2_walk.h"
+#include "ainekio/v2_microduck.h"
 #include "ainekio/v2_limits.h"
 #include "ainekio/v2_posture.h"
 #include "ainekio/v2_balance.h"
@@ -325,8 +325,18 @@ typedef struct {
     ainekio_v2_frame_t balance_target;
     ainekio_v2_balance_tracking_t balance_tracking;
     bool balance_target_valid, balance_tracking_available, balance_tracking_active;
+    ainekio_v2_microduck_state_t microduck;
+    ainekio_v2_frame_t microduck_reference;
+    ainekio_v2_frame_t microduck_prev_pose;
+    float microduck_feet[4][3];
+    double microduck_anchors[4][3];
+    double microduck_yaw_zero;
+    bool microduck_yaw_acquired;
+    uint32_t microduck_steps;
+    float microduck_stride_percent;
 } body_state_t;
 static body_state_t body;
+static ainekio_v2_microduck_model_t *microduck_ram_model;
 /* Only output_task prepares/replaces motions. Keep its candidate separate from
  * the active motion so rejected requests preserve it, without putting the
  * complete planners and motion-plan union on the 16 KiB output stack. */
@@ -449,7 +459,7 @@ static void publish_motion(void)
         .walking_turn_percent=body.motion.kind==MOTION_WALK ? body.motion.walk.feedback_turn*100. : 0.,
         .balance_active=ainekio_p4_balance_enabled() && body.balance.sensor_usable && !body.balance_settled && (body.balance_hold ||
             (body.motion.kind!=MOTION_NONE && (body.motion.contact_entry ||
-                body.motion.startup_entry || body.motion.kind==MOTION_WALK))),
+                body.motion.startup_entry))),
         .balance_reduced=body.balance.reduced,
         .balance_settled=body.balance_settled && body.balance_hold && ainekio_p4_balance_enabled(),
         .balance_tracking_available=body.balance_tracking_available,
@@ -498,7 +508,7 @@ static void publish_motion(void)
      * rotation removed so a downward contact shift means leg extension.
      * This presentation does not feed back into the solver or output path. */
     if(body.pose_valid && (body.balance_hold || (body.motion.kind!=MOTION_NONE &&
-        (body.motion.contact_entry || body.motion.startup_entry || body.motion.kind==MOTION_WALK)))) {
+        (body.motion.contact_entry || body.motion.startup_entry)))) {
         ainekio_v2_walk_pose_t nominal=body.balance_nominal,actual=nominal;
         double points[4][3];memcpy(points,body.balance_anchors,sizeof points);
         memset(nominal.body,0,sizeof nominal.body);memset(nominal.euler,0,sizeof nominal.euler);
@@ -622,7 +632,7 @@ static void finish_motion(bool completed, esp_err_t result)
         .position_verification=completed && (body.motion.kind==MOTION_FREESTYLE ||
             ((body.motion.kind==MOTION_POSE || body.motion.host_finishing) &&
              body.motion.balance_on_complete && ainekio_p4_feedback_stand_enabled())) ?
-            (body.motion.feedback_verified && !body.motion.target_adjusted_joints?2:1):0,
+            (body.motion.feedback_verified?2:1):0,
         .target_adjusted_joints=body.motion.target_adjusted_joints,
         .result=result,
         .clock_us=(uint64_t)esp_timer_get_time()};
@@ -731,13 +741,6 @@ static bool posture_fit(ainekio_v2_frame_t *frame,void *context)
     uint16_t pulses[12];
     return ainekio_p4_joint_fit_frame(calibration->joints,frame) &&
         ainekio_p4_frame_pulses(frame,pulses);
-}
-
-static bool walking_frame_valid(const ainekio_v2_frame_t *frame,void *context)
-{
-    (void)context;
-    uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS];
-    return ainekio_p4_frame_pulses(frame,pulses);
 }
 
 static bool host_frame_valid(const ainekio_v2_frame_t *frame,void *context)
@@ -915,8 +918,13 @@ static esp_err_t start_motion_with_curve(const body_request_t *request, uint64_t
             return ESP_ERR_INVALID_STATE;
         /* Updates apply at the last locally sampled frame. They never advance
          * or reset the output clock, and never acquire their own completion. */
-        return ainekio_v2_walk_accept(&body.motion.walk, &command, body.motion.walk.last_us)
-            ? ESP_OK : ESP_ERR_INVALID_ARG;
+        if (!ainekio_v2_walk_accept(&body.motion.walk, &command, body.motion.walk.last_us))
+            return ESP_ERR_INVALID_ARG;
+        if (intent.data.walk.controls == 1)
+            body.microduck_stride_percent = (float)intent.data.walk.speed_percent;
+        else if (intent.data.walk.controls == 2)
+            body.microduck_stride_percent = (float)intent.data.walk.stride_percent;
+        return ESP_OK;
     }
     const bool named = intent.kind == AINEKIO_INTENT_SIT ||
         intent.kind == AINEKIO_INTENT_STAND || intent.kind == AINEKIO_INTENT_EMOTE;
@@ -951,7 +959,6 @@ static esp_err_t start_motion_with_curve(const body_request_t *request, uint64_t
         next->entering = false;
         next->started = now;
         if (!ainekio_v2_walk_accept(&next->walk, &command, now)) return ESP_ERR_INVALID_ARG;
-        if(!next->walk.host_nominal)ainekio_p4_learning_begin(&next->walk);
         next->face_command=next->walk.gait_mode==AINEKIO_GAIT_CRAWL ? "crawl" :
             next->walk.gait_mode==AINEKIO_GAIT_CRAB ? "crab" :
             next->walk.gait_mode==AINEKIO_GAIT_RUN ? "run" : "walk";
@@ -981,10 +988,19 @@ static esp_err_t start_motion_with_curve(const body_request_t *request, uint64_t
     }
     if (!motion_pulses(&frame, next->target) || !any_pulses(next->target))
         return ESP_ERR_INVALID_ARG;
+    ainekio_v2_walk_pose_t candidate_microduck_pose={0};
+    double candidate_microduck_anchors[4][3]={0};
     if(next->kind==MOTION_WALK && next->walk.host_nominal) {
         next->walk.host_reference=frame;
         ainekio_v2_pose_from_frame(&next->walk.pose,&frame);
         if(!ainekio_v2_contact_forward(&next->walk.pose,next->walk.host_anchors,true))return ESP_ERR_INVALID_ARG;
+    } else if(next->kind==MOTION_WALK) {
+        if(!ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&candidate_microduck_pose) ||
+           !fit_motion_frame(&candidate_microduck_pose.frame))
+            return ESP_ERR_INVALID_ARG;
+        ainekio_v2_pose_from_frame(&candidate_microduck_pose,&candidate_microduck_pose.frame);
+        if(!ainekio_v2_contact_forward(&candidate_microduck_pose,candidate_microduck_anchors,true))
+            return ESP_ERR_INVALID_ARG;
     }
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     if (!calibration.valid || !calibration.profile_confirmed) return ESP_ERR_INVALID_STATE;
@@ -999,6 +1015,17 @@ static esp_err_t start_motion_with_curve(const body_request_t *request, uint64_t
     } else memcpy(next->from, body.pulses, sizeof(next->from));
     if (home) next->entry_from=frame;
     else next->entry_from=body.pose;
+    if (home && intent.kind == AINEKIO_INTENT_WALK) {
+        ainekio_v2_frame_t measured = frame;
+        uint16_t measured_pulses[AINEKIO_PCA_BODY_CHANNELS];
+        if (ainekio_p4_feedback_frame(calibration.joints, &measured) &&
+            fit_motion_frame(&measured) &&
+            motion_pulses(&measured, measured_pulses) &&
+            any_pulses(measured_pulses)) {
+            next->entry_from = measured;
+            memcpy(next->from, measured_pulses, sizeof(next->from));
+        }
+    }
     if(!ainekio_v2_limits_frame(&next->entry_from))return AINEKIO_P4_ERR_REFERENCE;
     next->entry_to = frame;
     ainekio_v2_frame_t path_minimum, path_maximum;
@@ -1082,6 +1109,19 @@ static esp_err_t start_motion_with_curve(const body_request_t *request, uint64_t
     body.balance=(ainekio_v2_balance_t){0};
     body.listen.active = false; /* Enter the new motion from the actual cue pose. */
     body.motion = *next;
+    if(next->kind==MOTION_WALK && !next->walk.host_nominal) {
+        ainekio_v2_microduck_reset(&body.microduck);
+        body.microduck_reference=candidate_microduck_pose.frame;
+        body.microduck_prev_pose=candidate_microduck_pose.frame;
+        memset(body.microduck_feet,0,sizeof body.microduck_feet);
+        memcpy(body.microduck_anchors,candidate_microduck_anchors,sizeof body.microduck_anchors);
+        body.microduck_yaw_zero=0.;
+        body.microduck_yaw_acquired=false;
+        body.microduck_steps=0;
+        body.microduck_stride_percent=intent.data.walk.controls==1 ?
+            (float)intent.data.walk.speed_percent :
+            (intent.data.walk.controls==2 ? (float)intent.data.walk.stride_percent : 100.F);
+    }
     retain_pose(&next->entry_from,&calibration);
     body.pose_valid=!ramping;
     body.active = true;
@@ -1559,12 +1599,143 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
             frame=ramped;
             *nominal_sample=walk->host_sample;
         } else {
-        if (!ainekio_v2_walk_feedback_tick(&motion->walk,now,
-            ainekio_p4_walking_feedback_enabled(),usable_attitude(&imu),yaw,
-            walking_frame_valid,NULL)) return ESP_FAIL;
-        balance_frame(&motion->walk.pose,NULL,now,&frame);
-        if(!fit_motion_frame(&frame))return ESP_ERR_INVALID_ARG;
-        ainekio_p4_learning_frame(&motion->walk,motion->sequence,now,&frame,walking_frame_valid,NULL);
+            ainekio_v2_walk_state_t *walk=&motion->walk;
+            if(!walk->initialized || walk->failed || now<walk->last_us)return ESP_FAIL;
+            const double dt=(now-walk->last_us)/1e6;
+            if(walk->pending_update) {
+                walk->from=walk->target;walk->target=walk->pending;
+                walk->transition_phase=walk->phase;walk->pending_update=false;
+            }
+            if(!walk->stopping && walk->phase>=walk->end_phase) {
+                if(!ainekio_v2_walk_update(walk,(ainekio_v2_walk_controls_t){0.,walk->target.motion_rate}))
+                    return ESP_FAIL;
+            }
+            const double dp=dt>0.?dt*1.25:0.;
+            walk->phase+=dp;
+            walk->last_us=now;
+            walk->cycles_s=walk->requested_cycles_s=dt>0.?(float)(dp/dt):0.F;
+            walk->speed_flagged=false;
+            const float dir_x=walk->steering?(float)(walk->forward_target/100.):
+                (walk->direction==AINEKIO_WALK_FORWARD?1.F:
+                 walk->direction==AINEKIO_WALK_BACKWARD?-1.F:0.F);
+            const float dir_turn=walk->steering?(float)(walk->turn_target/100.):
+                (walk->direction==AINEKIO_WALK_TURN_LEFT?1.F:
+                 walk->direction==AINEKIO_WALK_TURN_RIGHT?-1.F:0.F);
+            const float dir_y=walk->steering?(float)(walk->lateral_target/100.):
+                (walk->direction==AINEKIO_WALK_SIDE_LEFT?1.F:
+                 walk->direction==AINEKIO_WALK_SIDE_RIGHT?-1.F:0.F);
+            const float requested_pct=body.microduck_stride_percent>0.F ?
+                body.microduck_stride_percent : (float)walk->target.stride_percent;
+            const float stride_scale=walk->stopping?0.F:
+                fmaxf(0.25F,fminf(1.6F,requested_pct/100.F));
+            walk->stride_percent=walk->stopping?0.:(double)requested_pct;
+            const bool imu_ok=usable_attitude(&imu);
+            /* On-chip MicroDuck targets already incorporate the policy's IMU
+             * attitude and yaw feedback (q_rel, gyro, accel). Do not run a
+             * competing balance or heading controller during walking. */
+            walk->heading_active=walk->heading_acquired=walk->heading_reduced=false;
+            walk->heading_error=walk->heading_integral=walk->feedback_turn=0.;
+            body.balance=(ainekio_v2_balance_t){0};
+            body.balance_target_valid=body.balance_tracking_active=false;
+            const ainekio_p4_calibration_t mapping=ainekio_p4_calibration();
+            const double step_dt=now>body.last_frame?(now-body.last_frame)/1e6:0.02;
+            const double microduck_speed_cd_s=100.*fmax(2000.,ainekio_v2_gait_joint_speed_limit());
+            if(walk->stopping) {
+                if(walk->pose.frame.phase!=AINEKIO_V2_EXIT)walk->transition_phase=walk->phase;
+                const bool exited=walk->pose.frame.phase==AINEKIO_V2_EXIT &&
+                    (walk->phase-walk->transition_phase)>=0.5;
+                memset(body.microduck_feet,0,sizeof body.microduck_feet);
+                frame=body.microduck_reference;
+                if(!fit_motion_frame(&frame))return ESP_ERR_INVALID_ARG;
+                ainekio_v2_frame_t ramped;
+                if(!ainekio_p4_joint_ramp_frame(&body.pose,frame.position,
+                    microduck_speed_cd_s,step_dt,&ramped))return ESP_ERR_INVALID_ARG;
+                bool settled=exited;
+                for(unsigned j=0;j<AINEKIO_BODY_JOINT_COUNT;j++)
+                    if(fabsf(ramped.position[j]-frame.position[j])>.05F)settled=false;
+                frame=ramped;
+                if(!ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&walk->pose))
+                    return ESP_ERR_INVALID_ARG;
+                walk->pose.frame=frame;
+                for(unsigned l=0;l<4;l++)for(unsigned j=0;j<3;j++) {
+                    const unsigned joint=(l<2?l+2:l-2)*3+j;
+                    walk->pose.joints[l][j]=frame.position[joint]*.00017453292519943296;
+                }
+                for(unsigned leg=0;leg<4;leg++)walk->pose.grounded[leg]=true;
+                walk->complete=settled;
+                walk->pose.frame.phase=settled?AINEKIO_V2_COMPLETE:AINEKIO_V2_EXIT;
+                frame.phase=walk->pose.frame.phase;
+            } else {
+                ainekio_v2_frame_t measured=body.pose;
+                for(unsigned j=0;j<AINEKIO_BODY_JOINT_COUNT;j++)
+                    measured.velocity[j]=step_dt>1e-4?(float)((body.pose.position[j]-body.microduck_prev_pose.position[j])/step_dt):0.F;
+                body.microduck_prev_pose=body.pose;
+                ainekio_p4_feedback_walk_frame(mapping.joints,&measured);
+                float q_rel[4]={1.F,0.F,0.F,0.F};
+                float gyro[3]={0.F,0.F,0.F};
+                float accel[3]={0.F,0.F,9.81F};
+                if(imu_ok) {
+                    if(!body.microduck_yaw_acquired) {
+                        body.microduck_yaw_zero=yaw;
+                        body.microduck_yaw_acquired=true;
+                    }
+                    const double half_z=0.5*body.microduck_yaw_zero;
+                    const double cz=cos(half_z),sz=sin(half_z);
+                    const double qw=q[0],qx=q[1],qy=q[2],qz=q[3];
+                    const double sign=(cz*qw+sz*qz)>=0.?1.:-1.;
+                    q_rel[0]=(float)(sign*(cz*qw+sz*qz));
+                    q_rel[1]=(float)(sign*(cz*qx+sz*qy));
+                    q_rel[2]=(float)(sign*(cz*qy-sz*qx));
+                    q_rel[3]=(float)(sign*(cz*qz-sz*qw));
+                    memcpy(gyro,imu.attitude.angular_rate_rad_s,sizeof gyro);
+                    if(isfinite(imu.attitude.acceleration_m_s2[0]) &&
+                       isfinite(imu.attitude.acceleration_m_s2[1]) &&
+                       isfinite(imu.attitude.acceleration_m_s2[2]) &&
+                       (imu.attitude.acceleration_m_s2[0]!=0.F ||
+                        imu.attitude.acceleration_m_s2[1]!=0.F ||
+                        imu.attitude.acceleration_m_s2[2]!=0.F))
+                        memcpy(accel,imu.attitude.acceleration_m_s2,sizeof accel);
+                }
+                const float cmd_twist[3]={
+                    (dir_x>=0.F?0.26F:0.18F)*dir_x*stride_scale,
+                    0.08F*dir_y*stride_scale,
+                    1.00F*dir_turn*fminf(1.25F,fmaxf(0.5F,stride_scale)),
+                };
+                const ainekio_v2_microduck_model_t *active_model=
+                    microduck_ram_model?microduck_ram_model:&ainekio_v2_microduck_default_model;
+                const double step_time_s=(double)body.microduck_steps*0.02;
+                body.microduck_steps++;
+                float scaled_feet[4][3],applied[4][3],fit[4];
+                if(!ainekio_v2_microduck_step(&body.microduck,active_model,
+                    step_time_s,&measured,q_rel,gyro,accel,
+                    cmd_twist,body.microduck_feet))
+                    return ESP_ERR_INVALID_ARG;
+                const float z_scale=fmaxf(0.80F,fminf(1.35F,stride_scale));
+                for(unsigned leg=0;leg<4;leg++) {
+                    scaled_feet[leg][0]=body.microduck_feet[leg][0]*stride_scale;
+                    scaled_feet[leg][1]=body.microduck_feet[leg][1]*stride_scale;
+                    scaled_feet[leg][2]=body.microduck_feet[leg][2]*z_scale;
+                }
+                if(!ainekio_v2_nominal_foot_pose(&body.microduck_reference,
+                    (const float (*)[3])scaled_feet,host_frame_valid,host_frame_project,
+                    (void *)&mapping,&walk->pose,body.microduck_anchors,applied,fit))
+                    return ESP_ERR_INVALID_ARG;
+                frame=walk->pose.frame;
+                if(!fit_motion_frame(&frame))return ESP_ERR_INVALID_ARG;
+                ainekio_v2_frame_t ramped;
+                if(!ainekio_p4_joint_ramp_frame(&body.pose,frame.position,
+                    microduck_speed_cd_s,step_dt,&ramped))return ESP_ERR_INVALID_ARG;
+                frame=ramped;
+                walk->pose.frame=frame;
+                walk->pose.frame.phase=walk->stopping?AINEKIO_V2_EXIT:
+                    (walk->phase<2.?AINEKIO_V2_ENTRY:AINEKIO_V2_LOOP);
+                frame.phase=walk->pose.frame.phase;
+            }
+            if(walk->complete) {
+                body.balance_nominal=walk->pose;
+                memcpy(body.balance_anchors,body.microduck_anchors,sizeof body.balance_anchors);
+                body.balance_contacts=true;
+            }
         }
         motion->face_command=motion->walk.gait_mode==AINEKIO_GAIT_CRAWL ? "crawl" :
             motion->walk.gait_mode==AINEKIO_GAIT_CRAB ? "crab" :
@@ -2041,10 +2212,15 @@ esp_err_t ainekio_p4_body_start(void)
         if(result!=ESP_OK)return result;
     } else esp_timer_stop(rest_timer);
     memset(execution_history,0,sizeof execution_history);execution_history_next=0;
+    if (!microduck_ram_model) {
+        microduck_ram_model = malloc(sizeof(*microduck_ram_model));
+        if (microduck_ram_model)
+            memcpy(microduck_ram_model, &ainekio_v2_microduck_default_model, sizeof(*microduck_ram_model));
+    }
     requests = xQueueCreate(1, sizeof(body_request_t));
     results = xQueueCreate(1, sizeof(body_result_t));
     events = xQueueCreate(16, sizeof(ainekio_p4_body_event_t));
     caller_lock = xSemaphoreCreateMutex();
     if (!requests || !results || !events || !caller_lock) return ESP_ERR_NO_MEM;
-    return xTaskCreatePinnedToCore(output_task, "body_output", 16384, NULL, 10, &output_handle, 1) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
+    return xTaskCreatePinnedToCore(output_task, "body_output", 32768, NULL, 10, &output_handle, 1) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
 }

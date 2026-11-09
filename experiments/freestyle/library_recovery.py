@@ -57,14 +57,14 @@ def foot_approach(state, present, goal, joint, speed, clearance, shift=False):
         others = [point for name,point in feet.items() if name != leg]
         center = [sum(point[axis] for point in others)/len(others) for axis in (0,1)]
         length = math.hypot(*center)
-        translation = [round(10*v/length,2) for v in center] if length else [0,0]
-        prefix.append(call('body',translation_mm=[*translation,0],rotation_deg=[0,0,0],
+        translation = [round(4*v/length,2) for v in center] if length else [0,0]
+        prefix.append(call('body',translation_mm=[*translation,8],rotation_deg=[0,0,0],
                            legs=[],foot_offsets_mm=[],speed_pct=speed))
         # A body translation with fixed world feet changes their body-relative
         # coordinates. Recompute those coordinates at the compiled joint pose.
         feet = foot_positions(compile_motion(prefix[0],state_at(state,present),present)['end'])
     current = feet[leg]
-    height = max(current[2],target[2])+clearance
+    height = min(19.0, max(current[2]+2.0, min(current[2],target[2])+clearance))
     prefix.append(call('feet',legs=[leg],offsets_mm=[[0,0,round(height-current[2],2)]],speed_pct=speed))
     prefix.append(call('feet',legs=[leg],offsets_mm=[[round(target[0]-current[0],2),
         round(target[1]-current[1],2),0]],speed_pct=speed))
@@ -181,7 +181,7 @@ def scenarios(source, native_gait, probe=False):
         'joints':[JOINTS.index(joint)], 'outputs_released':False, 'reason':'no_position_progress'},
         'observation':jam_state, 'history':history, 'motion_goal':motion_goal}
     speed = action['arguments'].get('speed_pct',50)
-    clearance = 15 if probe else 10
+    clearance = 18 if probe else 16
     recovery = [*foot_approach(state,present,goal,joint,speed,clearance),
                 *completion(action,start,goal,tail,speed)]
     variant = 'held_out_feedback' if probe else 'training_feedback'
@@ -192,6 +192,24 @@ def scenarios(source, native_gait, probe=False):
     validate_prefix(jam)
     yield jam
 
+    # An unverified completion receipt reports program_state=='error' with failed_action
+    # and error_evidence (position_verified: false). Recover and complete the plan.
+    unverified = copy.deepcopy(query)
+    unverified['history'] = [
+        {'joints':{joint:start[joint]}},
+        {'joints':{joint:measured}},
+        {'program_state':'error', 'failed_action':action,
+         'error':'Body did not verify the requested motion target: '+action['name'],
+         'error_evidence':{'t':'done', 'seq':1, 'position_verified':False,
+                           'unverified_joints':1<<JOINTS.index(joint)},
+         'remaining_program':tail}]
+    unverified['motion_goal'] = {'request':original['request'], 'program_state':'error',
+                                 'failed_action':action, 'remaining_program':tail}
+    error_row = row_for(source,'library_error_recovery',unverified,recovery,index,variant,
+        {**evidence,'scope':'synthetic unverified target receipt, foot lift/carry approach, failed action and remaining phases'})
+    validate_prefix(error_row)
+    yield error_row
+
     # A second jam carries the original objective alongside the failed attempt.
     # Teach a changed support/approach plan rather than repeating that attempt.
     repeated = copy.deepcopy(query)
@@ -201,10 +219,10 @@ def scenarios(source, native_gait, probe=False):
         repeated['observation']['joints'][shaft]['commanded_model_deg'] = failed_target[shaft]
     repeated['history'][-1] = {'program_state':'executing', 'interrupted_action':failed,
         'remaining_program':recovery[1:], 'joint_progress':[{joint:measured},{joint:measured}]}
-    repeated_program = [*foot_approach(state,present,goal,joint,speed,clearance+10,shift=True),
+    repeated_program = [*foot_approach(state,present,goal,joint,speed,clearance+4,shift=True),
                         *completion(action,start,goal,tail,speed)]
     second = row_for(source,'library_repeated_jam_recovery',repeated,repeated_program,index,variant,
-        {**evidence,'clearance_mm':clearance+10,
+        {**evidence,'clearance_mm':clearance+4,
          'scope':'synthetic repeated no-progress, changed body/foot approach, same unfinished objective'})
     validate_prefix(second)
     yield second
@@ -222,7 +240,8 @@ def scenarios(source, native_gait, probe=False):
     # correction cannot pass as learning from the measured effect.
     magnitude = (1,2,3,4,6)[(seed//6)%5] + (.5 if probe else 0)
     delta = {pair[0]:sign*magnitude, pair[1]:-sign*magnitude}
-    fallen = state_at(state,start); fallen['imu']=imu(after,axis); fallen['expected_up']=[0,0,1]
+    fallen_start = {j: max(-16.0, min(150.0, v)) if j.endswith('_carrier') else v for j, v in start.items()}
+    fallen = state_at(state,fallen_start); fallen['imu']=imu(after,axis); fallen['expected_up']=[0,0,1]
     history = [{'imu':imu(before,axis),'correction_delta_deg':delta}, {'imu':fallen['imu']},
                {'program_state':'executing','interrupted_action':action,'remaining_program':tail}]
     query = {'request':original['request'],'event':{'type':'tipped'},'observation':fallen,'history':history,'motion_goal':motion_goal}
@@ -236,13 +255,125 @@ def scenarios(source, native_gait, probe=False):
     yield fall
 
 
+def standalone_scenarios(probe=False):
+    """Unowned body-event recovery lessons (history=[], no motion_goal) returning to Stand."""
+    stand_angles = [0.0, 0.94, -21.25] * 4
+    stand_goal = dict(zip(JOINTS, stand_angles))
+    base_state = {'model':'v2-12servo', 'joint_speed_limit_deg_s':2000,
+                  'joints':{j:{'model_deg':a, 'commanded_model_deg':a, 'home_deg':a}
+                            for j,a in zip(JOINTS, stand_angles)}}
+    base_state['joints'] = joint_state(base_state)
+    request = 'Recover from the reported body event using the available observations.'
+    source_stub = {'id':'standalone000000', 'source_hash':'0'*64, 'title':request,
+                   'query':compact({'request':request})}
+    variant = 'held_out_feedback' if probe else 'training_feedback'
+    clearance = 18 if probe else 16
+    stand_pose = call('pose', joints=list(JOINTS), angles_deg=stand_angles, reference='absolute', speed_pct=50, taper_deg=0)
+    for j_idx, joint in enumerate(JOINTS):
+        offset = (-6.0 if probe else -8.0) if (j_idx % 3 == 2) else (6.0 if probe else 8.0)
+        measured = round(stand_goal[joint] + offset, 2)
+        present = dict(stand_goal)
+        present[joint] = measured
+        jam_state = state_at(base_state, present)
+        for j in JOINTS:
+            jam_state['joints'][j]['commanded_model_deg'] = stand_goal[j]
+        jam_state['feedback'] = {'enabled':True, 'stalled_joints':1<<j_idx, 'no_progress_ms':1000}
+        jam_state['imu'] = imu(0, 'roll')
+        query = {'request':request,
+                 'event':{'type':'servo_stall', 'joints':[j_idx], 'outputs_released':False, 'reason':'no_position_progress'},
+                 'observation':jam_state, 'history':[]}
+        program = [*foot_approach(base_state, present, stand_goal, joint, 50, clearance), stand_pose]
+        evidence = {'joint':j_idx, 'blocked_deg':measured, 'direction':-1 if offset>0 else 1,
+                    'traversed_start_deg':measured, 'checkpoint_operation':'standalone',
+                    'clearance_mm':clearance, 'scope':'standalone unowned stall recovery to nominal standing pose'}
+        jam_row = row_for(source_stub, 'standalone_jam_recovery', query, program, 0, variant, evidence)
+        validate_prefix(jam_row)
+        yield jam_row
+
+        fb_row = copy.deepcopy(jam_row)
+        fb_query = json.loads(fb_row['query'])
+        fb_query['event']['type'] = 'servo_feedback_fault'
+        fb_query['event'].pop('reason', None)
+        joints_obs = fb_query['observation']['joints']
+        idx_in_ids = joints_obs['ids'].index(j_idx)
+        val = joints_obs['model_deg'][idx_in_ids]
+        increasing = evidence['direction'] > 0
+        ranges = [None] * len(joints_obs['ids'])
+        ranges[idx_in_ids] = [val-200, val-.1] if increasing else [val+.1, val+200]
+        faults = [[] for _ in joints_obs['ids']]
+        faults[idx_in_ids] = ['above_calibration' if increasing else 'below_calibration']
+        joints_obs['feedback_range_deg'] = ranges
+        joints_obs['feedback_faults'] = faults
+        joints_obs['feedback_usable'] = [i != idx_in_ids for i in range(len(joints_obs['ids']))]
+        fb_row['family'] = 'standalone_feedback_recovery'
+        fb_row['title'] = 'Standalone Feedback Recovery: ' + joint
+        fb_row['query'] = compact(fb_query)
+        digest = hashlib.sha256(compact([fb_row['query'], fb_row['answers']]).encode()).hexdigest()
+        fb_row.update(id=digest[:16], source_id='library-recovery:'+digest[:16], source_hash=digest)
+        validate_prefix(fb_row)
+        yield fb_row
+
+    legs = ('rear_left', 'rear_right', 'front_left', 'front_right')
+    for l_idx, leg in enumerate(legs):
+        for s_idx, sign in enumerate((-1, 1)):
+            c_joint = f'{leg}_carrier'
+            present = dict(stand_goal)
+            present[c_joint] = round(stand_goal[c_joint] + sign * (7.0 if probe else 9.0), 2)
+            slip_state = state_at(base_state, present)
+            axis = 'roll' if l_idx % 2 == 0 else 'pitch'
+            slip_state['imu'] = imu(sign * (5 if probe else 7), axis)
+            slip_state['expected_up'] = [0, 0, 1]
+            query = {'request':request, 'event':{'type':'slip'}, 'observation':slip_state, 'history':[]}
+            program = [call('face', expr=FACES[(l_idx + s_idx) % len(FACES)]),
+                       *foot_approach(base_state, present, stand_goal, c_joint, 50, clearance),
+                       stand_pose]
+            evidence = {'leg':leg, 'axis':axis, 'clearance_mm':clearance,
+                        'scope':'standalone slip recovery unloading slipped leg and returning to standing'}
+            slip_row = row_for(source_stub, 'standalone_slip_recovery', query, program, 0, variant, evidence)
+            validate_prefix(slip_row)
+            yield slip_row
+
+    for idx, (axis, sign, mag) in enumerate((('roll', 1, 3), ('roll', -1, 3), ('pitch', 1, 4), ('pitch', -1, 4),
+                                             ('roll', 1, 5), ('roll', -1, 5), ('pitch', 1, 6), ('pitch', -1, 6))):
+        pair = ('rear_left_carrier', 'rear_right_carrier') if axis == 'roll' else ('front_left_carrier', 'rear_left_carrier')
+        delta_val = mag + (.5 if probe else 0)
+        present = dict(stand_goal)
+        present[pair[0]] = round(stand_goal[pair[0]] - sign * delta_val, 2)
+        present[pair[1]] = round(stand_goal[pair[1]] + sign * delta_val, 2)
+        tilt = sign * (16 if not probe else 18)
+        fallen = state_at(base_state, present)
+        fallen['imu'] = imu(tilt, axis)
+        fallen['expected_up'] = [0, 0, 1]
+        program = [call('face', expr=FACES[idx % len(FACES)]),
+                   call('pose', joints=list(pair), angles_deg=[sign * delta_val, -sign * delta_val],
+                        reference='current', speed_pct=50, taper_deg=0),
+                   stand_pose]
+        for ev_type, fam in (('tipped', 'standalone_fall_recovery'), ('rapid_movement', 'standalone_movement_recovery')):
+            query = {'request':request, 'event':{'type':ev_type}, 'observation':copy.deepcopy(fallen), 'history':[]}
+            ev_row = row_for(source_stub, fam, query, program, 0, variant,
+                             {'axis':axis, 'tilt_deg':tilt, 'scope':'standalone attitude recovery to nominal standing pose'})
+            validate_prefix(ev_row)
+            yield ev_row
+
 
 def event_variants(rows):
     """Use the same compact lessons for the enabled feedback/IMU event routes."""
+    def with_goal_request(item):
+        yield item
+        q = json.loads(item['query'])
+        if q.get('motion_goal') and q.get('request') != 'Recover from the reported body event using the available observations.':
+            goal_item = copy.deepcopy(item)
+            q['request'] = 'Recover from the reported body event using the available observations.'
+            goal_item['query'] = compact(q)
+            goal_item['title'] = 'Recovery: ' + item['title']
+            digest = hashlib.sha256(compact([goal_item['query'], goal_item['answers']]).encode()).hexdigest()
+            goal_item.update(id=digest[:16], source_id='goal-recovery:' + digest[:16], source_hash=digest)
+            yield goal_item
+
     for row in rows:
-        yield row
+        yield from with_goal_request(row)
         variant=copy.deepcopy(row);query=json.loads(variant['query'])
-        if row['family'] in ('library_jam_recovery','library_repeated_jam_recovery'):
+        if row['family'] in ('library_jam_recovery','library_repeated_jam_recovery','library_error_recovery'):
             query['event']['type']='servo_feedback_fault'
             query['event'].pop('reason',None)
             joint=row['recovery_evidence']['joint'];joints=query['observation']['joints']
@@ -255,6 +386,7 @@ def event_variants(rows):
             joints['feedback_range_deg']=ranges;joints['feedback_faults']=faults
             joints['feedback_usable']=[i!=index for i in range(len(joints['ids']))]
             variant['family']=('library_repeated_feedback_recovery' if row['family']=='library_repeated_jam_recovery'
+                               else 'library_error_feedback_recovery' if row['family']=='library_error_recovery'
                                else 'library_feedback_recovery')
         else:
             query['event']['type']='rapid_movement'
@@ -262,7 +394,7 @@ def event_variants(rows):
         variant['query']=compact(query)
         digest=hashlib.sha256(compact([variant['query'],variant['answers']]).encode()).hexdigest()
         variant.update(id=digest[:16],source_id='library-recovery:'+digest[:16],source_hash=digest)
-        yield variant
+        yield from with_goal_request(variant)
 
 
 def audit_source(task):
@@ -315,8 +447,10 @@ def build(source, output, native_gait, workers=4, include_probes=True):
         for result in pool.map(audit_source,((r,str(native_gait),include_probes) for r in eligible)):
             results.append(result)
             if len(results)%100==0:print('recovery sources',len(results),flush=True)
-    new_train=deduplicate(r for result in results for r in result.get('train',[]))
-    new_probe=deduplicate(r for result in results for r in result.get('probe',[]))
+    standalone_train=list(standalone_scenarios(False))
+    standalone_probe=list(standalone_scenarios(True)) if include_probes else []
+    new_train=deduplicate([*(r for result in results for r in result.get('train',[])), *standalone_train])
+    new_probe=deduplicate([*(r for result in results for r in result.get('probe',[])), *standalone_probe])
     manifest=json.loads((source/'manifest.json').read_text())
     for path in source.iterdir():
         if path.is_file() and path.name!='manifest.json':(output/path.name).write_bytes(path.read_bytes())

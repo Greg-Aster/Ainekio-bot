@@ -324,6 +324,14 @@ def load_policy(directory, checkpoint="policy.zip", *, device="cpu", env=None):
         if not manifest.get("policy"):
             raise ValueError("This MicroDuck run has no exported policy yet")
         return MicroduckActor(directory / (manifest["policy"] if checkpoint == "policy.zip" else checkpoint))
+    if manifest.get("kind") == "pupper-mjx":
+        from .pupper_mjx_actor import PupperMjxActor
+        if not manifest.get("policy"):
+            raise ValueError("This Pupper MJX run has no exported policy yet")
+        return PupperMjxActor(
+            directory / (manifest["policy"] if checkpoint == "policy.zip" else checkpoint),
+            environment=manifest.get("environment"),
+        )
     owner = {"SAC": SAC, "PPO": GaitPPO}[policy_algorithm(manifest)]
     if manifest.get("schema") == HISTORY_SCHEMA and owner is not GaitPPO:
         raise ValueError("History schema requires the asymmetric GaitPPO actor/critic")

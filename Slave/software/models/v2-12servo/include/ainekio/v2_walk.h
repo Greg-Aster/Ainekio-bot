@@ -112,6 +112,24 @@ bool ainekio_v2_feet_offset(const ainekio_v2_frame_t *nominal,
  * stay unchanged. Already feasible frames pass through exactly. */
 bool ainekio_v2_feet_bounded(ainekio_v2_frame_t *frame,
     const float lower_cd[12], const float upper_cd[12]);
+/* Apply desired body-coordinate foot offsets through the existing per-leg
+ * IK/fit search. No phase, sensor policy, model coefficients or timing here.
+ * Offset arrays use physical model leg order. Returns minimum accepted fit. */
+float ainekio_v2_learning_offsets_apply(const float desired[4][3],
+    const ainekio_v2_frame_t *nominal,bool (*valid)(const ainekio_v2_frame_t *,void *),
+    void *context,ainekio_v2_frame_t *output,float applied[4][3],float leg_fit[4]);
+/* Resolve an absolute foot target relative to an explicit fixed reference,
+ * then construct its modeled material-point anchors for heading/balance.
+ * The optional calibration projection preserves the Cartesian target as far
+ * as calibrated joint travel permits, before scalar IK fallback. Applied
+ * offsets report the resolved FK; leg_fit reports the attempted scalar,
+ * so 1 does not imply the calibration projection left the target unchanged.
+ * Residual corrections retain their separate scalar-only behavior. */
+bool ainekio_v2_nominal_foot_pose(const ainekio_v2_frame_t *reference,
+    const float desired[4][3],bool (*valid)(const ainekio_v2_frame_t *,void *),
+    bool (*project)(ainekio_v2_frame_t *,void *),
+    void *context,ainekio_v2_walk_pose_t *pose,double anchors[4][3],
+    float applied[4][3],float leg_fit[4]);
 /* Material-point anchors for contact-aware posture transitions. Source leg
  * order, local sole coordinates. Forward chooses lowest sole points when
  * choose_contacts is true; otherwise evaluates the supplied material points.

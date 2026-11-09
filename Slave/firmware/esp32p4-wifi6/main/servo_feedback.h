@@ -49,6 +49,8 @@ bool ainekio_p4_feedback_stand_enabled(void);
 bool ainekio_p4_feedback_jam_enabled(void);
 bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,
     ainekio_v2_frame_t *frame);
+void ainekio_p4_feedback_walk_frame(const ainekio_p4_joint_config_t *mapping,
+    ainekio_v2_frame_t *frame);
 /* Final-pass observation of remaining goal error, in calibrated pulse units.
  * False means no complete post-write observation yet, not physical failure. */
 bool ainekio_p4_feedback_check(const ainekio_p4_joint_config_t *mapping,

@@ -15,14 +15,12 @@ DEPTH_SCHEMA = "ainekio-neural-gait-v4-depth"
 HISTORY_SCHEMA = "ainekio-neural-gait-v5-history"
 PENDING_SCHEMA = "ainekio-neural-gait-v6-pending"
 PROPRIO_SCHEMA = "ainekio-neural-gait-v7-proprio"
-PROPRIO_CAMERA_SCHEMA = "ainekio-neural-gait-v8-proprio-camera"
-PROPRIO_SCHEMAS = frozenset((PROPRIO_SCHEMA, PROPRIO_CAMERA_SCHEMA))
 PROPRIO_FEATURES = 48
 PROPRIO_SAMPLES = 15
 PROPRIO_SIZE = PROPRIO_FEATURES * PROPRIO_SAMPLES
 HISTORY_SCHEMAS = frozenset((HISTORY_SCHEMA, PENDING_SCHEMA))
-DEPTH_SCHEMAS = frozenset((DEPTH_SCHEMA, PROPRIO_CAMERA_SCHEMA, *HISTORY_SCHEMAS))
-SCHEMAS = frozenset((SCHEMA, *DEPTH_SCHEMAS, *PROPRIO_SCHEMAS))
+DEPTH_SCHEMAS = frozenset((DEPTH_SCHEMA, *HISTORY_SCHEMAS))
+SCHEMAS = frozenset((SCHEMA, *DEPTH_SCHEMAS, PROPRIO_SCHEMA))
 LEGS = ("rear_left", "rear_right", "front_left", "front_right")
 JOINTS = tuple(
     f"{leg}_{joint}" for leg in LEGS for joint in ("shoulder", "carrier", "crank")
@@ -83,8 +81,8 @@ def observation_size(schema=SCHEMA):
         raise ValueError("Neural gait observation schema mismatch")
     if schema in HISTORY_SCHEMAS:
         return HISTORY_SIZE
-    if schema in PROPRIO_SCHEMAS:
-        return PROPRIO_SIZE + (SPATIAL_FEATURES if schema == PROPRIO_CAMERA_SCHEMA else 0)
+    if schema == PROPRIO_SCHEMA:
+        return PROPRIO_SIZE
     return OBSERVATION_SIZE + (SPATIAL_FEATURES if schema in DEPTH_SCHEMAS else 0)
 
 
@@ -128,13 +126,11 @@ def spatial_features(vision):
 
 def vector(observation):
     size = observation_size(observation.get("schema"))
-    if observation.get("schema") in PROPRIO_SCHEMAS:
+    if observation.get("schema") == PROPRIO_SCHEMA:
         rows = observation["proprio_history"]
         if len(rows) != PROPRIO_SAMPLES or any(len(row) != PROPRIO_FEATURES for row in rows):
             raise ValueError("Expected fifteen measured proprioceptive snapshots")
         values = [float(value) for row in rows for value in row]
-        if observation["schema"] == PROPRIO_CAMERA_SCHEMA:
-            values += spatial_features(observation.get("vision", {}))
         if not all(math.isfinite(value) for value in values):
             raise ValueError("Nonfinite proprioceptive observation")
         return values
@@ -232,7 +228,7 @@ class ObservationHistory:
         self.time = self.command = self.reference_heading = None
 
     def project(self, observation):
-        if observation["schema"] in PROPRIO_SCHEMAS:
+        if observation["schema"] == PROPRIO_SCHEMA:
             now = observation.get("observation_time_s")
             if type(now) not in (int, float) or not math.isfinite(now) or now < 0:
                 raise ValueError("Expected a finite nonnegative observation_time_s")

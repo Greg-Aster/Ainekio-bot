@@ -249,7 +249,8 @@ class GroundPlane:
                 return {"available": False, "reason": "Selected ray has no forward ground-plane intersection"}
             body = rigid(c["cameraToBody"]) @ np.r_[ray * distance / denominator, 1.]
             return {**identity, "available": True, "source": "selected-ground-contact-plane-intersection", "referenceId": ref["id"],
-                "calibrationId": c["id"], "groundContact": point, "point": point, "rangeMetres": float(np.linalg.norm(body[:2])), "uncertaintyMetres": None}
+                "calibrationId": c["id"], "groundContact": point, "point": point, "horizontalOffset": float(0.5 - xy[0]),
+                "rangeMetres": float(np.linalg.norm(body[:2])), "uncertaintyMetres": None}
         return {"available": False, "reason": "Selected contact source frame is no longer retained"}
 
     def range(self, frame_id, point, source_frame=None):

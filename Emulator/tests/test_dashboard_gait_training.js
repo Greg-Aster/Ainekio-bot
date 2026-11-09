@@ -172,7 +172,7 @@ vm.createContext(ctx);vm.runInContext(source,ctx);
   before=calls.length;
   node('neural-gait-environment').value=JSON.stringify({robot:'v2-12servo',foot_action_scale_mm:30});
   node('neural-gait-train').fire('click');await new Promise(resolve=>setImmediate(resolve));
-  assert.deepEqual(calls[before].payload,{op:'train',robot_id:'p4',steps:4096,workers:2,
+  assert.deepEqual(calls[before].payload,{op:'train',robot_id:'p4',recipe:'microduck-mjlab-v1',steps:4096,workers:2,
     environment:{robot:'v2-12servo',foot_action_scale_mm:30}});
   const html=fs.readFileSync('Master/gateway/dashboard/static/dashboard.html','utf8');
   assert.match(html,/id="neural-gait-physical-speed"[^>]*value="100"/);

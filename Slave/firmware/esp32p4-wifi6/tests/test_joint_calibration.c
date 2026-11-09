@@ -1,7 +1,6 @@
 #include "joint_calibration.h"
 #include "ainekio/v2_limits.h"
 #include "ainekio/v2_walk.h"
-#include "ainekio/v2_learning.h"
 
 #include <assert.h>
 #include <math.h>
@@ -297,7 +296,7 @@ static void test_installed_mechanical_travel(void)
         }
         assert(walk.complete);
     }
-    assert(changed&&unchanged);assert(!memcmp(original,joints,sizeof joints));
+    assert(!changed&&unchanged);assert(!memcmp(original,joints,sizeof joints));
     /* Every authored clip sample still closes with the installed calibration. */
     for(size_t clip=0;clip<ainekio_v2_clip_count;clip++)for(uint64_t t=0;t<=ainekio_v2_clips[clip].duration_us;t+=20000) {
         ainekio_v2_frame_t frame;assert(ainekio_v2_clip_sample(clip,t,&frame));
@@ -341,10 +340,10 @@ static void test_recorded_host_target_preserves_linkage_through_full_rate_ramp(v
     ainekio_v2_frame_t residual,unbounded;
     float residual_applied[4][3],residual_fit[4];
     assert(ainekio_v2_feet_offset(&reference,boundary,&unbounded));
-    assert(!recorded_frame_valid(&unbounded,mapping));
+    assert(recorded_frame_valid(&unbounded,mapping));
     assert(ainekio_v2_learning_offsets_apply(boundary,&reference,recorded_frame_valid,
-        mapping,&residual,residual_applied,residual_fit)==.5F);
-    assert(residual_fit[1]==.5F);
+        mapping,&residual,residual_applied,residual_fit)==1.F);
+    assert(residual_fit[1]==1.F);
     ainekio_v2_walk_pose_t projected;double projected_anchors[4][3];
     float projected_applied[4][3],projected_fit[4],origin[4][3],feet[4][3];
     assert(ainekio_v2_nominal_foot_pose(&reference,boundary,recorded_frame_valid,

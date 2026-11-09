@@ -145,19 +145,23 @@ static bool advance(ainekio_v2_posture_t *s,double *progress,double seconds,
             if(at>*progress+1e-9)event=fmin(event,at);
         }
         double segment=fmin(.01,event-*progress);
-        ainekio_v2_posture_t next=*s;
-        if(!sample_mapped(&next,*progress+segment,fit,context))return false;
+        const ainekio_v2_walk_pose_t previous_pose=s->pose;
+        double previous_anchors[4][3];
+        memcpy(previous_anchors,s->anchors,sizeof previous_anchors);
+        if(!sample_mapped(s,*progress+segment,fit,context))return false;
         double distance=0.;
         for(unsigned j=0;j<12;j++)distance=fmax(distance,
-            fabs(next.pose.frame.position[j]-s->pose.frame.position[j])/100.);
+            fabs(s->pose.frame.position[j]-previous_pose.frame.position[j])/100.);
         double duration=distance/ainekio_v2_joint_speed_default();
         if(duration<=remaining) {
-            *s=next;*progress+=segment;remaining-=duration;
+            *progress+=segment;remaining-=duration;
             if(*progress>=event-1e-9) {
                 if(!sample_mapped(s,event,fit,context))return false;
                 *progress=event;return true;
             }
         } else {
+            s->pose=previous_pose;
+            memcpy(s->anchors,previous_anchors,sizeof s->anchors);
             segment*=remaining/duration;
             if(!sample_mapped(s,*progress+segment,fit,context))return false;
             *progress+=segment;remaining=0.;
@@ -169,9 +173,15 @@ bool ainekio_v2_posture_advance_mapped(ainekio_v2_posture_t *s,double *progress,
     double seconds,ainekio_v2_posture_fit_t fit,void *context)
 {
     if(!s||!progress)return false;
-    ainekio_v2_posture_t next=*s;double at=*progress;
-    if(!advance(&next,&at,seconds,fit,context))return false;
-    *s=next;*progress=at;return true;
+    const ainekio_v2_walk_pose_t saved_pose=s->pose;
+    double saved_anchors[4][3],at=*progress;
+    memcpy(saved_anchors,s->anchors,sizeof saved_anchors);
+    if(!advance(s,&at,seconds,fit,context)) {
+        s->pose=saved_pose;
+        memcpy(s->anchors,saved_anchors,sizeof s->anchors);
+        return false;
+    }
+    *progress=at;return true;
 }
 bool ainekio_v2_posture_advance(ainekio_v2_posture_t *s,double *progress,double seconds)
 {
@@ -251,14 +261,14 @@ bool ainekio_v2_posture_next_target_mapped(ainekio_v2_posture_t *s,double *progr
         const double at=leg*step_s()+landmarks[k];
         if(at>*progress+1e-9)next=fmin(next,at);
     }
-    ainekio_v2_posture_t candidate=*s;
+    const ainekio_v2_walk_pose_t saved_pose=s->pose;
     /* Preserve the linkage branch through the existing geometric sampling
      * resolution. This is planning, not a wall-clock motion sequence. */
     for(double at=*progress;at<next;) {
         at=fmin(next,at+.01);
-        if(!sample_target(&candidate,at,fit,context))return false;
+        if(!sample_target(s,at,fit,context)){s->pose=saved_pose;return false;}
     }
-    *s=candidate;*progress=next;
+    *progress=next;
     *moving=ainekio_v2_posture_arrival_joints(s,next);
     if(!*moving)*moving=0xfff;
     return true;

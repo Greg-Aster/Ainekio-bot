@@ -1,7 +1,7 @@
 {
   "version": "motion-targets-v1",
   "source": "Body Control editable motion library and latest reviewed trials",
-  "training_rows": 349,
+  "training_rows": 489,
   "training_launched": false,
   "discarded_examples": [
     {
@@ -48,6 +48,11 @@
       "id": "012187abf26e1165",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "012ea757d4c1948a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "0137936d1e6d94bc",
@@ -150,6 +155,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "0404ca993968648b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "0437710288fb6396",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -215,6 +225,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "0558adad2df65b5d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "0587bcb7f93ec844",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -233,6 +248,11 @@
       "id": "059f983b39b4b28e",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "05d0d9945810031e",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "05f45cb61f3337fa",
@@ -270,6 +290,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "068493cbc9bb200d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "069cd77769ee72b9",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -300,6 +325,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "07101bc4340909c6",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "071107bc65d8083e",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -323,6 +353,11 @@
       "id": "0746e642582fd8b7",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "0758892f33b01483",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "076d2485e283d5d2",
@@ -355,6 +390,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "07ce373305762368",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "07d88e042ecb342a",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -368,6 +408,11 @@
       "id": "08137ea046481ad4",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "08352bfd44eddcab",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "08788c7e8f4cb3fa",
@@ -465,6 +510,16 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "0b32fe9ec31cad42",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "0b3f5c8e98828121",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "0b436720da83135f",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -498,6 +553,11 @@
       "id": "0bfa7f0921ccb6a1",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "0bfd8b2a15184344",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "0c325017073363c9",
@@ -615,6 +675,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "0ded1136c46d96f7",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "0e47498c2362ea15",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -635,9 +700,24 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "0e78e3f1d7586cc7",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "0e8eba618882d87d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "0eaf2127125a5ebf",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "0eb0b7322b797928",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "0edbe66edd54fdbf",
@@ -670,6 +750,11 @@
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
     },
     {
+      "id": "0fd3535e5b44e6a1",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "10111f053f63112f",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
@@ -680,9 +765,19 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "101bffd9ef78f302",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "10309543b716e62a",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "103181e5296f0c58",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "1054396bde0684e0",
@@ -710,6 +805,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "10ec8e3fee3624ea",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "10f0e122ecb8bbeb",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -718,6 +818,11 @@
       "id": "10fce0559e835835",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "111dc9cdbe14a131",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "1156c51536833826",
@@ -753,6 +858,11 @@
       "id": "11f48de06e7c601c",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "12011b0e915b96d7",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "12034bb73b9a6deb",
@@ -795,6 +905,16 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "1298efe33e0b54cc",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "12af0873e5848c18",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "12ce258ac8540e8c",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -830,6 +950,11 @@
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
     },
     {
+      "id": "13b115360341a213",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "13f2aa6029505f77",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -845,9 +970,19 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "147433fe8d7b7305",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "14a94efa913cb50e",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
+    },
+    {
+      "id": "14b5c08b85033847",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "157c76b354a718ba",
@@ -863,6 +998,11 @@
       "id": "15c7a4d779670123",
       "replacement_id": null,
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "15cb31d6753fea20",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "15d8defe522d8a5b",
@@ -960,6 +1100,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "18154a4c6dc4377c",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "181613e11c5227d4",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -995,6 +1140,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "18d4edb7128d19b6",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "18e70258b50c15be",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -1018,6 +1168,11 @@
       "id": "19897b7e1bc233bc",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "19a64d9277c8a549",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "19bfc7cbdc5d8642",
@@ -1045,6 +1200,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "1a4aaa2f0797c3ae",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "1a532d4161f51cf0",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -1065,6 +1225,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "1b42ae9846dfc5d3",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "1b57f37ed7a8445f",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -1073,6 +1238,11 @@
       "id": "1b6df0601824b2be",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "1b81e80d0c19262a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "1bb3443d1d640ad2",
@@ -1100,9 +1270,19 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "1be41d2388e8f31a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "1c1006536ca47bcb",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "1c12ade026232bd0",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "1c462ad1a48efab3",
@@ -1118,6 +1298,11 @@
       "id": "1c91c6dde4b00c9d",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "1ca139729062ae71",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "1cc3dec225f9729f",
@@ -1190,6 +1375,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "1dd4c7964f4e9610",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "1de4a6281efd8ac9",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -1215,6 +1405,11 @@
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
     },
     {
+      "id": "1e59f77b288b5816",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "1e5a552974f4045a",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -1223,6 +1418,11 @@
       "id": "1e7173c88e317b01",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "1e73890f39289062",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "1e814f30e467af11",
@@ -1250,6 +1450,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "1f942ff18c6ef2eb",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "1fa7e25b80d26724",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -1270,9 +1475,19 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "205d0afb68b5aace",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "207c23edc2a12f53",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "20a1b7b3bbec2457",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "20a306ae93df97ae",
@@ -1355,6 +1570,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "2299209606e19fd2",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "22adb9ef35dc9426",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -1373,6 +1593,11 @@
       "id": "22dae0fc375f03ee",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "22fd696d14301bd2",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "230b76b35fbf36e3",
@@ -1400,14 +1625,29 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "23786a777bb42859",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "237dfdb9cd70e14a",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "2384ed0d32c903be",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "238e876accb7b8b4",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "23932a8c9a715812",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "23999f20ab107d45",
@@ -1425,6 +1665,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "23c0675c443caf51",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "23fe4e3af9e0c505",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -1433,6 +1678,11 @@
       "id": "2404ce73fd532d95",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "24312d8d59e46797",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "245b39967756cb24",
@@ -1450,9 +1700,24 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "24a1735c29e0f87c",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "24bb0775604a3a5b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "24e4274b6443627b",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "25070f1ddeca38ed",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "25530ee02568a6a4",
@@ -1535,6 +1800,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "2729f03f486079c1",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "27a920fd48f10540",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -1565,6 +1835,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "284af3fd69d69581",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "286b1b8d69224ebb",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -1593,6 +1868,11 @@
       "id": "28c95289538757aa",
       "replacement_id": null,
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "28f0b7a26bcdba6a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "290ea14d814afd0a",
@@ -1700,6 +1980,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "2b9cf676a7f72c64",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "2bab27e09e5cbed4",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
@@ -1708,6 +1993,11 @@
       "id": "2bcafd07a0ae3110",
       "replacement_id": null,
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "2bdb39a8410b9a46",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "2be42bb2dd945d9a",
@@ -1725,6 +2015,21 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "2c453f9051c92015",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "2c4eecf878c085ad",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "2c52980c12709f3a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "2c591789c4825bd8",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -1740,6 +2045,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "2c94b6f7262d9b5f",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "2caa10aba4a669d4",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -1748,6 +2058,11 @@
       "id": "2cb94a027530c389",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
+    },
+    {
+      "id": "2cf2118db5c1f0c2",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "2d08d270ae436f60",
@@ -1805,6 +2120,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "2ddfc5cf2a5b116a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "2de821cf97e2d689",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -1813,6 +2133,11 @@
       "id": "2df18ce1372eb7bf",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "2dfc3c64aaeb19eb",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "2e2690c98a4d6d6f",
@@ -1853,6 +2178,11 @@
       "id": "2e78e55a51e952ea",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "2e7e1c23520d2857",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "2e940941790ad6ae",
@@ -1905,14 +2235,34 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "2fc45d205594a7ef",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "301692773e0c2e6d",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "30321f6b5bb42468",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "3063c8005452b5b1",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "30674f3c20410942",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "30916984e85296c7",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "309a24f35bfa049c",
@@ -1935,9 +2285,19 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "30f2c62a96cb024d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "30fb1cd2cbe674ab",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "317a5862ff90c226",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "31a3f856fa50b181",
@@ -1953,6 +2313,11 @@
       "id": "31b9eb61d095bbf5",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "31d4ff6ef3c72f56",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "31f0fce0b529ff44",
@@ -1995,9 +2360,24 @@
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
     },
     {
+      "id": "32da37ca16535954",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "32f1e12c61ad67a8",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "3304aca33423461d",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "331a0fc0bac378f6",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "33536007c386c0bd",
@@ -2060,6 +2440,21 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "34d4070dfdcf1bf1",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "34d6ac8eca6ba247",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "34fba0b9274386bf",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "3517d8665549eb1f",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -2073,6 +2468,16 @@
       "id": "352489cf8775a031",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "352be78b71fb1d21",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "353aa56ff50f101e",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "355d3c7eca89a2ad",
@@ -2175,6 +2580,16 @@
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
     },
     {
+      "id": "3771f529ab20ad8a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "37cd99e5517e71f7",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "37dc3adc20bebf6d",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -2240,9 +2655,19 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "3938cd1bfac6af78",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "394e0715db71dd9b",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "39723d731de936ca",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "3978d0e07c89baa9",
@@ -2280,6 +2705,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "39eb7f7763346792",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "39ecc0ba2c5b0b09",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -2308,6 +2738,11 @@
       "id": "3a342d5097e4b8e6",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "3a49503a1e158b0e",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "3a5ce55c50e825b6",
@@ -2345,9 +2780,19 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "3b096586a1d51fa4",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "3b139286f0902717",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "3b1a923ba98f1723",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "3b1cdf3fb48f6d6c",
@@ -2358,6 +2803,11 @@
       "id": "3b2ea00fde9cb894",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "3b4a70d9bf24e077",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "3b7de4f1e2b7c344",
@@ -2390,6 +2840,16 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "3c8a12b52fab05b0",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "3c90c537a9a73de7",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "3cb5fa29ab5ef63e",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -2398,6 +2858,11 @@
       "id": "3cd3fd562f67957b",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "3cda718862354970",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "3cdf9c2710488507",
@@ -2465,6 +2930,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "3e46d71a936b519d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "3e47d91d52fdeca3",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -2500,9 +2970,19 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "3eda39f33275c7de",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "3ef3a78a9c1a6dbb",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "3f0c37229f4239cf",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "3f187856b9dcfabb",
@@ -2515,6 +2995,16 @@
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
     },
     {
+      "id": "3f4f29399bb4efcd",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "3f50cab94294f8a6",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "3f768eac241120c7",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -2523,6 +3013,11 @@
       "id": "3f9920a2f64e94a0",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "3f9ac12a82a9bb8d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "3fa32b6838c6512b",
@@ -2540,6 +3035,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "3fc3d736b4b4ae7f",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "3fdbfa92f8229fcb",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -2553,6 +3053,11 @@
       "id": "4009381f6f4bd7b0",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "4010c7a502a23fc8",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "401a8c5e3b1414f6",
@@ -2573,6 +3078,11 @@
       "id": "4058fff8c3934153",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "409251433377c1e0",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "40991abf954b0a86",
@@ -2625,9 +3135,19 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "4172694b02057b4f",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "41e4a86d1eb67a9e",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "41e83284236e7687",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "4206a2b15943c688",
@@ -2638,6 +3158,11 @@
       "id": "421f8923e13658e8",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "425cd1328fdf48af",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "427dfeed4f61f7c9",
@@ -2725,6 +3250,16 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "4450a99315fb0e7b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "445c402e91c4cdbc",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "44905964480a9641",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
@@ -2745,6 +3280,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "44da1e2dc0a7e396",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "44e0f66791aec3f4",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -2758,6 +3298,11 @@
       "id": "4550f95ed80c2b5a",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "45645f0137c96220",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "45690fd6c5de8ff9",
@@ -2800,6 +3345,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "45fe5638d67d92da",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "460d40d0b8faf81c",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -2828,6 +3378,11 @@
       "id": "469e9156eaf7458f",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "46bece8e22342970",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "46c3e7f92a077e18",
@@ -2878,6 +3433,11 @@
       "id": "47f921e162ecf81e",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "480274a410d2dd53",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "480b74121470be25",
@@ -2940,6 +3500,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "49c2637cec95af94",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "49cc970a8c549fdf",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
@@ -2960,6 +3525,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "4a526693637de1de",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "4a53e901f5b6ec50",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -2973,6 +3543,16 @@
       "id": "4a6ca8433c6b141e",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "4a94804f401e6f7f",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "4aa7b75d1b5a52cb",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "4ab80f48d2f8582e",
@@ -3010,6 +3590,11 @@
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
     },
     {
+      "id": "4b4cbdfa60e2b30e",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "4b4fe50e8a0b6a83",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -3038,6 +3623,16 @@
       "id": "4bdf9449deb71e4b",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "4be4d918c1058eed",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "4bf996046078f591",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "4c0570912933cd06",
@@ -3073,6 +3668,11 @@
       "id": "4cf22d1456a58d9d",
       "replacement_id": null,
       "reason": "Retired obsolete unverified standard-stretch target or synthetic derivative. Owner requires a generic geometry-space stretch; do not train the physical-trial left-crank compensation. Replacement awaits matching physical calibration references."
+    },
+    {
+      "id": "4d24a19f9c3036df",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "4d3d0c1b138ebb72",
@@ -3120,9 +3720,19 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "4dbf1551a4f05011",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "4e02aa6accbb9ec2",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "4e140983c85feea0",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "4e32a90226171a16",
@@ -3168,6 +3778,11 @@
       "id": "4f23b7fec12e31d5",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "4f42dc789b4da64d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "4f57afedc530aebf",
@@ -3225,6 +3840,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "509f6ff2609e1798",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "50ccca240847f106",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
@@ -3260,6 +3880,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "51786faade83eda0",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "51aab28201d26609",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -3268,6 +3893,11 @@
       "id": "51e463141556615a",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "5238af9400b91113",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "526e542aabc5d166",
@@ -3330,6 +3960,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "53703dd538c2ab58",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "539d8991a916359e",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -3388,6 +4023,11 @@
       "id": "5453d37afd3176a4",
       "replacement_id": null,
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "545f7fde8c30a651",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "547312fa017d4b8f",
@@ -3450,6 +4090,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "55b8cd4523f3c5c1",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "55bb8e9f8e8c9f91",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -3475,9 +4120,19 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "5653728e0e3e3ff8",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "565a4477931e3743",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "565e4058ca8af067",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "566f2f15295755db",
@@ -3533,6 +4188,11 @@
       "id": "5739a565e8161940",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "573b1d94d51d1438",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "57432fa8d6a64362",
@@ -3595,6 +4255,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "58424b59a30a2b5a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "585d205109b57cf3",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -3640,6 +4305,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "5969afcc02f5a94c",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "59789fec640e8182",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -3653,6 +4323,16 @@
       "id": "598016244c974037",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "59ca8ffb85f19460",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "59cb96975b19819b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "59e25333b3047614",
@@ -3750,6 +4430,11 @@
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
     },
     {
+      "id": "5c9abfa493f28d59",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "5ca7cfaf26c934cc",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -3763,6 +4448,11 @@
       "id": "5cedbcb967bd0f0b",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "5d0aa6cd68f1ef08",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "5d627ab854787086",
@@ -3788,6 +4478,21 @@
       "id": "5d78e051b40902c6",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "5d813254c044007e",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "5d82b725174ca07e",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "5da5d198b13af493",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "5dab6304769bec7c",
@@ -3818,6 +4523,11 @@
       "id": "5e00aff5ae34b5d3",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "5e08add3f2933efa",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "5e296193f3814cd8",
@@ -3915,6 +4625,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "6075487ae3ebebab",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "60cf33a7134833f2",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -3938,6 +4653,11 @@
       "id": "6145d010c7384c6a",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "614ac50746a9a5aa",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "6158172f88ac83a2",
@@ -4030,6 +4750,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "6408f81f212a9dbb",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "640cdc8ec27ce7a3",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -4058,6 +4783,11 @@
       "id": "6496dc54795e814d",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "64b0ddb53a783599",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "652951515bbfb442",
@@ -4150,6 +4880,16 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "670192fb052fbf33",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "670df871bd2757b9",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "672c85d847960e15",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -4188,6 +4928,11 @@
       "id": "67fde7a7ca817513",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "67fec636e27d93cf",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "6800b0adcffef59a",
@@ -4230,9 +4975,19 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "693e30beec45d053",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "6944c4b5de72789e",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "698370ed87f6dc3f",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "69cac88f5cb49875",
@@ -4283,6 +5038,11 @@
       "id": "6a8606298a680c0c",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "6a9cff36541539e2",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "6aa9ba2b814e4a61",
@@ -4370,6 +5130,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "6bf85a185e9b8dad",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "6c07c495a1f75aa2",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -4450,6 +5215,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "6e1c27f801a0e494",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "6e251ab2cdeb36cb",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -4490,6 +5260,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "6ecdab909f6f8a9d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "6ed697af8f294621",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -4503,6 +5278,11 @@
       "id": "6f21d1311c881363",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "6f2b926b548f4e38",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "6f3c55dfdaa2c65a",
@@ -4520,6 +5300,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "6f71140dc9f62ed9",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "6f77f821cb847e68",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -4533,6 +5318,11 @@
       "id": "7020ba041fb6bef0",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "706012bb7e887e10",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "7088d6383c5ebba0",
@@ -4568,6 +5358,11 @@
       "id": "712afce299a63305",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "714789f0b8fd1370",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "714b5e5a65b6edc1",
@@ -4610,6 +5405,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "71b93c606ce2b21f",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "71cc9d2247dbf83d",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -4640,6 +5440,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "7278e0f9e13e88c5",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "728a8afa193d7d80",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -4655,6 +5460,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "72faf58ae023195f",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "7309a7acb6fdb8fc",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -4663,6 +5473,11 @@
       "id": "73255a1bebcbdeb3",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "7366ad30e78dd841",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "7369d4e16fbadc8c",
@@ -4688,6 +5503,11 @@
       "id": "743082c4ff1054b5",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "743cfef555595a24",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "7470c83a62eb4e9b",
@@ -4723,6 +5543,11 @@
       "id": "74e2598d2e18962e",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "7502dd5dd0d3e79d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "750c138cd521e600",
@@ -4810,6 +5635,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "774193cc525e1d78",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "778331c337f98eab",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
@@ -4818,6 +5648,11 @@
       "id": "778aa1b858d18620",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "77a21dc12695db06",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "78047edbc784ac25",
@@ -4885,6 +5720,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "79bd728361022d24",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "79bec881dbf32d65",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -4920,9 +5760,29 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "7a4f406a1dd189d7",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "7a7cadd3b561b63f",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "7a9c1d5cc7d2a01b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "7b35cef27b0790f6",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "7b3ca3fd51bd5d35",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "7b4bc87df38c073e",
@@ -4933,6 +5793,11 @@
       "id": "7b643ec255752f77",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "7b6b4ea260f2b856",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "7b9d58d9cb937e18",
@@ -4953,6 +5818,11 @@
       "id": "7c14fa5a2a6517f7",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "7c2bb75863c105eb",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "7c62e4dd455a6aaf",
@@ -5020,6 +5890,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "7d988760f03943bb",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "7db9197c226ae1f5",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -5028,6 +5903,16 @@
       "id": "7dbeeec0a7047c7a",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "7dc8a267982a6446",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "7dce37c29e0de4a4",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "7ddfc7dd3760294a",
@@ -5090,6 +5975,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "7f9bb9e0f33b0751",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "7fd39d0031be48ca",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -5103,6 +5993,16 @@
       "id": "800d972b6c3d16d7",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "802820b3054fee33",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "804a4fd66cf68af7",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "806e313e663e5f41",
@@ -5165,6 +6065,11 @@
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
     },
     {
+      "id": "81cfb41d8762b4e9",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "81ebccff89a44c39",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -5180,6 +6085,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "821be2df25df78cb",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "82251d5e7b05dabe",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -5190,6 +6100,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "8280ff4b0e4ccd5e",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "82880decc5984ccb",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -5198,6 +6113,11 @@
       "id": "83235dffbf1bb1a1",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "832486a3402b72a5",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "8328a8915a17333e",
@@ -5265,6 +6185,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "84693496c9c61130",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "84900216e755ff8d",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -5273,6 +6198,11 @@
       "id": "84ce5d1db97fac1c",
       "replacement_id": null,
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "84d9bacdfeabac20",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "850826c30923fd05",
@@ -5330,6 +6260,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "8633b18758d5da03",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "863bc7de2a1fb49b",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -5350,6 +6285,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "87397d9fa97db939",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "8751ac0c714c2f3f",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -5358,6 +6298,11 @@
       "id": "875cb40c56e113bf",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "876bcfb183927cb3",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "879bbcaed67256f0",
@@ -5378,6 +6323,11 @@
       "id": "87f8b0dc752dfef7",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "881c37c6c47ddb60",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "883ed6c1b4393fbf",
@@ -5445,9 +6395,19 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "8971db9227f6ea63",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "89929cf3cb51020a",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "89d4502a1613c3cc",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "8a7cea22d32f0ad6",
@@ -5485,6 +6445,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "8b036f449b8eed2f",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "8b0a2e8d5b6c550d",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -5510,6 +6475,16 @@
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
     },
     {
+      "id": "8be62a6a67736909",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "8c061b005dc55df5",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "8c2a9e8dc2e74227",
       "replacement_id": null,
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
@@ -5523,6 +6498,11 @@
       "id": "8c54609bfb2afb3b",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "8c58ee6ecc71e971",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "8c59192446dd58e3",
@@ -5548,6 +6528,11 @@
       "id": "8c7cd662c0ad3384",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "8c81f48c4c6a49e4",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "8c8fbafa2129f627",
@@ -5585,6 +6570,16 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "8d7ee7c5c9ca432a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "8db8dd941b0ba03d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "8dc49f30a3245567",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -5608,6 +6603,16 @@
       "id": "8e8af6cb0c887872",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "8eb72ef3b4e063c5",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "8ec99e4d2eed21aa",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "8eccc7cdd05d7160",
@@ -5665,9 +6670,19 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "904d75d237424252",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "90524791b50c6e9b",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "9060c5dd711bb4d2",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "908d8213f7b43357",
@@ -5685,6 +6700,16 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "912d42af3b6916fb",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "915b7f52ef1542df",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "916a87ee9d09f8be",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -5698,6 +6723,16 @@
       "id": "919267add5cd4380",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "91b3a5de007b9219",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "91cc68670fb44885",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "91d41e791009f3cc",
@@ -5735,6 +6770,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "92c68cd08528c8b7",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "92dd7152a2dcb88c",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -5758,6 +6798,11 @@
       "id": "93549713d1fb9007",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "9366f9182c962641",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "93763aa845628a17",
@@ -5790,6 +6835,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "93e4abfc9c46c9e4",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "93fbb52eef7ac19c",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -5800,9 +6850,19 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "94915af90893e12c",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "94bc4605d07fdd34",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "94d3dc155a66fe17",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "950d5b7150ca17db",
@@ -5838,6 +6898,11 @@
       "id": "95eade37598bfd5f",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "95f55f06851097c8",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "95fa9b30644d68f8",
@@ -5915,6 +6980,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "978bff1a91bcc586",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "9796b4fbc05f7386",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -5938,6 +7008,11 @@
       "id": "97d14680b47a8256",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "97f0751e34abcb11",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "9800341b8454fb39",
@@ -5990,6 +7065,16 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "990d4774c98b55e0",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "992185b12104675e",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "992f181b8e621bff",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -6020,6 +7105,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "9a0876eded8693bc",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "9a2446eb38d6110d",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -6033,6 +7123,11 @@
       "id": "9a2eca6d7bde0c7f",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "9a4cd72eddb1aaa3",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "9a558146ab7febb8",
@@ -6053,6 +7148,11 @@
       "id": "9a7c770ff0770a89",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "9aa7748604937cc1",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "9aafa740ceec7646",
@@ -6130,6 +7230,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "9cfd74c1b81242b3",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "9d100fd7cff6297b",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -6155,6 +7260,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "9d9387d5031542d1",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "9de03df0249cf160",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -6163,6 +7273,16 @@
       "id": "9df0e90011eaeb8b",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "9dfe7b9195f7a489",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "9e22bf3e96a6d529",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "9e4e883ad260e9f5",
@@ -6200,6 +7320,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "9f59f4a1ca64f59b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "9f80af3fc03423a1",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -6208,6 +7333,21 @@
       "id": "9f8913eaf6a26190",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "a019d0882f767b5d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "a030875f3fcaef5a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "a07b98e49420d11b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "a0894d126cf4d973",
@@ -6230,6 +7370,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "a11b30fe100ccc2d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "a12305112cccc836",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -6240,6 +7385,11 @@
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
     },
     {
+      "id": "a167b97c4af7951d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "a18bf8d3c2c18844",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
@@ -6248,6 +7398,11 @@
       "id": "a19489ce17a8fbb6",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "a1e772fd3bb5327a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "a1e7ceee213923c6",
@@ -6300,6 +7455,16 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "a2b0135e48539654",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "a2b48e7977e328b6",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "a2ccf4b3796ed413",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -6345,6 +7510,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "a3c1dfff726c98b5",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "a3cb6ca9fb32d851",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -6368,6 +7538,11 @@
       "id": "a46568a6f4fb9f1a",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "a47c98cbe545e88a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "a4a64499ec0fb06f",
@@ -6440,6 +7615,16 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "a63a957c34e3aa69",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "a64b42d7baa4d58b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "a65b9e60f9679655",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -6485,6 +7670,16 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "a70237357195455c",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "a71d5a41e0e1ccdd",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "a73417a7d22a1929",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -6520,6 +7715,16 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "a7b3c46db11fc4ef",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "a7b7851eaed53a4d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "a7c176bc344289f7",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -6548,6 +7753,21 @@
       "id": "a84e32f591b762a4",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "a85c831ff71304ec",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "a8617c4a4d1c0576",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "a898162f7ec522f3",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "a89b7342af81e0db",
@@ -6580,6 +7800,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "a9587025aca18097",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "a9782d7f67e184e4",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -6593,6 +7818,11 @@
       "id": "a9be9f30e866f28e",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "a9bf2b38a799de8c",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "a9d688b74a595dc5",
@@ -6623,6 +7853,11 @@
       "id": "aa39cb7bf4d0612f",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "aa4f8e625f1c6faa",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "aa9af2b0273b3c20",
@@ -6725,9 +7960,19 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "ada4b58422394fdd",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "adb7dbe0e58b2961",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "adba9aae2977e985",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "add05e40bc9416fa",
@@ -6738,6 +7983,11 @@
       "id": "ade13d1d10771622",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "ae01210f6dae83f4",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "ae0c32bccc31d9ff",
@@ -6770,6 +8020,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "aed4ba8bfaffa93f",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "aeefb934ff2ed68e",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
@@ -6793,6 +8048,11 @@
       "id": "af595ab8f3b669cc",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "af6bbf8c6de1ffa0",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "af706bb3f056fb48",
@@ -6820,6 +8080,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "b005cc875f2c5931",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "b0248e6728d1b8c1",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -6840,6 +8105,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "b0843c57778271d1",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "b08ce9b6e61182cd",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -6855,9 +8125,19 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "b0e5bcb32c2674d8",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "b119c3720c784d65",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "b15451b57670eb03",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "b16ecd1cfc4551bf",
@@ -6920,6 +8200,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "b2731a872ca4ac80",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "b28373f4508c4dc6",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -6950,6 +8235,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "b31b13609041e3d1",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "b339371540470a7c",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
@@ -6975,9 +8265,29 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "b3cfa725388a84a5",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "b3fec4e762627d9a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "b43ea898d34f9b21",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "b44182a148aee7a6",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "b464d64716bbf1d6",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "b491df50cfdeb2c0",
@@ -6990,14 +8300,39 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "b4a7d742d0a92fc8",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "b4bca6d5e720ff6a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "b4dcfd35f1b189d0",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "b507fa411e15eeb5",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "b522e1609fb76835",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "b580fba92763a0de",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "b5bc0beae5e071b6",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "b5c989bf3c0577d7",
@@ -7030,6 +8365,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "b6407bf4c8ec2ca5",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "b64d4cb437d60293",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -7058,6 +8398,11 @@
       "id": "b6c6a51389512b72",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "b6d2c05f6506bb5e",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "b6db38fb3384cf14",
@@ -7125,9 +8470,19 @@
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
     },
     {
+      "id": "b83c78e73c413bb3",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "b84f19f963d38f50",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "b865360f0452d88d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "b8a3458d9b88738d",
@@ -7138,6 +8493,16 @@
       "id": "b8e94e0a2516279d",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "b91bad31f4854323",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "b91bcd20c07d4f8b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "b96813d1ab0d44d4",
@@ -7188,6 +8553,11 @@
       "id": "ba6262863ef736dd",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "ba7148217c105a91",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "ba73625ea34474d3",
@@ -7275,6 +8645,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "bca6e128b6586215",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "bcb369f9d8527c50",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
@@ -7298,6 +8673,11 @@
       "id": "bcff921565f5bff3",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
+    },
+    {
+      "id": "bd5ced8c490e9aa8",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "bd76e99baf2173b6",
@@ -7365,6 +8745,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "bf052a5486e90ed6",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "bf10926241d374cd",
       "replacement_id": null,
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
@@ -7388,6 +8773,11 @@
       "id": "bfcab55391507441",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "c00cd3bbe389d8a9",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "c00d9496ef5066fb",
@@ -7440,6 +8830,16 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "c15c60d7a8af3ca5",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "c20286a3afff0bf9",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "c20af8e6a1bef3ca",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -7488,6 +8888,11 @@
       "id": "c2dfd299fb4a8c0a",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "c2f311413f26af6a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "c30d03fd4b5fff82",
@@ -7595,6 +9000,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "c5d2bbc4bb16637a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "c5e798f096bf8b3e",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -7630,6 +9040,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "c6c8acc8a182d5be",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "c6d8f6920e07fbf4",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -7643,6 +9058,11 @@
       "id": "c7201626252d0983",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "c76b97c05e2cc2ea",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "c7763ad85bf29858",
@@ -7775,9 +9195,24 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "ca6dc47d0c99df0a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "ca7e54e17fac4f14",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "ca82e2d12722072e",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "caa4d78e43b8697b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "caa9d24ce9f2baad",
@@ -7793,6 +9228,11 @@
       "id": "cb30f341db52d7da",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "cb386c709bcab1a2",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "cb5e57839cbef60c",
@@ -7823,6 +9263,11 @@
       "id": "cbf81f11a0b004b9",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "cc03f3dd64a7ce36",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "cc28bb86d2f1296e",
@@ -7870,6 +9315,11 @@
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
     },
     {
+      "id": "ccd93a9679b3edb5",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "ccdba38a9cecddc2",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -7905,6 +9355,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "cdb38138e2d37338",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "cdc1d1a35e278188",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -7938,6 +9393,11 @@
       "id": "ce45c384ff34a40f",
       "replacement_id": null,
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
+    },
+    {
+      "id": "ce5a47a67f8a13ce",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "ce5e8fe9b6d6bb8f",
@@ -8020,14 +9480,34 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "d05d504c306ecfe2",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "d07ad91579874efc",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "d07d2e3e8571bfff",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "d082fd230a7f837d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "d0cfe1665afa4cab",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "d1092e15d6035349",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "d12599db2b9a4c56",
@@ -8080,6 +9560,16 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "d27bab0029f673db",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "d2853e5d469385b4",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "d29335d8eae29284",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -8093,6 +9583,11 @@
       "id": "d2b76855da4275f6",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "d2d27d993288bf3e",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "d2e5b36bdd80aa2d",
@@ -8138,6 +9633,11 @@
       "id": "d4080992e96d216a",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "d409489146a6e7ac",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "d40cf1b6c6a03c28",
@@ -8195,9 +9695,19 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "d4b2acb1b489248a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "d4beaf696028b1bf",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "d5332e21e00163d0",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "d5527cd1ee602034",
@@ -8295,6 +9805,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "d6ebed4133452056",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "d71bebee158f0786",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -8315,6 +9830,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "d77d05b4ea2f06dd",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "d784a3d466a054fd",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -8328,6 +9848,16 @@
       "id": "d786ce1d6693e055",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "d788b5d31aa9a2ce",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "d7a7724b1571e0c4",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "d7a7ce770c9d8ef3",
@@ -8370,6 +9900,11 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "d8a6b09de792e7b2",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "d8d2064aaa193ef1",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
@@ -8405,6 +9940,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "da1a4d2de04cdc27",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "da69e125ae0f5c0a",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -8425,6 +9965,16 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "dafa0ddaff3327c4",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "dafb4daaa7e5acc7",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "db15397d8998e597",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -8438,6 +9988,11 @@
       "id": "db31b494b9362d93",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "db8826a1791b238f",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "db930a40c4f2aac1",
@@ -8475,6 +10030,11 @@
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
     },
     {
+      "id": "dc2add12ee3fc682",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "dc2d26179b179d5c",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -8495,9 +10055,24 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "dca283a63b5521f3",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "dcebc272fae0d0c1",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "dd152033c4311ab3",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "dd39fbf13c2103ee",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "dd5bd7e384239516",
@@ -8540,6 +10115,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "dec484d916375e05",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "df0c32c181f167b7",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -8548,6 +10128,11 @@
       "id": "df21e12b38d1d051",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "df62b8f360b3e077",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "df6ec3a40b090a1b",
@@ -8700,6 +10285,11 @@
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
     },
     {
+      "id": "e2b5d5fd2f775f51",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "e2f5e91ed31f9e0c",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -8825,6 +10415,11 @@
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
     },
     {
+      "id": "e5b0af4b8ed4383e",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "e5ce043c058330cd",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -8885,6 +10480,16 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "e84f3ecb8436685c",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "e8563cff04421e64",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "e85940f406e46418",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
@@ -8938,6 +10543,11 @@
       "id": "e9bc3fbb2e023698",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "e9eee6ab10c42d7d",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "e9f29495784ff683",
@@ -9023,6 +10633,11 @@
       "id": "eb0fd16afa9f4a86",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "eb13758800cfd435",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "eb23657c175817a8",
@@ -9115,9 +10730,19 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "ed20eedefe0d74a6",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "ed3509427cc4ac54",
       "replacement_id": null,
       "reason": "Installation Owner cleared the motion training dataset."
+    },
+    {
+      "id": "ed445de1de5b7791",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "ed497ca3f7ff1d33",
@@ -9175,6 +10800,21 @@
       "reason": "Superseded recovery input omitted the runtime-derived fields."
     },
     {
+      "id": "ee8d428f77eb5a15",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "eeb8f1df17ad62ca",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "eebae62cd2e7c18a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "ef0f56e2c0a54752",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
@@ -9193,6 +10833,11 @@
       "id": "efcf441523d9c20f",
       "replacement_id": null,
       "reason": "Superseded recovery input omitted the runtime-derived fields."
+    },
+    {
+      "id": "efe25538fd17c16f",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "f0343cd31c323e91",
@@ -9218,6 +10863,11 @@
       "id": "f053fc3ff495a1f9",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "f07296da709f0360",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "f07479ba70715978",
@@ -9265,6 +10915,11 @@
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
     },
     {
+      "id": "f14e926098f4faca",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "f17af5debd2dc621",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -9310,6 +10965,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "f229734baeef986a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "f2302e33dedf0e7f",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -9328,6 +10988,11 @@
       "id": "f26da02bd24dd099",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "f2aa1354b4cea726",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "f2b483e1b74f4a4a",
@@ -9375,6 +11040,11 @@
       "reason": "Retired internal continuation trigger; no external request or fault event"
     },
     {
+      "id": "f3ccfedfc8598475",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "f3dd0d310eb71c74",
       "replacement_id": null,
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
@@ -9395,9 +11065,19 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "f497376db7e88d2a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "f4b0b5c463f7757a",
       "replacement_id": null,
       "reason": "Retired internal continuation trigger; no external request or fault event"
+    },
+    {
+      "id": "f4b7acba274bf7d5",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "f4bd8bda10137398",
@@ -9413,6 +11093,11 @@
       "id": "f505813dfcb7360e",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
+    },
+    {
+      "id": "f5483502bda4d59a",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "f59a22cd994c856a",
@@ -9440,6 +11125,11 @@
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
     },
     {
+      "id": "f6daf7c99ba0eeb8",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "f6e9b2e0dacf7b34",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
@@ -9453,6 +11143,11 @@
       "id": "f6f454cd5aad3840",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "f70ca7c5dd112a8b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "f71911e21c499a2b",
@@ -9490,6 +11185,26 @@
       "reason": "Installation Owner removed servo-output release supervision from the custom-movement model."
     },
     {
+      "id": "f86798126516375b",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "f8878c819807a107",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "f895a249da30dfaa",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
+      "id": "f8b45064b39695bb",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "f8db5cecc378dc3f",
       "replacement_id": null,
       "reason": "Corrected repeated-jam commanded targets to match the attempted corrective operation."
@@ -9515,6 +11230,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "fa0bcdca8b62b9f3",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "fa194e22eebdae19",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -9523,6 +11243,11 @@
       "id": "fa38760ae81088f4",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "fa49f6190e8aa2cf",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "fa522dcb152e7b9c",
@@ -9585,6 +11310,11 @@
       "reason": "Installation Owner cleared the motion training dataset."
     },
     {
+      "id": "fb8eb17b8633a0a7",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
+    },
+    {
       "id": "fba2109d473ecb56",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
@@ -9593,6 +11323,11 @@
       "id": "fbbed4918c149108",
       "replacement_id": null,
       "reason": "Withdrawn November 2 recovery experiment: synthetic reduced stretch does not preserve the owner requested crouch, full forward reach and holds; physical check was incorrect. Do not import as an approved movement target."
+    },
+    {
+      "id": "fbc77e2e8c8fa1ff",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "fc0b00df230f880a",
@@ -9653,6 +11388,11 @@
       "id": "fdb0365cbfa193b1",
       "replacement_id": null,
       "reason": "Superseded recovery label replaced the unfinished motion with standing."
+    },
+    {
+      "id": "fdbc2062d0619582",
+      "replacement_id": null,
+      "reason": "Superseded recovery example replaced with grounded-step and calibration-bounded recovery curriculum."
     },
     {
       "id": "fde716a8f8ba3923",
@@ -9811,9 +11551,9 @@
     "system.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "wire.json": "01b7e24457019da3075e9fbe52ed88c92bde5f246369e0bbad9fbd56a1b245e5",
     "regression-evaluation.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "evaluation.jsonl": "49e12bf445d128bdeb69631a2795f414913f5e17b3f81e2f523f29a79024decb",
+    "evaluation.jsonl": "5ea0322b3f94aef078d6988910d9e7d22225f4caaa30782e5889d9f8db36a760",
     "recovery-probe.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "train.jsonl": "a070934e435be18f5a62dc13c4ff370c597ca18c885443cc49c5220866cfbce6",
+    "train.jsonl": "9d8b5898c7a7fc3c3c8aa7a72643fc07cba2c3a53775bf43847bcd20b4827dfa",
     "tools.json": "7637e3598493d926490562704f0512c9ca0c19023160bedb4cad7ab54cfa274d"
   },
   "native_stand": {
@@ -9870,28 +11610,35 @@
   "library_recovery": {
     "eligible_source_motions": 23,
     "covered_source_motions": 23,
-    "added_training": 138,
+    "added_training": 416,
     "added_probes": 0,
     "families": {
-      "library_repeated_feedback_recovery": 23,
-      "library_repeated_jam_recovery": 23,
-      "library_feedback_recovery": 23,
-      "library_jam_recovery": 23,
-      "library_movement_recovery": 23,
-      "library_fall_recovery": 23
+      "library_jam_recovery": 46,
+      "library_feedback_recovery": 46,
+      "library_error_recovery": 46,
+      "library_error_feedback_recovery": 46,
+      "library_repeated_jam_recovery": 46,
+      "library_repeated_feedback_recovery": 46,
+      "library_fall_recovery": 46,
+      "library_movement_recovery": 46,
+      "standalone_jam_recovery": 12,
+      "standalone_feedback_recovery": 12,
+      "standalone_slip_recovery": 8,
+      "standalone_fall_recovery": 8,
+      "standalone_movement_recovery": 8
     },
     "joint_coverage": {
-      "11": 2,
-      "9": 2,
-      "4": 3,
-      "10": 3,
-      "2": 3,
-      "8": 2,
-      "3": 1,
-      "5": 2,
-      "0": 2,
-      "6": 2,
-      "1": 1
+      "4": 6,
+      "8": 4,
+      "10": 6,
+      "9": 4,
+      "1": 2,
+      "2": 6,
+      "5": 4,
+      "6": 4,
+      "11": 4,
+      "3": 2,
+      "0": 4
     },
     "unresolved": [],
     "slip_changes": false,
@@ -9901,6 +11648,7 @@
       "No contact/dynamics simulation or physical success labels.",
       "Fall examples require a preceding measured correction; initial arbitrary fallen-pose righting remains unqualified.",
       "Geometric replay does not establish physical recovery."
-    ]
+    ],
+    "generator_sha256": "b3ed74a2b5f8e30963571f59c6ec8fded1544424bfe0c79bd00158c6555470a7"
   }
 }

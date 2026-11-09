@@ -26,14 +26,6 @@ target_link_libraries(test_gait_trace_runtime PRIVATE ainekio_imu ainekio_v2_mot
 target_compile_options(test_gait_trace_runtime PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 add_test(NAME gait_trace_http COMMAND test_gait_trace_runtime)
 
-add_executable(test_gait_learning_runtime test_gait_learning_runtime.c ../main/servo_feedback_model.c
-    ../main/joint_calibration.c "${TRACE_JSON_DIR}/cJSON.c")
-target_include_directories(test_gait_learning_runtime PRIVATE trace_shim ota_shim body_shim ../main
-    ../components/ainekio_p4_media/include ../components/ainekio_pca9685/include "${TRACE_JSON_DIR}")
-target_link_libraries(test_gait_learning_runtime PRIVATE ainekio_imu ainekio_v2_motion m)
-target_compile_options(test_gait_learning_runtime PRIVATE -Wall -Wextra -Werror -UNDEBUG)
-add_test(NAME gait_learning_runtime COMMAND test_gait_learning_runtime)
-
 add_executable(test_servo_feedback test_servo_feedback.c ../main/servo_feedback_model.c)
 target_include_directories(test_servo_feedback PRIVATE ../main)
 target_link_libraries(test_servo_feedback PRIVATE m)

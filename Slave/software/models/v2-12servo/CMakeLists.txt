@@ -14,15 +14,19 @@ set(CLIP_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/clip")
 file(MAKE_DIRECTORY "${CLIP_OUTPUT}")
 set(SERVO_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/servo")
 file(MAKE_DIRECTORY "${SERVO_OUTPUT}")
-set(MOTION_SOURCES learning.c motion.c walk_kinematics.c posture.c balance.c clip.c joint_limits.c transition.c "${SERVO_OUTPUT}/servo_data.c" "${WALK_OUTPUT}/walk_data.c" "${CLIP_OUTPUT}/clip_data.c")
+set(MICRODUCK_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/microduck")
+file(MAKE_DIRECTORY "${MICRODUCK_OUTPUT}")
+set(MOTION_SOURCES microduck.c motion.c walk_kinematics.c posture.c balance.c clip.c joint_limits.c transition.c "${SERVO_OUTPUT}/servo_data.c" "${WALK_OUTPUT}/walk_data.c" "${CLIP_OUTPUT}/clip_data.c" "${MICRODUCK_OUTPUT}/microduck_data.c")
 if(ESP_PLATFORM)
     idf_component_register(SRCS ${MOTION_SOURCES}
-        INCLUDE_DIRS "include" PRIV_INCLUDE_DIRS "${WALK_OUTPUT}" "${CLIP_OUTPUT}" "${SERVO_OUTPUT}" REQUIRES core)
+        INCLUDE_DIRS "include" PRIV_INCLUDE_DIRS "${WALK_OUTPUT}" "${CLIP_OUTPUT}" "${SERVO_OUTPUT}" "${MICRODUCK_OUTPUT}" REQUIRES core)
+    target_compile_options(${COMPONENT_LIB} PRIVATE -O3)
 else()
+    list(APPEND MOTION_SOURCES learning.c)
     add_library(ainekio_v2_motion STATIC ${MOTION_SOURCES})
-    target_include_directories(ainekio_v2_motion PUBLIC include PRIVATE "${WALK_OUTPUT}" "${CLIP_OUTPUT}" "${SERVO_OUTPUT}")
+    target_include_directories(ainekio_v2_motion PUBLIC include PRIVATE "${WALK_OUTPUT}" "${CLIP_OUTPUT}" "${SERVO_OUTPUT}" "${MICRODUCK_OUTPUT}")
     target_link_libraries(ainekio_v2_motion PUBLIC ainekio_core m)
-    target_compile_options(ainekio_v2_motion PRIVATE -Wall -Wextra -Werror -Wpedantic)
+    target_compile_options(ainekio_v2_motion PRIVATE -O3 -Wall -Wextra -Werror -Wpedantic)
     add_executable(test_v2_posture tests/test_posture.c)
     target_include_directories(test_v2_posture PRIVATE "${WALK_OUTPUT}")
     target_link_libraries(test_v2_posture PRIVATE ainekio_v2_motion m)
@@ -44,6 +48,10 @@ else()
     target_link_libraries(test_v2_learning PRIVATE ainekio_v2_motion m)
     target_compile_options(test_v2_learning PRIVATE -Wall -Wextra -Werror -Wpedantic)
     add_test(NAME v2_learned_trajectory COMMAND test_v2_learning)
+    add_executable(test_v2_microduck tests/test_microduck.c)
+    target_link_libraries(test_v2_microduck PRIVATE ainekio_v2_motion m)
+    target_compile_options(test_v2_microduck PRIVATE -Wall -Wextra -Werror -Wpedantic)
+    add_test(NAME v2_microduck_inference COMMAND test_v2_microduck)
     add_executable(test_v2_gait_profile tests/test_gait_profile.c)
     target_link_libraries(test_v2_gait_profile PRIVATE ainekio_v2_motion m)
     target_compile_options(test_v2_gait_profile PRIVATE -Wall -Wextra -Werror -Wpedantic)
@@ -105,6 +113,11 @@ endif()
 add_custom_command(OUTPUT "${SERVO_OUTPUT}/servo_data.c" "${SERVO_OUTPUT}/servo_data.h"
     COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tools/compile_servo_profile.py" --out "${SERVO_OUTPUT}"
     DEPENDS tools/compile_servo_profile.py servo_profile.json
+    VERBATIM)
+
+add_custom_command(OUTPUT "${MICRODUCK_OUTPUT}/microduck_data.c"
+    COMMAND "${PYTHON}" "${CMAKE_CURRENT_LIST_DIR}/tools/compile_microduck.py" --out "${MICRODUCK_OUTPUT}"
+    DEPENDS tools/compile_microduck.py motions/microduck/manifest.json motions/microduck/policy.bin
     VERBATIM)
 
 file(GLOB GESTURE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/motions/gestures/*/reviewed.json"

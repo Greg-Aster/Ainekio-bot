@@ -334,13 +334,15 @@ class AsyncGeneratorTests(unittest.IsolatedAsyncioTestCase):
                 try:
                     await asyncio.wait_for(arrived.wait(),3)
                     history=[{'note':'x'*1100000}]
+                    motion_goal={'request':'Wave hello.'}
                     result=await asyncio.wait_for(async_remote_generate(endpoint,{
-                        'request':'new','history':history}),3)
+                        'request':'new','history':history,'motion_goal':motion_goal}),3)
                     self.assertEqual(result['program'],[])
                     self.assertFalse(closed.is_set())
                     self.assertFalse(pending.done())
                     query=json.loads(received[1]['messages'][1]['content'])
                     self.assertEqual(query['history'],history)
+                    self.assertEqual(query['motion_goal'],motion_goal)
                     self.assertNotIn('max_tokens',received[1])
                     pending.cancel()
                     with suppress(asyncio.CancelledError):await pending

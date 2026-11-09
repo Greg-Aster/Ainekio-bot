@@ -172,7 +172,6 @@ int virtual_body_reset(void *sensor,const double *reference,const double *settin
     const ainekio_pca_config_t config={.oscillator_hz=settings[9],.frequency_hz=settings[10]};
     if(ainekio_pca_init(&virtual_pca,&port,&config)!=AINEKIO_PCA_OK ||
        ainekio_p4_body_start()!=ESP_OK)return 0;
-    ainekio_p4_learning_init();
     /* Explicit episode initial condition, not a claimed boot/Stand completion. */
     ainekio_v2_frame_t frame={.geometry_id=ainekio_v2_walk_geometry_id};
     for(unsigned j=0;j<12;j++)frame.position[j]=reference[j]*100.;

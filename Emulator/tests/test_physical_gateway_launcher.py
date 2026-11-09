@@ -283,6 +283,53 @@ class PhysicalGatewayLauncherTests(unittest.TestCase):
         self.assertFalse((data / "physical-gateway.pid").exists())
         self.assertFalse(self.marker.exists())
 
+    def test_stop_terminates_physical_gateway_from_sibling_git_worktree(self):
+        (self.bin / "systemctl").write_text("#!/bin/sh\nexit 1\n")
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        subprocess.run(
+            ["git", "-C", str(self.root), "-c", "user.name=test", "-c", "user.email=test@example.com",
+             "commit", "-q", "--allow-empty", "-m", "init"],
+            check=True,
+        )
+        sibling = Path(self.temporary.name) / "sibling-worktree"
+        subprocess.run(["git", "-C", str(self.root), "worktree", "add", "-q", "--detach", str(sibling)], check=True)
+        sibling_data = sibling / "build/gateway/physical"
+        sibling_data.mkdir(parents=True)
+        dummy = subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                "import signal, sys, time; signal.signal(signal.SIGTERM, lambda *_: sys.exit(0)); time.sleep(30)",
+                "-m",
+                "gateway.server",
+                "--port",
+                "18790",
+                "--dashboard-primary-view",
+                "camera",
+                "--data-dir",
+                str(sibling_data),
+            ],
+            cwd=sibling,
+        )
+        try:
+            (sibling_data / "physical-gateway.pid").write_text(f"{dummy.pid}\n")
+            env = dict(self.env, AINEKIO_GATEWAY_PORT="18790")
+            result = subprocess.run(
+                ["bash", str(self.root / "Master/stop-physical-gateway.sh")],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Physical Ainekio gateway stopped.", result.stdout)
+            self.assertFalse((sibling_data / "physical-gateway.pid").exists())
+            self.assertEqual(dummy.wait(timeout=5), 0)
+        finally:
+            if dummy.poll() is None:
+                dummy.kill()
+                dummy.wait()
+
     def test_explicit_environment_retains_precedence_over_dotenv(self):
         (self.root / ".env").write_text("AINEKIO_ENVIRONMENT_ADAPTER_TOKEN=''\n")
         self.assertEqual(self.run_launcher("--check").returncode, 0)

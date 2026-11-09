@@ -60,3 +60,16 @@ class LibraryRecoveryTests(unittest.TestCase):
         action={'name':'gait','arguments':{'command':'walk','cycles':3,'speed_pct':75}}
         tail=[{'name':'hold','arguments':{'seconds':2}}]
         self.assertEqual(completion(action,STAND,STAND,tail,75),[action,*tail])
+
+    def test_standalone_and_error_recovery_scenarios_compile_cleanly(self):
+        import json
+        from .library_recovery import standalone_scenarios, validate_prefix
+        rows=list(standalone_scenarios(False))
+        self.assertEqual({json.loads(r['query'])['event']['type'] for r in rows},
+                         {'servo_stall','servo_feedback_fault','slip','tipped','rapid_movement'})
+        for r in rows:
+            q=json.loads(r['query'])
+            self.assertEqual(q['request'],'Recover from the reported body event using the available observations.')
+            self.assertEqual(q['history'],[])
+            self.assertNotIn('motion_goal',q)
+            self.assertTrue(validate_prefix(r))

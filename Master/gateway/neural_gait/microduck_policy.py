@@ -22,6 +22,16 @@ class FootGaussianDistribution(GaussianDistribution):
         self.register_buffer("nodes", torch.tensor(nodes, dtype=torch.float32))
         self.register_buffer("weights", torch.tensor(weights/math.sqrt(math.pi), dtype=torch.float32))
 
+    def update(self, mlp_output):
+        mlp_output = torch.nan_to_num(mlp_output, nan=0.0, posinf=10.0, neginf=-10.0).clamp(-10.0, 10.0)
+        if self.std_type == "log":
+            with torch.no_grad():
+                self.log_std_param.data.nan_to_num_(nan=0.0, posinf=2.5, neginf=-5.0).clamp_(-5.0, 2.5)
+        elif self.std_type == "scalar":
+            with torch.no_grad():
+                self.std_param.data.nan_to_num_(nan=1.0, posinf=4.0, neginf=1e-3).clamp_(1e-3, 4.0)
+        super().update(mlp_output)
+
     def sample(self):
         return self._distribution.sample().tanh()
 

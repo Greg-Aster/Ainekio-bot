@@ -349,7 +349,7 @@ class NativeSensorTests(unittest.TestCase):
 
         np = self.np
         rng = np.random.default_rng(17)
-        for home in (500, 2800):
+        for home in (300, 2950):
             robot = robot_fixture()
             for joint in robot["calibration"]:
                 if joint["id"] % 3:
@@ -368,8 +368,8 @@ class NativeSensorTests(unittest.TestCase):
                     electrical = body.pwm_output(result[key])
                     self.assertIsNotNone(electrical)
                     pulse = electrical["logical_pulse_us"].reshape(4, 3)[:, 1:]
-                    self.assertTrue((pulse >= 500).all())
-                    self.assertTrue((pulse <= 2800).all())
+                    self.assertTrue((pulse >= 300).all())
+                    self.assertTrue((pulse <= 2950).all())
             self.assertGreater(reductions, 0)
 
     def test_pwm_quantization_and_phases_follow_timer_and_output_channel_mapping(self):

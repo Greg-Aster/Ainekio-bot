@@ -170,6 +170,7 @@ class NeuralWalk:
     collection_policy: str = 'policy'
     collection_owner: str = field(default_factory=lambda: uuid4().hex)
     physical_policy: bool = False
+    record_observation: bool = False
     exploration_noise: object | None = None
     sequence: int = 0
     revision: int = 0
@@ -291,7 +292,7 @@ class GatewayConnection:
 
     def _record_neural_outcome(self, state, outcome, evidence=None):
         """Retain final measured state without issuing another policy target."""
-        if not state.physical_policy or state.latest is None:
+        if not (state.physical_policy or state.record_observation) or state.latest is None:
             return
         from gateway.neural_gait.contract import recorded_observation
         source = state.latest
@@ -311,7 +312,7 @@ class GatewayConnection:
 
     def _record_neural_body_event(self, event):
         state = self.neural_walk
-        if state is None or not state.physical_policy:
+        if state is None or not (state.physical_policy or state.record_observation):
             return
         data = event.get("data", {})
         sequence = data.get("command_sequence", (data.get("motion") or {}).get("sequence"))
@@ -343,6 +344,8 @@ class GatewayConnection:
                 if message.get("speed") == 0:
                     message["steps"] = 0
                     message["twist"] = [0., 0., 0.]
+                elif not self.neural_walk or message.get("update") != self.neural_walk.sequence:
+                    raise GatewayError("Host Walk is already finishing")
             if self.neural_walk and message.get("update") == self.neural_walk.sequence:
                 state = self.neural_walk
                 controls = {**state.controls, **message}
@@ -368,7 +371,8 @@ class GatewayConnection:
                            checkpoint_id=status.get("checkpoint_id"),
                            learning_trial=learning_trial,
                            collection_policy=collection_policy,
-                           physical_policy=status.get('kind') == 'physical-redq')
+                           physical_policy=status.get('kind') == 'physical-redq',
+                           record_observation=status.get('kind') in {'physical-redq', 'pupper-mjx', 'microduck-mjlab'})
         if learning_trial and collection_policy == 'policy':
             from pink.cnrl import PinkNoiseProcess
             profile["exploration_buffer_steps"] = profile.get("exploration_buffer_steps", 1000)
@@ -454,8 +458,8 @@ class GatewayConnection:
                     checkpoint_id=state.checkpoint_id,
                     action=action, requested_foot_offset_mm=feet,
                     observation_device_us=source["feedback"]["device_us"], observation_boot_id=source["imu"].get("boot_id"),
-                    observation_received_at=(source.get("received_monotonic_s")
-                        if state.physical_policy else source["received_at"]), scan=source["feedback"]["scan"],
+                    observation_received_at=(source.get("received_monotonic_s", source["received_at"])
+                        if (state.physical_policy or state.record_observation) else source["received_at"]), scan=source["feedback"]["scan"],
                     inference_elapsed_s=self.service.clock()-started, source_profile=state.profile,
                     consumed_sample=consumed,
                     orientation_reference_yaw_rad=state.orientation_reference[0],
@@ -463,8 +467,10 @@ class GatewayConnection:
                     **(dict(learning_trial=state.learning_trial, exploration_noise=inference.get("noise"), revision=revision,
                             feedback_revision=source['feedback']['revision'],
                             **({'demonstration': result['demonstration']} if 'demonstration' in result else {}),
+                            **({'raw_action': result['raw_action']} if 'raw_action' in result else {}),
+                            **({'motor_targets_rad': result['motor_targets_rad']} if 'motor_targets_rad' in result else {}),
                             policy_observation=recorded_observation(data))
-                       if state.physical_policy else {})))
+                       if (state.physical_policy or state.record_observation) else {})))
         except asyncio.CancelledError:
             raise
         except Exception as error:

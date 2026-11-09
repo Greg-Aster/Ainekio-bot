@@ -466,6 +466,22 @@ async function run() {
   assert.equal(node('training-library').hidden,false);
   api.select('motion-c');api.updateMotionSystem({});
   assert.equal(node('motion-system').checked,true);
+  node('walk-system').checked=true;
+  const saveWalkNeural=node('walk-system').fire('change');
+  assert.equal(node('walk-native-hint').hidden,true,'Neural gait hides the legacy native gait hint');
+  assert.equal(node('walk-neural-hint').hidden,false,'Neural gait displays the neural walking hint');
+  assert.equal(node('neural-walking-source').value,'neural');
+  assert.equal(requests.at(-1).url,'/api/neural-gait');
+  assert.deepEqual(requests.at(-1).body,{op:'walking-source',robot_id:'motion-c',
+    profile:{source:'neural',forward_m_s:0.15,lateral_m_s:0.08,yaw_rad_s:1}});
+  requests.at(-1).resolve({robot_id:'motion-c',profile:requests.at(-1).body.profile});await saveWalkNeural;
+  node('walk-system').checked=false;
+  const saveWalkLegacy=node('walk-system').fire('change');
+  assert.equal(node('walk-native-hint').hidden,false,'Legacy gait restores the native gait hint');
+  assert.equal(node('walk-neural-hint').hidden,true);
+  assert.equal(node('neural-walking-source').value,'native');
+  assert.deepEqual(requests.at(-1).body,{op:'walking-source',robot_id:'motion-c',profile:{source:'native'}});
+  requests.at(-1).resolve({robot_id:'motion-c',profile:{source:'native'}});await saveWalkLegacy;
   console.log('Motion switch: automatic persistence on change, pending selection and selected-robot reply handling passed.');
 
 }

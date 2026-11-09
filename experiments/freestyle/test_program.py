@@ -707,6 +707,41 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(context['error_evidence'],rejection)
         self.assertIn('did not verify',context['error'])
 
+    async def test_failed_target_automatically_submits_recovery_when_enabled(self):
+        first=move(JOINTS[0],5,'current',50)
+        failed=move(JOINTS[1],10,'current',50)
+        pending=move(JOINTS[2],-5,'current',50)
+        recovered=move(JOINTS[1],6,'current',50)
+        calls=[]
+        def generate(endpoint,request):
+            calls.append(copy.deepcopy(request))
+            return {'program':[recovered,pending] if request['event'] else [first,failed,pending]}
+        self.bridge.generate=generate
+        rejection={'t':'done','seq':2,'position_verified':False,'target_adjusted_joints':2}
+        async def terminal(seq,**kwargs):
+            return copy.deepcopy(rejection) if seq==2 else {'t':'done','seq':seq,'position_verified':True}
+        self.gateway.wait_terminal=terminal
+        await self.bridge.configure('robot','http://unused',True)
+        submitted=await self.bridge.submit('robot','move all three joints',True)
+        await self.bridge.tasks[submitted['job_id']]
+        await asyncio.gather(*list(self.bridge.tasks.values()))
+        self.assertEqual(len(calls),2)
+        context=calls[-1]['history'][0]
+        self.assertEqual(context['program_state'],'error')
+        self.assertEqual(context['failed_action'],failed)
+        self.assertEqual(context['completed_action'],first)
+        self.assertEqual(context['remaining_program'],[pending])
+        self.assertEqual(context['error_evidence'],rejection)
+        recovery_job=self.bridge.jobs[self.bridge.active['robot']]
+        self.assertEqual(recovery_job['state'],'completed')
+
+    async def test_continue_authored_motion_events_do_not_interrupt_active_motion(self):
+        await self.bridge.configure('robot','http://unused',True)
+        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
+            'data':{'kind':'servo_feedback_fault','motion_policy':'continue_authored_motion'}})
+        self.assertFalse(self.bridge.jobs)
+        self.assertFalse(self.generated)
+
     async def test_completed_target_is_not_interrupted_while_refreshing_its_measurements(self):
         first=move(JOINTS[0],20,'current',50)
         second=move(JOINTS[0],-20,'current',50)

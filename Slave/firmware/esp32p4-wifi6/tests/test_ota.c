@@ -181,6 +181,3 @@ void ainekio_p4_recording_read_close(void) {file_closed=true;}
 
 size_t ainekio_p4_logs_snapshot(char *buffer,size_t capacity) {(void)buffer;(void)capacity;return 0;}
 void ainekio_p4_log_stage(const char *stage) {(void)stage;}
-
-void ainekio_p4_learning_init(void){}
-esp_err_t ainekio_p4_learning_http(struct httpd_req *r){(void)r;return ESP_OK;}

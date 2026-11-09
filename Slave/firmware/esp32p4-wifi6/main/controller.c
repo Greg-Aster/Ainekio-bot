@@ -22,6 +22,7 @@
 #include "ainekio/control_encode.h"
 #include "ainekio/v2_motion.h"
 #include "ainekio/v2_walk.h"
+#include "ainekio/v2_microduck.h"
 
 #include <inttypes.h>
 #include <stdatomic.h>
@@ -344,7 +345,7 @@ static void hello(uint64_t connection)
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();
     const char *commands[BASE_COMMAND_COUNT + ainekio_v2_clip_count];
     const ainekio_capabilities_t caps = capabilities(&media, &calibration, commands);
-    const char *features[] = {AINEKIO_MOTION_TARGETS_FEATURE, AINEKIO_MOTION_CURVES_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, AINEKIO_WALK_NOMINAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "walking_feedback_v1", "gait_learning_v1", "gait_sensor_policy_v1", "servo_feedback_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_CAMERA_MOTION_EXPOSURE_FEATURE, AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
+    const char *features[] = {AINEKIO_MOTION_TARGETS_FEATURE, AINEKIO_MOTION_CURVES_FEATURE, "command_deadline_v1", "body_capabilities_v1", "body_commands_v1", "body_calibration_v2", "storage_control_v1", "walk_controls_v2", AINEKIO_WALK_STEERING_FEATURE, AINEKIO_WALK_LATERAL_FEATURE, AINEKIO_WALK_NOMINAL_FEATURE, "run_gait_v1", "crab_gait_v1", "motion_speed_v1", "joint_speed_limit_v1", "balance_control_v1", "balance_tuning_v1", "balance_feedback_v1", "walking_feedback_v1", "servo_feedback_v1", "robot_settings_v1", "camera_profiles_v1", "camera_adaptive_v1", AINEKIO_CAMERA_MOTION_EXPOSURE_FEATURE, AINEKIO_GATEWAY_SWITCHING_FEATURE, "audio_input_v1", "face_feedback_v1"};
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
@@ -639,15 +640,21 @@ static void telemetry(uint64_t connection)
     append_motion_diagnostics(text, STATUS_TEXT_BYTES, length);
     reply(connection, text);
     /* Existing telemetry cadence and link; no additional acquisition task or
-     * serialization inside the servo loop. */
-    cJSON *feedback=cJSON_CreateObject();
-    if(feedback) {
-        cJSON_AddStringToObject(feedback,"t","event");
-        cJSON_AddStringToObject(feedback,"name","servo_feedback");
-        cJSON_AddItemToObject(feedback,"data",ainekio_p4_feedback_health_json());
-        char *encoded=cJSON_PrintUnformatted(feedback);
-        if(encoded){reply(connection,encoded);free(encoded);}
-        cJSON_Delete(feedback);
+     * serialization inside the servo loop. Suppress periodic stand-range
+     * calibration health events during active walking so normal stride travel
+     * outside the [500, 2800] us capture interval does not trigger false
+     * servo_feedback_fault body events; per-frame IMU telemetry still carries
+     * joint_feedback on every tick. */
+    if(!ainekio_p4_body_status().gait_valid) {
+        cJSON *feedback=cJSON_CreateObject();
+        if(feedback) {
+            cJSON_AddStringToObject(feedback,"t","event");
+            cJSON_AddStringToObject(feedback,"name","servo_feedback");
+            cJSON_AddItemToObject(feedback,"data",ainekio_p4_feedback_health_json());
+            char *encoded=cJSON_PrintUnformatted(feedback);
+            if(encoded){reply(connection,encoded);free(encoded);}
+            cJSON_Delete(feedback);
+        }
     }
     if (status.uptime_seconds % 5U == 0U) {
         /* Store changing measurements, not the repeated command catalog. */
@@ -721,12 +728,15 @@ static bool send_packet(esp_websocket_client_handle_t client, packet_t *packet)
     return true;
 }
 
-static void send_media(esp_websocket_client_handle_t client, packet_t *camera)
+static void send_media(esp_websocket_client_handle_t client, packet_t *camera, bool telemetry_due)
 {
     packet_t packet;
     for (UBaseType_t ready = uxQueueMessagesWaiting(audio_packets);
          ready && !atomic_load(&reconnect) && xQueueReceive(audio_packets, &packet, 0) == pdTRUE; --ready)
         send_packet(client, &packet);
+    /* Yield camera chunk transmission when a 50 Hz IMU/feedback frame or
+     * outbound control reply is already waiting on the link. */
+    if (telemetry_due || uxQueueMessagesWaiting(replies) != 0) return;
     if (!camera->bytes && xQueuePeek(camera_packets, &packet, 0) == pdTRUE &&
         (!packet.done_sequence || (packet.done_sequence != atomic_load(&pending_sequence) &&
                                   uxQueueMessagesWaiting(replies) == 0))) {
@@ -924,7 +934,7 @@ static void link_task(void *arg)
                 xQueueReceive(media_events, &media, 0);
                 if (current_connection(media.connection)) reply(media.connection, media.text);
             }
-            send_media(client, &camera);
+            send_media(client, &camera, authenticated && now_us() - last_imu >= UINT64_C(20000));
             /* The gateway requires a clock observation younger than one second.
              * Leave margin for scheduling and network delay within that window. */
             if (now_us() - last_ping >= UINT64_C(250000)) {
@@ -941,11 +951,18 @@ static void link_task(void *arg)
                 last_ping = now_us();
             }
             /* Sleep only when no ready media/control work remains. Producers
-             * wake this task immediately; the timeout services existing IMU telemetry. */
-            if (!camera.bytes && !uxQueueMessagesWaiting(replies) &&
+             * wake this task immediately; bound the timeout by the remaining
+             * 50 Hz IMU/feedback interval so early wakeups never stretch a
+             * 20 ms telemetry period into 20 ms + wakeup_elapsed. */
+            const uint64_t imu_elapsed = now_us() - last_imu;
+            const bool imu_due = authenticated && imu_elapsed >= UINT64_C(20000);
+            if (!imu_due && !camera.bytes && !uxQueueMessagesWaiting(replies) &&
                 !uxQueueMessagesWaiting(audio_packets) && !uxQueueMessagesWaiting(camera_packets) &&
-                !uxQueueMessagesWaiting(media_events))
-                ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(20));
+                !uxQueueMessagesWaiting(media_events)) {
+                const uint32_t wait_ms = authenticated ?
+                    (uint32_t)((UINT64_C(20000) - imu_elapsed + 999U) / 1000U) : 20U;
+                ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(wait_ms ? wait_ms : 1U));
+            }
         }
         free(camera.bytes);
         fail_link();
@@ -1409,17 +1426,32 @@ int ainekio_p4_gait_command(int argc, char **argv)
             }
         }
         ainekio_v2_walk_state_t state={0};
+        ainekio_v2_microduck_state_t md_state={0};
         const uint64_t begin_at = now_us();
         if (!ainekio_v2_walk_accept(&state, &request, 0)) return 1;
+        ainekio_v2_microduck_reset(&md_state);
+        const ainekio_v2_frame_t ref_frame = state.pose.frame;
+        double anchors[4][3] = {{0}};
+        if (!ainekio_v2_contact_forward(&state.pose, anchors, true)) return 1;
         const uint64_t begin_us = now_us() - begin_at;
         uint64_t maximum_tick_us = 0, previous_tick_us = 0, maximum_finish_gap_us = 0;
         unsigned samples = 0, over_interval = 0;
         unsigned long sampled_ms = 0;
         bool solver_ok = true;
+        const float q_upright[4] = {1.f, 0.f, 0.f, 0.f};
+        const float zero3[3] = {0.f, 0.f, 0.f};
+        const float grav3[3] = {0.f, 0.f, 9.81f};
+        const float cmd_twist[3] = {(float)(0.15 * state.target.stride_percent / 100.0), 0.f, 0.f};
         for (unsigned long ms = 0; ms < elapsed && !state.complete;) {
             ms += elapsed - ms < 20 ? elapsed - ms : 20;
             const uint64_t tick_at = now_us();
-            solver_ok = ainekio_v2_walk_tick(&state, (uint64_t)ms*1000U);
+            float feet_mm[4][3], applied[4][3], fit[4];
+            solver_ok = ainekio_v2_microduck_step(&md_state, &ainekio_v2_microduck_default_model,
+                (double)ms / 1000.0, &state.pose.frame, q_upright, zero3, grav3, cmd_twist, feet_mm) &&
+                ainekio_v2_nominal_foot_pose(&ref_frame, (const float (*)[3])feet_mm,
+                    NULL, NULL, NULL, &state.pose, anchors, applied, fit);
+            state.phase = (double)ms / 800.0;
+            if (state.phase >= state.end_phase) state.complete = true;
             const uint64_t tick_us = now_us() - tick_at;
             if (tick_us > maximum_tick_us) maximum_tick_us = tick_us;
             if (tick_us > UINT64_C(20000)) ++over_interval;

@@ -167,6 +167,23 @@ class DepthMotion:
             raise ValueError(result["error"])
         return result
 
+    def range(self, frame_id, point, source_frame=None):
+        if self.process_handle is not None and self.process_handle.poll() is not None:
+            self.close()
+        if self.process_handle is None:
+            return {"available": False, "reason": "Depth worker has no retained camera frame"}
+        request = {"range": {"frameId": frame_id, "point": point, "sourceFrame": source_frame, "instance": self.instance}}
+        proc = self.process_handle
+        proc.stdin.write(json.dumps(request, allow_nan=False)+"\n")
+        proc.stdin.flush()
+        line = proc.stdout.readline()
+        if not line:
+            raise RuntimeError("Depth worker exited before returning a range measurement")
+        result = json.loads(line)
+        if "error" in result:
+            raise ValueError(result["error"])
+        return result
+
     def reset(self, robot):
         if self.process_handle is not None:
             proc = self.process_handle

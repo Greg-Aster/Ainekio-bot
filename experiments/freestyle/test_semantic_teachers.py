@@ -86,9 +86,11 @@ class SemanticTeacherTests(unittest.TestCase):
         for action in program:
             if action['name'] not in ('face','hold'):
                 planned=compile_motion(action,state,planned)['end'];feet.append(foot_positions(planned))
+        self.assertAlmostEqual(feet[1]['front_left'][2]-feet[0]['front_left'][2],18,delta=.04)
+        self.assertAlmostEqual(feet[3]['front_right'][2]-feet[2]['front_right'][2],18,delta=.04)
         for leg in ('front_left','front_right'):
-            self.assertAlmostEqual(feet[3][leg][0]-feet[1][leg][0],35,delta=.04)
-            self.assertAlmostEqual(feet[1][leg][2]-feet[0][leg][2],20,delta=.04)
+            self.assertAlmostEqual(feet[5][leg][2]-feet[4][leg][2],16,delta=.04)
+            self.assertAlmostEqual(feet[6][leg][0]-feet[0][leg][0],35,delta=.04)
         for j,value in zip(JOINTS,entry):self.assertAlmostEqual(planned[j],value,places=2)
         self.assertEqual([a['arguments']['seconds'] for a in program if a['name']=='hold'],[.9,.7,.5])
 
@@ -99,7 +101,7 @@ class SemanticTeacherTests(unittest.TestCase):
         rows=[json.loads(line) for line in (dataset/'train.jsonl').read_text().splitlines() if line]
         recovery=[row for row in rows if row.get('recovery_evidence')]
         self.assertEqual({json.loads(row['query'])['event']['type'] for row in recovery},
-                         {'servo_stall','servo_feedback_fault','tipped','rapid_movement'})
+                         {'servo_stall','servo_feedback_fault','tipped','rapid_movement','slip'})
         rows=[row for row in rows if row.get('reference_motion')]
         counts=Counter(row['reference_motion'] for row in rows)
         self.assertEqual(len(rows),72)
@@ -116,6 +118,9 @@ class SemanticTeacherTests(unittest.TestCase):
             self.assertFalse(row['physical_qualification'])
             program=encoding.decode(row['answers'])
             self.assertLess(len(program),30)
+            if row['reference_motion']=='stand':
+                self.assertEqual(program,[{'name':'stand','arguments':{}}])
+                continue
             state={'joints':{j:{'model_deg':q,'commanded_model_deg':q,'home_deg':0}
                     for j,q in zip(JOINTS,row['reference_entry_model_deg'])},'joint_speed_limit_deg_s':180}
             planned=None

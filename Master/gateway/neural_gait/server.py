@@ -62,7 +62,8 @@ class Runtime:
         if (
             not isinstance(identifier, str)
             or not identifier
-            or any(c not in "0123456789abcdef-" for c in identifier)
+            or identifier.startswith("-")
+            or any(c not in "0123456789abcdefghijklmnopqrstuvwxyz-" for c in identifier)
         ):
             raise ValueError("Expected a model/run identifier")
         return self.directory / identifier
@@ -212,12 +213,18 @@ class Runtime:
         if manifest.get("kind") == "microduck-mjlab":
             from .microduck_actor import MicroduckActor
             model = MicroduckActor(path/checkpoint)
+        elif manifest.get("kind") == "pupper-mjx":
+            from .pupper_mjx_actor import PupperMjxActor
+            if not manifest.get("policy"):
+                raise ValueError("This Pupper MJX run has no exported policy yet")
+            model = PupperMjxActor(path / checkpoint, environment=manifest["environment"])
         else:
             from .training import load_policy
             import torch
             torch.set_num_threads(1)
             model = load_policy(path, checkpoint, device=self.device)
         with self.lock:
+            old_model = self.model
             self.model, self.model_id, self.environment = (
                 model,
                 identifier,
@@ -228,6 +235,8 @@ class Runtime:
             self.selection_error = None
             save_json(self.directory / "selected.json",
                       dict(model_id=identifier, checkpoint_id=checkpoint_id))
+            if old_model is not None and old_model is not model and hasattr(old_model, "close"):
+                old_model.close()
         return self.status()
 
     def collection_end(self, robot_id, owner):
@@ -306,7 +315,7 @@ class Runtime:
             heading_enabled=False, balance_enabled=False, learned_corrections_enabled=False)
         return action, provenance
 
-    def infer(self, observation, *, explore=False, model_id=None, checkpoint_id=None, noise=None, demonstration=None):
+    def infer(self, observation, *, explore=False, model_id=None, checkpoint_id=None, noise=None, demonstration=None, walk_context=None):
         values = np.asarray(vector(observation), dtype=np.float32)
         started = time.monotonic()
         with self.lock:
@@ -350,6 +359,26 @@ class Runtime:
                 raise ValueError('Native demonstration collection requires a physical actor contract')
             if explore:
                 raise ValueError('Stochastic physical trials require a physical REDQ actor')
+            if self.kind == "pupper-mjx":
+                result = self.model.infer_observation(observation, walk_context=walk_context)
+                resolved = result["resolved"]
+                return dict(
+                    schema=self.environment.get("observation_schema", SCHEMA),
+                    model_id=self.model_id,
+                    checkpoint_id=self.checkpoint_id,
+                    action=result["action"].tolist(),
+                    raw_action=result["raw_action"].tolist(),
+                    motor_targets_rad=result["motor_targets_rad"].tolist(),
+                    motor_targets_deg=result["motor_targets_deg"].tolist(),
+                    requested_foot_offset_mm=result["requested_foot_offset_mm"].tolist(),
+                    fitted_foot_offset_mm=resolved["applied_offset_mm"].tolist() if resolved else None,
+                    targets_deg=resolved["ramped_angles"].tolist() if resolved else None,
+                    nominal_goal_deg=resolved["nominal_goal_angles"].tolist() if resolved else None,
+                    leg_fit=resolved["leg_fit"].tolist() if resolved else None,
+                    elapsed_s=time.monotonic() - started,
+                    execution="preview_only",
+                    targets_resolved_by="existing P4 Walk kinematics",
+                )
             action, _ = self.model.predict(values, deterministic=True)
             identifier, checkpoint_id = self.model_id, self.checkpoint_id
             schema = self.environment.get("observation_schema", SCHEMA)
@@ -543,17 +572,12 @@ class Runtime:
                 raise ValueError("Training steps and parallel environments must be positive integers")
             environment = payload.get("environment", prior.get("environment"))
             if not environment:
-                raise ValueError("Supply Ainekio's environment including its camera profile for MicroDuck training")
+                raise ValueError("Supply Ainekio's environment for MicroDuck training")
             config = EnvironmentConfig(**environment)
-            from .contract import PROPRIO_SCHEMA, PROPRIO_CAMERA_SCHEMA
+            from .contract import PROPRIO_SCHEMA
             from dataclasses import replace
-            stage=payload.get("stage",prior.get("stage","proprio"))
-            if stage not in ("proprio","camera"):
-                raise ValueError("Choose proprio or camera training stage")
-            config=replace(config,observation_schema=PROPRIO_CAMERA_SCHEMA if stage=="camera" else PROPRIO_SCHEMA,
+            config=replace(config,observation_schema=PROPRIO_SCHEMA,
                            collision_profile="locomotion",balance_enabled=False,heading_feedback_enabled=False,control_hz=50,physics_hz=500)
-            if stage=="camera" and not config.depth_camera:
-                raise ValueError("The camera stage needs the installed optical camera profile")
             if prior and prior["environment"] != asdict(config):
                 raise ValueError("Resume uses the saved robot/sensor contract; start a new run to change it")
             root = Path(__file__).resolve().parents[3]
@@ -568,11 +592,9 @@ class Runtime:
             command = [python, "-m", "gateway.neural_gait.microduck", "--directory", str(path),
                 "--config", str(path/"environment.json"), "--iterations", str(iterations),
                 "--num-envs", str(workers), "--device", str(payload.get("device", prior.get("device", "cuda:0"))),
-                "--seed", str(payload.get("seed", prior.get("seed", 1))), "--stage", stage]
+                "--seed", str(payload.get("seed", prior.get("seed", 1)))]
             if payload.get("resume"):
                 command += ["--resume", str(self.run_path(payload["resume"]))]
-            elif payload.get("initialize_from"):
-                command += ["--initialize-from", str(self.run_path(payload["initialize_from"]))]
             with (path/"training.log").open("w") as log:
                 self.training = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
             self.training_id = identifier
@@ -723,7 +745,7 @@ class Handler(BaseHTTPRequestHandler):
             runtime = self.server.runtime
             if self.path == "/infer":
                 result = runtime.infer(payload["observation"], **{key: payload[key] for key in
-                    ('explore', 'model_id', 'checkpoint_id', 'noise', 'demonstration') if key in payload})
+                    ('explore', 'model_id', 'checkpoint_id', 'noise', 'demonstration', 'walk_context') if key in payload})
             elif self.path == '/collection-end':
                 result = runtime.collection_end(payload['robot_id'], payload['owner'])
             elif self.path == "/load":
