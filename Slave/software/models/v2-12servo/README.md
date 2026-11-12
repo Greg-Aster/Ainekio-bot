@@ -1,9 +1,6 @@
 # Twelve-servo motion model
 
-V2 uses a shared measured linkage, direct closure checks, finite gestures
-and continuous Walk/Run/Crawl/Crab. The eight-servo V1 assets and default decoder retain
-their existing behavior. Assembly references and calibration are documented in
-[SERVO_ASSEMBLY.md](SERVO_ASSEMBLY.md).
+V2 (`v2-12servo`) uses a shared closed-chain 4-bar linkage solver, direct closure checks, 23 finite gestures/postures, continuous analytic `Walk` / `Run` / `Crawl` / `Crab` gaits, and an embedded quantized `Microduck` neural gait policy for on-chip ESP32-P4 execution. The paused eight-servo V1 assets and decoder retain their existing behavior. Assembly references and per-joint calibration are documented in [SERVO_ASSEMBLY.md](SERVO_ASSEMBLY.md).
 
 ## Servo profile and geometry
 
@@ -238,17 +235,20 @@ model references are reported before enabling outputs. This is commanded state,
 not shaft feedback. Entry checks do
 not establish floor clearance or support stability for arbitrary physical poses.
 
-`joint_mapping` stores the current body_calibration_v2 mapping without Min/Max fields. Review and Save is required before normal motion. Hardware qualification is
-still false: shaft travel, direction, horn placement, tracking, dynamics and
-loaded operation require physical measurement. The compact controller has been
-application-flashed and tested with two unloaded servos before the expressive-motion/Crab revision. That revision is built and tested offline, not flashed; the evidence is
-in [Controller validation](CONTROLLER_VALIDATION.md). Earlier deployment evidence
-in `docs/v2-12servo/FIRMWARE_DESIGN.md` belongs to previous applications.
+`joint_mapping` stores the current `body_calibration_v2` mapping without Min/Max fields. Review and Save is required before normal motion. Keep source/kinematic verification distinct from per-device physical qualification: shaft travel, direction, horn placement, tracking, dynamics and loaded operation depend on measured calibration on the installed robot. Source checks and bench scope are recorded in [Controller validation](CONTROLLER_VALIDATION.md).
 
 `upright` is a separate declared V2 emote: Sit → front feet backward → supported
 push → a 60° rear-leg rise over the flat rear lower legs. It holds the terminal
 pose after 22 seconds; `stand` still means four feet. Physical balance, torque
 and a safe recovery transition remain unqualified. [Upright](motions/gestures/upright/README.md).
+
+## Compiled Microduck neural gait
+
+`motions/microduck/` stores the tracked quantized neural gait policy (`policy.bin` and `manifest.json`, schema `ainekio-neural-gait-v7-proprio`) for on-chip ESP32-P4 locomotion without requiring the off-board host neural policy service:
+
+- **Architecture**: 720-dimensional proprioceptive observation history feeding a `[128, 64, 32]` quantized `int8` MLP that outputs 12 normalized foot-offset actions (`normalized-foot-offsets-v1`, scaled by `[45.0, 28.0, 30.0] mm` in body X/Y/Z).
+- **Compilation**: `tools/compile_microduck.py` uses standard-library Python only (no third-party packages required during ESP-IDF or host CMake builds) to import a trained `policy.onnx` into `motions/microduck/policy.bin` + `manifest.json` and emit `microduck_data.c` into `ainekio_v2_motion`.
+- **Execution boundary**: Foot-offset outputs resolve through the same direct 4-bar linkage solver, per-device calibration mapping, IMU balance owner, and output supervision as analytic V2 gaits. Source compilation and simulation parity do not by themselves certify untethered physical floor performance.
 
 ## Runtime representation
 
@@ -320,6 +320,7 @@ remain enabled in Release builds.
 - `transition.c`: entry paths through the direct linkage's closure region.
 - `joint_limits.c` and `servo_profile.json`: calibration reference metadata; historical collision-envelope data remains desktop-only.
 - `clip.c` and `tools/compile_clips.py`: verified compact interpolation segments and one cubic sampler.
+- `motions/microduck/` and `tools/compile_microduck.py`: quantized `int8` Microduck policy weights (`policy.bin`, `manifest.json`) and zero-dependency C code generator for on-chip ESP32-P4 neural walking.
 - `motions/walk/reference.py`: independent Python geometry and stride/rate reference.
 - `motions/gestures/*/posture.json`: measured Sit/Rest/Wave/Point/Bow pose constraints.
 - `tools/generate_assembly_reference.py`: reproducible guide, twelve-joint CSV and mounting range audit.

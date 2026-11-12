@@ -1,10 +1,13 @@
 # Ainekio V1 Pinout and Diagnostic Values
 
-Scope: the eight-servo V1 body. The wiring and measurements below apply to its
-Freenove ESP32-S3 controller; [V2 hardware](../v2-12servo/README.md) has a separate
-board and servo driver. The dedicated [V1 specifications](SPECIFICATIONS.md)
-provide the body, geometry, power and integration overview; this file owns
-the detailed header map and diagnostic evidence.
+Scope: the paused eight-servo V1 body (`v1-8servo`). **V2 (`v2-12servo`) is the
+active robot platform; this document is retained as the hardware wiring and
+bench-diagnostic reference for V1.** The wiring and measurements below apply to
+its Freenove ESP32-S3 controller; [V2 hardware](../v2-12servo/README.md) uses a
+separate ESP32-P4 board and PCA9685 servo driver. The dedicated
+[V1 specifications](SPECIFICATIONS.md) provide the body, geometry, power and
+integration overview; this file owns the detailed header map and diagnostic
+evidence.
 
 This is the wiring and bench-diagnosis reference for the most recently flashed
 and boot-verified Freenove ESP32-S3-WROOM CAM controller image. It records the

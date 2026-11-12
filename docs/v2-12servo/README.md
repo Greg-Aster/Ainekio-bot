@@ -1,94 +1,39 @@
 # V2: Twelve-Servo Robot
 
-Start with the dedicated [V2 specifications](SPECIFICATIONS.md) for hardware,
-current geometry, wiring, calibration and Body Control/remote connections.
-This page retains earlier hardware-selection and bring-up records; their
-status statements do not establish today's source or installed readiness.
+Start with [V2 Specifications](SPECIFICATIONS.md) for authoritative hardware, CAD geometry, pin assignments, power topology, and Body Control / Ainekio OS connection boundaries. **V2 (`v2-12servo`) is the active robot platform; V1 (`v1-8servo`) work is paused.**
 
-V2 is the active development target; V1 work is paused (owner, 2026-10-26).
-Current physical facts are reconciled in [V2 specifications](SPECIFICATIONS.md);
-the September selections and bring-up status below retain their original dates.
-The owner confirmed the following hardware selection on 2026-09-15.
+## Hardware Summary
 
-## Selected Hardware
-
-| Item | Selection and source |
-| --- | --- |
-| Body | Twelve servos in the new frame; owner-confirmed |
-| Controller | ESP32-P4-WIFI6 development board, based on ESP32-P4 with an ESP32-C6 for wireless connectivity; [manufacturer documentation](https://docs.waveshare.com/ESP32-P4-WIFI6) |
-| Purchased listing / kit selection | [Amazon B0FLXX1BZ6](https://www.amazon.com/dp/B0FLXX1BZ6), listed with an OV5647 camera and speaker; this records the listing, not installed peripheral evidence |
-| Servos | Twelve MG90 servos; owner-confirmed designation. Exact variant and supplier, pulse limits, and measured calibration remain pending. |
-| Servo signal driver | HUAREW PCA9685 16-channel PWM breakout, [Amazon B0CRV3MK14](https://www.amazon.com/dp/B0CRV3MK14), supplied by the owner. Used as a standard PCA9685 breakout; the owner confirmed channel-0 servo movement on 2026-09-22. Chip reference: [NXP datasheet](https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf). |
-
-The robot has twelve joints even though the driver provides sixteen channels.
-The actual P4 is revision 1.3 with 32 MiB flash and 32 MiB PSRAM. The native target
-assigns a dedicated PCA bus to GPIO2/3 and OE to GPIO4. Channel-0 movement is
-confirmed; physical joint assignments, horn indexing, travel calibration and
-multi-servo power capacity remain to be established. V1 poses and calibration
-do not supply those values.
+| Subsystem | V2 Component | Details & Owner |
+| --- | --- | --- |
+| Controller | Waveshare ESP32-P4-WIFI6 (P4 rev 1.3, 32 MiB flash, 32 MiB PSRAM, onboard ESP32-C6 Wi-Fi 6 over SDIO) | [Manufacturer docs](https://docs.waveshare.com/ESP32-P4-WIFI6) · [ESP32-P4 firmware README](../../Slave/firmware/esp32p4-wifi6/README.md) |
+| Servo PWM | PCA9685 16-channel PWM breakout (`0x40` on I2C1 GPIO2/3, active-low `OE` on GPIO4; channels 0–11 used) | [PCA9685 wiring](PCA9685_WIRING.md) · [NXP datasheet](https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf) |
+| Actuators & Feedback | Twelve Miuzei MG90S servos modified with 4th-wire wiper leads into a CD74HC4067 16-channel multiplexer (select GPIO27–30, ADC2 ch 0) | [Socket & feedback map](SERVO_SOCKET_MAP.md) · [Servo assembly](../../Slave/software/models/v2-12servo/SERVO_ASSEMBLY.md) |
+| Attitude IMU | Two-hole GY-LSM6DS3 6-axis IMU (`0x6A` on shared I2C0 GPIO7/8) | [LSM6DS3 wiring & calibration](LSM6DS3_IMU.md) |
+| Vision & Storage | OV5647 5 MP MIPI-CSI camera, internal NVS, and microSD card slot for rolling clips and firmware backups | [ESP32-P4 firmware README](../../Slave/firmware/esp32p4-wifi6/README.md) · [LCD & camera notes](LCD_FACE.md) |
+| Audio | Onboard ES8311 codec/microphone, NS4150B speaker amplifier, and 8 Ω / 2 W 20 × 30 × 6.66 mm speaker | [Speaker output](../../Slave/firmware/esp32p4-wifi6/README.md#speaker-output) · [Resource budget](RESOURCE_BUDGET.md) |
+| Face Display | XIITIA 1.9-inch ST7789 SPI LCD (`320 × 170` landscape on SPI GPIO20/21/22/23/26) | [LCD face design](LCD_FACE.md) |
+| Power | 2S Li-ion pack (8.4 V full), Mini560 5 V / 5 A servo buck converter, HiLetgo 2S USB-C charger | [Electrical connections & power](SPECIFICATIONS.md#electrical-connections-and-power) |
 
 ## Wiring Guides
 
-- [Servo-to-PCA9685 socket and multiplexer input map](SERVO_SOCKET_MAP.md) · [image](Servo_Socket_Map.png)
-- [LSM6DS3 gyro wiring, mounting and calibration](LSM6DS3_IMU.md) · [image](LSM6DS3_Wiring.png)
-- [Multiplexer-to-P4 wiring image](Multiplexer_Wiring.png)
-- [Combined assembly image: P4 + LCD + servo board + IMU](Assembly_Reference.png)
-- [Combined connection table and resolved pin conflicts](ASSEMBLY_REFERENCE.md)
-- [Current P4 header pinout: servo board, LCD, IMU and multiplexer](ESP32P4_Pinout.png) · [editable SVG](ESP32P4_Pinout.svg)
-- [PCA9685 connection image](PCA9685_Wiring.png)
-- [Wiring table, sources and servo power](PCA9685_WIRING.md)
+- [Combined connection table and resolved pin assignments](ASSEMBLY_REFERENCE.md) · [Combined diagram](Assembly_Reference.png)
+- [ESP32-P4 header pinout (PNG)](ESP32P4_Pinout.png) · [Editable pinout (SVG)](ESP32P4_Pinout.svg)
+- [Servo-to-PCA9685 socket and multiplexer channel map](SERVO_SOCKET_MAP.md) · [Diagram](Servo_Socket_Map.png)
+- [Multiplexer-to-P4 wiring diagram](Multiplexer_Wiring.png)
+- [PCA9685 wiring table and servo power rail](PCA9685_WIRING.md) · [Diagram](PCA9685_Wiring.png)
+- [LSM6DS3 IMU wiring, mounting axes, and calibration](LSM6DS3_IMU.md) · [Diagram](LSM6DS3_Wiring.png)
 
-The guides match the native firmware's GPIO2/3/4 assignments. Remove power
-before adding or moving connectors. See the normal firmware's startup procedure
-for connecting servos one at a time.
+Remove power before adding or moving servo, power, or multiplexer connectors. Follow the [ESP32-P4 startup and assembly guide](../../Slave/firmware/esp32p4-wifi6/README.md#startup-and-assembly) when bringing up or remounting joints.
 
 ## Design Assets
 
-[Slave/hardware/v2-12servo/](../../Slave/hardware/v2-12servo/) contains the
-existing STEP sources, Blender assemblies and backups, GLB conversions, STL
-exports, and source archive. Original filenames and the internal directory
-structure are preserved. Use this model directory for all opens, saves, and
-exports.
+[`Slave/hardware/v2-12servo/`](../../Slave/hardware/v2-12servo/) holds the working Blender assembly (`Ainekio-Motion-Working.blend`), recovery checkpoints ([`CHECKPOINTS.md`](../../Slave/hardware/v2-12servo/CHECKPOINTS.md)), STEP/STL/GLB exports, and component reference models. Keep CAD edits and exports inside that directory.
 
-## Software Status
+## Firmware, Motion, and Host Stack
 
-The [walking capability and integration audit](WALKING_SYSTEM.md) traces the
-current Body Control controls, P4 correction owners, recovery, sensing and
-latency requirements that neural gait work must preserve.
-
-The [gait research journal](GAIT_RESEARCH_JOURNAL.md) tracks the October 2026
-locomotion investigation, implementation changes, repeatable offline results
-and physical measurements still needed.
-
-The [firmware review and implementation design](FIRMWARE_DESIGN.md) records the
-V1 source findings, P4 platform research, and recommended implementation stages.
-It specifies proposed timing/fault contracts and starts with P4/C6/output-disable
-hardware checks, followed by supported motion before complete media integration.
-It develops the [approved code boundaries](../ROBOT_MODELS.md).
-The [native P4 target](../../Slave/firmware/esp32p4-wifi6/README.md) now contains
-the PCA9685 driver, staged crouch/shoulder/Stand startup, matched C6 networking and shared
-command admission. Normal power-on starts channels 0–11 at saved pulses,
-200 ms apart; the current source default is the 1300 µs selected assembly reference. The laying pose is
-updated in both Blender and the exported rest source: the chassis base
-plate and all four lower legs rest on the floor. Midpoint and a calibrated body rest pose are
-separate until horn indexing and joint calibration are established. Temporary
-bench commands and fault injection have been removed. See the firmware README
-for normal operation and the historical [Step 1 evidence](STEP1_EVIDENCE.md) for
-earlier measurements and unmeasured electrical behavior.
-
-The optional Q6A deployment, controller-selection boundary and future native USB
-reservation are documented in the firmware design. No Q6A services are implemented.
-The [V2 model](../../Slave/software/models/v2-12servo/README.md) contains the
-variable forward gait with automatic Speed and advanced stride/cadence controls,
-plus 29 finite motions regenerated for the same current leg and sole geometry.
-The Blender project includes a separate **Motions - Current Geometry** scene
-with all 30 motions and a selector for individual commands. The gait is integrated through
-`walk_controls_v1`; walking and gesture execution remain disabled. The
-[2026-09-17 integration record](MOTION_INTEGRATION_20260917.md) covers all 30 motions,
-the successful software checks, and the migration to the larger application partition. Calibrated physical execution,
-joint calibration and the V2 simulator remain pending. The shared gateway
-negotiates model/readiness and does not advertise unimplemented P4 motion/media.
-
-## Servo range and assembly update
-
-The current servo profile uses the observed 300–2900 µs span, a selected1300µs reference, and geometry-derived mounting offsets. Actual angular travel is still unmeasured. Follow the [twelve-joint assembly guide](../../Slave/software/models/v2-12servo/SERVO_ASSEMBLY.md). Original gait and motion sources are restored unchanged. The separate internal-leg clearance audit flags unresolved conflicts; these need owner review before assembly. Existing deployed firmware evidence below the current design tracker refers to the previous application.
+- **ESP32-P4 firmware** ([`Slave/firmware/esp32p4-wifi6/`](../../Slave/firmware/esp32p4-wifi6/README.md)): Implements `protocol-v1` over Wi-Fi 6 (`ESP32-C6` SDIO), PCA9685 output supervision with 3-minute local `lay_down` inactivity rest, 20 ms 12-joint potentiometer feedback (`servo_feedback_v1`) with recovery-first stall reporting, IMU attitude estimation and `balance_control_v1` self-leveling, adaptive OV5647 stills/preview with SD rolling clips, OTA firmware updates, `microWakeWord` voice gating, and layered ST7789 face expressions (`face_feedback_v1`).
+- **Kinematic model, clips, and embedded Microduck gait** ([`Slave/software/models/v2-12servo/`](../../Slave/software/models/v2-12servo/README.md)): Owns the closed 4-bar linkage geometry (`35 / 20 / 28 / 38 / 55 mm`), 23 active finite postures/gestures compiled to compact cubic segments, analytic `Walk` / `Run` / `Crawl` / `Crab` gaits with composed steering (`walk_steering_v1`), and the compiled on-board `v2_microduck` PPO neural gait policy (`motions/microduck/policy.bin`).
+- **Body Control gateway & neural simulation** ([`Master/gateway/`](../../Master/gateway/README.md)): Runs on a workstation or Radxa Dragon Q6A (`Master/run-physical-gateway.sh` / `Master/stop-physical-gateway.sh`), providing the Body Control cockpit (`127.0.0.1:8791`), host MuJoCo/MJX simulation and neural policy service (`127.0.0.1:8796`), continuous camera object/face recognition, and the `/environment` bridge to Ainekio OS.
+- **12-joint Freestyle choreography** ([`experiments/freestyle/`](../../experiments/freestyle/README.md)): Generates natural-language 12-joint `motion_plan` sequences via local Qwen LoRA or Big Brother cloud inference, validated through closed-chain IK and executed on the P4 controller.
+- **Calibration and qualification**: `servo_profile.json` defines the `300–3000 µs` authoring window and non-inverted mounting references (`1650 µs` shoulder, `856 µs` carrier, `723 µs` crank; reindexed crank walk profile in [`SERVO_ASSEMBLY.md`](../../Slave/software/models/v2-12servo/SERVO_ASSEMBLY.md)). Per-device pulse mapping and 4th-wire ADC curves live in NVS via Body Control calibration (`body_calibration_v2`). Keep source/simulation verification distinct from loaded physical hardware qualification; see [Walking System](WALKING_SYSTEM.md) and [Gait Research Journal](GAIT_RESEARCH_JOURNAL.md) for current locomotion status.

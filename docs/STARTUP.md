@@ -1,110 +1,56 @@
-# Restarting Body Control and remote MetaHuman OS
+# Starting Body Control and Remote Ainekio OS
 
-Use this routine for an already configured installation where one computer runs
-Ainekio Body Control and another runs MetaHuman OS. Existing pairing, passwords,
-and connection settings are retained across shutdowns.
+Use this runbook for a configured installation where one host runs **Ainekio Body Control** (such as a Radxa Q6A or local workstation) and the same or another host runs **[Ainekio OS](https://github.com/Greg-Aster/ainekio-os)**. Saved pairing tokens, dashboard settings, and calibration persist across restarts.
 
-## Local inference service
+## 1. Verify Local Inference (`llama-cpp.service`)
 
-Each computer that needs local llama.cpp inference runs one independent
-`llama-cpp.service`. Follow the shared [host installation](../../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md#shared-llamacpp-hosting).
-Co-located MetaHuman and Body Control use that same listener with distinct model
-aliases. In the two-computer arrangement, Q6A's Freestyle generator uses Q6A's
-service; it does not require the MetaHuman application or desktop inference.
-Check `systemctl --user status llama-cpp.service` on the relevant computer.
-Application shutdown leaves this shared host service running.
+Each host that runs local model inference uses one shared native `llama-cpp.service` instance; see [Shared `llama.cpp` hosting](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/robot/SYSTEM_ARCHITECTURE.md#shared-llamacpp-hosting).
 
-## Check the network
+- When Ainekio OS and Body Control run on the same host, both attach to that host's `127.0.0.1:8080` listener using separate model aliases and request-scoped LoRA scales.
+- In a two-computer setup, the Body Control host's Freestyle generator (`ainekio-freestyle-api.service`) uses its own local `llama-cpp.service` (or configured SSH Big Brother endpoint) independently of desktop inference.
+- Check service state on the relevant host:
+  ```bash
+  systemctl --user status llama-cpp.service
+  ```
+- Stopping Ainekio OS or Body Control leaves `llama-cpp.service` running.
 
-Connect both computers to the configured network. If the bridge uses WireGuard,
-start the existing VPN connection before expecting the remote bridge to connect.
-An enabled `wg-quick` system service starts at boot; installing WireGuard tools
-alone does not enable a tunnel.
+## 2. Check Network and Optional VPN
 
-LAN testing uses the configured local address of the MetaHuman computer. Internet
-operation needs a reachable VPN endpoint, the appropriate UDP forwarding and
-firewall configuration, and a test from a separate network. A successful LAN test
-does not establish internet reachability.
-
-## Start MetaHuman on its computer
-
-Open a terminal on the MetaHuman computer. From its repository root, run:
-
-```bash
-./start.sh
-```
-
-Leave the terminal open. The normal launcher starts the web server and its
-configured background services. An app-only launch starts the web application
-without starting all those services.
-
-Start the single **Environment Bridge** in MetaHuman's Agent Monitor. Its
-**Body connection** panel offers **Follow the same robot across saved hosts**.
-Enable it and select the physical robot once to follow it between the configured
-local host and saved SSH or Cloudflare route. A working connection stays selected;
-the bridge follows that robot when it changes hosts. Manual mode connects only to
-the selected host. Disconnected delivery and transcription errors appear in the
-conversation view; Body Control also reports voice commands it could not forward.
-Separate Local/Remote bridge agents are retired. Remote connections use the saved
-SSH or Cloudflare route managed by this bridge. For SSH over WireGuard, the SSH
-destination is the Body Control computer's VPN address or its configured alias.
-
-The MetaHuman computer initiates this connection back to Body Control. The web
-portal's address and the robot bridge's transport are separate settings.
-
-You can run the same launcher from an SSH terminal connected to the MetaHuman
-computer. Keep that terminal open for the foreground launcher.
-
-## Start Body Control on its computer
-
-In a separate terminal on the Body Control computer, run this from the Ainekio
-repository root:
-
-```bash
-./Master/start-physical-gateway.sh
-```
-
-Reuse the saved dashboard connection choice if prompted. The launcher uses the
-repository's Python environment and saved configuration. Leave the terminal open.
-Turn on the paired robot if it is off; it can reconnect as services become
-available.
-
-Open Body Control in a browser on that same computer:
-
-<http://127.0.0.1:8791/>
-
-Open MetaHuman using its configured web address. When browsing on the MetaHuman
-computer itself, the default local address is:
-
-<http://127.0.0.1:4321/>
-
-Use the existing logins. Confirm the robot is online in Body Control and that
-MetaHuman's Environment Bridge is connected to that robot. A reachable dashboard
-alone does not establish a live robot connection.
-
-## Check a WireGuard installation
-
-For a tunnel named `wg-robot`, run on each computer:
+Connect both hosts to the configured LAN or robot Wi-Fi hotspot. When bridging across networks over WireGuard, confirm the tunnel is active before expecting remote bridge connection:
 
 ```bash
 systemctl is-active wg-quick@wg-robot.service
 ```
 
-The expected result is `active`. Check peer reachability with `ping` using the
-other computer's configured VPN address. If the link fails after a reboot, check
-both machines' network connections and whether the configured endpoint address
-has changed.
+Verify peer reachability with `ping` against the peer's VPN address. LAN reachability does not prove remote tunnel reachability across separate networks.
 
-If a launcher reports that its server is already running, use the existing
-instance. The [gateway reference](../Master/gateway/README.md) describes installed
-service management, pairing, and connection settings.
+## 3. Start Ainekio OS
 
-## Stop the system
+From the `ainekio-os` repository root:
 
-Press **Ctrl+C** in the Body Control terminal to stop its gateway. Press
-**Ctrl+C** in the normal MetaHuman launcher terminal to stop MetaHuman and its
-managed background services. An independently managed VPN remains controlled by
-the operating system.
+```bash
+./start.sh
+```
 
-Keep private keys, passwords, tunnel credentials, and installation-specific
-configuration in their existing local storage rather than in this guide.
+Open the web interface (`http://127.0.0.1:4321/` locally) and confirm **Environment Bridge** is running in **Agent Monitor**:
+- Enable **Follow the same robot across saved hosts** under **Body connection** and select the paired robot ID once to follow it across saved Local, SSH, or Cloudflare routes.
+- Manual host mode connects strictly to the selected endpoint (`ws://127.0.0.1:8790/environment` locally, or forwarded loopback over SSH/Cloudflare).
+- Disconnected speech or transcription failures surface directly in the conversation feed and Body Control status banner.
+
+## 4. Start Physical Body Control
+
+From the `Ainekio-bot` repository root on the Body Control host:
+
+```bash
+./Master/start-physical-gateway.sh
+```
+
+- On interactive startup, select **This computer**, **LAN / Wi-Fi**, or **Cloudflare** within 10 seconds, or press Enter to reuse the saved choice in `build/gateway/physical/dashboard-connection.json`.
+- Open the operator dashboard (`http://127.0.0.1:8791/` by default). Dashboard authentication uses the saved password verifier unless `AINEKIO_DASHBOARD_NO_LOGIN=1` is explicitly set for a trusted local/hotspot display.
+- Power on the paired robot. Confirm the robot appears **Online** in the header selector and the bridge banner reports **Ainekio OS bridge connected** (`MetaHuman control` enabled when embodied cognitive commands should execute).
+
+## 5. Stop Services
+
+- Stop physical Body Control with `./Master/stop-physical-gateway.sh` or **Ctrl+C** in its foreground terminal.
+- Stop Ainekio OS and its managed services with `./stop.sh` or **Ctrl+C** in its launcher terminal.
+- Keep pairing tokens, dashboard verifiers, VPN keys, and tunnel credentials in ignored local runtime storage (`build/gateway/` or `~/.config/ainekio/`), never in tracked files.

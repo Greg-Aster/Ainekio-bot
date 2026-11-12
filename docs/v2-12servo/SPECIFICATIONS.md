@@ -1,7 +1,7 @@
 # V2 robot specifications
 
 Scope: `v2-12servo`, the twelve-servo ESP32-P4 Ainekio body. Start with the shared
-[robot design core](../../../metahuman/docs/robot/ROBOT_BIBLE.md) for companion
+[robot design core](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/robot/ROBOT_BIBLE.md) for companion
 intent. [V1 specifications](../v1-8servo/SPECIFICATIONS.md) describe the separate
 eight-servo body. **V2 is the active development target; V1 work is paused.**
 
@@ -37,8 +37,8 @@ runtime calculations are historical; they do not describe this V2 assembly.
 
 ## Geometry and dimensions
 
-Mechanical design: [`Ainekio-Motion-Working.blend`](../../Slave/hardware/v2-12servo/Ainekio-Motion-Working.blend),
-scene **Wireless**. The [checkpoint index](../../Slave/hardware/v2-12servo/CHECKPOINTS.md)
+Mechanical design: `Slave/hardware/v2-12servo/Ainekio-Motion-Working.blend` (local
+Blender workspace file), scene **Wireless**. The [checkpoint index](../../Slave/hardware/v2-12servo/CHECKPOINTS.md)
 identifies the working project and recovery copies. Metric scale **0.001** means
 **1 Blender unit = 1 mm**. The owner confirms the current design matches the robot.
 
@@ -137,39 +137,39 @@ must not be transferred to this pack. The selected offboard Q6A has its own powe
 Current pack capacity, center of mass, loaded current/voltage and thermal/runtime
 results require their own evidence; no replacement ratings are inferred from V1.
 
-## Body Control and remote MetaHuman connections
+## Body Control and remote Ainekio OS connections
 
 ```text
 P4 <-> onboard C6 -- Wi-Fi / authenticated /robot WebSocket --> Body Control host
-Remote or same-host MetaHuman -- Environment Bridge /environment --> Body Control
+Remote or same-host Ainekio OS -- Environment Bridge /environment --> Body Control
 ```
 
 The robot initiates its connection to the selected gateway. On the documented
 Q6A arrangement it can use the host's robot Wi-Fi hotspot; the host's upstream
-connection to remote MetaHuman is a separate link. Both protocol sessions carry
+connection to remote Ainekio OS is a separate link. Both protocol sessions carry
 commands, observations and correlated results in both directions.
 
 | Boundary | Contract / default |
 | --- | --- |
 | Body ↔ gateway | Gateway port `8790`, authenticated `/robot`; selected body advertises its model, peripherals and capabilities |
-| Operator ↔ Body Control | Dashboard defaults to `127.0.0.1:8791` on the gateway host |
-| Same-host MetaHuman ↔ gateway | `ws://127.0.0.1:8790/environment`, authenticated separately from the robot session |
-| Remote MetaHuman ↔ gateway | MetaHuman's existing SSH or Cloudflare TCP forwarder terminates at gateway loopback; SSH may use the configured WireGuard network; remote peers do not bypass the `/environment` loopback contract |
-| Remote brain/model placement | Configured MetaHuman hosts and provider owners; remote inference, a public web portal and the body bridge are different connections |
+| Operator ↔ Body Control | Dashboard defaults to `127.0.0.1:8791` on the gateway host (session-authenticated by default; `AINEKIO_DASHBOARD_NO_LOGIN=1` on local physical-gateway scripts) |
+| Same-host Ainekio OS ↔ gateway | `ws://127.0.0.1:8790/environment`, authenticated separately from the robot session |
+| Remote Ainekio OS ↔ gateway | Ainekio OS's SSH or Cloudflare TCP forwarder terminates at gateway loopback; SSH may use a configured WireGuard network; remote peers do not bypass the `/environment` loopback contract |
+| Remote brain/model placement | Configured Ainekio OS hosts and provider owners; remote inference, a public web portal and the body bridge are different connections |
 
 The [gateway reference](../../Master/gateway/README.md#physical-robot-gateway-operation),
-MetaHuman [connection owner](../../../metahuman/brain/agents/environment-bridge/connections.ts)
-and [forwarder](../../../metahuman/brain/agents/environment-bridge/forwarder.ts)
+Ainekio OS [connection owner](https://github.com/Greg-Aster/ainekio-os/blob/main/brain/agents/environment-bridge/connections.ts)
+and [forwarder](https://github.com/Greg-Aster/ainekio-os/blob/main/brain/agents/environment-bridge/forwarder.ts)
 own these details. Current source uses one Environment Bridge with configured
 local/remote endpoints and body selection; the older startup instruction to switch
 separate Local/Remote agents is superseded. Private addresses, pairing secrets,
 SSH credentials and saved calibration stay with their existing configuration owners.
 
 P4 owns physical execution and peripheral control; Body Control owns the body
-connection, semantic translation and manual interface; MetaHuman owns high-level
+connection, semantic translation and manual interface; Ainekio OS owns high-level
 cognition and durable work. Q6A and a remote host need not both be present for
 manual Body Control. Gateway switching is not durable goal migration or proof
-that a two-installation MetaHuman deployment is complete. The
+that a two-installation Ainekio OS deployment is complete. The
 [distributed foundation](../DISTRIBUTED_ROBOT_FOUNDATION.md) distinguishes that
 design work from implemented connection switching.
 
