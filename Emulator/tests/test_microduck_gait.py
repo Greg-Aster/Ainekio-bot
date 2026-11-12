@@ -220,8 +220,8 @@ class MicroduckTaskTests(unittest.TestCase):
         self.assertEqual(set(cfg.observations["actor"].terms),{"sensors"})
         self.assertEqual(set(cfg.commands),{"twist"})
         self.assertNotIn("action_rate_weight",cfg.curriculum)
-        self.assertEqual(cfg.commands["twist"].ranges.lin_vel_x,(-.15,.20))
-        self.assertEqual(cfg.commands["twist"].ranges.ang_vel_z,(-1.,1.))
+        self.assertEqual(cfg.commands["twist"].ranges.lin_vel_x,(-.22,.26))
+        self.assertEqual(cfg.commands["twist"].ranges.ang_vel_z,(-1.2,1.2))
         self.assertEqual(cfg.episode_length_s,40.)
         from gateway.neural_gait import microduck_mdp
         self.assertIs(cfg.rewards['tracking_twist'].func,microduck_mdp.tracking_twist)
@@ -283,6 +283,65 @@ class MicroduckTaskTests(unittest.TestCase):
         # Row 0 (flat, symmetric) beats Row 1 (flat, asymmetric); Row 2 (uneven terrain difficulty=0.5) disables symmetry penalty
         self.assertGreater(float(stride_sym[0]),float(stride_sym[1])+0.3)
         self.assertGreater(float(stride_sym[2]),float(stride_sym[1])+0.1)
+        # In-place yaw turn (cmd=[0,0,1.0]): differential left/right X swing (Row 0: RL=-0.3, RR=-0.3, FL=+0.3, FR=+0.3)
+        # beats translational X swing (Row 1: RL=+0.3, RR=-0.3, FL=-0.3, FR=+0.3), and over-extended thigh (>0.90 rad, Row 2) is penalized.
+        turn_cmd=torch.tensor([[0.,0.,1.0]]).expand(3,-1)
+        env.command_manager=SimpleNamespace(get_command=lambda name:turn_cmd)
+        feet_mock.mean_dq.zero_();feet_mock.mean_foot_pos_m.zero_()
+        feet_mock.mean_amp_q[:]=0.25;feet_mock.mean_amp_z_m[:]=0.015
+        feet_mock.sensors.joint=torch.tensor([
+            [0.,-0.30,-0.30, 0.,-0.30,-0.30, 0., 0.30, 0.30, 0., 0.30, 0.30],
+            [0., 0.30, 0.30, 0.,-0.30,-0.30, 0.,-0.30,-0.30, 0., 0.30, 0.30],
+            [0., 1.15,-0.30, 0., 1.15,-0.30, 0., 0.30, 0.30, 0., 0.30, 0.30],
+        ])
+        stride_turn=mdp.alternating_stride(env)
+        self.assertGreater(float(stride_turn[0]),float(stride_turn[1])+0.15)
+        self.assertGreater(float(stride_turn[0]),float(stride_turn[2])+0.05)
+        # Single-corner RL sag with 9 deg leftward roll (up_b_y < 0 -> grav_y = +0.16) must stay penalized
+        # in both upright_cost and alternating_stride even when upright <= 0.970, while healthy upward swing
+        # excursion (mean_dz = +14 mm, amp_z = 12 mm) during reverse is rewarded rather than penalized as crouch.
+        rev_cmd=torch.tensor([[-.22,0.,0.]]).expand(3,-1)
+        env.command_manager=SimpleNamespace(get_command=lambda name:rev_cmd)
+        curriculum.difficulty=torch.tensor([0.,0.,0.])
+        grav[:]=torch.tensor([[0.,0.,-1.],[0.,.16,-.987],[0.,0.,-1.]])
+        feet_mock.sensors.joint.zero_()
+        feet_mock.mean_dq.zero_()
+        feet_mock.mean_foot_pos_m=torch.tensor([
+            [[0.,0.,.014],[0.,0.,.014],[0.,0.,.014],[0.,0.,.014]],
+            [[0.,0.,.022],[0.,0.,.002],[0.,0.,.014],[0.,0.,.004]],
+            [[0.,0.,.018],[0.,0.,.018],[0.,0.,.014],[0.,0.,.014]],
+        ])
+        feet_mock.mean_amp_q[:]=0.25
+        feet_mock.mean_amp_z_m=torch.tensor([
+            [.012,.012,.012,.012],
+            [.004,.012,.008,.012],
+            [.001,.001,.012,.012],
+        ])
+        up_rev=mdp.upright_cost(env)
+        self.assertGreater(float(up_rev[1]),float(up_rev[0])+0.12)
+        stride_rev=mdp.alternating_stride(env)
+        # Row 0 (healthy symmetric reverse lift) beats Row 1 (rolled single-corner RL sag) and Row 2 (chronic rear crouch without lift)
+        self.assertGreater(float(stride_rev[0]),float(stride_rev[1])+0.40)
+        self.assertGreater(float(stride_rev[0]),float(stride_rev[2])+0.40)
+        # Cable-aware foot_clearance penalizes low swing drag (8 mm in air) while allowing 28-36 mm step-over lift
+        # and grounded stance feet (found=1) at zero cost.
+        site_vel=torch.zeros(3,4,3);site_vel[:,:,0]=0.35
+        env.scene['robot'].data.site_lin_vel_w=site_vel
+        env.scene['foot_height_scan']=SimpleNamespace(num_frames=4,data=SimpleNamespace(heights=torch.tensor([
+            [.008,.008,.008,.008],
+            [.032,.032,.032,.032],
+            [.048,.048,.048,.048],
+        ])))
+        found.zero_()
+        clear_cost=mdp.foot_clearance(env,target_height=.022,max_free_height=.040,
+            asset_cfg=SimpleNamespace(name='robot',site_ids=[0,1,2,3]))
+        self.assertGreater(float(clear_cost[0]),0.02)
+        self.assertEqual(float(clear_cost[1]),0.0)
+        self.assertGreater(float(clear_cost[2]),0.0)
+        found.fill_(1.)
+        stance_clear=mdp.foot_clearance(env,target_height=.022,max_free_height=.040,
+            asset_cfg=SimpleNamespace(name='robot',site_ids=[0,1,2,3]))
+        self.assertTrue(bool((stance_clear==0.).all()))
 
     def test_tracking_rewards_progress_and_allows_early_foot_lift(self):
         import torch

@@ -70,6 +70,43 @@ def loss_only_evaluation(model):
     model.forward = evaluate
 
 
+def is_recovery_row(row):
+    user = next((m['content'] for m in row.get('messages', ()) if m.get('role') == 'user'), '')
+    try:
+        parsed = json.loads(user)
+    except ValueError:
+        return False
+    return isinstance(parsed, dict) and bool(parsed.get('event'))
+
+
+def balance_training_examples(rows, tokenized, cfg):
+    """Balance ordinary motion requests against fault-recovery examples per epoch."""
+    mode = cfg.get('category_balance', 'none')
+    if mode in (None, 'none'):
+        return list(tokenized), {'category_balance': 'none'}
+    if mode != 'ordinary_vs_recovery':
+        raise ValueError('Unknown category balance ' + str(mode))
+    if len(rows) != len(tokenized):
+        raise ValueError('Raw and tokenized training example counts differ')
+    ordinary = [tok for row, tok in zip(rows, tokenized) if not is_recovery_row(row)]
+    recovery = [tok for row, tok in zip(rows, tokenized) if is_recovery_row(row)]
+    if not ordinary or not recovery:
+        return list(tokenized), {
+            'category_balance': mode, 'ordinary_unique': len(ordinary),
+            'recovery_unique': len(recovery), 'ordinary_repeat': 1, 'recovery_repeat': 1,
+            'effective_ordinary': len(ordinary), 'effective_recovery': len(recovery),
+        }
+    ordinary_repeat = max(1, round(len(recovery) / len(ordinary)))
+    recovery_repeat = max(1, round(len(ordinary) / len(recovery)))
+    balanced = ordinary * ordinary_repeat + recovery * recovery_repeat
+    return balanced, {
+        'category_balance': mode, 'ordinary_unique': len(ordinary),
+        'recovery_unique': len(recovery), 'ordinary_repeat': ordinary_repeat,
+        'recovery_repeat': recovery_repeat, 'effective_ordinary': len(ordinary) * ordinary_repeat,
+        'effective_recovery': len(recovery) * recovery_repeat,
+    }
+
+
 def configure_loss_weighting(trainer, cfg):
     """Give each task example equal weight when learning short completions.
 
@@ -130,9 +167,13 @@ def train(config, data, evaluation, manifest, adapter, output, shared_trainer, s
                 raise ValueError('Loaded continuation weights differ from the persisted initial adapter')
             del expected,previous,loaded
             result['initial_weights_verified']=True
-        training=shared.tokenize_rows(tokenizer,shared.read_rows(data),cfg)
+        raw_training=shared.read_rows(data)
+        unique_training=shared.tokenize_rows(tokenizer,raw_training,cfg)
+        training,balance_report=balance_training_examples(raw_training,unique_training,cfg)
+        result['runtime_adjustments'].update(balance_report)
         testing=[] if skip_evaluation else shared.tokenize_rows(tokenizer,shared.read_rows(evaluation),cfg)
-        result.update(training_samples=len(training),evaluation_samples=len(testing),
+        result.update(unique_training_samples=len(unique_training),training_samples=len(training),
+                      evaluation_samples=len(testing),
                       supervised_tokens=sum(sum(v!=-100 for v in r['labels']) for r in training),
                       template_options={'enable_thinking':False})
         save()

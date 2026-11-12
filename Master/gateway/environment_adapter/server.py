@@ -36,9 +36,6 @@ from .speech_transport import (
     parse_speech_audio_message,
 )
 from .translation import (
-    ROBOT_COMMAND_DESCRIPTIONS,
-    V2_COMMAND_DESCRIPTIONS,
-    SUPPORTED_ROBOT_COMMANDS,
     BridgeAction,
     translate_environment_action,
     is_locomotion_translation,
@@ -58,10 +55,6 @@ CAMERA_DELIVERY_QUEUE_LENGTH = 1
 MAX_WALK_UPDATE_VALIDITY_MS = 2000
 WALK_UPDATE_ACK_TIMEOUT_SECONDS = 2.0
 CANCELLATION_TIMEOUT_SECONDS = 2.0
-
-
-def _normalized_action_type(action: Mapping[str, object]) -> str:
-    return str(action.get("type", "")).strip().lower().replace("_", "")
 
 
 @dataclass(frozen=True)
@@ -650,7 +643,7 @@ class EnvironmentAdapter:
         if (
             isinstance(action_id, str)
             and translated is not None
-            and translated.kind in {"intent", "motion_plan", "snapshot"}
+            and translated.kind in {"intent", "snapshot"}
             and translated.name != "face"
         ):
             visual_future = asyncio.get_running_loop().create_future()
@@ -716,12 +709,6 @@ class EnvironmentAdapter:
         action_id = str(action["id"]) if action.get("id") else None
         translated = translate_environment_action(action, model=(self._selected_robot()[1] or {}).get("model"))
         if translated is None:
-            if _normalized_action_type(action) == "robotmotionplan":
-                await self._send_motion_plan_status(
-                    action_id,
-                    "rejected",
-                    message="invalid_or_unsupported_plan",
-                )
             return self._feedback(
                 action_id,
                 "rejected",
@@ -737,14 +724,6 @@ class EnvironmentAdapter:
             # Goal completion belongs to the existing task owner, which sends Finish.
             # Manual translation keeps its finite-cycle semantics.
             translated = translate_environment_action({**action, "continuous": True}, model=(self._selected_robot()[1] or {}).get("model"))
-        # Older clients may still send a named pose/emote. Route that request
-        # through the same generator; only Body Control's manual library may
-        # dispatch prerecorded choreography. Walking is the shared P4 primitive.
-        if (translated.kind == "intent" and translated.name in {"stand", "sit", "neutral", "emote"}):
-            description = str(translated.params.get("asset", translated.name)).replace("_", " ")
-            if is_locomotion_translation(translated):
-                description += ". Locomotion goal: " + json.dumps(action["locomotionGoal"], separators=(",", ":"))
-            translated = BridgeAction("request_motion", "requestMotion", {"description": description})
         if translated.kind == "text":
             await self.gateway.publish_transcript(
                 {
@@ -757,12 +736,6 @@ class EnvironmentAdapter:
 
         robot_id, robot = self._selected_robot()
         if robot is None:
-            if translated.kind == "motion_plan":
-                await self._send_motion_plan_status(
-                    action_id,
-                    "rejected",
-                    message="requested robot is not connected",
-                )
             return self._feedback(
                 action_id,
                 "rejected",
@@ -779,13 +752,8 @@ class EnvironmentAdapter:
         robot_epoch = robot.get("epoch")
 
         accepted_at = self.clock() if received_at is None else received_at
-        progress_task: asyncio.Task[None] | None = None
         snapshot_lock_acquired = False
         snapshot_context = self._snapshot_context(action)
-        frame_durations: list[int] = []
-        frame_count = 0
-        target_control = translated.params.get("control") == "targets"
-        plan_duration = None
         sequence: int | None = None
         action_context_key: tuple[str, int, int] | None = None
         recorded_sequence: int | None = None
@@ -818,7 +786,7 @@ class EnvironmentAdapter:
             if receipt is not None:
                 return self.receipts.dispatch(action_id, {"sequence": assigned_sequence, "robotId": robot_id,
                     "epoch": robot_epoch, "kind": translated.kind, "gatewayInstance": self.gateway.instance_id},
-                    check_interpretation_owner, body_command=(translated.kind in {"stop", "motion_plan"}
+                    check_interpretation_owner, body_command=(translated.kind == "stop"
                         or translated.kind == "intent" and translated.name not in {"face", "say"}))
 
         if translated.kind == "request_motion":
@@ -839,26 +807,7 @@ class EnvironmentAdapter:
                 if action_context_key is not None:
                     self._robot_action_contexts.pop(action_context_key, None)
 
-        if translated.kind == "motion_plan":
-            frames = translated.params.get("frames")
-            if isinstance(frames, list):
-                frame_count = len(frames)
-                frame_durations = [
-                    int(frame[0])
-                    for frame in frames
-                    if isinstance(frame, list)
-                    and len(frame) == 2
-                    and type(frame[0]) is int
-                    and not target_control
-                ]
-                plan_duration = None if target_control else sum(frame_durations)
-            await self._send_motion_plan_status(
-                action_id,
-                "validating",
-                frame_count=frame_count,
-                duration_ms=plan_duration,
-            )
-        elif translated.kind == "stop":
+        if translated.kind == "stop":
             await self._send_telemetry(
                 "movement.stop",
                 {"actionId": action_id, "status": "requested"},
@@ -878,22 +827,6 @@ class EnvironmentAdapter:
             )
             if action_context_key is None:
                 remember_sequence(sequence)
-            if translated.kind == "motion_plan":
-                await self._send_motion_plan_status(
-                    action_id,
-                    "active",
-                    sequence=sequence,
-                    frame_count=frame_count,
-                    duration_ms=plan_duration,
-                    active_frame=1,
-                )
-                progress_task = None if target_control else asyncio.create_task(
-                    self._report_motion_plan_progress(
-                        action_id,
-                        sequence,
-                        frame_durations,
-                    )
-                )
             terminal = await self.gateway.wait_terminal(
                 sequence,
                 robot_id=robot_id,
@@ -901,22 +834,11 @@ class EnvironmentAdapter:
                 timeout=None,
             )
         except (GatewayError, TimeoutError, ConnectionClosed, OSError) as exc:
-            if translated.kind == "motion_plan":
-                await self._send_motion_plan_status(
-                    action_id,
-                    "rejected",
-                    frame_count=frame_count,
-                    duration_ms=plan_duration,
-                    message=str(exc),
-                )
             receipt = await asyncio.to_thread(self.receipts.action, action_id) if isinstance(action_id, str) else None
             status = "outcome_unknown" if receipt is not None and receipt["wire"] is not None else "rejected"
             return self._feedback(action_id, status, str(exc) or type(exc).__name__, command=translated.name,
                 robot_id=robot_id, epoch=robot_epoch, sequence=sequence)
         finally:
-            if progress_task is not None:
-                progress_task.cancel()
-                await asyncio.gather(progress_task, return_exceptions=True)
             if snapshot_lock_acquired:
                 if self._pending_snapshot_context is snapshot_context:
                     self._pending_snapshot_context = None
@@ -927,19 +849,8 @@ class EnvironmentAdapter:
                 self._robot_action_contexts.pop(action_context_key, None)
 
         assert sequence is not None
-        feedback = self._terminal_feedback(action_id, terminal, command=translated.name or translated.kind,
+        return self._terminal_feedback(action_id, terminal, command=translated.name or translated.kind,
             sequence=sequence, robot_id=robot_id, epoch=robot_epoch)
-        if translated.kind == "motion_plan":
-            await self._send_motion_plan_status(
-                action_id,
-                feedback["type"],
-                sequence=sequence,
-                frame_count=frame_count,
-                duration_ms=plan_duration,
-                active_frame=frame_count if feedback["type"] == "completed" else None,
-                message=feedback["message"],
-            )
-        return feedback
 
     def _motion_result(self, action_id, result):
         status = {"completed": "completed", "superseded": "cancelled", "error": "failed"}[result["state"]]
@@ -957,50 +868,6 @@ class EnvironmentAdapter:
         if status == "outcome_unknown":
             feedback["data"]["executionEnded"] = True
         return feedback
-
-    async def _report_motion_plan_progress(
-        self,
-        action_id: str | None,
-        sequence: int,
-        frame_durations: list[int],
-    ) -> None:
-        for frame_index, duration_ms in enumerate(frame_durations, start=1):
-            await asyncio.sleep(duration_ms / 1000.0)
-            next_frame = frame_index + 1
-            if next_frame > len(frame_durations):
-                return
-            await self._send_motion_plan_status(
-                action_id,
-                "active",
-                sequence=sequence,
-                frame_count=len(frame_durations),
-                duration_ms=sum(frame_durations),
-                active_frame=next_frame,
-            )
-
-    async def _send_motion_plan_status(
-        self,
-        action_id: str | None,
-        status: str,
-        *,
-        sequence: int | None = None,
-        frame_count: int | None = None,
-        duration_ms: int | None = None,
-        active_frame: int | None = None,
-        message: str | None = None,
-    ) -> None:
-        await self._send_telemetry(
-            "movement.plan",
-            {
-                "actionId": action_id,
-                "status": status,
-                "sequence": sequence,
-                "frameCount": frame_count,
-                "durationMs": duration_ms,
-                "activeFrame": active_frame,
-                "message": message,
-            },
-        )
 
     async def _dispatch(
         self,
@@ -1020,21 +887,6 @@ class EnvironmentAdapter:
             return await self.gateway.queue_intent(
                 action.name,
                 action.params,
-                robot_id=robot_id,
-                received_at=received_at,
-                on_sequence=on_sequence,
-            )
-        if action.kind == "motion_plan":
-            frames = action.params.get("frames")
-            end = action.params.get("end")
-            if not isinstance(frames, list) or not isinstance(end, str):
-                raise GatewayError("invalid translated motion plan")
-            if not self.config.freestyle_enabled:
-                raise GatewayError("freestyle movement is disabled by owner policy")
-            return await self.gateway.queue_motion_plan(
-                frames,
-                end=end,
-                **({"control": action.params["control"]} if "control" in action.params else {}),
                 robot_id=robot_id,
                 received_at=received_at,
                 on_sequence=on_sequence,
@@ -1766,7 +1618,7 @@ class EnvironmentAdapter:
             str(robot.get("model", "v1-8servo")), robot.get("features", []),
             declared if isinstance(declared, Mapping) else None,
         ) if robot is not None else ()
-        motion_ready = body_authenticated and (supported is None or any(name in SUPPORTED_ROBOT_COMMANDS and name != "stop" for name in supported))
+        motion_ready = body_authenticated and (supported is None or any(name != "stop" for name in supported))
         updates_available = bool(motion_ready and robot and robot.get("model") == "v2-12servo"
             and {LOCOMOTION_FEATURE, COMMAND_DEADLINE_FEATURE}.issubset(robot.get("features", []))
             and robot.get("connection_state") == "online")
@@ -1797,7 +1649,7 @@ class EnvironmentAdapter:
             "gateway": gateway_status,
             "recognition": ({**self.recognition_status(), "reportedAt": self.utcnow().isoformat()}
                             if self.recognition_status is not None else None),
-            "freestyleMovement": self._motion_plan_support_status(gateway_status),
+            "freestyleMovement": self._freestyle_movement_status(gateway_status),
             "activeMovementUpdates": {
                 "version": 1,
                 "available": updates_available,
@@ -1823,14 +1675,12 @@ class EnvironmentAdapter:
         expression_feedback = bool(expressions and robot and "face_feedback_v1" in robot.get("features", []))
         if expression_feedback:
             actions.append("faceExpression")
-        robot_commands: list[str] = []
         state["body"]["motionSystem"] = "freestyle"
         if motion_ready:
             actions.extend(["requestMotion", "stop"])
         gait_commands = locomotion_commands(list(supported or ()), str(robot.get("model")) if robot else None) if motion_ready else []
         if gait_commands:
             actions.append("move")
-        robot_commands = [command for command in robot_commands if command not in gait_commands]
         measurement = self.locomotion_measurement(robot_id) if self.locomotion_measurement is not None else {
             "available": False, "reason": "locomotion_measurement_not_configured", "robotId": robot_id}
         position = {**measurement, **(measurement.get("position") if isinstance(measurement.get("position"), Mapping) else {}),
@@ -1870,12 +1720,7 @@ class EnvironmentAdapter:
                 "actions": actions,
                 "expressionLibrary": expressions,
                 "expressionFeedback": expression_feedback,
-                "robotCommands": robot_commands,
                 "locomotion": {"commands": gait_commands, "lateral": bool(robot and {LOCOMOTION_FEATURE, WALK_STEERING_FEATURE, WALK_LATERAL_FEATURE}.issubset(robot.get("features", []))), "goalKinds": ["distance", "relativeTurn", "approach", "follow", "visual"] if gait_commands else []},
-                "robotCommandDescriptions": {
-                    command: (V2_COMMAND_DESCRIPTIONS.get(command, ROBOT_COMMAND_DESCRIPTIONS[command]) if robot and robot.get("model") == "v2-12servo" else ROBOT_COMMAND_DESCRIPTIONS[command])
-                    for command in robot_commands
-                },
                 "text": True,
                 "movement": motion_ready,
                 "visual": camera_ready,
@@ -1918,13 +1763,7 @@ class EnvironmentAdapter:
         status = robot.get("status") if robot is not None else None
         return isinstance(status, Mapping) and status.get("camera_ready") is True
 
-    def _motion_plan_available(
-        self,
-        gateway_status: Mapping[str, object] | None = None,
-    ) -> bool:
-        return self._motion_plan_support_status(gateway_status)["available"] is True
-
-    def _motion_plan_support_status(
+    def _freestyle_movement_status(
         self,
         gateway_status: Mapping[str, object] | None = None,
     ) -> dict[str, object]:

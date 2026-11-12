@@ -302,14 +302,24 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(example['program'],library.execution_program(example['answers']))
         self.assertEqual(len(example['joint_names']),12)
         program=[{'name':'pose','arguments':{'joints':['front_left_carrier','front_right_carrier'],
-            'angles_deg':[-32.5,-33.25],'reference':'absolute','speed_pct':50}}]
+            'angles_deg':[-32.5,-33.25],'reference':'absolute','speed_pct':50,'taper_deg':0}}]
         code,saved,_=await self._request('POST','/api/motion-library',{'operation':'save','id':example['id'],
             'revision':example['revision'],'title':example['title'],'query':example['query'],'program':program},cookie=cookie,csrf=csrf)
         self.assertEqual((code,saved['program']),(200,program))
+        code,created,_=await self._request('POST','/api/motion-library',{'operation':'create',
+            'title':'Wave right hand','query':'Wave with your right hand.','program':program},cookie=cookie,csrf=csrf)
+        self.assertEqual((code,created['program']),(200,program))
+        code,ordinary_list,_=await self._request('GET','/api/motion-library?category=ordinary',cookie=cookie)
+        self.assertEqual((code,ordinary_list['total']),(200,2))
+        code,recovery_list,_=await self._request('GET','/api/motion-library?category=recovery',cookie=cookie)
+        self.assertEqual((code,recovery_list['total']),(200,0))
+        code,meta,_=await self._request('GET','/api/motion-library?meta=1',cookie=cookie)
+        self.assertEqual((code,len(meta['joint_names'])),(200,12))
         self.assertEqual(self.gateway.calls,[])
         service=SimpleNamespace(submit=AsyncMock(return_value={'job_id':'editor-job'}),
             pause=AsyncMock(return_value={'pause_state':'paused','operation_index':0}),
-            jobs={'editor-job':{'robot_id':'selected-body','source':{'example_id':example['id']}}})
+            jobs={'editor-job':{'robot_id':'selected-body','source':{'example_id':example['id']}},
+                  'draft-job':{'robot_id':'selected-body','source':{'example_id':'__draft__'}}})
         self.server.freestyle=service
         for operation in ('pause','release'):
             payload={'operation':operation,'id':example['id'],'robot_id':'selected-body','job_id':'editor-job'}
@@ -317,6 +327,9 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
             code,result,_=await self._request('POST','/api/motion-library',payload,cookie=cookie,csrf=csrf)
             self.assertEqual(code,200)
             service.pause.assert_awaited_with('editor-job',release=operation=='release')
+        code,draft_pause,_=await self._request('POST','/api/motion-library',
+            {'operation':'pause','robot_id':'selected-body','job_id':'draft-job'},cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
         wrong={'operation':'release','id':example['id'],'robot_id':'another-body','job_id':'editor-job'}
         self.assertEqual((await self._request('POST','/api/motion-library',wrong,cookie=cookie,csrf=csrf))[0],400)
         draft=[{'name':'hold','arguments':{'seconds':.1}},*program]
@@ -325,6 +338,10 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(code,200)
         self.assertEqual(service.submit.call_args.kwargs['program'],draft)
         self.assertEqual(service.submit.call_args.kwargs['start_index'],1)
+        code,unsaved_run,_=await self._request('POST','/api/motion-library',{'operation':'run',
+            'robot_id':'selected-body','query':'Unsaved test','program':draft},cookie=cookie,csrf=csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(service.submit.call_args.kwargs['source']['example_id'],'__draft__')
         self.assertEqual(library.execution_program(library.get(example['id'])['answers']),program)
 
     async def test_editor_play_pause_release_replace_with_simulated_actuators(self):
@@ -353,7 +370,7 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.server.freestyle=bridge
         program=[{'name':'hold','arguments':{'seconds':0}},
                  {'name':'pose','arguments':{'joints':['front_left_carrier','front_right_carrier'],
-                  'angles_deg':[-32.5,-33.25],'reference':'absolute','speed_pct':50}}]
+                  'angles_deg':[-32.5,-33.25],'reference':'absolute','speed_pct':50,'taper_deg':0}}]
         try:
             code,submitted,_=await self._request('POST','/api/motion-library',{'operation':'run','id':example['id'],
                 'robot_id':'robot','program':program},cookie=cookie,csrf=csrf)
@@ -390,13 +407,15 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         library=self.server.motion_library();library.import_dataset(source)
         before=library.get('example-00000');cookie,csrf=await self._login()
         program=[{'name':'pose','arguments':{'joints':['front_left_carrier','front_right_carrier'],
-            'angles_deg':[-32.5,-33.25],'reference':'absolute','speed_pct':50}}]
+            'angles_deg':[-32.5,-33.25],'reference':'absolute','speed_pct':50,'taper_deg':0}}]
         payload={'operation':'preview','id':before['id'],'program':program}
         self.assertEqual((await self._request('POST','/api/motion-library',payload,cookie=cookie))[0],403)
         code,result,_=await self._request('POST','/api/motion-library',payload,cookie=cookie,csrf=csrf)
         self.assertEqual(code,200)
         self.assertEqual(result['target'],compact(library.encode_program(program)))
         self.assertEqual('['+','.join(result['operations'])+']',result['target'])
+        code,draft_preview,_=await self._request('POST','/api/motion-library',{'operation':'preview','program':program},cookie=cookie,csrf=csrf)
+        self.assertEqual((code,draft_preview['target']),(200,result['target']))
         self.assertEqual(library.get(before['id']),before)
         self.assertEqual(self.gateway.calls,[])
         self.assertIsNone(self.server.freestyle)

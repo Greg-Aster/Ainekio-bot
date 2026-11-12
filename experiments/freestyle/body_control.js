@@ -13,6 +13,7 @@
     <div data-freestyle-training></div>
     <details class="freestyle-folder"><summary>Latest result</summary>
       <button data-action="refresh" type="button">Refresh result</button>
+      <button data-action="edit-training" type="button">Edit in training library</button>
       <button data-action="save" type="button">Save trial data</button>
       <pre data-field="result" aria-live="polite"></pre>
     </details>
@@ -27,6 +28,9 @@
         <option value="incorrect">Incorrect movement</option>
       </select></label>
       <label>Observed result or correction <textarea data-field="note" placeholder="Describe what moved incorrectly and what you expected"></textarea></label>
+      <details><summary>Attach corrected program JSON (optional)</summary>
+        <label>Corrected program <textarea data-field="corrected-program" rows="6" spellcheck="false" placeholder='[{"name":"stand","arguments":{}}]'></textarea></label>
+      </details>
       <button data-action="review" type="button">Save motion review</button>
       <p data-field="review" aria-live="polite"></p>
     </details>
@@ -38,6 +42,7 @@
   document.querySelector('[data-workspace-panel="poses"]').append(panel);
   const field = name => panel.querySelector(`[data-field="${name}"]`);
   const jobs = new Map();
+  const latestJobs = new Map();
   let displayedRobot = null;
   let settingsEdited = false;
   let displayedSettings = null;
@@ -70,6 +75,7 @@
     const latest = Object.values(status?.jobs || {}).filter(job => job.robot_id === robot).at(-1);
     if (latest) {
       jobs.set(robot, latest.id);
+      latestJobs.set(robot, latest);
       field("result").textContent = JSON.stringify(latest,null,2);
     } else if (displayedRobot !== robot) {
       field("result").textContent = "";
@@ -135,9 +141,42 @@
         }
         result = await post({operation:"test-correction",robot_id:robot,review_id:field("correction").value});
         jobs.set(robot,result.job_id);
+      } else if (action === "edit-training") {
+        if (typeof window.openFreestyleDraftInLibrary !== "function") {
+          throw new Error("Training library editor is not loaded.");
+        }
+        const jobId = jobs.get(robot);
+        if (!jobId) throw new Error("Generate a motion first.");
+        const summary = latestJobs.get(robot);
+        let fullJob = null;
+        if (!summary?.latest_generation?.program) {
+          const trial = await post({operation:"trial",robot_id:robot,job_id:jobId});
+          fullJob = trial.job;
+        }
+        const sourceJob = fullJob || summary;
+        const program = fullJob?.programs?.at(-1)?.program || summary?.latest_generation?.program;
+        if (!Array.isArray(program) || !program.length) {
+          throw new Error("No generated motion program is available for this job yet.");
+        }
+        const title = sourceJob?.request || field("request").value.trim() || "Generated motion";
+        let queryObject = {request: title};
+        if (fullJob?.event) {
+          const ev = fullJob.event.data ? {type: fullJob.event.data.kind, ...fullJob.event.data} : fullJob.event;
+          queryObject = {
+            request: title,
+            event: ev,
+            observation: fullJob.initial_observation || fullJob.observation || null,
+            history: fullJob.history || [],
+            ...(fullJob.motion_goal ? {motion_goal: fullJob.motion_goal} : {})
+          };
+        }
+        window.openFreestyleDraftInLibrary({title, query: JSON.stringify(queryObject), program});
+        result = {opened_in_training_library: true, job_id: jobId, operations: program.length};
       } else if (action === "review") {
+        const correctedRaw = field("corrected-program").value.trim();
+        const extra = correctedRaw ? {corrected_program: JSON.parse(correctedRaw)} : {};
         result = await post({operation:"review",robot_id:robot,job_id:jobs.get(robot),
-          outcome:field("outcome").value,note:field("note").value});
+          outcome:field("outcome").value,note:field("note").value,...extra});
         field("review").textContent = result.saved ? "Review saved. Successfully reviewed trials are included in Export training data; recording a trial does not train the model." : "Review was not saved; check recording status.";
       } else if (action === "save") {
         result = await post({operation:"trial",robot_id:robot,job_id:jobs.get(robot)});

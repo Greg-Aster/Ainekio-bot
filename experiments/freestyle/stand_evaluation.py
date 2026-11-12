@@ -338,8 +338,6 @@ if __name__=='__main__':
     p.add_argument('--model-file',type=Path)
     p.add_argument('--generation-contract',type=Path,
                    help='Optional original model contract for offline legacy comparisons.')
-    p.add_argument('--preserve-generated-durations',action='store_true',
-                   help='Preserve legacy generated durations as equivalent nominal rates for scoring; retain original program.')
     p.add_argument('--rollout-data',type=Path)
     p.add_argument('--rollout-output',type=Path)
     p.add_argument('--trial-rounds',type=int,default=24,help='Offline test budget only; never a robot execution limit.')
@@ -347,7 +345,6 @@ if __name__=='__main__':
     args=vars(p.parse_args());endpoint=args.pop('endpoint');model=args.pop('model')
     model_file=args.pop('model_file');rollout_data=args.pop('rollout_data');rollout_output=args.pop('rollout_output')
     generation_contract=args.pop('generation_contract') or args['contract']
-    preserve_durations=args.pop('preserve_generated_durations')
     rounds=args.pop('trial_rounds');errors=args.pop('position_error_deg') or [0.]
     if endpoint:
         generator=Generator(endpoint,model,generation_contract,model_file)
@@ -356,14 +353,6 @@ if __name__=='__main__':
                 started=time.perf_counter()
                 try:
                     value=generator.generate(row['query'])
-                    if preserve_durations:
-                        from .speed_curriculum import migrate
-                        source=dict(row,answers=value['program'])
-                        migrated,evidence=migrate(source,preserve_durations=True)
-                        value['original_program']=value['program']
-                        value['original_contract_schema_valid']=True
-                        value['duration_migration']=evidence
-                        value['program']=migrated['answers'] if evidence['accepted'] else None
                 except (ValueError,urllib.error.URLError) as error:
                     value={'program':None,'elapsed_s':time.perf_counter()-started,
                            'generation_error':str(error),'evidence':getattr(error,'evidence',None)}

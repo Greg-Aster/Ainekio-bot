@@ -116,6 +116,7 @@ class Recorder:
                 'robot_id TEXT, epoch INTEGER, sequence INTEGER, job_id TEXT, payload BLOB)')
             connection.execute('CREATE INDEX IF NOT EXISTS evidence_job ON evidence(job_id,time_ns)')
             connection.execute('CREATE INDEX IF NOT EXISTS evidence_body ON evidence(robot_id,epoch,sequence,time_ns)')
+            connection.execute('CREATE INDEX IF NOT EXISTS evidence_kind ON evidence(kind,time_ns,id)')
             connection.commit()
             while True:
                 item = self.pending.get()

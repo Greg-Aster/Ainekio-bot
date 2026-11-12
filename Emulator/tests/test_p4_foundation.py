@@ -127,7 +127,7 @@ class P4FoundationTests(unittest.IsolatedAsyncioTestCase):
         adapter = EnvironmentAdapter(P4Gateway(), EnvironmentAdapterConfig(receipt_path=":memory:", token="test"))
         observation = adapter._observation()
         self.assertFalse(observation["capabilities"]["movement"])
-        self.assertEqual(observation["capabilities"]["robotCommands"], [])
+        self.assertNotIn("robotCommands", observation["capabilities"])
         self.assertFalse(observation["state"]["body"]["speakerReady"])
         self.assertNotIn("robotMotionPlan", observation["capabilities"]["actions"])
 

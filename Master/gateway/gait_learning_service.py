@@ -361,12 +361,24 @@ class GaitLearningService:
                             depth_active = needed
                     await self._apply_pending(robot)
                     if metadata_pending or r["session"] is None:
+                        calibration = await self.gateway.body_calibration("get", {}, robot_id=robot)
+                        feedback = await self.transport.request(robot, "servo-feedback", None)
+                        learning_metadata = None
+                        learning_error = None
+                        try:
+                            learning_metadata = await self.transport.request(robot, "gait-learning", None)
+                        except ValueError as error:
+                            if settings.get("learning") or not str(error).startswith("Robot gait-learning: HTTP 404:"):
+                                raise
+                            learning_error = str(error)
                         metadata = {
-                            "calibration": await self.gateway.body_calibration("get", {}, robot_id=robot),
-                            "feedback": await self.transport.request(robot, "servo-feedback", None),
-                            "learning": await self.transport.request(robot, "gait-learning", None),
+                            "calibration": calibration,
+                            "feedback": feedback,
+                            "learning": learning_metadata,
                             "firmware": await self.transport.request(robot, "firmware", None),
                         }
+                        if learning_error is not None:
+                            metadata["learning_error"] = learning_error
                         body = self.gateway.status()["robots"].get(robot, {})
                         metadata["execution_settings"] = {key: copy.deepcopy(body.get(key)) for key in (
                             "epoch", "features", "motion_speed", "balance_settings", "walking_source")}

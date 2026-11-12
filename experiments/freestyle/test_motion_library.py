@@ -49,36 +49,40 @@ class MotionLibraryTests(unittest.TestCase):
         return self.library.save(example['id'], example['revision'], kwargs.get('title', example['title']),
             kwargs.get('query', example['query']), kwargs.get('answers', example['answers']))
 
-    def test_compact_migration_replaces_curve_targets_and_preserves_working_library(self):
-        from .migrate_targets import compact_library
-        from .runtime import compact
-        source=self.root/'legacy-source';source.mkdir()
-        tools=copy.deepcopy([*TOOLS,face_tool()])
-        for tool in tools:
-            tool['parameters']['properties'].pop('taper_deg',None)
-            if 'taper_deg' in tool['parameters']['required']:tool['parameters']['required'].remove('taper_deg')
-        properties={key:{'type':'array'} for key in ('joints','tracks','checkpoints_s','holds_s','expected_up')}
-        properties.update(speed_pct={'type':'number'},taper_deg={'type':'number'})
-        tools.append({'name':'trajectory','parameters':{'type':'object','properties':properties,'required':list(properties),'additionalProperties':False}})
-        curve=['trajectory',[0],[[[0,0,0],[1,20,0]]],[0,1],[],[],50,0]
-        row={'id':'old-stretch','family':'legacy_asset_stretch','query':'{"request":"Please stretch","history":[]}',
-             'answers':[curve],'source_id':'source-stretch','source_hash':'old-hash','physical_qualification':True}
-        for name,text in {'tools.json':compact(tools),'wire.json':compact({'format':FORMAT}),
-                          'system.txt':'','train.jsonl':compact(row)+'\n',
-                          'evaluation.jsonl':compact({**row,'id':'held-out'})+'\n'}.items():(source/name).write_text(text)
-        library=MotionLibrary(self.root/'legacy.sqlite');library.import_dataset(source)
-        for index in range(2):
-            compact_library(library.path,self.root/('compact-'+str(index)))
-            item=library.get('old-stretch')['example']
-            self.assertEqual(len(item['answers']),12)
-            self.assertFalse(any(a[0]=='trajectory' for a in item['answers']))
-            self.assertFalse(item['physical_qualification'])
-            self.assertEqual(library.list()['total'],1)
-            with zipfile.ZipFile(io.BytesIO(library.export())) as archive:
-                references=[json.loads(line) for line in archive.read('dataset/evaluation.jsonl').decode().splitlines()]
-                self.assertEqual(len(references),1)
-                self.assertNotIn('held-out',{json.loads(line)['id'] for line in archive.read('dataset/train.jsonl').decode().splitlines()})
-        self.assertEqual(item['library_revision'],2,'Repeated conversion preserves the edited revision')
+    def test_create_new_example_and_category_filter_preserve_contract_and_export(self):
+        created = self.library.create(
+            'Right hand wave',
+            'Raise your right hand and wave.',
+            self.library.encode_program([
+                {'name': 'face', 'arguments': {'expr': 'wave'}},
+                {'name': 'move', 'arguments': {
+                    'joint': 'front_right_shoulder', 'angle_deg': 18,
+                    'reference': 'current', 'speed_pct': 60, 'taper_deg': 0}},
+            ]),
+        )
+        self.assertEqual(created['family'], 'custom_motion')
+        self.assertEqual(json.loads(created['query']), {'request': 'Raise your right hand and wave.'})
+        self.assertEqual(created['revision'], 1)
+        with self.assertRaisesRegex(ValueError, 'already exists'):
+            self.library.create('Duplicate wave', 'Raise your right hand and wave.', created['answers'])
+        recovery = self.library.create(
+            'Stall retreat',
+            json.dumps({'request': 'Recover from the reported body event using the available observations.',
+                        'event': {'type': 'servo_stall', 'joints': [9], 'outputs_released': False},
+                        'history': []}),
+            created['answers'],
+            family='standalone_jam_recovery',
+        )
+        self.assertEqual(self.library.list(category='ordinary')['total'], 2)
+        self.assertEqual(self.library.list(category='recovery')['total'], 1)
+        self.assertEqual(self.library.list(category='recovery')['items'][0]['id'], recovery['id'])
+        self.assertEqual(self.library.list(category='all')['total'], 3)
+        with self.assertRaises(ValueError):
+            self.library.list(category='invalid')
+        with zipfile.ZipFile(io.BytesIO(self.library.export())) as archive:
+            exported = {json.loads(line)['id'] for line in archive.read('dataset/train.jsonl').decode().splitlines()}
+        self.assertIn(created['id'], exported)
+        self.assertIn(recovery['id'], exported)
 
     def test_native_alignment_updates_snapshot_and_library_without_reviving_substitutes(self):
         from .legacy_curriculum import align, rows_at
@@ -115,7 +119,7 @@ class MotionLibraryTests(unittest.TestCase):
     def test_native_alignment_retains_context_teachers_and_excluded_evaluations(self):
         from .legacy_curriculum import align, rows_at
         from .legacy_curriculum import native_examples, contextual_example
-        from .migrate_targets import joint_state
+        from .observations import joint_state
         tools=json.loads((self.source/'tools.json').read_text())
         reference=next(row for row in native_examples(tools) if row['family']=='legacy_asset_stretch')
         observation=json.loads(reference['query'])['observation']

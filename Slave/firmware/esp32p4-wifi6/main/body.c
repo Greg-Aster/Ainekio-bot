@@ -1697,13 +1697,13 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
                         memcpy(accel,imu.attitude.acceleration_m_s2,sizeof accel);
                 }
                 const float cmd_twist[3]={
-                    (dir_x>=0.F?0.26F:0.18F)*dir_x*stride_scale,
+                    (dir_x>=0.F?0.26F:0.22F)*dir_x*stride_scale,
                     0.08F*dir_y*stride_scale,
                     1.00F*dir_turn*fminf(1.25F,fmaxf(0.5F,stride_scale)),
                 };
                 const ainekio_v2_microduck_model_t *active_model=
                     microduck_ram_model?microduck_ram_model:&ainekio_v2_microduck_default_model;
-                const double step_time_s=(double)body.microduck_steps*0.02;
+                const double step_time_s=now>=motion->started?(double)(now-motion->started)/1e6:0.;
                 body.microduck_steps++;
                 float scaled_feet[4][3],applied[4][3],fit[4];
                 if(!ainekio_v2_microduck_step(&body.microduck,active_model,

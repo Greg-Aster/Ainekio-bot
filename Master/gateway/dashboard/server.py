@@ -496,13 +496,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     library = self.server.motion_library()
                     query = parse_qs(parsed_url.query)
                     identifier = query.get("id", [None])[0]
-                    if identifier:
+                    if query.get("meta") == ["1"]:
+                        self._send_json({"joint_names": list(freestyle_module("runtime").JOINTS)})
+                    elif identifier:
                         example = library.get(identifier)
                         self._send_json({**example, "program":library.execution_program(example["answers"]),
                             "joint_names":list(freestyle_module("runtime").JOINTS)})
                     else:
                         self._send_json(library.list(int(query.get("page",["1"])[0]),
-                            query.get("search",[""])[0],query.get("sort",["name_asc"])[0]))
+                            query.get("search",[""])[0],query.get("sort",["name_asc"])[0],
+                            query.get("category",["all"])[0]))
             except GatewayError as error:
                 self._send_json({"error":str(error)},status=HTTPStatus.SERVICE_UNAVAILABLE)
             except ValueError as error:
@@ -834,32 +837,47 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 _required_string(payload, "robot_id"), _required_string(payload, "system")))
         if path == "/api/motion-library":
             library = self.server.motion_library()
-            identifier = _required_string(payload, "id")
             operation = _required_string(payload, "operation")
+            identifier = _optional_string(payload, "id")
             if operation == "preview":
                 answers = (library.encode_program(payload["program"]) if "program" in payload
-                           else library.get(identifier)["answers"])
+                           else library.get(_required_string(payload, "id"))["answers"])
                 compact = freestyle_module("runtime").compact
                 return {"target":compact(answers),"operations":[compact(operation) for operation in answers]}
             if operation in {"pause","release"}:
                 if self.server.freestyle is None:raise ValueError("No example is playing")
                 job_id = _required_string(payload,"job_id")
                 job = self.server.freestyle.jobs[job_id]
-                if job['robot_id'] != _required_string(payload,"robot_id") or (job.get('source') or {}).get('example_id') != identifier:
+                expected_id = identifier or "__draft__"
+                if job['robot_id'] != _required_string(payload,"robot_id") or (job.get('source') or {}).get('example_id') != expected_id:
                     raise ValueError("This playback belongs to another example or robot")
                 return self.server.call_gateway(self.server.freestyle.pause(job_id,release=operation=="release"),timeout=None)
-            if operation in {"save","run"} and "program" in payload:
+            if operation in {"create","save","run"} and "program" in payload:
                 payload["answers"] = library.encode_program(payload["program"])
+            if operation == "create":
+                family = _optional_string(payload, "family") or "custom_motion"
+                example = library.create(_required_string(payload, "title"),
+                    _required_string(payload, "query"), payload.get("answers"), family=family)
+                return {**example,"program":library.execution_program(example["answers"]),
+                    "joint_names":list(freestyle_module("runtime").JOINTS)}
             if operation == "save":
-                example = library.save(identifier, payload.get("revision"),
+                example = library.save(_required_string(payload, "id"), payload.get("revision"),
                     _required_string(payload, "title"), _required_string(payload, "query"), payload.get("answers"))
                 return {**example,"program":library.execution_program(example["answers"]),
                     "joint_names":list(freestyle_module("runtime").JOINTS)}
             if operation == "run":
-                example = library.get(identifier)
-                answers = payload.get("answers", example["answers"])
+                if identifier:
+                    example = library.get(identifier)
+                    answers = payload.get("answers", example["answers"])
+                    query = payload.get("query", example["query"])
+                    unsaved_draft = answers != example["answers"] or query != example["query"]
+                else:
+                    answers = library.validate(payload.get("answers"))
+                    query = _required_string(payload, "query")
+                    title = (_optional_string(payload, "title") or freestyle_module("motion_library").request_text(query) or "Draft motion").strip()
+                    example = {"id": "__draft__", "revision": 0, "title": title}
+                    unsaved_draft = True
                 program = library.execution_program(answers)
-                query = payload.get("query", example["query"])
                 request = freestyle_module("motion_library").request_text(query)
                 if not isinstance(request, str) or not request.strip():
                     raise ValueError("Training request is required")
@@ -869,8 +887,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 options = {'start_index':start_index} if start_index else {}
                 return self.server.call_gateway(self.server.play_library_motion(
                     _required_string(payload, "robot_id"), example, program, request,
-                    answers != example["answers"] or query != example["query"], **options), timeout=None)
-            raise ValueError("Choose save, run, pause, release or preview")
+                    unsaved_draft, **options), timeout=None)
+            raise ValueError("Choose create, save, run, pause, release or preview")
         if path == "/api/freestyle":
             return self.server.call_gateway(self.server.freestyle_request(payload))
         if path == "/api/neural-gait":

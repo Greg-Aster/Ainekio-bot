@@ -6,7 +6,7 @@ from pathlib import Path
 from .challenge import assess, replay, trajectory_metrics
 from .kinematics import ROOT
 from .runtime import JOINTS
-from .semantic_teachers import demonstration, legacy_sources, source_motion
+from .semantic_teachers import build_curriculum_splits, demonstration, legacy_sources, source_motion
 from .program import compile_motion
 
 
@@ -225,6 +225,18 @@ class SemanticTeacherTests(unittest.TestCase):
         selected,aliases = obsolete_rows(rows,[{'id':'current'}])
         self.assertEqual(selected,{'bad','derived','compound'})
         self.assertIn('old-bad',aliases)
+
+    def test_freestyle_curriculum_splits_are_disjoint_bounded_and_preserve_reference_motions(self):
+        manifest = json.loads((Path(__file__).with_name('training-data') / 'manifest.json').read_text())
+        discarded = {item['id'] for item in manifest.get('discarded_examples', [])}
+        train_rows, eval_rows = build_curriculum_splits(discarded_ids=discarded)
+        self.assertGreaterEqual(len(train_rows), 450)
+        self.assertGreaterEqual(len(eval_rows), 55)
+        self.assertGreaterEqual(len({r['curriculum_family'] for r in train_rows}), 60)
+        self.assertFalse(any(r.get('reference_motion') for r in (*train_rows, *eval_rows)))
+        self.assertFalse({r['id'] for r in train_rows} & {r['id'] for r in eval_rows})
+        self.assertFalse({r['query'] for r in train_rows} & {r['query'] for r in eval_rows})
+        self.assertFalse(({r['id'] for r in train_rows} | {r['id'] for r in eval_rows}) & discarded)
 
 
 if __name__=='__main__':unittest.main()

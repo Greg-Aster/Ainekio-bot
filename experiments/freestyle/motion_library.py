@@ -30,6 +30,11 @@ SORTS = {
     'edited_asc': 'revision=1,updated_ns ASC,id',
     'edited_desc': 'revision=1,updated_ns DESC,id',
 }
+CATEGORIES = {
+    'all': '',
+    'ordinary': " AND family NOT LIKE '%recovery%'",
+    'recovery': " AND family LIKE '%recovery%'",
+}
 
 
 def dates(row):
@@ -201,13 +206,16 @@ class MotionLibrary:
                     db.execute('UPDATE metadata SET value=? WHERE key=?',(''.join(retained),stored['key']))
         return {'imported': inserted, 'total': self.list()['total']}
 
-    def list(self, page=1, search='', sort='name_asc'):
+    def list(self, page=1, search='', sort='name_asc', category='all'):
         if type(page) is not int or page < 1 or not isinstance(search, str):
             raise ValueError('Choose a positive page number and text search')
         if sort not in SORTS:
             raise ValueError('Choose name, date added or last edited sorting')
+        if category not in CATEGORIES:
+            raise ValueError('Choose all, ordinary or recovery category')
         pattern = '%' + search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
-        where = " WHERE title LIKE ? ESCAPE '\\' OR request LIKE ? ESCAPE '\\' OR family LIKE ? ESCAPE '\\'"
+        where = (" WHERE (title LIKE ? ESCAPE '\\' OR request LIKE ? ESCAPE '\\' OR family LIKE ? ESCAPE '\\')"
+                 + CATEGORIES[category])
         args = (pattern, pattern, pattern)
         with closing(self.connect()) as db:
             count = db.execute('SELECT count(*) FROM examples'+where, args).fetchone()[0]
@@ -217,7 +225,53 @@ class MotionLibrary:
                 ' ORDER BY '+SORTS[sort]+' LIMIT ? OFFSET ?', (*args, PAGE_SIZE, (page-1)*PAGE_SIZE))
             return {'items': [{**{key: row[key] for key in ('id', 'title', 'family', 'revision')},
                                **dates(row)} for row in rows], 'page': page, 'pages': pages,
-                    'page_size': PAGE_SIZE, 'total': count, 'sort': sort}
+                    'page_size': PAGE_SIZE, 'total': count, 'sort': sort, 'category': category}
+
+    def create(self, title, query, answers, *, family='custom_motion'):
+        if not isinstance(title, str) or not title.strip() or not isinstance(query, str) or not query.strip():
+            raise ValueError('Title and training input are required')
+        if not isinstance(family, str) or not family.strip():
+            raise ValueError('Motion family is required')
+        try:
+            decoded_query = json.loads(query)
+        except (ValueError, TypeError):
+            stored_query = compact({'request': query.strip()})
+        else:
+            stored_query = query if isinstance(decoded_query, dict) else compact({'request': str(decoded_query).strip()})
+        request = request_text(stored_query)
+        if not isinstance(request, str) or not request.strip():
+            raise ValueError('Training input must contain a text request')
+        self.validate(answers)
+        clean_title = title.strip()
+        clean_family = family.strip()
+        source_hash = hashlib.sha256(compact([stored_query, answers]).encode()).hexdigest()
+        identifier = source_hash[:16]
+        row = {
+            'id': identifier,
+            'title': clean_title,
+            'family': clean_family,
+            'query': stored_query,
+            'answers': answers,
+            'source_id': f'motion-library:{identifier}:1',
+            'source_hash': source_hash,
+            'synthetic': True,
+            'physical_qualification': False,
+            'qualification_basis': 'user_authored_not_physically_reviewed',
+            'teacher': 'Body Control motion library editor',
+            'library_revision': 1,
+        }
+        with closing(self.connect()) as db, db:
+            db.execute('BEGIN IMMEDIATE')
+            if db.execute('SELECT 1 FROM discarded_examples WHERE id=?', (identifier,)).fetchone():
+                raise ValueError('This training target was previously withdrawn')
+            if db.execute('SELECT 1 FROM examples WHERE id=?', (identifier,)).fetchone():
+                raise ValueError('An identical training example already exists')
+            now = time.time_ns()
+            db.execute('INSERT INTO examples '
+                '(id,title,request,family,revision,updated_ns,payload,created_ns) VALUES (?,?,?,?,?,?,?,?)',
+                (identifier, clean_title, request, clean_family, 1, now, compact(row), now))
+            db.execute('INSERT INTO revisions VALUES (?,?,?)', (identifier, 1, compact(row)))
+        return self.get(identifier)
 
     def get(self, identifier):
         with closing(self.connect()) as db:

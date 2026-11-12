@@ -11,7 +11,6 @@ from .generator import argument_schema, Generator
 from .runtime import JOINTS
 from .motion_space import TOOLS
 from .face_contract import face_tool
-from .prepare_wire import build
 
 
 class CompactWireTests(unittest.TestCase):
@@ -89,35 +88,6 @@ class CompactWireTests(unittest.TestCase):
         self.assertNotIn('device_us',projected['observation']['feedback'])
         self.assertNotIn('thresholds',projected['event'])
 
-    def test_missing_faces_are_balanced_and_explicit_without_rewriting_motion_targets(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root=Path(directory); source=root/'source'; source.mkdir()
-            contract=root/'contract'; contract.mkdir()
-            tools=[*TOOLS,face_tool()]
-            (contract/'tools.json').write_text(json.dumps(tools))
-            (source/'manifest.json').write_text('{}')
-            faces=tools[-1]['parameters']['properties']['expr']['enum']
-            move={'name':'move','arguments':{'joint':JOINTS[0],'angle_deg':12.123456,
-                                           'reference':'current','speed_pct':50,'taper_deg':0}}
-            rows=[{'id':str(i),'query':json.dumps({'request':'Move the rear left shoulder.'}),
-                   'answers':[copy.deepcopy(move)],'family':'move'} for i in range(2*len(faces))]
-            existing={'id':'expressive','query':json.dumps({'request':'Greet me.'}),
-                      'answers':[{'name':'face','arguments':{'expr':'happy'}},copy.deepcopy(move)],'family':'greeting'}
-            rows.append(existing)
-            (source/'train.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in rows))
-            report=build(source,contract,root/'output')
-            self.assertEqual(set(report['added_faces']['train'].values()),{2})
-            self.assertEqual(set(report['added_faces']['train']),set(faces))
-            converted=[json.loads(s) for s in (root/'output/train.jsonl').read_text().splitlines()]
-            encoding=ProgramEncoding(tools)
-            for row in converted[:-1]:
-                program=encoding.decode(row['answers'])
-                self.assertEqual(program[1:], [move])
-                expression=program[0]['arguments']['expr']
-                self.assertIn('Use the '+expression.replace('_',' ')+' face.',json.loads(row['query'])['request'])
-            self.assertEqual(converted[-1]['query'],json.dumps({'request':'Greet me.'},separators=(',',':')))
-            self.assertEqual(encoding.decode(converted[-1]['answers']),existing['answers'])
-
     def test_candidate_generator_uses_no_system_prompt_and_decodes_into_existing_commands(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
@@ -176,6 +146,72 @@ class CompactWireTests(unittest.TestCase):
         self.assertFalse(packed['imu']['available'])
         self.assertEqual(packed['imu']['age_us'],500)
         self.assertEqual(state,original)
+
+    def test_ordinary_request_projects_live_p4_telemetry_through_recovery_state_idempotently(self):
+        encoding = ProgramEncoding([*TOOLS, face_tool()])
+        query = {
+            'request': 'do the sprinkler dance',
+            'event': None,
+            'history': [],
+            'observation': {
+                'epoch': 1,
+                'model': 'v2-12servo',
+                'joint_speed_limit_deg_s': 2000,
+                'features': ['motion_targets_v1', 'motion_curves_v1', 'servo_feedback_v1'],
+                'action': {'t': 'motion_plan', 'frames': [[100000, [0]*12]]},
+                'joints': {
+                    JOINTS[i]: {
+                        'model_deg': -3.871531561299767 + i * 0.111,
+                        'commanded_model_deg': 0.9000012119293679,
+                        'filtered_model_deg': -3.701365698961365 + i * 0.111,
+                        'home_deg': -30.87,
+                        'velocity_deg_s': -4.568392178912447,
+                        'sampled_us': 133788647 + i * 700,
+                        'command_us': 1760,
+                        'calibrated': True,
+                        'in_calibrated_range': True,
+                        'feedback_range_deg': [-113.40000432586686, 93.60000357055678],
+                        'arrival_tolerance_deg': 16.20000061798098,
+                        'feedback_usable': True,
+                        'feedback_faults': [],
+                    }
+                    for i in range(len(JOINTS))
+                },
+                'imu': {
+                    'available': True,
+                    'fresh': True,
+                    'age_us': 1702,
+                    'timestamp_us': 133800999,
+                    'frame': 'body_nominal',
+                    'orientation_wxyz': [0.997298, 0.025149, 0.013837, -0.067623],
+                    'angular_rate_rad_s': [-0.006338, 0.002801, -0.005822],
+                    'acceleration_m_s2': [-0.229711, 0.631705, 9.82493],
+                    'calibration_applied': True,
+                    'joint_feedback': {'filtered_model_deg': [0.1] * 12, 'sampled_us': [1] * 12},
+                },
+                'feedback': {
+                    'enabled': True,
+                    'device_us': 133800000,
+                    'stall_clock_us': 17482100,
+                    'stalled_joints': 64,
+                    'no_progress_ms': 3000,
+                    'waiting_joints': 0,
+                    'health': {'signal_millivolts': [1800] * 12},
+                },
+            },
+        }
+        projected = model_query(query, encoding)
+        obs = projected['observation']
+        self.assertEqual(obs['model'], 'v2-12servo')
+        self.assertEqual(len(obs['joints']['filtered_model_deg']), 12)
+        self.assertEqual(obs['joints']['filtered_model_deg'][0], -3.7)
+        self.assertNotIn('extra', obs['joints'])
+        self.assertNotIn('action', obs)
+        self.assertNotIn('joint_feedback', obs['imu'])
+        self.assertNotIn('health', obs['feedback'])
+        self.assertEqual(obs['feedback']['last_reported_stalled_joints'], 64)
+        self.assertEqual(obs['feedback']['last_stall_age_ms'], 116317.9)
+        self.assertEqual(projected, model_query(projected, encoding))
 
 
 if __name__ == '__main__': unittest.main()

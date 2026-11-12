@@ -13,15 +13,25 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from .compact_wire import ProgramEncoding, model_query
+from .face_contract import face_tool
 from .gait_replay import sample_gait
 from .kinematics import foot_positions
-from .migrate_targets import CONTRACT, joint_state
+from .motion_space import TOOLS
+from .observations import joint_state
 from .program import compile_motion
 from .runtime import JOINTS, compact
 
+CONTRACT = [*TOOLS, face_tool()]
+STAND = dict(zip(JOINTS, [0.0, 0.94, -21.25] * 4))
 ENCODING = ProgramEncoding(CONTRACT)
 MOTIONS = {'move', 'pose', 'oscillate', 'feet', 'body', 'gait'}
 FACES = ('confused', 'sad', 'angry', 'thinking')
+
+
+def standing_pose(speed_pct=50, taper_deg=0):
+    return {'name': 'pose', 'arguments': {'joints': list(JOINTS),
+            'angles_deg': list(STAND.values()), 'reference': 'absolute',
+            'speed_pct': speed_pct, 'taper_deg': taper_deg}}
 
 
 def call(name, **arguments):
@@ -82,11 +92,17 @@ def state_at(state, positions):
 
 def checkpoint(row, native_gait):
     """Ground the interrupted target in the same compiler/native gait owner."""
-    query = json.loads(row['query'])
+    try:
+        query = json.loads(row['query'])
+        if not isinstance(query, dict):
+            query = {'request': str(query)}
+    except ValueError:
+        query = {'request': row['query']}
+    default_entry = row.get('reference_entry_model_deg') or [0.0, 0.94, -21.25] * 4
     state = copy.deepcopy(query.get('observation') or {
         'model':'v2-12servo','joint_speed_limit_deg_s':2000,
         'joints':{joint:{'model_deg':angle,'commanded_model_deg':angle,'home_deg':angle}
-                  for joint,angle in zip(JOINTS,row['reference_entry_model_deg'])}})
+                  for joint,angle in zip(JOINTS,default_entry)}})
     state['joints'] = joint_state(state)
     positions = {j:v['model_deg'] for j,v in state['joints'].items()}
     program = ENCODING.decode(row['answers'])
@@ -333,14 +349,15 @@ def standalone_scenarios(probe=False):
             validate_prefix(slip_row)
             yield slip_row
 
-    for idx, (axis, sign, mag) in enumerate((('roll', 1, 3), ('roll', -1, 3), ('pitch', 1, 4), ('pitch', -1, 4),
-                                             ('roll', 1, 5), ('roll', -1, 5), ('pitch', 1, 6), ('pitch', -1, 6))):
+    for idx, (axis, sign, mag, base_tilt) in enumerate((
+            ('roll', 1, 3, 16), ('roll', -1, 3, 16), ('pitch', 1, 4, 16), ('pitch', -1, 4, 16),
+            ('roll', 1, 5, 66), ('roll', -1, 5, 66), ('pitch', 1, 6, 78), ('pitch', -1, 6, 78))):
         pair = ('rear_left_carrier', 'rear_right_carrier') if axis == 'roll' else ('front_left_carrier', 'rear_left_carrier')
         delta_val = mag + (.5 if probe else 0)
         present = dict(stand_goal)
         present[pair[0]] = round(stand_goal[pair[0]] - sign * delta_val, 2)
         present[pair[1]] = round(stand_goal[pair[1]] + sign * delta_val, 2)
-        tilt = sign * (16 if not probe else 18)
+        tilt = sign * (base_tilt + (4 if probe else 0))
         fallen = state_at(base_state, present)
         fallen['imu'] = imu(tilt, axis)
         fallen['expected_up'] = [0, 0, 1]
@@ -354,6 +371,117 @@ def standalone_scenarios(probe=False):
                              {'axis':axis, 'tilt_deg':tilt, 'scope':'standalone attitude recovery to nominal standing pose'})
             validate_prefix(ev_row)
             yield ev_row
+
+    # Post-completion faults (program_state == 'completed', remaining_program == []):
+    # Bridge retains active ownership after a completed motion so immediate post-motion
+    # stalls or falls recover to standing without re-running the finished gesture.
+    completed_actions = (
+        ('Wave with your right hand.', call('pose', joints=list(JOINTS), angles_deg=stand_angles, reference='absolute', speed_pct=60)),
+        ('Give a polite bow.', call('pose', joints=list(JOINTS), angles_deg=stand_angles, reference='absolute', speed_pct=50)),
+        ('Pretend you are a frog.', call('feet', legs=['front_left', 'front_right'], offsets_mm=[[0, 0, -18], [0, 0, -18]], speed_pct=70)),
+        ('Do the sprinkler dance.', call('feet', legs=['front_right'], offsets_mm=[[-20, 0, -24]], speed_pct=65)),
+    )
+    for c_idx, (orig_req, completed_act) in enumerate(completed_actions):
+        source_done = {'id': f'completed{c_idx:07d}', 'source_hash': f'{c_idx + 1:064x}',
+                       'title': orig_req, 'query': compact({'request': orig_req})}
+        j_idx = (6, 9, 1, 4)[c_idx % 4]
+        joint = JOINTS[j_idx]
+        offset = (7.0 if not probe else 9.0) * (1 if c_idx % 2 == 0 else -1)
+        present = dict(stand_goal)
+        present[joint] = round(stand_goal[joint] + offset, 2)
+        post_jam = state_at(base_state, present)
+        for j in JOINTS:
+            post_jam['joints'][j]['commanded_model_deg'] = stand_goal[j]
+        post_jam['feedback'] = {'enabled': True, 'stalled_joints': 1 << j_idx, 'no_progress_ms': 1000}
+        post_jam['imu'] = imu(0, 'roll')
+        goal_done = {'request': orig_req, 'program_state': 'completed',
+                     'completed_action': completed_act, 'remaining_program': []}
+        hist_done = [{'joints': {joint: stand_goal[joint]}}, {'joints': {joint: present[joint]}},
+                     {'program_state': 'completed', 'completed_action': completed_act, 'remaining_program': []}]
+        for req_text in (orig_req, request):
+            q_done = {'request': req_text,
+                      'event': {'type': 'servo_stall', 'joints': [j_idx], 'outputs_released': False, 'reason': 'no_position_progress'},
+                      'observation': copy.deepcopy(post_jam), 'history': copy.deepcopy(hist_done),
+                      'motion_goal': copy.deepcopy(goal_done)}
+            prog_done = [*foot_approach(base_state, present, stand_goal, joint, 50, clearance), stand_pose]
+            done_row = row_for(source_done, 'completed_jam_recovery', q_done, prog_done, 0, variant,
+                               {'joint': j_idx, 'blocked_deg': present[joint], 'direction': -1 if offset > 0 else 1,
+                                'clearance_mm': clearance, 'scope': 'post-completion stall recovery without repeating finished gesture'})
+            validate_prefix(done_row)
+            yield done_row
+
+        axis = 'roll' if c_idx % 2 == 0 else 'pitch'
+        sign = 1 if c_idx < 2 else -1
+        pair = ('rear_left_carrier', 'rear_right_carrier') if axis == 'roll' else ('front_left_carrier', 'rear_left_carrier')
+        mag = 5 + (0.5 if probe else 0)
+        before_tilt = sign * (74 if not probe else 82)
+        after_tilt = before_tilt - sign * 10
+        delta = {pair[0]: sign * mag, pair[1]: -sign * mag}
+        fallen_done = state_at(base_state, stand_goal)
+        fallen_done['imu'] = imu(after_tilt, axis)
+        fallen_done['expected_up'] = [0, 0, 1]
+        fall_hist = [{'imu': imu(before_tilt, axis), 'correction_delta_deg': delta},
+                     {'imu': fallen_done['imu']},
+                     {'program_state': 'completed', 'completed_action': completed_act, 'remaining_program': []}]
+        for req_text in (orig_req, request):
+            q_fall = {'request': req_text, 'event': {'type': 'tipped'},
+                      'observation': copy.deepcopy(fallen_done), 'history': copy.deepcopy(fall_hist),
+                      'motion_goal': copy.deepcopy(goal_done)}
+            prog_fall = [call('face', expr=FACES[c_idx % len(FACES)]),
+                         call('pose', joints=list(pair), angles_deg=[sign * mag, -sign * mag],
+                              reference='current', speed_pct=50, taper_deg=0),
+                         stand_pose]
+            fall_done_row = row_for(source_done, 'completed_fall_recovery', q_fall, prog_fall, 0, variant,
+                                    {'axis': axis, 'before_tilt_deg': before_tilt, 'after_tilt_deg': after_tilt,
+                                     'improved': True, 'scope': 'post-completion tipped recovery without repeating finished gesture'})
+            validate_prefix(fall_done_row)
+            yield fall_done_row
+
+    # Adaptive oscillation recovery: retreat from an obstructed shoulder sweep and
+    # finish the requested wave within the unobstructed range.
+    retreats = (5.0,) if probe else (4.0, 6.0)
+    for side, j_idx in (('left', 6), ('right', 9)):
+        for direction in (-1, 1):
+            for r_idx, retreat in enumerate(retreats):
+                for finish in ('stand', 'raised'):
+                    measured = direction * (46.0 if probe else 48.0)
+                    req_wave = (f'Wave to the audience with your front-{side} foot. '
+                                + ('Return to standing afterwards.' if finish == 'stand' else 'Keep that foot raised afterwards.'))
+                    obs_wave = state_at(base_state, stand_goal)
+                    for idx_j, name_j in enumerate(JOINTS):
+                        obs_wave['joints'][name_j]['home_deg'] = [0.0, -30.87, -117.68][idx_j % 3]
+                    obs_wave['joints'][JOINTS[j_idx]].update(
+                        model_deg=measured, commanded_model_deg=measured + direction * 18.0, velocity_deg_s=0.0)
+                    obs_wave['feedback'] = {'enabled': True, 'no_progress_ms': 1000, 'stalled_joints': 1 << j_idx}
+                    obs_wave['imu'] = imu(0, 'roll')
+                    interrupted = call('move', joint=JOINTS[j_idx], angle_deg=measured + direction * 18.0,
+                                       reference='absolute', speed_pct=45)
+                    rem = [call('oscillate', joint=JOINTS[j_idx], amplitude_deg=12, cycles=3, speed_pct=45)]
+                    if finish == 'stand':
+                        rem.append(copy.deepcopy(stand_pose))
+                    q_wave = {
+                        'request': req_wave,
+                        'event': {'type': 'servo_stall', 'joints': [j_idx], 'reason': 'no_position_progress', 'outputs_released': False},
+                        'observation': obs_wave,
+                        'history': [{'program_state': 'executing', 'interrupted_action': interrupted, 'remaining_program': rem}],
+                        'motion_goal': {'request': req_wave, 'interrupted_action': interrupted, 'remaining_program': rem},
+                    }
+                    prog_wave = [
+                        call('face', expr=FACES[r_idx % len(FACES)]),
+                        call('move', joint=JOINTS[j_idx], angle_deg=-direction * retreat, reference='current', speed_pct=45),
+                        call('face', expr='wave'),
+                        call('oscillate', joint=JOINTS[j_idx], amplitude_deg=round(retreat / 2, 2), cycles=3, speed_pct=45),
+                    ]
+                    if finish == 'stand':
+                        prog_wave.append(copy.deepcopy(stand_pose))
+                    wave_stub = {'id': f'adapwave{j_idx}{1 if direction>0 else 0}{int(retreat)}',
+                                 'source_hash': hashlib.sha256(req_wave.encode()).hexdigest(),
+                                 'title': req_wave, 'query': compact({'request': req_wave})}
+                    wave_row = row_for(wave_stub, 'adaptive_wave_recovery', q_wave, prog_wave, 0, variant,
+                                       {'joint': j_idx, 'blocked_deg': measured, 'direction': direction,
+                                        'retreat_deg': retreat, 'scope': 'retreat from obstructed shoulder extreme and finish smaller sweep'})
+                    validate_prefix(wave_row)
+                    yield wave_row
 
 
 def event_variants(rows):
@@ -400,8 +528,28 @@ def event_variants(rows):
 def audit_source(task):
     source, native_gait, include_probes = task
     try:
-        training=list(event_variants(scenarios(source,native_gait)))
-        probe=list(event_variants(scenarios(source,native_gait,True))) if include_probes else []
+        expand_all = bool(source.get('reference_motion'))
+        base_train = list(scenarios(source, native_gait))
+        if expand_all:
+            training = list(event_variants(base_train))
+        else:
+            # For broad curriculum families, emit one crisp lesson per fault route
+            # (rotating stall vs feedback_fault, tipped vs rapid_movement, and
+            # direct request vs generic body-event request) to avoid 4x bloat.
+            seed = int(source['id'][:8], 16)
+            training = []
+            for idx, item in enumerate(base_train):
+                variants = list(event_variants([item]))
+                training.append(variants[(seed + idx) % len(variants)])
+        base_probe = list(scenarios(source, native_gait, True)) if include_probes else []
+        if expand_all:
+            probe = list(event_variants(base_probe))
+        else:
+            seed = int(source['id'][:8], 16)
+            probe = []
+            for idx, item in enumerate(base_probe):
+                variants = list(event_variants([item]))
+                probe.append(variants[(seed + idx + 1) % len(variants)])
         return {'source_id':source['id'],'source_hash':source['source_hash'],
                 'train':training,'probe':probe}
     except (ValueError,KeyError,TypeError) as error:
@@ -425,20 +573,30 @@ def build(source, output, native_gait, workers=4, include_probes=True):
     rows=[json.loads(s) for s in (source/'train.jsonl').read_text().splitlines()]
     eligible=[]; excluded=[]
     for row in rows:
-        query=json.loads(row['query'])
+        try:
+            query=json.loads(row['query'])
+            if not isinstance(query, dict):
+                query={'request':str(query)}
+        except ValueError:
+            query={'request':row['query']}
         if query.get('event') or not any(a[0] in MOTIONS for a in row['answers']):
             excluded.append({'id':row['id'],'reason':'existing recovery' if query.get('event') else 'no movement'})
         else:eligible.append(row)
-    # The three approved phrasings share a motion target. Derive feedback
-    # lessons from one recorded-context source per motion, retaining every
-    # ordinary request in the exported training split.
+    # Derive feedback lessons from one representative source per motion family,
+    # retaining every ordinary request in the exported training split.
     by_motion = {}
     source_motion = {row['id']:row.get('reference_motion') for row in rows if row.get('reference_motion')}
     for row in eligible:
-        key = row.get('reference_motion') or source_motion.get(row.get('reference_example_id')) or row['id']
+        key = (row.get('reference_motion') or row.get('curriculum_family')
+               or source_motion.get(row.get('reference_example_id')) or row['id'])
         old = by_motion.get(key)
-        priority = lambda item: (bool(item.get('reference_motion')),
-                                 bool(json.loads(item['query']).get('observation')))
+        def priority(item):
+            try:
+                q = json.loads(item['query'])
+                has_obs = isinstance(q, dict) and bool(q.get('observation'))
+            except ValueError:
+                has_obs = False
+            return (bool(item.get('reference_motion')), has_obs)
         if old is None or priority(row) > priority(old):
             by_motion[key] = row
     eligible = list(by_motion.values())

@@ -10,17 +10,53 @@ import subprocess
 from pathlib import Path
 
 from .challenge import digest, read_rows, write_rows
-from .curriculum import example
-from .ending_curriculum import final_pose
+from .kinematics import ROOT as GEOMETRY_ROOT
 from .recordings import read_records
-from .runtime import JOINTS
+from .runtime import JOINTS, compact
 from .face_contract import face_tool
 from .motion_space import TOOLS, INSTRUCTIONS
+from .semantic_teachers import call
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL = ROOT / 'Slave/software/models/v2-12servo'
 P4 = ROOT / 'Slave/firmware/esp32p4-wifi6/main'
 PYTHON = '/home/greggles/ComfyUI/venv/bin/python'
+
+
+def final_pose(values, speed=50):
+    return call('pose', joints=list(JOINTS), angles_deg=list(values),
+                reference='absolute', speed_pct=speed, taper_deg=0)
+
+
+def source_state(pose='stand'):
+    source = GEOMETRY_ROOT / 'motions/gestures' / ('wave' if pose == 'stand' else pose) / 'source.json'
+    samples = json.loads(source.read_text())['samples']
+    sample = samples[0 if pose == 'stand' else -1]
+    angles = [round(math.degrees(q), 4) for leg in sample['actuator_angles_rad'] for q in leg]
+    home_sample = json.loads((GEOMETRY_ROOT / 'motions/gestures/wave/source.json').read_text())['samples'][0]
+    homes = [round(math.degrees(q), 4) for leg in home_sample['actuator_angles_rad'] for q in leg]
+    return {
+        'model': 'v2-12servo', 'epoch': 1, 'speed_pct': 50,
+        'joint_speed_limit_deg_s': 180,
+        'joints': {j: {'model_deg': q, 'commanded_model_deg': q, 'home_deg': home,
+                       'calibrated': True, 'velocity_deg_s': 0, 'sampled_us': 3000000}
+                   for j, q, home in zip(JOINTS, angles, homes)},
+        'imu': {'available': True, 'fresh': True, 'timestamp_us': 3000000,
+                'orientation_wxyz': [1.0, 0.0, 0.0, 0.0],
+                'acceleration_m_s2': [0.0, 0.0, 9.80665],
+                'angular_rate_rad_s': [0, 0, 0], 'frame': 'body_nominal'},
+        'feedback': {'enabled': True, 'device_us': 3000000},
+    }
+
+
+def example(request, observation, program, family, **metadata):
+    import hashlib
+    query = compact({'request': request, 'event': metadata.pop('event', None),
+                     'observation': observation, 'history': metadata.pop('history', [])})
+    identity = hashlib.sha256(json.dumps([query, program], sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    return {'id': identity[:16], 'family': family, 'query': query, 'answers': program,
+            'source_id': 'stand-curriculum:' + identity, 'source_hash': identity,
+            'synthetic': True, 'physical_qualification': False, **metadata}
 
 
 def native_export(output, database):

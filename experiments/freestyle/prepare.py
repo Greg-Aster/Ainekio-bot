@@ -24,10 +24,11 @@ def prepare(dataset, trainer_path, base, revision):
               "base_model_revision": revision, "training_mode": "lora", "chat_template": "native",
               "train_on_responses_only": True, "load_in_4bit": False, "load_in_16bit": True,
               "dtype": "bfloat16", "lora_rank": 16, "lora_alpha": 32, "lora_dropout": 0,
-              "num_train_epochs": 3, "per_device_train_batch_size": 1,
+              "num_train_epochs": 4, "per_device_train_batch_size": 1,
               "per_device_eval_batch_size": 1, "gradient_accumulation_steps": 8,
               "learning_rate": .00012, "optimizer": "paged_adamw_8bit", "seed": 42,
-              "gguf_conversion": {"enabled": False}}
+              "loss_weighting": "example", "category_balance": "ordinary_vs_recovery",
+              "save_total_limit": 1, "gguf_conversion": {"enabled": False}}
     if base != manifest["baseModel"]:
         raise ValueError("Base must match the frozen dataset manifest")
     measurements = []

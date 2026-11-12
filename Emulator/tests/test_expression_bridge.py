@@ -52,7 +52,7 @@ class ExpressionBridgeTests(unittest.IsolatedAsyncioTestCase):
 
     def test_display_receipt_does_not_replace_movement_ownership(self):
         receipts = ActionReceipts(":memory:")
-        motion = {"id": "motion", "type": "robotCommand", "command": "walk",
+        motion = {"id": "motion", "type": "move", "direction": "forward",
                   "bodyLease": {"bodyId": "body", "executionId": "motion", "generation": 9}}
         face = {"id": "face", "type": "faceExpression", "expression": "thinking",
                 "bodyLease": {"bodyId": "body", "executionId": "face", "generation": 1, "channel": "display"}}

@@ -336,7 +336,7 @@ class AsyncGeneratorTests(unittest.IsolatedAsyncioTestCase):
                     history=[{'note':'x'*1100000}]
                     motion_goal={'request':'Wave hello.'}
                     result=await asyncio.wait_for(async_remote_generate(endpoint,{
-                        'request':'new','history':history,'motion_goal':motion_goal}),3)
+                        'request':'new','history':history,'motion_goal':motion_goal},job_id='gateway-job-42'),3)
                     self.assertEqual(result['program'],[])
                     self.assertFalse(closed.is_set())
                     self.assertFalse(pending.done())
@@ -355,10 +355,22 @@ class AsyncGeneratorTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(sum(r['kind']=='inference_requested' for r in recorded),2)
                 self.assertEqual(sum(r['kind']=='inference_cancelled' for r in recorded),1)
                 completed=next(r for r in recorded if r['kind']=='inference_completed')
-                self.assertEqual(completed['job_id'],result['inference_id'])
+                self.assertEqual(completed['job_id'],'gateway-job-42')
+                self.assertEqual(result['inference_id'],'gateway-job-42')
                 full=next(r for r in recorded if r['kind']=='inference_requested' and
                           r['payload']['request']['request']=='new')
                 self.assertEqual(full['payload']['request']['history'],history)
+                self.assertEqual(full['job_id'],'gateway-job-42')
+
+    async def test_eof_during_async_json_raises_connection_error_not_index_error(self):
+        async def drop(reader,writer):
+            writer.close()
+            await writer.wait_closed()
+        server=await asyncio.start_server(drop,'127.0.0.1',0)
+        async with server:
+            port=server.sockets[0].getsockname()[1]
+            with self.assertRaises(ConnectionError):
+                await async_remote_generate(f'http://127.0.0.1:{port}',{'request':'wave'})
 
     async def test_cancel_closes_pending_inference_connection(self):
         arrived=asyncio.Event();closed=asyncio.Event()
@@ -376,3 +388,14 @@ class AsyncGeneratorTests(unittest.IsolatedAsyncioTestCase):
             task.cancel()
             with suppress(asyncio.CancelledError):await task
             await asyncio.wait_for(closed.wait(),2)
+
+    def test_compact_wire_plain_request_serializes_as_json_request_object(self):
+        from experiments.freestyle.compact_wire import FORMAT
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            (root/'system.txt').write_text('')
+            (root/'tools.json').write_text('[]')
+            (root/'wire.json').write_text(json.dumps({'format':FORMAT}))
+            generator=Generator('http://host/v1','shared',root)
+            payload=generator._payload('Raise your right hand.')
+            self.assertEqual(payload['messages'][-1]['content'],'{"request":"Raise your right hand."}')

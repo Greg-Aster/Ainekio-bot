@@ -1,6 +1,5 @@
 """Select the connected body's implemented motions without defining a catalog.
 
-Public command names/descriptions remain owned by environment_adapter.translation.
 Legacy eight-servo bodies retain their existing contract. New bodies must declare
 their subset; a model name alone never grants the legacy motion set.
 """
@@ -12,6 +11,8 @@ from protocol.control_v1 import BODY_COMMANDS_FEATURE
 
 CRAB_DIRECTIONS = {"crab":"side_l", "crab_right":"side_r", "crab_forward":"fwd",
                    "crab_backward":"back", "crab_turn_left":"turn_l", "crab_turn_right":"turn_r"}
+DECLARED_EMOTES = frozenset({"lay_down", "upright", "crouch", "turn_left_15", "turn_right_15"})
+DECLARED_GAITS = frozenset({"crawl", *(name for name in CRAB_DIRECTIONS if name != "crab")})
 
 
 def expression_library(robot: Mapping[str, object] | None) -> list[dict[str, str]]:
@@ -41,10 +42,6 @@ def body_commands(
 def body_command_available(name: str, supported: tuple[str, ...] | None) -> bool:
     if supported is not None:
         return name in supported
-    # Resolve after gateway/adapter initialization; the adapter package imports
-    # the gateway service. Reuse its semantic catalog without a second name list.
-    from .environment_adapter.translation import DECLARED_EMOTES, DECLARED_GAITS
-
     return name not in DECLARED_EMOTES and name not in DECLARED_GAITS
 
 

@@ -9,17 +9,17 @@
 #define AINEKIO_V2_MICRODUCK_FEATURES 48
 #define AINEKIO_V2_MICRODUCK_SAMPLES 15
 #define AINEKIO_V2_MICRODUCK_OBS_SIZE (AINEKIO_V2_MICRODUCK_FEATURES * AINEKIO_V2_MICRODUCK_SAMPLES)
-#define AINEKIO_V2_MICRODUCK_H0 512
-#define AINEKIO_V2_MICRODUCK_H1 256
-#define AINEKIO_V2_MICRODUCK_H2 128
+#define AINEKIO_V2_MICRODUCK_H0 128
+#define AINEKIO_V2_MICRODUCK_H1 64
+#define AINEKIO_V2_MICRODUCK_H2 32
 #define AINEKIO_V2_MICRODUCK_ACTIONS 12
 #define AINEKIO_V2_MICRODUCK_RING_CAPACITY 16
 
 /* Exported MicroDuck ONNX policy weights (obs_normalizer + 3-layer ELU MLP +
  * Tanh output + body-axis foot action scales in millimetres).
  * Weights use symmetric per-row int8 quantization (int8_t weight * float
- * row_scale) so the 534,016 weights fit in ~548 KB on the ESP32-P4 and fit
- * inside the 4 MB OTA partition while retaining <0.1 mm action accuracy. */
+ * row_scale) so the distilled 720->128->64->32->12 policy (~110 KB) fits
+ * inside the ESP32-P4's 128 KB L2 cache while allocated in PSRAM. */
 typedef struct {
     uint16_t h0, h1, h2;
     float obs_mean[AINEKIO_V2_MICRODUCK_OBS_SIZE];

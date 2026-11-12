@@ -19,7 +19,7 @@ from Emulator.tests.test_environment_adapter import FakeGateway, FakeWebSocket, 
 
 
 def action(identifier: str, generation: int = 1) -> dict:
-    return {"id": identifier, "type": "robotCommand", "command": "walk", "locomotionGoal": {"kind": "visual", "target": "fixture target", "completionCriteria": "fixture criterion"}, "createdAt": datetime.now(timezone.utc).isoformat(),
+    return {"id": identifier, "type": "move", "direction": "forward", "locomotionGoal": {"kind": "visual", "target": "fixture target", "completionCriteria": "fixture criterion"}, "createdAt": datetime.now(timezone.utc).isoformat(),
         "bodyLease": {"bodyId": "ainekio-01", "executionId": "execution-" + str(generation), "generation": generation}}
 
 
@@ -498,7 +498,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
             adapter.receipts.close()
 
     async def test_delayed_approval_executes_movement_and_capture_once_across_replay(self) -> None:
-        for kind in ("robotCommand", "captureImage"):
+        for kind in ("move", "captureImage"):
             with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
                 receipt_path = str(Path(directory) / "receipts.sqlite")
                 gateway = SnapshotGateway()
@@ -514,8 +514,8 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.gather(*adapter._action_tasks)
                 result = json.loads(adapter.receipts.action("delayed")["result"])
                 self.assertEqual(result["type"], "completed")
-                self.assertEqual([call[0] for call in gateway.calls], ["intent" if kind == "robotCommand" else "snap", "wait"])
-                if kind == "robotCommand":
+                self.assertEqual([call[0] for call in gateway.calls], ["intent" if kind == "move" else "snap", "wait"])
+                if kind == "move":
                     self.assertEqual(gateway.calls[0][1][2]["received_at"], 110.0)
                 adapter.receipts.close()
                 resumed = EnvironmentAdapter(gateway, config)
@@ -559,7 +559,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(resumed.pending(), [message])
             self.assertEqual(resumed.receive(original, accepted("action")), result)
             with self.assertRaisesRegex(GatewayError, "different content"):
-                resumed.receive({**original, "command": "dance"}, accepted("action"))
+                resumed.receive({**original, "direction": "backward"}, accepted("action"))
             resumed.prune(float("inf"))
             self.assertIsNotNone(resumed.action("action"))
             resumed.acknowledge("result")
@@ -712,7 +712,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
                 adapter._websocket, adapter._bridge_ready = socket, True
                 # Stand now belongs to Freestyle. Use the direct Stop wire path
                 # for transport failure, retaining Stand for the legacy receipt.
-                original = {**action("transport"), "command": "stop" if fail else "stand"}
+                original = {**action("transport"), "type": "stop"} if fail else action("transport")
                 adapter.receipts.receive(original, accepted("transport"))
                 if fail:
                     await adapter._process_environment_action(original)
@@ -804,7 +804,7 @@ class ActionReceiptTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(retry["feedback"], unknown)
         other = {**action("other-body"), "bodyLease": {**original["bodyLease"], "bodyId": "other"}}
         receipts.receive(other, accepted("other-body"))
-        stop = {**action("stop", 2), "command": "stop"}
+        stop = {**action("stop", 2), "type": "stop"}
         receipts.receive(stop, accepted("stop"))
         receipts.begin("stop", {"sequence": 2, "kind": "stop"})
         self.assertEqual(receipts.action("uncertain")["state"], "outcome_unknown")

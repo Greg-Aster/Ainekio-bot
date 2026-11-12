@@ -15,9 +15,9 @@ from pathlib import Path
 import struct
 
 OBS_SIZE = 720
-MAX_H0 = 512
-MAX_H1 = 256
-MAX_H2 = 128
+MAX_H0 = 128
+MAX_H1 = 64
+MAX_H2 = 32
 ACTIONS = 12
 
 

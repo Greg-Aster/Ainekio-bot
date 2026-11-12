@@ -6,6 +6,12 @@
   panel.className = "motion-training-library";
   panel.dataset.motionSystem = "freestyle";
   panel.hidden = !document.getElementById("motion-system").checked;
+  const DEFAULT_JOINTS = [
+    "rear_left_shoulder", "rear_left_carrier", "rear_left_crank",
+    "rear_right_shoulder", "rear_right_carrier", "rear_right_crank",
+    "front_left_shoulder", "front_left_carrier", "front_left_crank",
+    "front_right_shoulder", "front_right_carrier", "front_right_crank"
+  ];
   const pagination = `<div class="motion-library-pages" aria-label="Training data pages">
     <button type="button" data-action="first">First</button>
     <button type="button" data-action="previous">Previous</button>
@@ -18,22 +24,30 @@
       <form data-field="search-form" class="motion-library-search">
         <label>Find a motion <input type="search" data-field="search" placeholder="Title, request or motion family"></label>
         <button type="submit">Search</button>
+        <button type="button" data-action="new-example">New training example</button>
         <a href="/api/motion-library/export" download="motion-training-library.zip">Export training data</a>
       </form>
-      <label>Sort by <select data-field="sort">
-        <option value="name_asc">Name — A to Z</option>
-        <option value="name_desc">Name — Z to A</option>
-        <option value="added_desc" selected>Date added — newest first</option>
-        <option value="added_asc">Date added — oldest first</option>
-        <option value="edited_desc">Last edited — newest first</option>
-        <option value="edited_asc">Last edited — oldest first</option>
-      </select></label>
+      <div class="motion-library-search">
+        <label>Category <select data-field="category">
+          <option value="all" selected>All examples</option>
+          <option value="ordinary">Ordinary motions</option>
+          <option value="recovery">Fault recovery</option>
+        </select></label>
+        <label>Sort by <select data-field="sort">
+          <option value="name_asc">Name — A to Z</option>
+          <option value="name_desc">Name — Z to A</option>
+          <option value="added_desc" selected>Date added — newest first</option>
+          <option value="added_asc">Date added — oldest first</option>
+          <option value="edited_desc">Last edited — newest first</option>
+          <option value="edited_asc">Last edited — oldest first</option>
+        </select></label>
+      </div>
       <p data-field="list-status" role="status"></p>
       ${pagination}
       <ul data-field="list" class="motion-library-list" aria-label="Training examples"></ul>
       ${pagination}
       <fieldset data-field="editor" hidden>
-        <legend>Edit training example</legend>
+        <legend data-field="editor-legend">Edit training example</legend>
         <div class="motion-library-actions">
           <button type="button" data-action="run">Perform example</button>
           <button type="button" data-action="pause">Pause</button>
@@ -53,9 +67,13 @@
             <ol data-field="operations" class="motion-operation-list"></ol>
             <pre data-field="raw-code" class="motion-raw-target" hidden></pre>
             <label>Draft operation <select data-field="step"></select></label>
+            <div class="motion-library-actions">
+              <button type="button" data-action="add-step">Add operation after</button>
+              <button type="button" data-action="remove-step">Remove operation</button>
+            </div>
             <textarea data-field="step-code" rows="10" spellcheck="false" aria-label="Selected operation code"></textarea>
             <button type="button" data-action="capture">Capture measured pose into operation</button>
-            <p class="field-help">Capture changes the draft. Replace example saves it. Perform uses the draft.</p>
+            <p class="field-help">Capture changes the draft. Save writes it to training data. Perform uses the draft.</p>
           </section>
           <section><h4>Servo positions</h4><p data-field="feedback-status" role="status"></p>
             <div class="motion-feedback-table"><table><thead><tr><th>Joint</th><th>ADC</th><th>Signal mV</th><th>Measured °</th><th>Commanded °</th><th>Sample age ms</th></tr></thead>
@@ -76,10 +94,11 @@
   host.append(panel);
   const field = name => panel.querySelector(`[data-field="${name}"]`);
   const button = name => panel.querySelector(`[data-action="${name}"]`);
-  let page = 1, pages = 1, search = "", sort = "added_desc", selected = null, dirty = false;
+  let page = 1, pages = 1, search = "", sort = "added_desc", category = "all", selected = null, dirty = false;
   let listVersion = 0, selectionVersion = 0, displayedRobot = null;
   const jobs = new Map();
   const editor = field("editor");
+  const exampleKey = item => item?.id || "__draft__";
   let editingIndex = 0, editingSource = "program", observedFeedback = null, watchJob = null;
   const pretty = value => formatTrainingOperation(JSON.stringify(value),0);
   let playbackProgram = [], trainingTarget = null, formatVersion = 0, highlightedIndex = null;
@@ -127,8 +146,10 @@
     try {
       if (!trainingTarget) {
         field("format-status").textContent="Encoding training target…";
-        const result=await api("/api/motion-library",{operation:"preview",id:identifier,
-          ...(!watchJob && !dirty ? {} : {program:playbackProgram})});
+        const previewPayload = identifier
+          ? {operation:"preview",id:identifier,...(!watchJob && !dirty ? {} : {program:playbackProgram})}
+          : {operation:"preview",program:playbackProgram};
+        const result=await api("/api/motion-library",previewPayload);
         if (version!==formatVersion || selected?.id!==identifier) return;
         trainingTarget=result;
       }
@@ -218,10 +239,11 @@
     editor.disabled = false;
     field("list-status").textContent = "Loading training examples…";
     try {
-      const result = await api(`/api/motion-library?page=${target}&search=${encodeURIComponent(search)}&sort=${encodeURIComponent(sort)}`);
+      const categoryParam = category === "all" ? "" : `&category=${encodeURIComponent(category)}`;
+      const result = await api(`/api/motion-library?page=${target}&search=${encodeURIComponent(search)}&sort=${encodeURIComponent(sort)}${categoryParam}`);
       if (version !== listVersion) return;
       page = result.page; pages = result.pages;
-      field("browser").append(editor);
+      if (selected?.id !== null) field("browser").append(editor);
       field("list").replaceChildren();
       for (const item of result.items) {
         const li = document.createElement("li");
@@ -257,18 +279,40 @@
   }
 
   function showExample(example) {
-    if (selected?.id!==example.id) watchJob=null;
-    selected = example; dirty = false;
+    if (exampleKey(selected)!==exampleKey(example)) watchJob=null;
+    selected = {...example, joint_names: example.joint_names || DEFAULT_JOINTS};
+    dirty = Boolean(example.isDraft);
     field("editor").hidden = false;
+    field("editor-legend").textContent = example.id ? "Edit training example" : "New training example";
+    button("save").textContent = example.id ? "Replace example" : "Add to training data";
     field("title").value = example.title;
     field("query").value = example.query;
     field("answers").value = pretty(example.program);
     editingIndex = 0; editingSource = "program"; showOperations(example.program);
-    field("qualification").textContent = example.physical_qualification
-      ? "This saved version has an operator-approved physical trial."
-      : "This saved version has no operator-approved physical trial.";
-    field("edit-status").textContent = `Saved version ${example.revision}`;
+    field("qualification").textContent = example.id
+      ? (example.physical_qualification
+        ? "This saved version has an operator-approved physical trial."
+        : "This saved version has no operator-approved physical trial.")
+      : "Unsaved draft — test on the robot or edit operations before adding to training data.";
+    field("edit-status").textContent = example.id ? `Saved version ${example.revision}` : "Unsaved new training draft";
   }
+
+  function openDraftInLibrary(draft = {}) {
+    if (dirty && !window.confirm("Discard unsaved edits and open a new training draft?")) return false;
+    ++selectionVersion;
+    const title = (draft.title || "").trim() || "New motion";
+    const query = draft.query || JSON.stringify({request: title});
+    const program = Array.isArray(draft.program) && draft.program.length
+      ? draft.program
+      : [{name: "pose", arguments: {joints: [...DEFAULT_JOINTS], angles_deg: [0, 0.94, -21.25, 0, 0.94, -21.25, 0, 0.94, -21.25, 0, 0.94, -21.25], reference: "absolute", speed_pct: 50, taper_deg: 0}}];
+    for (const other of field("list").querySelectorAll("details[data-example-id]")) other.open = false;
+    field("browser").open = true;
+    field("browser").append(editor);
+    showExample({id: null, revision: 0, title, query, program, joint_names: DEFAULT_JOINTS, isDraft: Boolean(draft.title || draft.program)});
+    editor.scrollIntoView?.({behavior: "smooth", block: "nearest"});
+    return true;
+  }
+  window.openFreestyleDraftInLibrary = openDraftInLibrary;
 
   async function openExample(branch, identifier) {
     if (!branch.open) return;
@@ -291,14 +335,15 @@
   async function playExample(target, exampleId, title, options = {}) {
     const robot = document.getElementById("robot-select").value;
     if (!robot) throw new Error("Select a robot for playback.");
+    const key = exampleId || "__draft__";
     target.disabled = true;
     try {
-      const result = await api("/api/motion-library", {operation: "run", id: exampleId,
-        robot_id: robot, ...options});
-      jobs.set(robot, {id: result.job_id, title, exampleId});
+      const result = await api("/api/motion-library", {operation: "run",
+        ...(exampleId ? {id: exampleId} : {title}), robot_id: robot, ...options});
+      jobs.set(robot, {id: result.job_id, title, exampleId: key});
       const message = `${title} submitted to ${robot}.`;
       field("list-status").textContent = message;
-      if (robot === displayedRobot && selected?.id === exampleId) {
+      if (robot === displayedRobot && exampleKey(selected) === key) {
         watchJob = options.program ? result.job_id : null;
         if (options.program) showPlayback(options.program);
         field("play-status").textContent = message;
@@ -326,11 +371,15 @@
     sort = field("sort").value;
     return loadPage(1);
   });
+  field("category").addEventListener("change", () => {
+    category = field("category").value;
+    return loadPage(1);
+  });
   window.renderMotionLibraryStatus = (status, robot, entry) => {
     displayedRobot = robot;
     const imu=entry?.status?.imu; observedFeedback=imu?.joint_feedback || null;
     field("feedback").replaceChildren();
-    const names=selected?.joint_names || [];
+    const names=selected?.joint_names || DEFAULT_JOINTS;
     const feedback=observedFeedback;
     names.forEach((name,index) => {
       const row=document.createElement("tr");
@@ -347,12 +396,13 @@
     field("feedback-status").textContent=imu ? `${entry.connected && entry.connection_state!=="stale" && imu.fresh?"Live feedback":"Last reported feedback"}${imu.received_at?" · "+imu.received_at:""}` : "No servo feedback received.";
     for (const action of ["run","run-step"]) button(action).disabled=!robot;
     for (const control of panel.querySelectorAll('[data-action="play"]')) control.disabled=!robot;
-    if (selected && jobs.get(robot)?.exampleId !== selected.id) {
+    const currentKey = exampleKey(selected);
+    if (selected && jobs.get(robot)?.exampleId !== currentKey) {
       const previous=Object.values(status?.jobs || {}).filter(job=>job.robot_id===robot &&
-        (job.source || job.latest_generation?.source)?.example_id===selected.id).at(-1);
-      if (previous) jobs.set(robot,{id:previous.id,title:selected.title,exampleId:selected.id});
+        (job.source || job.latest_generation?.source)?.example_id===currentKey).at(-1);
+      if (previous) jobs.set(robot,{id:previous.id,title:selected.title,exampleId:currentKey});
     }
-    const trial=jobs.get(robot), matches=Boolean(trial && selected && trial.exampleId===selected.id);
+    const trial=jobs.get(robot), matches=Boolean(trial && selected && trial.exampleId===currentKey);
     const job=matches && status?.jobs?.[trial.id];
     if (job?.latest_generation?.program && watchJob!==job.id) { watchJob=job.id;showPlayback(job.latest_generation.program); }
     for (const action of ["pause","release"]) button(action).disabled=!matches || job?.owns_motion===false;
@@ -371,17 +421,39 @@
     try {
       if (["first", "previous", "next", "last"].includes(action)) {
         await loadPage(action === "first" ? 1 : action === "last" ? pages : page + (action === "next" ? 1 : -1));
+      } else if (action === "new-example") {
+        openDraftInLibrary({});
+      } else if (action === "add-step") {
+        if (!selected) return;
+        const program = readProgram();
+        const insertAt = program.length ? editingIndex + 1 : 0;
+        program.splice(insertAt, 0, {name: "hold", arguments: {seconds: 0.4}});
+        field("answers").value = pretty(program);
+        editingIndex = insertAt; editingSource = "program"; dirty = true;
+        showOperations(program);
+        field("edit-status").textContent = "Operation added to draft.";
+      } else if (action === "remove-step") {
+        if (!selected) return;
+        const program = readProgram();
+        if (program.length <= 1) throw new Error("A motion program needs at least one operation.");
+        program.splice(editingIndex, 1);
+        editingIndex = Math.min(editingIndex, program.length - 1);
+        field("answers").value = pretty(program);
+        editingSource = "program"; dirty = true;
+        showOperations(program);
+        field("edit-status").textContent = "Operation removed from draft.";
       } else if (action === "play") {
         await playExample(target, target.dataset.id, target.dataset.title);
       } else if (action === "capture") {
         capturePose();
       } else if (action === "pause" || action === "release") {
         const robot=document.getElementById("robot-select").value, trial=jobs.get(robot);
-        if (!selected || trial?.exampleId!==selected.id) return;
+        const currentKey = exampleKey(selected);
+        if (!selected || trial?.exampleId!==currentKey) return;
         const exampleId=selected.id, version=selectionVersion;
         target.disabled=true;
         try {
-          const result=await api("/api/motion-library",{operation:action,id:exampleId,robot_id:robot,job_id:trial.id});
+          const result=await api("/api/motion-library",{operation:action,...(exampleId ? {id:exampleId} : {}),robot_id:robot,job_id:trial.id});
           if (selected?.id!==exampleId || version!==selectionVersion || robot!==document.getElementById("robot-select").value) return;
           const program=readProgram();
           editingIndex=result.operation_index ?? Math.min(result.completed_operation_index ?? 0,program.length-1);
@@ -394,16 +466,19 @@
         const query = field("query").value;
         if (action === "save") {
           const version = ++selectionVersion;
+          const isCreate = !selected.id;
           // Keep the submitted edit stable while the atomic save is in flight.
           field("editor").disabled = true;
           try {
-            const result = await api("/api/motion-library", {operation: "save", id: selected.id,
-              revision: selected.revision, title: field("title").value, query, program});
+            const payload = isCreate
+              ? {operation: "create", title: field("title").value, query, program}
+              : {operation: "save", id: selected.id, revision: selected.revision, title: field("title").value, query, program};
+            const result = await api("/api/motion-library", payload);
             if (version === selectionVersion) {
               const previousIndex=editingIndex;
               showExample(result); editingIndex=Math.min(previousIndex,result.program.length-1); field("step").value=String(editingIndex); showStep(result.program);
-              field("edit-status").textContent = "Saved to training data.";
-              await loadPage(page);
+              field("edit-status").textContent = isCreate ? "Added to training data." : "Saved to training data.";
+              await loadPage(isCreate ? 1 : page);
             }
           } finally {
             if (version === selectionVersion) field("editor").disabled = false;

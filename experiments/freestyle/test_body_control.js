@@ -54,7 +54,7 @@ vm.runInNewContext(fs.readFileSync('experiments/freestyle/body_control.js','utf8
   await panel.listeners.click({target:{dataset:{action:'test-correction'}}});
   assert.deepEqual(calls.at(-1).payload,{operation:'test-correction',robot_id:'another-body',review_id:'review-1'});
   const count=calls.length;
-  context.window.renderFreestyleStatus({settings:{p4:{endpoint:'http://localhost:8794',recover_events:true}},jobs:{one:{id:'one',robot_id:'p4',state:'generated'},
+  context.window.renderFreestyleStatus({settings:{p4:{endpoint:'http://localhost:8794',recover_events:true}},jobs:{one:{id:'one',robot_id:'p4',state:'generated',request:'Raise right hand',latest_generation:{program:[{name:'face',arguments:{expr:'wave'}}]}},
     two:{id:'two',robot_id:'another-body',state:'executing'}}},'p4');
   assert.equal(JSON.parse(node('[data-field="result"]').textContent).id,'one');
   assert.equal(node('[data-field="recovery"]').checked,true);
@@ -72,6 +72,10 @@ vm.runInNewContext(fs.readFileSync('experiments/freestyle/body_control.js','utf8
   assert.deepEqual(calls.at(-1).payload,{operation:'configure',robot_id:'p4',endpoint:'http://localhost:9000',recover_events:false});
   assert.equal(calls.slice(count).filter(call=>call.payload).every(call=>call.payload.operation==='configure'),true,
     'Changing settings saves configuration without generating or executing motion');
+  let openedDraft=null;
+  context.window.openFreestyleDraftInLibrary=async draft=>{openedDraft=draft;};
+  await panel.listeners.click({target:{dataset:{action:'edit-training'}}});
+  assert.deepEqual(JSON.parse(JSON.stringify(openedDraft)),{title:'Raise right hand',query:JSON.stringify({request:'Raise right hand'}),program:[{name:'face',arguments:{expr:'wave'}}]});
   assert.doesNotMatch(panel.innerHTML,/data-action="configure"/,'Settings need no Apply button');
   context.window.renderFreestyleStatus({jobs:{}},'third-body');
   assert.equal(node('[data-field="result"]').textContent,'');

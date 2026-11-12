@@ -95,6 +95,8 @@ class Generator:
             else:
                 if isinstance(decoded,dict):query=decoded
         if self.encoding:
+            if isinstance(query, str):
+                query = {'request': query}
             query = model_query(query, self.encoding)
         else:
             query = enrich(query)
@@ -160,29 +162,39 @@ class Generator:
                 'generator':identity}
 
 
-def remote_generate(endpoint, request):
+def remote_generate(endpoint, request, *, job_id=None):
+    headers = {'Content-Type':'application/json'}
+    if job_id:
+        headers['X-Freestyle-Job-Id'] = str(job_id)
     req = urllib.request.Request(endpoint.rstrip('/')+'/generate',data=compact(request).encode(),
-                                 headers={'Content-Type':'application/json'})
+                                 headers=headers)
     with urllib.request.urlopen(req) as response:
         return json.load(response)
 
 
-async def async_remote_generate(endpoint, request):
+async def async_remote_generate(endpoint, request, *, job_id=None):
     """Cancellable HTTP to this service and its downstream model request."""
-    return await _async_json(endpoint.rstrip('/')+'/generate', request)
+    headers = {'X-Freestyle-Job-Id': str(job_id)} if job_id else None
+    return await _async_json(endpoint.rstrip('/')+'/generate', request, extra_headers=headers)
 
 
-async def _async_json(endpoint, request=None, method='POST'):
+async def _async_json(endpoint, request=None, method='POST', extra_headers=None):
     url=urlsplit(endpoint)
     reader,writer=await asyncio.open_connection(url.hostname,url.port or (443 if url.scheme=='https' else 80),
                                                  ssl=url.scheme=='https')
     try:
         body=compact(request).encode() if method=='POST' else b''
         target=(url.path or '/')+('?' + url.query if url.query else '')
+        extra=''.join(f'{k}: {v}\r\n' for k,v in (extra_headers or {}).items())
         writer.write((f'{method} {target} HTTP/1.1\r\nHost: {url.netloc}\r\n'
-                      f'Content-Type: application/json\r\nContent-Length: {len(body)}\r\nConnection: close\r\n\r\n').encode()+body)
+                      f'Content-Type: application/json\r\nContent-Length: {len(body)}\r\n'
+                      f'{extra}Connection: close\r\n\r\n').encode()+body)
         await writer.drain()
-        status=int((await reader.readline()).split()[1])
+        status_line=await reader.readline()
+        parts=status_line.split()
+        if len(parts)<2:
+            raise ConnectionError('Freestyle HTTP connection closed before response status')
+        status=int(parts[1])
         headers={}
         while True:
             line=await reader.readline()
@@ -191,7 +203,10 @@ async def _async_json(endpoint, request=None, method='POST'):
         if headers.get('transfer-encoding','').lower()=='chunked':
             chunks=[]
             while True:
-                size=int((await reader.readline()).split(b';',1)[0],16)
+                chunk_line=await reader.readline()
+                if not chunk_line:
+                    raise ConnectionError('Freestyle HTTP chunked response truncated')
+                size=int(chunk_line.split(b';',1)[0],16)
                 if not size:break
                 chunks.append(await reader.readexactly(size));await reader.readexactly(2)
             data=b''.join(chunks)
@@ -213,7 +228,7 @@ def create_app(generator, recorder=None):
     from aiohttp import web
 
     async def generate(request):
-        request_id = uuid4().hex
+        request_id = request.headers.get('X-Freestyle-Job-Id') or uuid4().hex
         def record(kind, payload):
             if recorder:
                 recorder.record(kind, payload, job_id=request_id)

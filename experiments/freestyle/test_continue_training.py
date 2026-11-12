@@ -1,5 +1,6 @@
+import json
 import unittest
-from .continue_training import loss_only_evaluation, configure_loss_weighting
+from .continue_training import balance_training_examples, configure_loss_weighting, loss_only_evaluation
 
 
 class TrainingEvaluationTests(unittest.TestCase):
@@ -65,3 +66,31 @@ class EvaluationMemoryTests(unittest.TestCase):
             model.forward();self.assertEqual(model.seen[-1],'1')
             with self.assertRaises(ValueError):model.forward(labels=[1],fail=True)
             self.assertEqual(os.environ['UNSLOTH_RETURN_LOGITS'],'1')
+
+
+class CategoryBalanceTests(unittest.TestCase):
+    def test_ordinary_vs_recovery_balances_epoch_exposure(self):
+        rows = (
+            [{'messages': [{'role': 'user', 'content': json.dumps({'request': f'Stretch {i}', 'event': None})}]}
+             for i in range(73)]
+            + [{'messages': [{'role': 'user', 'content': json.dumps({'request': f'Rec {i}', 'event': {'type': 'servo_stall'}})}]}
+               for i in range(416)]
+        )
+        tokenized = [{'input_ids': [i], 'labels': [i]} for i in range(len(rows))]
+        balanced, report = balance_training_examples(rows, tokenized, {'category_balance': 'ordinary_vs_recovery'})
+        self.assertEqual(report['ordinary_unique'], 73)
+        self.assertEqual(report['recovery_unique'], 416)
+        self.assertEqual(report['ordinary_repeat'], 6)
+        self.assertEqual(report['recovery_repeat'], 1)
+        self.assertEqual(report['effective_ordinary'], 438)
+        self.assertEqual(report['effective_recovery'], 416)
+        self.assertEqual(len(balanced), 854)
+
+    def test_none_mode_preserves_original_sequence_list(self):
+        rows = [{'messages': [{'role': 'user', 'content': 'Wave hello.'}]}]
+        tokenized = [{'input_ids': [1], 'labels': [1]}]
+        balanced, report = balance_training_examples(rows, tokenized, {})
+        self.assertEqual(balanced, tokenized)
+        self.assertEqual(report, {'category_balance': 'none'})
+        with self.assertRaises(ValueError):
+            balance_training_examples(rows, tokenized, {'category_balance': 'invalid'})

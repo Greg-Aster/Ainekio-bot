@@ -184,10 +184,9 @@ class TensorBody:
     def pwm(self,q):
         q=q.reshape(-1,4,3)
         pulse=torch.floor(self.pulse_home+(torch.rad2deg(q)-self.home)*self.pulse_scale+.5)
-        logical=torch.deg2rad(self.home+(pulse-self.pulse_home)/self.pulse_scale)
         width=torch.floor(pulse/self.tick_us+.5)*self.tick_us
         physical=torch.deg2rad(self.home+(width-self.pulse_home)/self.pulse_scale)
-        return logical.reshape(-1,12),physical.reshape(-1,12)
+        return q.reshape(-1,12),physical.reshape(-1,12)
 
     def coordinates(self,q):
         theta=self.t0+q[...,2];a=self.a0+q[...,1]

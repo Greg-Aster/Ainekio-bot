@@ -127,9 +127,30 @@ class Bridge:
             await asyncio.to_thread(write)
         return self.status()
 
+    def _recorded_job(self, job_id):
+        if job_id in self.jobs:
+            return self.jobs[job_id]
+        if self.recorder is None:
+            raise KeyError(job_id)
+        records = list(read_records(self.recorder.path, job_id))
+        started = next((r['payload'] for r in records if r['kind'] == 'job_started'), None)
+        if started is None:
+            raise KeyError(job_id)
+        job = copy.deepcopy(started)
+        job['programs'] = [r['payload']['result'] for r in records
+                           if r['kind'] in ('generation_completed', 'correction_trial_program')]
+        job['receipts'] = [r['payload'] for r in records if r['kind'] == 'command_receipt']
+        reviews = [r['payload'] for r in records if r['kind'] == 'review']
+        if reviews:
+            job['review'] = reviews[-1]
+        finished = next((r['payload'] for r in reversed(records) if r['kind'] == 'job_finished'), None)
+        if finished is not None:
+            job.update({k: v for k, v in finished.items() if v is not None or k == 'state'})
+        return job
+
     async def review(self, robot, job_id, outcome, note='', corrected_request=None, corrected_program=None,
                generation_index=None):
-        job = self.jobs[job_id]
+        job = await asyncio.to_thread(self._recorded_job, job_id) if job_id not in self.jobs else self.jobs[job_id]
         if job['robot_id'] != robot:
             raise ValueError('This trial belongs to a different selected robot')
         if outcome not in ('success', 'partial', 'incorrect'):
@@ -148,7 +169,7 @@ class Bridge:
         return {'review_id':identifier, 'saved':identifier is not None, 'review':value}
 
     def trial(self, robot, job_id):
-        job = self.jobs[job_id]
+        job = self._recorded_job(job_id)
         if job['robot_id'] != robot:
             raise ValueError('This trial belongs to a different selected robot')
         return {'schema':'freestyle_trial_v1', 'job':copy.deepcopy(job),
@@ -159,6 +180,17 @@ class Bridge:
     async def corrections(self, robot):
         if self.recorder is None:
             raise ValueError('Motion recording is not configured')
+        def executable(program):
+            if not isinstance(program, list) or not program:
+                return False
+            for action in program:
+                if not isinstance(action, dict) or not isinstance(action.get('arguments'), dict):
+                    return False
+                args = action['arguments']
+                if action.get('name') in ('move', 'pose', 'oscillate', 'feet', 'body'):
+                    if 'speed_pct' not in args or 'seconds' in args or 'period_s' in args:
+                        return False
+            return True
         def load():
             records = list(read_records(self.recorder.path, kinds=(
                 'generation_requested', 'correction_trial_requested', 'review')))
@@ -169,7 +201,7 @@ class Bridge:
                 if record['kind'] == 'review' and record['robot_id'] == robot:
                     latest[(record['job_id'], record['payload'].get('generation_index', 0))] = record
             return [{**r, 'request':requested[key]['request']} for key,r in reversed(list(latest.items()))
-                    if r['payload'].get('corrected_program') is not None and key in requested]
+                    if executable(r['payload'].get('corrected_program')) and key in requested]
         return await asyncio.to_thread(load)
 
     async def test_correction(self, robot, review_id):
@@ -425,6 +457,8 @@ class Bridge:
                          'request':request, **({'source':job['source']} if supplied else {})})
             if supplied:
                 result = {'program':copy.deepcopy(job['supplied_program']), 'source':job['source']}
+            elif self.generate is async_remote_generate:
+                result = await self.generate(setting['endpoint'],request,job_id=job['id'])
             else:
                 result = (await self.generate(setting['endpoint'],request) if inspect.iscoroutinefunction(self.generate)
                           else await asyncio.to_thread(self.generate,setting['endpoint'],request))
@@ -613,13 +647,29 @@ class Bridge:
             if getattr(error,'evidence',None) is not None:
                 job['error_evidence'] = copy.deepcopy(error.evidence)
             self.record(job, 'job_error', {'error':message, 'evidence':getattr(error,'evidence',None)})
-            if (job['execute'] and not job.get('event') and setting.get('recover_events')
+            if (job['execute'] and setting.get('recover_events')
                     and self.active.get(robot)==job['id']
                     and isinstance(getattr(error,'evidence',None),dict)
                     and error.evidence.get('position_verified') is False):
+                mask = ((error.evidence.get('unverified_joints') or 0)
+                        | (error.evidence.get('target_adjusted_joints') or 0))
+                obs_joints = (job.get('observation') or {}).get('joints') or {}
+                affected = [
+                    {'id': i, 'name': JOINTS[i],
+                     **({'reasons': list(obs_joints[JOINTS[i]]['feedback_faults'])}
+                        if obs_joints.get(JOINTS[i], {}).get('feedback_faults') else {})}
+                    for i in range(len(JOINTS)) if mask & (1 << i)
+                ]
+                fault = any(obs_joints.get(item['name'], {}).get('feedback_usable') is False for item in affected)
+                data = {
+                    'kind': 'servo_feedback_fault' if fault else 'servo_stall',
+                    'outputs_released': False,
+                    **({'joints': affected} if affected else {}),
+                    **({} if fault else {'reason': 'position_unverified'}),
+                }
                 await self.submit(robot,job['request'],True,{
                     'robot_id':robot,'epoch':job['epoch'],'name':'body_event',
-                    'data':{'kind':'servo_stall'}})
+                    'data':data})
         finally:
             if prepared is not None:
                 prepared[1].cancel()

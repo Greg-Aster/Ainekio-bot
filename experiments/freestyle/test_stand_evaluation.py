@@ -5,9 +5,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from .curriculum import source_state
 from .runtime import JOINTS
 from .semantic_teachers import call
+from .stand_curriculum import source_state
 from .stand_evaluation import rollout, trajectory_evidence, score, feedback_domain_evidence
 
 

@@ -1910,6 +1910,41 @@ class RecordingDepthTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue((recording/"trace.jsonl").is_file())
         await self.disable()
 
+    async def test_passive_logging_records_trace_without_gait_learning_endpoint_while_learning_still_requires_it(self):
+        base_request = self.transport.request
+        missing_error = 'Robot gait-learning: HTTP 404: {"error":"Not found"}'
+        async def without_gait_learning(robot, endpoint, payload):
+            if endpoint == "gait-learning":
+                raise ValueError(missing_error)
+            return await base_request(robot, endpoint, payload)
+        self.transport.request = without_gait_learning
+
+        await self.service.configure("robot", {"logging": True, "learning": False})
+        await asyncio.wait_for(self.started.wait(), 1)
+        await self.service.writes.join()
+        status = self.service.status("robot")
+        self.assertEqual(status["state"], "logging")
+        self.assertIsNone(status["error"])
+        recording = self.service._runtime("robot")["recording"]
+        metadata = [json.loads(line) for line in (recording/"metadata.jsonl").read_text().splitlines()]
+        self.assertEqual(len(metadata), 1)
+        self.assertIsNone(metadata[0]["learning"])
+        self.assertEqual(metadata[0]["learning_error"], missing_error)
+        self.assertTrue((recording/"trace.jsonl").is_file())
+        await self.disable()
+
+        await self.service.configure("robot", {"logging": False, "learning": True})
+        for _ in range(20):
+            if self.service.status("robot")["state"] == "recording_unavailable":
+                break
+            await asyncio.sleep(.02)
+        self.assertEqual(self.service.status("robot")["state"], "recording_unavailable")
+        self.assertEqual(self.service.status("robot")["error"], missing_error)
+        task = self.service.tasks["robot"]
+        await self.service.configure("robot", {"learning": False})
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
     async def test_gait_receipts_release_depth_while_logging_stays_enabled(self):
         owner = GatewayService(GatewayServiceConfig(tokens={"robot": "test"}))
         connection = GatewayConnection(owner, Mock(closed=False, send=AsyncMock()), "robot", 1)

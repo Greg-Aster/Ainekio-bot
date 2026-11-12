@@ -1,16 +1,16 @@
 {
   "schema": "ainekio-neural-gait-v7-proprio",
   "action": "normalized-foot-offsets-v1",
-  "source_onnx_sha256": "4ac78a5aa1a2e9e2a0b802e3df61764e93b6aec77828d84550653db1a6c64456",
-  "policy_bin_sha256": "69078bb078823c4fbf2c50ac74d144546a9a793c6f2f9f21dc013ba857984e96",
+  "source_onnx_sha256": "17f3b60ab253af6f6db1b71f4644744cdd2f531ca712f41465c0e9aff367bcec",
+  "policy_bin_sha256": "4184d61f74b42ae5d68a18f0a75bf1a9d0fe6eac1b5b632482a069930938fcc8",
   "hidden_dims": [
-    512,
-    256,
-    128
+    128,
+    64,
+    32
   ],
   "action_scale_mm": [
     45.0,
-    25.0,
+    28.0,
     30.0
   ]
 }

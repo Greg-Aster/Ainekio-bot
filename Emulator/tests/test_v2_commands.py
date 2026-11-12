@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from gateway.body_capabilities import body_commands
+from gateway.body_capabilities import DECLARED_EMOTES, body_command_available, body_commands
 from gateway.environment_adapter import EnvironmentAdapter, EnvironmentAdapterConfig
-from gateway.environment_adapter.translation import LEGACY_ROBOT_COMMANDS, translate_environment_action
+from gateway.environment_adapter.translation import translate_environment_action
 from gateway.server.service import GatewayConnection, GatewayError, GatewayService, GatewayServiceConfig
 from protocol.control_v1 import ProtocolValidationError, validate_control_message
 from Emulator.tests.test_environment_adapter import FakeGateway
@@ -35,9 +35,8 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
         return connection, socket
 
     async def test_lay_down_is_declared_and_keeps_rest_and_dead_distinct(self) -> None:
-        for name in ('lay_down','lay down','lie down'):
-            action=translate_environment_action({'type':'robotCommand','command':name},model='v2-12servo')
-            self.assertEqual((action.name,action.params),('emote',{'asset':'lay_down'}))
+        self.assertIn('lay_down', DECLARED_EMOTES)
+        self.assertIsNone(translate_environment_action({'type':'robotCommand','command':'lay_down'},model='v2-12servo'))
         c,socket=self.connection('v2-12servo')
         with self.assertRaises(GatewayError):await c.service.emote('lay_down',robot_id='test-body',received_at=100.)
         c.capabilities['commands']=['lay_down','dead','rest','stop']
@@ -49,7 +48,7 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(socket.messages)
 
     async def test_same_walk_wire_and_lifecycle_for_both_bodies(self) -> None:
-        translated = translate_environment_action({"type": "robotCommand", "command": "walk", "units": 3})
+        translated = translate_environment_action({"type": "move", "direction": "forward", "units": 3})
         self.assertEqual((translated.kind, translated.name, translated.params),
                          ("intent", "walk", {"dir": "fwd", "steps": 3}))
         sent = []
@@ -166,9 +165,7 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
                 connection, socket = self.connection(model)
                 if connection.capabilities is not None:
                     connection.capabilities["commands"] = list(TURNS)
-                translated = translate_environment_action({"type": "robotCommand", "command": name})
-                self.assertEqual((translated.name, translated.params), ("emote", {"asset": name}))
-                seq = await connection.service.queue_intent(translated.name, translated.params,
+                seq = await connection.service.queue_intent("emote", {"asset": name},
                                                            robot_id="test-body", received_at=100.0)
                 await connection._handle_control({"t": "ack", "seq": seq})
                 self.assertIn(seq, connection.pending)
@@ -194,14 +191,12 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
     async def test_gestures_keep_existing_wire_and_terminal_correlation_for_both_bodies(self) -> None:
         for name in GESTURES:
             sent = []
-            translated = translate_environment_action({"type":"robotCommand", "command":name})
-            expected = ("sit", {}) if name == "sit" else ("emote", {"asset":name})
-            self.assertEqual((translated.name, translated.params), expected)
+            intent_name, intent_params = ("sit", {}) if name == "sit" else ("emote", {"asset": name})
             for model in ("v1-8servo", "v2-12servo"):
                 connection, socket = self.connection(model)
                 if connection.capabilities is not None:
                     connection.capabilities["commands"] = ["walk", "stop", *TURNS, *GESTURES]
-                seq = await connection.service.queue_intent(translated.name, translated.params,
+                seq = await connection.service.queue_intent(intent_name, intent_params,
                                                            robot_id="test-body", received_at=100.0)
                 await connection._handle_control({"t":"ack", "seq":seq})
                 self.assertIn(seq, connection.pending)
@@ -219,14 +214,14 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
             connection, socket = self.connection("v2-12servo", ready=ready)
             connection.capabilities["commands"] = list(GESTURES) if not ready else ["walk", "stop"]
             for name in GESTURES:
-                translated = translate_environment_action({"type":"robotCommand", "command":name})
+                intent_name, intent_params = ("sit", {}) if name == "sit" else ("emote", {"asset": name})
                 with self.subTest(ready=ready, command=name), self.assertRaises(GatewayError):
-                    await connection.service.queue_intent(translated.name, translated.params,
+                    await connection.service.queue_intent(intent_name, intent_params,
                                                            robot_id="test-body", received_at=100.0)
             self.assertEqual(socket.messages, [])
             self.assertEqual(connection.next_sequence, 1)
 
-    def test_complete_p4_catalog_stays_adapter_owned_and_ready_only(self) -> None:
+    def test_complete_p4_catalog_stays_body_control_only_while_adapter_advertises_freestyle_and_locomotion(self) -> None:
         installed = ["walk", "stop", *TURNS, *GESTURES]
         class Gateway(FakeGateway):
             ready = True
@@ -241,13 +236,16 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
         adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:", token="test"))
         self.addCleanup(adapter.receipts.close)
         observed = adapter._observation()["capabilities"]
-        self.assertEqual(observed["robotCommands"], sorted(installed))
-        self.assertEqual(set(observed["robotCommandDescriptions"]), set(installed))
-        self.assertNotIn("twice", observed["robotCommandDescriptions"]["nod"])
+        self.assertNotIn("robotCommands", observed)
+        self.assertNotIn("robotCommandDescriptions", observed)
+        self.assertIn("requestMotion", observed["actions"])
+        self.assertIn("move", observed["actions"])
+        self.assertEqual(observed["locomotion"]["commands"], ["walk", "crab"])
         gateway.ready = False
-        self.assertEqual(adapter._observation()["capabilities"]["robotCommands"], [])
+        self.assertNotIn("requestMotion", adapter._observation()["capabilities"]["actions"])
+        self.assertNotIn("move", adapter._observation()["capabilities"]["actions"])
 
-    def test_new_turn_names_and_descriptions_are_only_advertised_when_declared_ready(self) -> None:
+    def test_new_turn_names_require_body_declaration_and_are_not_advertised_on_environment_bridge(self) -> None:
         class Gateway(FakeGateway):
             ready = True
 
@@ -260,17 +258,17 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
         gateway = Gateway()
         adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:", token="test"))
         self.addCleanup(adapter.receipts.close)
-        self.assertEqual(adapter._observation()["capabilities"]["robotCommands"], sorted(TURNS))
+        self.assertNotIn("robotCommands", adapter._observation()["capabilities"])
+        self.assertIn("requestMotion", adapter._observation()["capabilities"]["actions"])
         gateway.ready = False
-        self.assertEqual(adapter._observation()["capabilities"]["robotCommands"], [])
-        self.assertNotIn("turn_left_15", LEGACY_ROBOT_COMMANDS)
-        self.assertNotIn("turn_right_15", LEGACY_ROBOT_COMMANDS)
+        self.assertFalse(adapter._observation()["capabilities"]["movement"])
+        self.assertFalse(body_command_available("turn_left_15", None))
+        self.assertFalse(body_command_available("turn_right_15", None))
         for direction in ("left", "right"):
             for spelling in (f"turn_{direction}_15", f"turn {direction} 15 degrees"):
-                translated = translate_environment_action({"type": "robotCommand", "command": spelling})
-                self.assertEqual(translated.params, {"asset": f"turn_{direction}_15"})
+                self.assertIsNone(translate_environment_action({"type": "robotCommand", "command": spelling}))
 
-    def test_adapter_advertises_only_body_subset_and_uses_existing_descriptions(self) -> None:
+    def test_adapter_advertises_ready_locomotion_without_legacy_command_catalog(self) -> None:
         class Gateway(FakeGateway):
             ready = True
 
@@ -283,10 +281,11 @@ class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
         adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:",token="test"))
         self.addCleanup(adapter.receipts.close)
         observation = adapter._observation()
-        self.assertEqual(observation["capabilities"]["robotCommands"], ["stop","walk"])
-        self.assertEqual(set(observation["capabilities"]["robotCommandDescriptions"]), {"stop","walk"})
+        self.assertNotIn("robotCommands", observation["capabilities"])
+        self.assertNotIn("robotCommandDescriptions", observation["capabilities"])
+        self.assertEqual(observation["capabilities"]["locomotion"]["commands"], ["walk"])
         gateway.ready = False
-        self.assertEqual(adapter._observation()["capabilities"]["robotCommands"], [])
+        self.assertEqual(adapter._observation()["capabilities"]["locomotion"]["commands"], [])
 
     def test_new_models_never_inherit_legacy_catalog_without_declaration(self) -> None:
         self.assertIsNone(body_commands("v1-8servo",(),None))

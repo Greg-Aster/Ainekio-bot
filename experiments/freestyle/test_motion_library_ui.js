@@ -35,6 +35,9 @@ const context={window:{addEventListener(k,fn){listeners[k]=fn;},confirm(){return
    else if(payload?.operation==='save'){
      if(nextSaveError){const error=nextSaveError;nextSaveError=null;return {ok:false,json:async()=>({error})};}
      result={...example,...payload,revision:payload.revision+1};
+   }else if(payload?.operation==='create'){
+     result={id:'created-one',title:payload.title,request:payload.query,query:JSON.stringify({request:payload.query}),
+       revision:1,program:payload.program,answers:[['face','happy']],joint_names:jointNames};
    }else if(payload?.operation==='run'){
      if(nextRunError){const error=nextRunError;nextRunError=null;return {ok:false,json:async()=>({error})};}
      result={job_id:'job-'+payload.robot_id};
@@ -50,8 +53,9 @@ const context={window:{addEventListener(k,fn){listeners[k]=fn;},confirm(){return
      result={target:JSON.stringify(rows),operations:rows.map(row=>JSON.stringify(row))};
    }
    else if(['pause','release'].includes(payload?.operation))result={pause_state:payload.operation==='release'?'released':'paused',operation_index:1,pause_cursor:{source_us:1000000}};
-   else if(url.includes('?id='))result=example;
-   else result={items:[{id:'one',title:'Happy wiggle',family:'rear_sway'},{id:'two',title:'Other wiggle',family:'rear_sway'}],total:51,pages:3,page:Number(new URL(url,'http://test').searchParams.get('page')),page_size:25};
+   else if(url.includes('?meta=1'))result={joint_names:jointNames};
+   else if(url.includes('?id='))result=url.includes('created-one') ? {id:'created-one',title:'Created wave',request:'Wave right hand',query:JSON.stringify({request:'Wave right hand'}),revision:1,program:[{name:'face',arguments:{expr:'wave'}}],answers:[['face','wave']],joint_names:jointNames} : example;
+   else result={items:[{id:'one',title:'Happy wiggle',family:'rear_sway'},{id:'two',title:'Other wiggle',family:'rear_sway'},{id:'created-one',title:'Created wave',family:'custom_motion'}],total:51,pages:3,page:Number(new URL(url,'http://test').searchParams.get('page')),page_size:25};
    return {ok:true,json:async()=>result};
  }};
 vm.runInNewContext(fs.readFileSync('experiments/freestyle/motion_library.js','utf8'),context);
@@ -208,5 +212,16 @@ const openExample=async id=>{const branch=created.findLast(n=>n.dataset.exampleI
    pause_state:'released',operation_index:1,latest_generation:{program:[example.program[0],pose]}}}},'robot-c',entry);
  assert.equal(actions.get('pause').disabled,false,'Reopening the UI can recover the existing example playback identity');
  await click('pause');assert.equal(calls.at(-1).payload.job_id,'restored');
- console.log('Motion library UI: pagination, edits, save failures, draft playback and selected robot passed');
+ field('category').value='ordinary';await field('category').listeners.change();
+ assert.equal(new URL(calls.at(-1).url,'http://test').searchParams.get('category'),'ordinary');
+ confirmResult=true;
+ await context.window.openFreestyleDraftInLibrary({title:'Created wave',query:'Wave right hand',program:[{name:'face',arguments:{expr:'wave'}}]});
+ assert.equal(actions.get('save').textContent,'Add to training data');
+ await click('add-step');
+ assert.equal(JSON.parse(field('answers').value).length,2);
+ await click('remove-step');
+ assert.equal(JSON.parse(field('answers').value).length,1);
+ await click('save');
+ assert.equal(calls.findLast(c=>c.payload?.operation==='create').payload.title,'Created wave');
+ console.log('Motion library UI: pagination, category filter, edits, draft creation, draft playback and selected robot passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -160,7 +160,7 @@ class BlockingMotionGateway(FakeGateway):
 
     async def wait_terminal(self, sequence: int, **kwargs: object) -> dict[str, object]:
         self.calls.append(("wait", (sequence, kwargs)))
-        if sequence == 10:
+        if sequence == 7:
             self.motion_waiting.set()
             await self.stopped.wait()
             return {"t": "cancelled", "seq": sequence, "code": "stop"}
@@ -195,7 +195,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 super().__init__()
                 self.terminals = {}
                 self.all_dispatched = asyncio.Event()
-            async def queue_motion_plan(self, frames, **kwargs):
+            async def queue_intent(self, name, params, **kwargs):
                 sequence = len(self.terminals) + 1
                 self.terminals[sequence] = asyncio.get_running_loop().create_future()
                 if sequence == 40: self.all_dispatched.set()
@@ -207,9 +207,9 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(adapter.receipts.close)
         socket = FakeWebSocket()
         adapter._websocket, adapter._bridge_ready = socket, True
-        targets = [{"joint": name, "degrees": 90} for name in ("R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4")]
+        goal = {"kind": "visual", "target": "fixture", "completionCriteria": "fixture"}
         tasks = [asyncio.create_task(adapter._process_environment_action({"id": f"pending-{index}",
-            "type": "robotMotionPlan", "frames": [{"durationMs": 300, "targets": targets}], "endPose": "hold"}))
+            "type": "move", "direction": "forward", "locomotionGoal": goal}))
             for index in range(40)]
         try:
             await gateway.all_dispatched.wait()
@@ -598,8 +598,8 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(metadata["robotId"], robot_id)
             self.assertTrue(metadata["wakeTriggered"])
             self.assertEqual(metadata["frameCount"], 1)
-            result = await adapter.handle_action({"id": f"stand-{index}", "type": "robotCommand",
-                                                  "command": "stand"})
+            result = await adapter.handle_action({"id": f"stand-{index}", "type": "requestMotion",
+                                                  "description": "stand"})
             self.assertEqual(result["type"], "completed")
             self.assertEqual(gateway.calls[-2], ("request_motion", ("stand", robot_id)))
             self.assertEqual(gateway.calls[-1][1][1], robot_id)
@@ -792,61 +792,29 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((move.kind, move.name), ("intent", "walk"))
         self.assertEqual(move.params, {"dir": "back", "steps": 10})
 
-        for action, asset in (
-            ({"type": "move", "locomotionGoal": {"kind": "visual", "target": "fixture", "completionCriteria": "fixture"}, "direction": "left"}, "turn_left_45"),
-            ({"type": "robotCommand", "command": "turn right"}, "turn_right_45"),
-            ({"type": "robotCommand", "command": "turn left quarter turn"}, "turn_left_45"),
-            ({"type": "robotCommand", "command": "turn right half turn"}, "turn_right_90"),
-            ({"type": "robotCommand", "command": "turn around"}, "turn_right_180"),
-            ({"type": "robotCommand", "command": "look around"}, "curious"),
-            ({"type": "robotCommand", "command": "#1"}, "number_one"),
-            ({"type": "robotCommand", "command": "#2"}, "number_two"),
-        ):
-            with self.subTest(action=action):
-                turn = translate_environment_action(action)
-                self.assertIsNotNone(turn)
-                assert turn is not None
-                self.assertEqual(
-                    (turn.kind, turn.name, turn.params),
-                    ("intent", "emote", {"asset": asset}),
-                )
-
-        emote = translate_environment_action(
-            {"type": "robotCommand", "command": "wave"}
-        )
-        self.assertIsNotNone(emote)
-        assert emote is not None
-        self.assertEqual((emote.name, emote.params), ("emote", {"asset": "wave"}))
-
-        for command in ("sit", "sit down", "take a seat", "have a seat"):
-            with self.subTest(command=command):
-                sit = translate_environment_action(
-                    {"type": "robotCommand", "command": command}
-                )
-                self.assertEqual((sit.kind, sit.name, sit.params), ("intent", "sit", {}))
-
-        for command in (
-            "nod", "celebrate", "stretch", "macarena", "salsa", "surprised",
-            "sad", "curious", "turn_left_45", "turn_right_45",
-            "turn_left_90", "turn_right_90", "turn_left_180", "turn_right_180",
-            "walk_slow", "run", "number_one", "number_two",
-        ):
-            with self.subTest(command=command):
-                translated = translate_environment_action(
-                    {"type": "robotCommand", "command": command}
-                )
-                self.assertIsNotNone(translated)
-                assert translated is not None
-                self.assertEqual(
-                    (translated.name, translated.params),
-                    ("emote", {"asset": command}),
-                )
-
-        self.assertIsNone(
-            translate_environment_action(
-                {"type": "robotCommand", "command": "R1=180"}
+        for direction, wire in (("left", "turn_l"), ("right", "turn_r")):
+            turn = translate_environment_action(
+                {"type": "move", "locomotionGoal": {"kind": "visual", "target": "fixture", "completionCriteria": "fixture"}, "direction": direction}
             )
-        )
+            self.assertIsNotNone(turn)
+            assert turn is not None
+            self.assertEqual((turn.kind, turn.name, turn.params), ("intent", "walk", {"dir": wire, "steps": 1}))
+
+        motion = translate_environment_action({"type": "requestMotion", "description": "  wave right front arm  "})
+        self.assertEqual(motion, translate_environment_action({"type": "request_motion", "description": "wave right front arm"}))
+        self.assertIsNotNone(motion)
+        assert motion is not None
+        self.assertEqual((motion.kind, motion.name, motion.params), ("request_motion", "requestMotion", {"description": "wave right front arm"}))
+
+        for rejected in (
+            {"type": "robotCommand", "command": "wave"},
+            {"type": "robotCommand", "command": "sit"},
+            {"type": "robotCommand", "command": "R1=180"},
+            {"type": "robotMotionPlan", "frames": [{"durationMs": 300, "targets": []}], "endPose": "hold"},
+            {"type": "requestMotion", "description": "   "},
+        ):
+            with self.subTest(rejected=rejected):
+                self.assertIsNone(translate_environment_action(rejected))
 
     async def test_capture_image_returns_one_correlated_camera_observation(self) -> None:
         gateway = SnapshotGateway()
@@ -962,7 +930,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             ["intent", "wait"],
         )
 
-    async def test_explicit_trajectory_dispatch_remains_usable_without_advertising_the_retired_generator(self) -> None:
+    async def test_legacy_trajectory_dispatch_is_rejected_while_freestyle_status_remains_observable(self) -> None:
         gateway = FakeGateway()
         now = datetime(2026, 7, 17, tzinfo=timezone.utc)
         adapter = EnvironmentAdapter(
@@ -974,8 +942,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             ),
             utcnow=lambda: now,
         )
-        websocket = FakeWebSocket()
-        adapter._websocket = websocket
+        self.addCleanup(adapter.receipts.close)
         targets = [
             {"joint": joint, "degrees": 90.0}
             for joint in ("R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4")
@@ -991,31 +958,16 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             received_at=12.5,
         )
 
-        self.assertEqual(result["type"], "completed")
+        self.assertEqual(result["type"], "rejected")
+        self.assertEqual(result["message"], "unsupported_action:robotMotionPlan")
+        self.assertEqual(gateway.calls, [])
         self.assertNotIn("robotMotionPlan", adapter._observation()["capabilities"]["actions"])
-        frames, kwargs = gateway.calls[0][1]  # type: ignore[misc]
-        self.assertEqual(frames, [[300, [9000] * 8]])
-        self.assertEqual(kwargs["end"], "hold")
-        self.assertEqual(kwargs["received_at"], 12.5)
-        telemetry = [
-            json.loads(message)["telemetry"]
-            for message in websocket.sent
-            if isinstance(message, str)
-            and json.loads(message).get("type") == "environment.telemetry"
-        ]
-        self.assertEqual(
-            [item["status"] for item in telemetry if item["kind"] == "movement.plan"],
-            ["validating", "active", "completed"],
-        )
-        self.assertEqual(telemetry[-1]["frameCount"], 1)
-        self.assertEqual(telemetry[-1]["durationMs"], 300)
-        self.assertEqual(telemetry[-1]["activeFrame"], 1)
         self.assertEqual(
             adapter._observation()["state"]["freestyleMovement"],
             {"supported": True, "enabled": True, "available": True},
         )
 
-    async def test_p4_freestyle_uses_twelve_named_signed_joints(self):
+    async def test_p4_freestyle_movement_status_reports_twelve_joint_contract_and_rejects_raw_motion_plan(self):
         from protocol.joints_v2 import JOINT_LABELS
         class P4Gateway(FakeGateway):
             def status(self):
@@ -1030,22 +982,15 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             "frames":[{"speedDegS":120,"targets":[{"joint":j,"degrees":-117.68}
                 for j in reversed(JOINT_LABELS)]}]}
         result=await adapter.handle_action(action)
-        self.assertEqual(result["type"],"completed")
-        self.assertEqual(gateway.calls[0][1][0],[[12000,[-11768]*12]])
-        self.assertEqual(gateway.calls[0][1][1]["control"], "targets")
-        for rate in (0, -1, float('inf'), .001):
-            invalid = {**action, 'frames': [{**action['frames'][0], 'speedDegS': rate}]}
-            self.assertIsNone(translate_environment_action(invalid, model='v2-12servo'))
-        timed = {**action, 'frames': [{'durationMs': 120, 'targets': action['frames'][0]['targets']}]}
-        self.assertIsNone(translate_environment_action(timed, model='v2-12servo'))
+        self.assertEqual(result["type"],"rejected")
+        self.assertEqual(result["message"],"unsupported_action:robotMotionPlan")
+        self.assertEqual(gateway.calls,[])
         state=adapter._observation()["state"]["freestyleMovement"]
         self.assertTrue(state["available"])
         self.assertEqual(state["jointMap"]["version"],2)
         self.assertEqual(len(state["jointMap"]["joints"]),12)
-        self.assertIsNone(translate_environment_action({**action,"frames":[{
-            "durationMs":100,"targets":[{"joint":j,"degrees":90} for j in ("R1","R2","L1","L2","R4","R3","L3","L4")]}]},model="v2-12servo"))
 
-    async def test_stop_can_preempt_an_active_freestyle_action(self) -> None:
+    async def test_stop_can_preempt_an_active_locomotion_action(self) -> None:
         gateway = BlockingMotionGateway()
         now = datetime(2026, 7, 17, tzinfo=timezone.utc)
         adapter = EnvironmentAdapter(
@@ -1057,16 +1002,13 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             ),
             utcnow=lambda: now,
         )
-        targets = [
-            {"joint": joint, "degrees": 90}
-            for joint in ("R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4")
-        ]
-        plan_task = asyncio.create_task(adapter.handle_action({
-            "id": "plan-1",
-            "type": "robotMotionPlan",
+        self.addCleanup(adapter.receipts.close)
+        move_task = asyncio.create_task(adapter.handle_action({
+            "id": "move-1",
+            "type": "move",
+            "direction": "forward",
+            "locomotionGoal": {"kind": "visual", "target": "fixture", "completionCriteria": "fixture"},
             "createdAt": now.isoformat(),
-            "frames": [{"durationMs": 1000, "targets": targets}],
-            "endPose": "hold",
         }))
         await asyncio.wait_for(gateway.motion_waiting.wait(), timeout=0.2)
 
@@ -1075,15 +1017,15 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             "type": "stop",
             "createdAt": now.isoformat(),
         })
-        plan_result = await asyncio.wait_for(plan_task, timeout=0.2)
+        move_result = await asyncio.wait_for(move_task, timeout=0.2)
 
         self.assertEqual(stop_result["type"], "completed")
-        self.assertEqual(plan_result["type"], "cancelled")
+        self.assertEqual(move_result["type"], "cancelled")
         self.assertEqual([call[0] for call in gateway.calls], [
-            "motion_plan", "wait", "stop", "wait",
+            "intent", "wait", "stop", "wait",
         ])
 
-    async def test_freestyle_policy_disabled_rejects_without_gateway_dispatch(self) -> None:
+    async def test_freestyle_policy_disabled_is_reported_in_state(self) -> None:
         gateway = FakeGateway()
         now = datetime(2026, 7, 17, tzinfo=timezone.utc)
         adapter = EnvironmentAdapter(
@@ -1091,23 +1033,13 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
             EnvironmentAdapterConfig(receipt_path=":memory:", token="adapter-secret", freestyle_enabled=False),
             utcnow=lambda: now,
         )
-        targets = [
-            {"joint": joint, "degrees": 90}
-            for joint in ("R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4")
-        ]
-        result = await adapter.handle_action(
-            {
-                "id": "plan-1",
-                "type": "robotMotionPlan",
-                "createdAt": now.isoformat(),
-                "frames": [{"durationMs": 300, "targets": targets}],
-            }
+        self.addCleanup(adapter.receipts.close)
+        observation = adapter._observation()
+        self.assertEqual(
+            observation["state"]["freestyleMovement"],
+            {"supported": True, "enabled": False, "available": False},
         )
-
-        self.assertEqual(result["type"], "rejected")
-        self.assertIn("disabled", result["message"])
-        self.assertEqual(gateway.calls, [])
-        self.assertNotIn("robotMotionPlan", adapter._observation()["capabilities"]["actions"])
+        self.assertNotIn("robotMotionPlan", observation["capabilities"]["actions"])
 
     async def test_coordinator_admitted_control_uses_local_dispatch_time_not_creation_age(self) -> None:
         gateway = FakeGateway()
@@ -1966,7 +1898,8 @@ class GoalLocomotionBoundaryTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("requestMotion", observation["capabilities"]["actions"])
         self.assertNotIn("robotCommand", observation["capabilities"]["actions"])
         self.assertEqual(observation["capabilities"]["locomotion"]["commands"], ["walk", "run"])
-        self.assertEqual(observation["capabilities"]["robotCommands"], [])
+        self.assertNotIn("robotCommands", observation["capabilities"])
+        self.assertNotIn("robotCommandDescriptions", observation["capabilities"])
         robot["capabilities"]["commands"] = ["stand", "stop"]
         self.assertNotIn("move", adapter._observation()["capabilities"]["actions"])
         self.assertIn("requestMotion", adapter._observation()["capabilities"]["actions"])
@@ -1999,19 +1932,22 @@ class GoalLocomotionBoundaryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(adapter._depth_consumers, {})
         self.assertEqual(adapter.gateway.calls, [])
 
-    async def test_naked_gait_aliases_cannot_dispatch_but_internal_translation_remains(self):
+    async def test_naked_move_requires_locomotion_goal_and_legacy_robot_commands_are_unsupported(self):
         gateway = FakeGateway()
         adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(token="fixture", receipt_path=":memory:"))
         self.addCleanup(adapter.receipts.close)
-        for action in [
-            {"type": "move", "direction": "forward"},
-            *[{"type": "robotCommand", "command": command} for command in
-              ("walk", "walk forward", "reverse", "turn around", "run", "walk_slow", "crawl", "crab")],
-        ]:
+        for direction in ("forward", "backward", "left", "right"):
+            action = {"type": "move", "direction": direction}
             self.assertIsNotNone(translate_environment_action(action))
             result = await adapter.handle_action({"id": "raw", **action})
             self.assertEqual(result["type"], "rejected")
             self.assertEqual(result["message"], "locomotion_goal_required")
+        for command in ("walk", "walk forward", "reverse", "turn around", "run", "walk_slow", "crawl", "crab"):
+            legacy = {"type": "robotCommand", "command": command}
+            self.assertIsNone(translate_environment_action(legacy))
+            result = await adapter.handle_action({"id": "legacy", **legacy})
+            self.assertEqual(result["type"], "rejected")
+            self.assertEqual(result["message"], "unsupported_action:robotCommand")
         self.assertEqual(gateway.calls, [])
 
     async def test_yaw_unwrap_retains_sample_identity_and_resets_on_lost_evidence(self):

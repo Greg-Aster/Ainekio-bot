@@ -15,6 +15,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from .challenge import assess, read_rows, replay, trajectory_metrics, write_rows
+from .freestyle_curriculum import build_curriculum_splits
 from .runtime import compact
 
 

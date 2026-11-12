@@ -52,7 +52,27 @@ from .native import motor_force_range
 
 RECIPE = "microduck-mjlab-v1"
 UPSTREAM = Path(__file__).with_name("vendor") / "microduck_rl" / "UPSTREAM.json"
-TASK_REVISION = 12
+TASK_REVISION = 17
+DEFAULT_ACTOR_HIDDEN_DIMS = (128, 64, 32)
+
+
+@dataclass(kw_only=True)
+class LearningStairsCfg(terrain_gen.BoxPyramidStairsTerrainCfg):
+    def function(self,difficulty,spec,rng):
+        if difficulty < .2:
+            return terrain_gen.BoxFlatTerrainCfg(size=self.size).function(difficulty,spec,rng)
+        return super().function((difficulty-.2)/.8,spec,rng)
+
+
+@dataclass(kw_only=True)
+class ElevatedRingPatternCfg(RingPatternCfg):
+    z_offset: float = 0.10
+
+    def generate_rays(self, mj_model, device):
+        local_offsets, local_directions = super().generate_rays(mj_model, device)
+        local_offsets = local_offsets.clone()
+        local_offsets[:, 2] = self.z_offset
+        return local_offsets, local_directions
 
 
 @dataclass(kw_only=True)
@@ -229,9 +249,7 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
     """Adapt the upstream task to Ainekio's physics, sensors and objective."""
     if config.observation_schema != PROPRIO_SCHEMA:
         raise ValueError("Expected the proprioceptive observation schema")
-    action_scale = list(config.foot_action_scale_mm) if config.foot_action_scale_mm else [55.0, 30.0, 35.0]
-    if action_scale in ([45, 25, 30], [45.0, 25.0, 30.0], [65.0, 35.0, 45.0]):
-        action_scale = [55.0, 30.0, 35.0]
+    action_scale = list(config.foot_action_scale_mm) if config.foot_action_scale_mm else [45.0, 25.0, 30.0]
     config=replace(config,collision_profile="locomotion",balance_enabled=False,heading_feedback_enabled=False,control_hz=50,physics_hz=500,foot_action_scale_mm=action_scale)
     cfg = make_microduck_velocity_env_cfg(play=play, rough=False)
     # Obtain the maintained four-bar closure pose, installed CAD and total mass.
@@ -251,6 +269,14 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
     xml.remove(xml.find("option"))
     for name, limits in zip(JOINTS, config.target_limits_deg):
         xml.find(f".//joint[@name='{name}']").set("range", " ".join(map(str, np.deg2rad(limits))))
+    for geom in xml.iter("geom"):
+        geom.set("group", "1")
+    foot_geoms = []
+    for leg in LEGS:
+        for geom in xml.find(f".//body[@name='{leg}_pickup_body']").findall("geom"):
+            geom.set("priority", "1")
+            foot_geoms.append(geom.get("name"))
+    foot_geoms = tuple(foot_geoms)
     spec_xml = ET.tostring(xml, encoding="unicode")
     lag = round(config.actuator_delay_s*config.physics_hz)
     cfg.scene.entities = {"robot": EntityCfg(
@@ -261,8 +287,6 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
             effort_limit=config.torque_nm, speed_rad_s=math.radians(config.motor_no_load_speed_deg_s),
             delay_min_lag=lag, delay_max_lag=lag),))) }
     feet = tuple(leg+"_reference" for leg in LEGS)
-    foot_geoms = tuple(geom.get("name") for leg in LEGS
-                       for geom in xml.find(f".//body[@name='{leg}_pickup_body']").findall("geom"))
     cfg.scene.sensors = (
         ContactSensorCfg(name="feet_ground_contact",
             primary=ContactMatch(mode="subtree", pattern=tuple(leg+"_pickup_body" for leg in LEGS), entity="robot"),
@@ -270,7 +294,7 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
             reduce="netforce", num_slots=1, track_air_time=True),
         TerrainHeightSensorCfg(name="foot_height_scan",
             frame=tuple(ObjRef(type="site", name=n, entity="robot") for n in feet),
-            pattern=RingPatternCfg.single_ring(radius=.04, num_samples=2),
+            pattern=ElevatedRingPatternCfg(rings=(RingPatternCfg.Ring(.015, 2),), include_center=True, z_offset=.10),
             ray_alignment="yaw", max_distance=1., exclude_parent_body=True, include_geom_groups=(0,)))
     cfg.scene.num_envs = num_envs
     cfg.scene.terrain.terrain_type="generator"
@@ -278,16 +302,16 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
     cfg.scene.terrain.terrain_generator=TerrainGeneratorCfg(
         size=(8.,8.),border_width=20.,num_rows=5,num_cols=5,add_lights=False,curriculum=True,
         sub_terrains={
-            "flat":terrain_gen.BoxFlatTerrainCfg(proportion=.2),
-            "slope_up":LearningSlopeCfg(proportion=.2,
-                slope_range=(0.,math.tan(math.radians(10))),platform_width=.3,vertical_scale=.001),
-            "slope_down":LearningSlopeCfg(proportion=.2,inverted=True,
-                slope_range=(0.,math.tan(math.radians(10))),platform_width=.3,vertical_scale=.001),
-            "obstacles":LearningObstaclesCfg(proportion=.2,
-                obstacle_width_range=(.12,.36),obstacle_height_range=(.003,.012),
-                num_obstacles=12,platform_width=.4,horizontal_scale=.10,vertical_scale=.001),
-            "waves":LearningWaveCfg(proportion=.2,
-                amplitude_range=(.004,.015),num_waves=3,horizontal_scale=.10,vertical_scale=.001)})
+            "flat":terrain_gen.BoxFlatTerrainCfg(proportion=.20),
+            "slope_up":LearningSlopeCfg(proportion=.20,
+                slope_range=(0.,math.tan(math.radians(8))),platform_width=.5,vertical_scale=.001),
+            "cable_ledges":LearningStairsCfg(proportion=.25,
+                step_height_range=(.004,.015),step_width=.18,platform_width=1.2,border_width=.5),
+            "obstacles":LearningObstaclesCfg(proportion=.20,
+                obstacle_width_range=(.10,.26),obstacle_height_range=(.005,.015),
+                num_obstacles=12,platform_width=.45,horizontal_scale=.10,vertical_scale=.001),
+            "waves":LearningWaveCfg(proportion=.15,
+                amplitude_range=(.004,.014),num_waves=3,horizontal_scale=.10,vertical_scale=.001)})
     cfg.viewer.body_name = "torso"
     cfg.actions = {"feet": FootActionCfg(entity_name="robot", environment=asdict(config))}
     cfg.observations = {name: ObservationGroupCfg(
@@ -302,21 +326,26 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
     twist.heading_command = False
     twist.ranges.heading = None
     twist.rel_heading_envs = 0.
-    twist.ranges.lin_vel_x = (-.18,.28)
+    twist.ranges.lin_vel_x = (-.22,.26)
     twist.ranges.lin_vel_y = (-.08,.08)
-    twist.ranges.ang_vel_z = (-1.,1.)
+    twist.ranges.ang_vel_z = (-1.2,1.2)
     mass_randomization = deepcopy(cfg.events["randomize_mass_inertia"])
+    com_randomization = deepcopy(cfg.events["randomize_com"])
     cfg.events = {name: cfg.events[name] for name in ("reset_base", "reset_robot_joints", "foot_friction")}
+    from . import microduck_mdp as ainekio_mdp
     cfg.events["mg90s_force_fields"] = EventTermCfg(func=mg90s_force_fields, mode="startup")
     if config.randomization:
         mass_randomization.params["asset_cfg"].body_names = (".*",)
         mass_randomization.params["alpha_range"] = (
             math.log(1-config.randomization)/2, math.log(1+config.randomization)/2)
         cfg.events["randomize_mass_inertia"] = mass_randomization
-    from . import microduck_mdp as ainekio_mdp
+        com_randomization.params["asset_cfg"].body_names = ("torso",)
+        com_randomization.params["ranges"] = {0: (-0.020, 0.012), 1: (-0.012, 0.012), 2: (-0.006, 0.006)}
+        cfg.events["randomize_com"] = com_randomization
+        cfg.events["randomize_actuators"] = EventTermCfg(func=ainekio_mdp.randomize_actuators, mode="reset")
     cfg.events["reset_base"]=EventTermCfg(func=ainekio_mdp.reset_base,mode="reset")
-    cfg.events["foot_friction"].params["asset_cfg"].geom_names = foot_geoms
-    cfg.events["foot_friction"].params["ranges"] = (.3,1.3)
+    cfg.events["foot_friction"]=EventTermCfg(func=ainekio_mdp.randomize_multisurface_friction,
+        mode="reset",params={"asset_cfg":SceneEntityCfg("robot",geom_names=foot_geoms),"ranges":(0.14,1.45)})
     cfg.events["push_robot"]=EventTermCfg(func=ainekio_mdp.push_robot,
         mode="interval",interval_range_s=(2.,5.))
     keep = ("body_ang_vel", "foot_clearance", "foot_swing_height", "foot_slip")
@@ -328,28 +357,31 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
                 asset.body_names = ("torso",)
             if asset.site_names:
                 asset.site_names = feet
-    cfg.rewards["foot_clearance"].params["target_height"]=.032
-    cfg.rewards["foot_swing_height"].params["target_height"]=.032
+    cfg.rewards["foot_clearance"]=RewardTermCfg(func=ainekio_mdp.foot_clearance,weight=-.2,
+        params=dict(cfg.rewards["foot_clearance"].params,sensor_name="feet_ground_contact",
+                    target_height=.021,max_free_height=.040))
+    cfg.rewards["foot_swing_height"]=RewardTermCfg(func=ainekio_mdp.foot_swing_height,weight=-.05,
+        params=dict(cfg.rewards["foot_swing_height"].params,target_height=.022,max_free_height=.040))
+    cfg.rewards["foot_slip"]=RewardTermCfg(func=ainekio_mdp.foot_slip,weight=-.30,
+        params=cfg.rewards["foot_slip"].params)
     cfg.rewards.update({
         "tracking_twist":RewardTermCfg(func=ainekio_mdp.tracking_twist,weight=3.5),
-        "upright_cost":RewardTermCfg(func=ainekio_mdp.upright_cost,weight=-1.),
+        "upright_cost":RewardTermCfg(func=ainekio_mdp.upright_cost,weight=-1.5),
         "tracked_air_time":RewardTermCfg(func=ainekio_mdp.tracked_air_time,weight=1.5),
-        "alternating_stride":RewardTermCfg(func=ainekio_mdp.alternating_stride,weight=2.4),
-        "action_change":RewardTermCfg(func=ainekio_mdp.action_change,weight=-.005),
+        "alternating_stride":RewardTermCfg(func=ainekio_mdp.alternating_stride,weight=2.0),
+        "action_change":RewardTermCfg(func=ainekio_mdp.action_change,weight=-.01),
         "action_size":RewardTermCfg(func=ainekio_mdp.action_size,weight=-.005),
         "standing_pose":RewardTermCfg(func=ainekio_mdp.standing_pose,weight=-.5)})
     cfg.rewards["body_ang_vel"].weight=-.005
-    cfg.rewards["foot_swing_height"].weight=-.04
-    cfg.rewards["foot_clearance"].weight=-.2
     # Per-step cost budgets prevent one finite physics excursion from
     # dominating PPO returns. They do not alter plant state or motion limits.
-    for name,limit in {"body_ang_vel":20.,"foot_slip":1.,
-                       "foot_clearance":.1,"foot_swing_height":1.,"standing_pose":2.}.items():
+    for name,limit in {"body_ang_vel":20.,"foot_slip":1.5,
+                       "foot_clearance":1.5,"foot_swing_height":1.,"standing_pose":2.}.items():
         term=cfg.rewards[name]
         cfg.rewards[name]=RewardTermCfg(func=ainekio_mdp.BoundedCost,weight=term.weight,
             params={"function":term.func,"parameters":term.params,"limit":limit})
     cfg.curriculum = {"walking_difficulty": CurriculumTermCfg(func=ainekio_mdp.WalkingDifficulty,
-        params={"widths":[.1,.1,.5]})}
+        params={"widths":[.1,.07,.30]})}
     cfg.terminations = {name: term for name, term in cfg.terminations.items()
                         if name in ("time_out", "fell_over", "nan_state")}
     cfg.terminations["nan_state"].func=ainekio_mdp.invalid_physics
@@ -392,13 +424,85 @@ def evaluate_run(directory, *, episode_seconds=8., seeds=(1000, 1001)):
     return report
 
 
+def _distill_from_teacher(runner, wrapped, teacher_dir, device):
+    """Distill a larger teacher actor into a compact P4 L2-cache-resident student actor."""
+    ckpt_path=Path(teacher_dir)/"learner.pt"
+    loaded=torch.load(str(ckpt_path),map_location=device,weights_only=False)
+    runner.alg.critic.load_state_dict(loaded["critic_state_dict"],strict=True)
+    t_sd=loaded["actor_state_dict"]
+    student_actor=runner.alg.actor
+    for key in ("_mean","_var","_std","count"):
+        full_key=f"obs_normalizer.{key}"
+        if full_key in t_sd and hasattr(student_actor.obs_normalizer,key):
+            getattr(student_actor.obs_normalizer,key).data.copy_(t_sd[full_key].to(device))
+    w0,b0=t_sd["mlp.0.weight"],t_sd["mlp.0.bias"]
+    w1,b1=t_sd["mlp.2.weight"],t_sd["mlp.2.bias"]
+    w2,b2=t_sd["mlp.4.weight"],t_sd["mlp.4.bias"]
+    w3,b3=t_sd["mlp.6.weight"],t_sd["mlp.6.bias"]
+    teacher_mlp=torch.nn.Sequential(
+        torch.nn.Linear(w0.shape[1],w0.shape[0]),torch.nn.ELU(),
+        torch.nn.Linear(w1.shape[1],w1.shape[0]),torch.nn.ELU(),
+        torch.nn.Linear(w2.shape[1],w2.shape[0]),torch.nn.ELU(),
+        torch.nn.Linear(w3.shape[1],w3.shape[0]),
+    ).to(device)
+    for idx,(w,b) in ((0,(w0,b0)),(2,(w1,b1)),(4,(w2,b2)),(6,(w3,b3))):
+        teacher_mlp[idx].weight.data.copy_(w.to(device))
+        teacher_mlp[idx].bias.data.copy_(b.to(device))
+    teacher_mlp.eval()
+    student_mlp=student_actor.mlp
+    opt=torch.optim.AdamW(student_mlp.parameters(),lr=1.5e-3,weight_decay=1e-5)
+    was_training=student_actor.obs_normalizer.training
+    student_actor.obs_normalizer.eval()
+    final_action_mae=0.
+    try:
+        wrapped.reset()
+        for dagger_round,(rollout_steps,epochs,student_prob) in enumerate(((200,20,0.0),(150,20,0.8))):
+            xs,ys=[],[]
+            with torch.no_grad():
+                for _ in range(rollout_steps):
+                    obs_actor=wrapped.get_observations()["actor"]
+                    norm_obs=student_actor.obs_normalizer(obs_actor)
+                    t_logits=torch.nan_to_num(teacher_mlp(norm_obs),nan=0.,posinf=8.,neginf=-8.).clamp(-8.,8.)
+                    xs.append(norm_obs.detach())
+                    ys.append(t_logits.detach())
+                    if student_prob>0. and torch.rand((),device=device).item()<student_prob:
+                        act=student_mlp(norm_obs).clamp(-8.,8.).tanh()
+                    else:
+                        act=t_logits.tanh()
+                    wrapped.step(act)
+            x_all=torch.cat(xs,dim=0)
+            y_all=torch.cat(ys,dim=0)
+            y_tanh=y_all.tanh()
+            n=x_all.shape[0]
+            batch_size=4096
+            for _ in range(epochs):
+                perm=torch.randperm(n,device=device)
+                for start in range(0,n,batch_size):
+                    idx=perm[start:start+batch_size]
+                    pred=student_mlp(x_all[idx])
+                    loss=0.25*(pred-y_all[idx]).square().mean()+2.0*(pred.tanh()-y_tanh[idx]).square().mean()
+                    opt.zero_grad()
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(student_mlp.parameters(),2.0)
+                    opt.step()
+            for g in opt.param_groups:
+                g["lr"]*=0.5
+            with torch.no_grad():
+                final_action_mae=float((student_mlp(x_all[:8192]).tanh()-y_tanh[:8192]).abs().mean().item())
+    finally:
+        student_actor.obs_normalizer.train(was_training)
+    if hasattr(student_actor.distribution,"log_std_param"):
+        student_actor.distribution.log_std_param.data.fill_(-1.25)
+    runner.alg.optimizer.state.clear()
+    wrapped.reset()
+    return {"teacher":str(teacher_dir),"distilled_action_mae":final_action_mae}
+
+
 def train(directory, config, *, iterations, num_envs=1024, device="cuda:0", seed=1,
-          resume=None):
+          resume=None, distill_from=None, actor_hidden_dims=DEFAULT_ACTOR_HIDDEN_DIMS):
     directory=Path(directory)
     directory.mkdir(parents=True,exist_ok=True)
-    action_scale = list(config.foot_action_scale_mm) if config.foot_action_scale_mm else [55.0, 30.0, 35.0]
-    if action_scale in ([45, 25, 30], [45.0, 25.0, 30.0], [65.0, 35.0, 45.0]):
-        action_scale = [55.0, 30.0, 35.0]
+    action_scale = list(config.foot_action_scale_mm) if config.foot_action_scale_mm else [45.0, 25.0, 30.0]
     config=replace(config,observation_schema=PROPRIO_SCHEMA,collision_profile="locomotion",
                    balance_enabled=False,heading_feedback_enabled=False,control_hz=50,physics_hz=500,episode_seconds=20.,
                    foot_action_scale_mm=action_scale)
@@ -412,12 +516,17 @@ def train(directory, config, *, iterations, num_envs=1024, device="cuda:0", seed
         agent.logger="tensorboard"
         agent.experiment_name="ainekio_microduck"
         agent.upload_model=False
+        if actor_hidden_dims is not None:
+            agent.actor.hidden_dims=tuple(int(d) for d in actor_hidden_dims)
         agent.actor.distribution_cfg={
             "class_name":"gateway.neural_gait.microduck_policy:FootGaussianDistribution",
             "init_std":1.,"std_type":"log"}
-        agent.save_interval=max(1,math.ceil(1_000_000/(num_envs*agent.num_steps_per_env)))
+        agent.save_interval=max(1,math.ceil(500_000/(num_envs*agent.num_steps_per_env)))
         manifest=dict(kind="microduck-mjlab",recipe=RECIPE,algorithm="PPO",
-            task_revision=TASK_REVISION,actor_distribution=agent.actor.distribution_cfg,
+            task_revision=TASK_REVISION,actor_hidden_dims=list(agent.actor.hidden_dims),
+            actor_distribution=agent.actor.distribution_cfg,
+            distilled_from=str(distill_from) if distill_from else None,
+            resumed_from=str(resume) if resume else None,
             rewards={name:term.weight for name,term in cfg.rewards.items()},
             reward_cost_limits={name:term.params["limit"] for name,term in cfg.rewards.items()
                                 if "limit" in term.params},
@@ -446,6 +555,15 @@ def train(directory, config, *, iterations, num_envs=1024, device="cuda:0", seed
             ckpt_path=str(Path(resume)/"learner.pt")
             has_opt="optimizer_state_dict" in torch.load(ckpt_path,map_location="cpu",weights_only=False)
             runner.load(ckpt_path,load_cfg={"actor":True,"critic":True,"optimizer":has_opt,"iteration":has_opt,"rnd":False},map_location=device)
+            if hasattr(runner,"alg") and hasattr(runner.alg,"learning_rate"):
+                runner.alg.learning_rate=min(float(runner.alg.learning_rate),2.5e-4)
+                for group in runner.alg.optimizer.param_groups:
+                    group["lr"]=runner.alg.learning_rate
+        elif distill_from:
+            save_json(directory/"progress.json",dict(state="distilling",iterations=iterations,steps=0))
+            distill_info=_distill_from_teacher(runner,wrapped,distill_from,device)
+            manifest["distillation"]=distill_info
+            save_json(directory/"manifest.json",manifest)
         original_log=runner.logger.log
         def progress(**values):
             original_log(**values)
@@ -496,6 +614,8 @@ def main():
     parser.add_argument("--device",default="cuda:0")
     parser.add_argument("--seed",type=int,default=1)
     parser.add_argument("--resume")
+    parser.add_argument("--distill-from")
+    parser.add_argument("--actor-hidden-dims",default="128,64,32")
     parser.add_argument("--evaluate",action="store_true")
     args=parser.parse_args()
     if args.evaluate:
@@ -503,12 +623,13 @@ def main():
         return
     if not args.config:
         parser.error("--config is required for training")
+    hidden_dims=tuple(int(x) for x in args.actor_hidden_dims.split(",") if x.strip())
     config=EnvironmentConfig(**json.loads(Path(args.config).read_text()))
     config=replace(config,observation_schema=PROPRIO_SCHEMA,
                    control_hz=50,physics_hz=500,collision_profile="locomotion",balance_enabled=False,heading_feedback_enabled=False)
     iterations=args.iterations if args.iterations is not None else math.ceil(args.steps/(args.num_envs*MicroduckRlCfg.num_steps_per_env))
     train(args.directory,config,iterations=iterations,num_envs=args.num_envs,device=args.device,
-          seed=args.seed,resume=args.resume)
+          seed=args.seed,resume=args.resume,distill_from=args.distill_from,actor_hidden_dims=hidden_dims)
 
 
 if __name__=="__main__":

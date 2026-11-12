@@ -8,6 +8,7 @@ production code; only the body's wire and terminal messages are simulated.
 from __future__ import annotations
 
 import asyncio
+from contextlib import AsyncExitStack
 import json
 import math
 from datetime import datetime, timezone
@@ -23,13 +24,40 @@ class ProgramBody:
     def __init__(self) -> None:
         self.fixture = ActiveMovementTests()
         self.fixture.setUp()
+        self.fixture.connection.features = (*self.fixture.connection.features, "motion_targets_v1")
         if session := os.environ.get("AINEKIO_TEST_SESSION"):
             self.fixture.adapter.config = replace(self.fixture.adapter.config, session_id=session)
         self.fixture.adapter._bridge_ready = True
         self.actions: dict[str, asyncio.Task] = {}
+        self.freestyle_sequences: dict[str, int] = {}
         self.bridge_cursor = 0
         self.measurement_counter = 0
         adapter_server.CANCELLATION_TIMEOUT_SECONDS = 0.05
+
+        async def freestyle_motion(robot_id, request, execute=False, *, job_id=None, on_start=None):
+            jid = job_id or f"freestyle-{len(self.freestyle_sequences) + 1}"
+            async with AsyncExitStack() as stack:
+                if on_start is not None:
+                    cm = on_start(jid)
+                    if hasattr(cm, "__aenter__"):
+                        await stack.enter_async_context(cm)
+                    elif cm is not None:
+                        stack.enter_context(cm)
+                seq = await self.fixture.gateway.queue_intent("emote", {"asset": "wave"}, robot_id=robot_id)
+            self.freestyle_sequences[jid] = seq
+            return {"job_id": jid}
+
+        async def freestyle_result(job_id):
+            seq = self.freestyle_sequences[job_id]
+            epoch = self.fixture.connection.epoch
+            terminal = await self.fixture.gateway.wait_terminal(seq, robot_id="robot", epoch=epoch, timeout=None)
+            state = ("completed" if terminal.get("t") in {"ack", "done"}
+                else "superseded" if terminal.get("t") == "cancelled" else "error")
+            return {"id": job_id, "robot_id": "robot", "epoch": epoch, "state": state,
+                "last_sequence": seq, "receipts": [terminal]}
+
+        self.fixture.gateway.freestyle_motion = freestyle_motion
+        self.fixture.gateway.freestyle_result = freestyle_result
 
     def snapshot(self) -> dict:
         fixture = self.fixture
@@ -92,7 +120,8 @@ class ProgramBody:
             action_id = request.get("actionId")
             if action_id:
                 row = fixture.adapter.receipts.action(action_id)
-                sequence = json.loads(row["wire"])["sequence"]
+                wire = json.loads(row["wire"])
+                sequence = wire.get("sequence") or self.freestyle_sequences[wire["jobId"]]
             else:
                 sequence = request["sequence"]
             await fixture.connection._handle_control({"t": "ack", "seq": sequence})

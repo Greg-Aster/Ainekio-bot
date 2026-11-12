@@ -36,6 +36,7 @@ class TensorSensors:
         self.feedback_time=torch.zeros(count,device=device)
         self.imu_time=torch.zeros(count,device=device)
         self.raw=torch.zeros((count,12),device=device)
+        self.raw_scale=torch.ones((count,1),device=device);self.raw_offset=torch.zeros((count,12),device=device)
         self.filtered=self.raw.clone();self.derivative=self.raw.clone();self.velocity=self.raw.clone()
         self.joint=self.raw.clone();self.joint_velocity=self.raw.clone()
         self.quaternion=torch.zeros((count,4),device=device);self.quaternion[:,0]=1
@@ -75,7 +76,7 @@ class TensorSensors:
         dt=interval.clamp_min(1e-9)
         positions=torch.nan_to_num(positions,nan=0.,posinf=0.,neginf=0.)
         pulse=self.pulse_home+(torch.rad2deg(positions)-self.home)*self.scale
-        raw=self.interpolate(pulse,self.curve_pulse,self.curve_raw)
+        raw=self.interpolate(pulse,self.curve_pulse,self.curve_raw)*self.raw_scale[ids]+self.raw_offset[ids]
         raw=torch.round(raw+torch.randn_like(raw)*self.config.feedback_noise_raw_std).clamp(0,4095)
         alpha=1/(1+1/(2*math.pi*5*dt))
         derivative=self.derivative[ids]+alpha*((raw-self.raw[ids])/dt-self.derivative[ids])

@@ -3,9 +3,9 @@ import json
 import unittest
 
 from .challenge import replay
-from .curriculum import source_state
 from .face_contract import available_faces, extend_contract
 from .semantic_teachers import call
+from .stand_curriculum import source_state
 
 
 class FaceContractTests(unittest.TestCase):

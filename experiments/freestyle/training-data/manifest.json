@@ -1,7 +1,10 @@
 {
   "version": "motion-targets-v1",
-  "source": "Body Control editable motion library and latest reviewed trials",
-  "training_rows": 489,
+  "source": "Body Control editable motion library + V2 twelve-servo compositional Freestyle curriculum + linked recovery",
+  "training_rows": 1486,
+  "ordinary_rows": 742,
+  "recovery_rows": 744,
+  "evaluation_rows": 77,
   "training_launched": false,
   "discarded_examples": [
     {
@@ -11545,100 +11548,42 @@
       "reason": "Installation Owner cleared the motion training dataset."
     }
   ],
-  "reviewed_trial_rows": 0,
-  "encoding_sha256": "73a4c5d554ac3242ae6d22915960d9ac1295399a9a8faf560f16f28cdf382325",
-  "files": {
-    "system.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "wire.json": "01b7e24457019da3075e9fbe52ed88c92bde5f246369e0bbad9fbd56a1b245e5",
-    "regression-evaluation.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "evaluation.jsonl": "5ea0322b3f94aef078d6988910d9e7d22225f4caaa30782e5889d9f8db36a760",
-    "recovery-probe.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "train.jsonl": "9d8b5898c7a7fc3c3c8aa7a72643fc07cba2c3a53775bf43847bcd20b4827dfa",
-    "tools.json": "7637e3598493d926490562704f0512c9ca0c19023160bedb4cad7ab54cfa274d"
-  },
-  "native_stand": {
-    "operation": "stand",
-    "changed_examples": [
-      {
-        "id": "a17d0fddd1bd3dc7",
-        "previous_revision": 2,
-        "revision": 3,
-        "request": "Stand up.",
-        "answers": [
-          [
-            "stand"
-          ]
-        ]
-      },
-      {
-        "id": "ed1733f58b01a041",
-        "previous_revision": 2,
-        "revision": 3,
-        "request": "Please stand.",
-        "answers": [
-          [
-            "stand"
-          ]
-        ]
-      },
-      {
-        "id": "81fc00175ef881a1",
-        "previous_revision": 1,
-        "revision": 2,
-        "request": "Return to your normal standing pose.",
-        "answers": [
-          [
-            "stand"
-          ]
-        ]
-      },
-      {
-        "id": "ce47b1a29f5a6f52",
-        "previous_revision": 1,
-        "revision": 2,
-        "request": "stand",
-        "answers": [
-          [
-            "stand"
-          ]
-        ]
-      }
-    ],
-    "retired_direct_pose_recovery_rows": 12,
-    "physical_trials": 0
-  },
+  "encoding_sha256": "3d0806a3ef759f20786ab961f4bed3aaaaf731402953107c21c1299f73e14e67",
   "library_recovery": {
-    "eligible_source_motions": 23,
-    "covered_source_motions": 23,
-    "added_training": 416,
-    "added_probes": 0,
+    "eligible_source_motions": 74,
+    "covered_source_motions": 74,
+    "added_training": 376,
+    "added_probes": 368,
     "families": {
-      "library_jam_recovery": 46,
-      "library_feedback_recovery": 46,
-      "library_error_recovery": 46,
-      "library_error_feedback_recovery": 46,
-      "library_repeated_jam_recovery": 46,
-      "library_repeated_feedback_recovery": 46,
-      "library_fall_recovery": 46,
-      "library_movement_recovery": 46,
+      "library_jam_recovery": 38,
+      "library_error_feedback_recovery": 40,
+      "library_repeated_feedback_recovery": 38,
+      "library_fall_recovery": 40,
+      "library_feedback_recovery": 36,
+      "library_repeated_jam_recovery": 36,
+      "library_error_recovery": 34,
+      "library_movement_recovery": 34,
       "standalone_jam_recovery": 12,
       "standalone_feedback_recovery": 12,
       "standalone_slip_recovery": 8,
       "standalone_fall_recovery": 8,
-      "standalone_movement_recovery": 8
+      "standalone_movement_recovery": 8,
+      "completed_jam_recovery": 8,
+      "completed_fall_recovery": 8,
+      "adaptive_wave_recovery": 16
     },
     "joint_coverage": {
-      "4": 6,
-      "8": 4,
-      "10": 6,
-      "9": 4,
-      "1": 2,
-      "2": 6,
-      "5": 4,
-      "6": 4,
-      "11": 4,
-      "3": 2,
-      "0": 4
+      "2": 12,
+      "1": 8,
+      "9": 3,
+      "0": 1,
+      "4": 1,
+      "10": 1,
+      "6": 2,
+      "5": 5,
+      "11": 1,
+      "7": 2,
+      "8": 2
     },
     "unresolved": [],
     "slip_changes": false,
@@ -11648,7 +11593,15 @@
       "No contact/dynamics simulation or physical success labels.",
       "Fall examples require a preceding measured correction; initial arbitrary fallen-pose righting remains unqualified.",
       "Geometric replay does not establish physical recovery."
-    ],
-    "generator_sha256": "b3ed74a2b5f8e30963571f59c6ec8fded1544424bfe0c79bd00158c6555470a7"
+    ]
+  },
+  "files": {
+    "train.jsonl": "9b35381a7f7cb4cf019d48f72f429bd3a7cd889e7b81ae47eb557ccfd60de833",
+    "evaluation.jsonl": "29afdc192923632713145890ad8dba7ece54fe56571752454146c35784b0b4d6",
+    "recovery-probe.jsonl": "514c28ac40cdf341356c0b3b63e2131a3f6d5267145591929d860cef7f897997",
+    "regression-evaluation.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "system.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tools.json": "7637e3598493d926490562704f0512c9ca0c19023160bedb4cad7ab54cfa274d",
+    "wire.json": "01b7e24457019da3075e9fbe52ed88c92bde5f246369e0bbad9fbd56a1b245e5"
   }
 }

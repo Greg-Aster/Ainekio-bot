@@ -10,7 +10,7 @@ from .runtime import JOINTS
 FORMAT = 'motion-targets-v1'
 LEGACY_FORMAT = 'motion-arrays-v1'
 LEGS = tuple(dict.fromkeys(j.rsplit('_', 1)[0] for j in JOINTS))
-JOINT_FIELDS = ('model_deg', 'commanded_model_deg', 'home_deg', 'velocity_deg_s',
+JOINT_FIELDS = ('model_deg', 'commanded_model_deg', 'filtered_model_deg', 'home_deg', 'velocity_deg_s',
                 'calibrated', 'in_calibrated_range', 'feedback_range_deg',
                 'arrival_tolerance_deg', 'feedback_usable', 'feedback_faults',
                 'tracking_error_deg', 'within_arrival_tolerance')
@@ -75,7 +75,7 @@ def recovery_state(value):
     if not isinstance(value, dict):
         return value
     state = observation(value)
-    result = {k:state[k] for k in ('joints', 'expected_up', 'joint_speed_limit_deg_s', 'shaft_tracking',
+    result = {k:state[k] for k in ('model', 'joints', 'expected_up', 'joint_speed_limit_deg_s', 'shaft_tracking',
                                   'features','trajectory_progress') if k in state}
     imu = state.get('imu')
     if isinstance(imu, dict):
@@ -83,6 +83,11 @@ def recovery_state(value):
             'orientation_wxyz', 'angular_rate_rad_s', 'acceleration_m_s2',
             'calibration_applied', 'gyro_recovery', 'acceleration_recovery', 'accelerometer_ignored',
             'derived_orientation') if k in imu}
+        if isinstance(result['imu'].get('derived_orientation'), dict):
+            result['imu']['derived_orientation'] = {
+                k: round(v, 2) if isinstance(v, float) else v
+                for k, v in result['imu']['derived_orientation'].items()
+            }
     feedback = state.get('feedback')
     if isinstance(feedback, dict):
         result['feedback'] = {k:feedback[k] for k in ('enabled', 'no_progress_ms',
@@ -99,8 +104,24 @@ def recovery_state(value):
         if isinstance(item, list): return [rounded(x) for x in item]
         if isinstance(item, dict): return {k:rounded(v) for k,v in item.items()}
         return item
-    if 'joints' in result:
-        result['joints'] = rounded(result['joints'])
+    if isinstance(result.get('joints'), dict):
+        joints = rounded(result['joints'])
+        if isinstance(joints.get('extra'), dict):
+            extra = {k: {ek: ev for ek, ev in v.items() if ek != 'sampled_us'}
+                     for k, v in joints['extra'].items() if isinstance(v, dict)}
+            extra = {k: v for k, v in extra.items() if v}
+            if extra:
+                joints['extra'] = extra
+            else:
+                joints.pop('extra', None)
+        measured = joints.get('model_deg')
+        target = joints.get('commanded_model_deg')
+        if isinstance(measured, list) and isinstance(target, list) and 'tracking_error_deg' in joints:
+            joints['tracking_error_deg'] = [
+                round(b - a, 2) if isinstance(a, (int, float)) and isinstance(b, (int, float)) else None
+                for a, b in zip(measured, target)
+            ]
+        result['joints'] = joints
     return result
 
 
@@ -117,7 +138,9 @@ def model_query(query, encoding):
     event = result.get('event')
     kind = (event.get('type') or event.get('kind')) if isinstance(event, dict) else None
     if kind not in RECOVERY_EVENTS:
-        for key in ('observation', 'history', 'event'):
+        if 'observation' in result:
+            result['observation'] = recovery_state(result['observation'])
+        for key in ('history', 'event'):
             if key in result: result[key] = observation(result[key])
         return result
     state = result.get('observation')

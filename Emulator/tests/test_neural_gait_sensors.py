@@ -372,6 +372,21 @@ class NativeSensorTests(unittest.TestCase):
                     self.assertTrue((pulse <= 2950).all())
             self.assertGreater(reductions, 0)
 
+        # Sequential boundary steps retain closure-fitted ramped_angles as body.c
+        # retains body.pose, rather than feeding 1 us unmapped rounding back into
+        # ainekio_p4_joint_ramp_frame where it could violate circle closure.
+        previous = self.pose.copy()
+        boundary_offsets = np.array(
+            [[-42.0, 2.0, 22.0], [44.0, -18.0, -18.0], [38.0, -4.0, 18.0], [-36.0, 12.0, -12.0]]
+        )
+        for step in range(24):
+            sign = -1.0 if step % 6 >= 3 else 1.0
+            stepped = self.body.foot_target(
+                sign * boundary_offsets, self.pose, previous, 2000.0, 0.02
+            )
+            self.assertIsNotNone(stepped, f"Rejected sequential boundary step {step}")
+            previous = stepped["ramped_angles"].copy()
+
     def test_pwm_quantization_and_phases_follow_timer_and_output_channel_mapping(self):
         from gateway.neural_gait.native import BodyModel
 

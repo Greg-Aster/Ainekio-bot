@@ -1,73 +1,62 @@
-# Ainekio the Robot Familiar
+# Ainekio
 
-  Ainekio the Robot Familiar is a hardware and software project for building a small robot companion powered by MetaHuman OS. The robot uses a physical body,
-  onboard sensors, and a network connection to let MetaHuman OS see, listen, speak, move, and interact through a physical chassis.
+Ainekio is a compact quadruped robot companion built from custom 3D-printed mechanics, real-time ESP32 firmware, and a Python Body Control gateway, powered by [Ainekio OS](https://github.com/Greg-Aster/ainekio-os) ([ainek.io](https://ainek.io)).
 
-- Progress blog and current status: [ainek.io](https://ainek.io)
-- MetaHuman OS development repo: [Greg-Aster/metahuman-os](https://github.com/Greg-Aster/metahuman-os)
-- Retained V1 reference body: based on the Sesame robot: [dorianborian/sesame-robot](https://github.com/dorianborian/sesame-robot)
+This repository owns the physical chassis, microcontroller firmware, `protocol-v1` transport, local perception, motion execution, and host simulation. Higher-level cognition, persistent memory, speech synthesis, and autonomous decision-making run in [Ainekio OS](https://github.com/Greg-Aster/ainekio-os) across an authenticated Environment Bridge.
 
-## Start here for robot development
+![Ainekio Body Control interface](docs/images/body-control-ui.png)
 
-Read the shared [robot design core](../metahuman/docs/robot/ROBOT_BIBLE.md)
-for the companion's purpose, architecture, ownership and maintenance approach.
-For processes, interfaces, source owners and execution paths, read the shared
-[Robot software architecture](../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md).
-Then follow the contract and qualification scenario relevant to your task.
-The canonical file lives at `docs/robot/ROBOT_BIBLE.md` in the MetaHuman repository
-linked above; local cross-repository links assume sibling checkouts. Both humans
-and agents use the same core. [AGENTS.md](AGENTS.md) governs repository work, and
-[documentation authority](docs/README.md) identifies the specific system and
-hardware references.
+## Hardware Generations
 
-## Robot Models
+- **V2 (Active — 12-servo quadruped)**: Custom 3-DOF-per-leg chassis (`Slave/hardware/v2-12servo/`) running ESP-IDF firmware on an ESP32-P4-WIFI6 with an ESP32-C6 companion radio (`Slave/firmware/esp32p4-wifi6/`). Drives 12 joints via PCA9685 PWM with 16-channel muxed 4th-wire analog position feedback, LSM6DS3 IMU attitude estimation and balance trim, onboard camera streaming and correlated stills, microphone/local wake-word and speaker audio, and an animated LCD face.
+- **V1 (Paused — 8-servo quadruped)**: Retained Freenove ESP32-S3 body with direct MCPWM servo drive (`Slave/firmware/esp32s3/`, `Slave/hardware/v1-8servo/`), originally derived from [Sesame](https://github.com/dorianborian/sesame-robot).
 
-- **V1 / eight servos:** the existing Freenove ESP32-S3 robot, with direct
-  MCPWM servo outputs. [Wiring and hardware records](docs/v1-8servo/PINOUT_DIAGNOSTICS.md).
-- **V2 / twelve servos:** ESP32-P4-WIFI6 with PCA9685 servo output,
-  [P4 firmware](Slave/firmware/esp32p4-wifi6/README.md) and a
-  [V2 motion model](Slave/software/models/v2-12servo/README.md).
-  [Hardware records](docs/v2-12servo/README.md) and dated qualification remain
-  separate from source implementation.
-
-Both models use the same gateway and Body Control interface.
-Current development targets V2; V1 work is paused.
-[Robot Models](docs/ROBOT_MODELS.md) records their distinct body contracts. Use the selected device and current firmware/model
-owners for available capabilities; older bring-up descriptions do not establish
-the present implementation or installed physical performance.
+Both generations connect through the same `protocol-v1` link and Body Control interface. See [Robot Models](docs/ROBOT_MODELS.md) and [V2 Specifications](docs/v2-12servo/SPECIFICATIONS.md) for hardware contracts; source capabilities and per-device physical qualification are tracked separately.
 
 ## Repository Layout
 
-- `Master/` - Body Control gateway, environment adapter and manual interface;
-  MetaHuman owns the companion brain and higher functions.
-- `Slave/hardware/v1-8servo/` - V1 CAD and physical-body assets.
-- `Slave/hardware/v2-12servo/` - V2 CAD, source assemblies, and printable parts.
-- `Slave/software/` - portable slave-brain core, protocol, and tests.
-- `Slave/firmware/esp32s3/` - current V1 firmware that runs on the robot.
-- `Slave/firmware/esp32p4-wifi6/` - V2 P4 firmware, motion and peripheral control.
-- `Emulator/` - host body emulator, Sesame visual simulator, and tests.
-- `docs/` - specifications, progress records, repository map, and the ignored
-  Sesame reference clone.
+| Path | Responsibility |
+| --- | --- |
+| `Master/` | Python Body Control gateway (`protocol-v1` WebSocket server), operator dashboard (`127.0.0.1:8791`), camera perception (YOLO, depth, person recognition), Microduck neural gait, and `/environment` bridge ([gateway README](Master/gateway/README.md)) |
+| `Slave/firmware/esp32p4-wifi6/` | Active V2 ESP-IDF firmware (`main/app_main.c`), servo/ADC feedback loop, IMU, camera, audio, and LCD face ([firmware README](Slave/firmware/esp32p4-wifi6/README.md)) |
+| `Slave/firmware/esp32s3/` | Retained V1 ESP32-S3 firmware (`main/app_main.c`) |
+| `Slave/software/` | Portable `protocol-v1` implementation, kinematics/motion models, and tests ([protocol README](Slave/software/protocol/README.md), [V2 motion model](Slave/software/models/v2-12servo/README.md)) |
+| `Slave/hardware/` | Printable STLs, CAD assemblies, and mechanical layouts for `v2-12servo/` and `v1-8servo/` |
+| `experiments/freestyle/` | Model-backed Freestyle motion generation and host trajectory execution loaded by Body Control ([Freestyle README](experiments/freestyle/README.md)) |
+| `Emulator/` | Host `protocol-v1` body emulator, visual simulator, and A1–A30 software acceptance suite |
+| `docs/` | Hardware specifications, wiring maps, startup runbooks, and gait/qualification records |
 
-The V2 physical robot entrypoint is
-`Slave/firmware/esp32p4-wifi6/main/app_main.c`; V1 retains
-`Slave/firmware/esp32s3/main/app_main.c`. Freestyle generation and host execution
-currently live in `experiments/freestyle/` and are loaded by Body Control.
-See [the repository map](docs/REPOSITORY_MAP.md) for source ownership and
-[startup](docs/STARTUP.md) for an existing physical installation.
+## Quick Start
 
-Run the V1 simulator inspection stack with:
+### Physical V2 Body Control
+
+Start the physical `protocol-v1` listener, operator dashboard, and authenticated `/environment` bridge for an installed V2 robot:
+
+```sh
+./Master/start-physical-gateway.sh
+```
+
+See [docs/STARTUP.md](docs/STARTUP.md) for required environment variables, port bindings, and running alongside Ainekio OS.
+
+### Host Simulator & Acceptance Suite
+
+Launch the visual simulator, `protocol-v1` body emulator, Body Control gateway, operator dashboard, and `/environment` adapter in a single supervised stack (`Ctrl+C` stops all processes):
 
 ```sh
 cp .env.example .env
-# Set AINEKIO_ENVIRONMENT_ADAPTER_TOKEN to the adapter token used by MetaHuman OS.
+# Set AINEKIO_ENVIRONMENT_ADAPTER_TOKEN to match Ainekio OS
 ./start.sh
 ```
 
-This one command starts the visual simulator, protocol-v1 body emulator, Master
-gateway, operator dashboard, and authenticated environment adapter. The
-launcher refuses to start when the shared bridge token is missing instead of
-silently running a disconnected gateway. It prints the dashboard password and
-local inspection URLs; pressing `Ctrl+C` stops the entire stack. Run all A1-A30
-software acceptance gates with
-`python3 Emulator/tools/run_acceptance.py`.
+Run the A1–A30 software acceptance gates:
+
+```sh
+python3 Emulator/tools/run_acceptance.py
+```
+
+## Documentation
+
+- [Robot Design Core](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/robot/ROBOT_BIBLE.md) & [Robot Software Architecture](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/robot/SYSTEM_ARCHITECTURE.md) — Shared whole-robot contracts and execution paths in `ainekio-os`
+- [Documentation Authority](docs/README.md) & [Repository Map](docs/REPOSITORY_MAP.md) — Source ownership and document index
+- [V2 Hardware & Firmware Specifications](docs/v2-12servo/SPECIFICATIONS.md) & [V2 Docs Index](docs/v2-12servo/README.md) — Active 12-servo hardware, wiring, and resource budgets
+- [Robot Models](docs/ROBOT_MODELS.md) & [V1 Pinout Diagnostics](docs/v1-8servo/PINOUT_DIAGNOSTICS.md) — Model differences and retained V1 hardware records

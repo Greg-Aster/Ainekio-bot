@@ -410,7 +410,6 @@ int simulation_foot_target(void *state,const double *offsets,const double *refer
     if(!ainekio_p4_joint_fit_frame(s->mapping,&goal))return 0;
     if(!ainekio_p4_joint_ramp_frame(&from,goal.position,speed*100.,dt,&ramped))return 0;
     if(!ainekio_p4_joint_fit_frame(s->mapping,&ramped)||!ainekio_p4_joint_map_frame(s->mapping,&ramped,pulses))return 0;
-    ainekio_p4_joint_unmap_frame(s->mapping,pulses,&ramped);
     for(unsigned j=0;j<12;j++) {
         out[j]=ramped.position[j]/100.;out[12+j]=goal.position[j]/100.;
         out[24+j]=applied[j/3][j%3];out[41+j]=nominal.position[j]/100.;

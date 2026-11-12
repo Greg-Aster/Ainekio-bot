@@ -84,9 +84,11 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
 
     async def complete_interpreted(self, identifier: str, command: str, fence: list) -> dict:
         payload = {**action(identifier), "sessionId": self.adapter.config.session_id,
-            "command": command, "metadata": {"interpretationBody": fence}}
+            "metadata": {"interpretationBody": fence}}
         if command == "stop":
             payload["type"] = "stop"
+        elif command == "left":
+            payload["direction"] = "left"
         self.adapter.receipts.receive(payload, accepted(identifier))
         count = len(self.body.sent) + 1
         task = asyncio.create_task(self.adapter._process_environment_action(payload))
@@ -157,7 +159,7 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         manual = await self.manual_walk()
         self.assertEqual(self.gateway.status()["robots"]["robot"]["body_command_source"], "manual")
         for command in ("stop", "walk"):
-            payload = {**action("old-" + command), "command": command,
+            payload = {**action("old-" + command),
                 "sessionId": self.adapter.config.session_id, "metadata": {"interpretationBody": fence}}
             if command == "stop":
                 payload["type"] = "stop"
@@ -455,7 +457,7 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(self.adapter.receipts.action(self.original["id"])["result"])["type"], "completed")
 
     async def test_direction_and_actual_run_wire_are_inherited(self) -> None:
-        await self.start(command="run")
+        await self.start(gait="walk", speed=150)
         self.assertEqual(json.loads(self.body.sent[0])["name"], "walk")
         await self.update(self.request())
         await self.acknowledge_update()
@@ -463,7 +465,7 @@ class ActiveMovementTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(self.body.sent[1])["dir"], "fwd")
 
     async def test_turning_walk_retains_its_original_direction(self) -> None:
-        await self.start(command="left")
+        await self.start(direction="left")
         await self.update(self.request())
         await self.acknowledge_update()
         self.assertEqual(json.loads(self.body.sent[1])["dir"], "turn_l")

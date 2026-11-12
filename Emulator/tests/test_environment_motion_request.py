@@ -144,13 +144,18 @@ class MotionRequestTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('fixture inference failed', result['message'])
         self.assertFalse(self.gateway.sent)
 
-    async def test_old_named_command_uses_generator_even_with_manual_library_selected(self):
+    async def test_legacy_robot_command_is_rejected_without_generator_or_library_dispatch(self):
         self.gateway.motion_systems['robot'] = 'library'
-        self.action.update(type='robotCommand', command='wave')
-        task = await self.dispatched()
-        self.assertEqual(self.generated[0]['request'], 'wave')
-        self.gateway.motion_done.set()
-        self.assertEqual((await task)['type'], 'completed')
+        for legacy in (
+            {**self.action, 'id': 'legacy-wave', 'type': 'robotCommand', 'command': 'wave'},
+            {**self.action, 'id': 'legacy-turn', 'type': 'robotCommand', 'command': 'turn_left_90',
+             'locomotionGoal': {'kind': 'relativeTurn', 'degrees': 90, 'tolerance': 3}},
+        ):
+            result = await self.adapter.handle_action(legacy)
+            self.assertEqual(result['type'], 'rejected')
+            self.assertEqual(result['message'], 'unsupported_action:robotCommand')
+        self.assertEqual(self.generated, [])
+        self.assertEqual(self.gateway.sent, [])
 
     async def test_description_uses_generator_with_manual_library_selected(self):
         self.gateway.motion_systems['robot'] = 'library'
@@ -159,15 +164,6 @@ class MotionRequestTests(unittest.IsolatedAsyncioTestCase):
         self.gateway.motion_done.set()
         self.assertEqual((await task)['type'], 'completed')
         self.assertEqual(self.gateway.motion_systems['robot'], 'library')
-
-    async def test_old_named_turn_cannot_bypass_freestyle_with_a_library_asset(self):
-        self.action.update(type='robotCommand',command='turn_left_90',
-            locomotionGoal={'kind':'relativeTurn','degrees':90,'tolerance':3})
-        task=await self.dispatched()
-        self.assertIn('turn left 90',self.generated[0]['request'])
-        self.assertIn('"degrees":90',self.generated[0]['request'])
-        self.gateway.motion_done.set()
-        self.assertEqual((await task)['type'],'completed')
 
     async def test_capabilities_always_use_freestyle_independent_of_manual_selection(self):
         freestyle = self.adapter._observation()['capabilities']

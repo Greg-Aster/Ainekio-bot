@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-import unittest
 import asyncio
+import unittest
 
 from gateway.environment_adapter.server import EnvironmentAdapter, EnvironmentAdapterConfig
 from gateway.environment_adapter.translation import (
-    LEGACY_ROBOT_COMMANDS,
-    ROBOT_COMMAND_DESCRIPTIONS,
-    SEED_EMOTES,
-    SUPPORTED_ROBOT_COMMANDS,
-    translate_environment_action,
     locomotion_commands,
+    translate_environment_action,
 )
 
 
@@ -69,66 +65,30 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
                 self.assertEqual(len(gateway.transcripts), index+1)
                 self.assertEqual(result["actionId"], f"text-{index}")
 
-    def test_every_advertised_robot_command_translates_to_firmware_protocol(self) -> None:
-        for command in SUPPORTED_ROBOT_COMMANDS:
-            action_type = "stop" if command == "stop" else "robotCommand"
-            translated = translate_environment_action(
-                {"type": action_type, "command": command}
-            )
-            self.assertIsNotNone(translated, command)
-
-        rest = translate_environment_action(
-            {"type": "robotCommand", "command": "rest"}
-        )
-        self.assertEqual((rest.kind, rest.name, rest.params), ("intent", "emote", {"asset": "rest"}))
-        self.assertTrue(SEED_EMOTES.issubset(SUPPORTED_ROBOT_COMMANDS))
-        self.assertTrue(
-            {
-                "nod", "celebrate", "stretch", "macarena", "salsa", "surprised",
-                "sad", "curious", "turn_left_45", "turn_right_45",
-                "turn_left_90", "turn_right_90", "turn_left_180", "turn_right_180",
-                "walk_slow", "run", "number_one", "number_two",
-            }.issubset(SEED_EMOTES)
-        )
-        self.assertIn("#1", SUPPORTED_ROBOT_COMMANDS)
-        self.assertIn("#2", SUPPORTED_ROBOT_COMMANDS)
-        self.assertEqual(
-            set(ROBOT_COMMAND_DESCRIPTIONS),
-            set(SUPPORTED_ROBOT_COMMANDS),
-        )
-        self.assertTrue(all(ROBOT_COMMAND_DESCRIPTIONS.values()))
-        self.assertIn("45 degrees", ROBOT_COMMAND_DESCRIPTIONS["right"])
-        self.assertIn("rear-leg-lift", ROBOT_COMMAND_DESCRIPTIONS["#1"])
-
-    def test_upright_is_distinct_from_stand_and_requires_body_declaration(self) -> None:
-        self.assertNotIn("upright", LEGACY_ROBOT_COMMANDS)
-        self.assertNotIn("upright", SEED_EMOTES)
-        self.assertIn("four feet", ROBOT_COMMAND_DESCRIPTIONS["stand"])
-        for name in ("stand", "upright"):
-            translated = translate_environment_action({"type": "robotCommand", "command": name})
-            self.assertEqual((translated.kind, translated.name, translated.params),
-                             (("intent", "stand", {}) if name == "stand" else
-                              ("intent", "emote", {"asset": name})))
-
-    def test_environment_observation_advertises_the_owned_command_catalog(self) -> None:
+    def test_legacy_robot_command_and_motion_plan_are_absent_and_rejected(self) -> None:
         adapter = EnvironmentAdapter(
             ConnectedGateway(),  # type: ignore[arg-type]
             EnvironmentAdapterConfig(token="adapter-secret", receipt_path=":memory:"),
         )
         self.addCleanup(adapter.receipts.close)
         capabilities = adapter._observation()["capabilities"]
-        self.assertEqual(
-            capabilities["robotCommands"],  # type: ignore[index]
-            [name for name in LEGACY_ROBOT_COMMANDS if name not in locomotion_commands(list(LEGACY_ROBOT_COMMANDS), None)],
-        )
-        self.assertEqual(
-            capabilities["robotCommandDescriptions"],  # type: ignore[index]
-            {
-                command: ROBOT_COMMAND_DESCRIPTIONS[command]
-                for command in capabilities["robotCommands"]
-            },
-        )
+        self.assertNotIn("robotCommands", capabilities)  # type: ignore[arg-type]
+        self.assertNotIn("robotCommandDescriptions", capabilities)  # type: ignore[arg-type]
+        self.assertNotIn("robotCommand", capabilities["actions"])  # type: ignore[index]
+        self.assertNotIn("robotMotionPlan", capabilities["actions"])  # type: ignore[index]
+        self.assertIn("requestMotion", capabilities["actions"])  # type: ignore[index]
         self.assertIn("captureImage", capabilities["actions"])  # type: ignore[index]
+        self.assertEqual(locomotion_commands(["stand", "walk", "run", "crawl", "crab", "stop"], "v2-12servo"),
+                         ["walk", "run", "crawl", "crab"])
+
+        for legacy_action in (
+            {"id": "legacy-cmd", "type": "robotCommand", "command": "wave"},
+            {"id": "legacy-plan", "type": "robotMotionPlan", "frames": [], "endPose": "hold"},
+        ):
+            self.assertIsNone(translate_environment_action(legacy_action))
+            result = asyncio.run(adapter.handle_action(legacy_action))
+            self.assertEqual(result["type"], "rejected")
+            self.assertEqual(result["message"], f"unsupported_action:{legacy_action['type']}")
 
     def test_offline_observation_advertises_no_body_capabilities(self) -> None:
         adapter = EnvironmentAdapter(
@@ -140,8 +100,8 @@ class EnvironmentCommandCatalogTests(unittest.TestCase):
         observation = adapter._observation()
         capabilities = observation["capabilities"]
         self.assertEqual(capabilities["actions"], ["sendText"])  # type: ignore[index]
-        self.assertEqual(capabilities["robotCommands"], [])  # type: ignore[index]
-        self.assertEqual(capabilities["robotCommandDescriptions"], {})  # type: ignore[index]
+        self.assertNotIn("robotCommands", capabilities)  # type: ignore[arg-type]
+        self.assertNotIn("robotCommandDescriptions", capabilities)  # type: ignore[arg-type]
         self.assertFalse(capabilities["movement"])  # type: ignore[index]
         self.assertFalse(capabilities["visual"])  # type: ignore[index]
         self.assertFalse(observation["state"]["body"]["authenticated"])  # type: ignore[index]

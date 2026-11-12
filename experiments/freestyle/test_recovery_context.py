@@ -79,7 +79,7 @@ class RecoveryContextTests(unittest.TestCase):
             self.assertEqual(query,original)
 
     def test_original_goal_survives_a_different_failed_recovery_plan(self):
-        from .migrate_targets import CONTRACT
+        from .library_recovery import CONTRACT
         encoding=ProgramEncoding(CONTRACT)
         goal={'request':'Please lie down.','interrupted_action':['pose',[1],[.94],'absolute',50,0],
               'remaining_program':[['pose',list(range(12)),[-32.52,33.34,50.91]*4,'absolute',50,0],['hold',1.8]]}

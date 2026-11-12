@@ -1,6 +1,19 @@
 """Exact sensor arithmetic for model input; no recovery policy or thresholds."""
 import math
 
+try:
+    from .runtime import JOINTS
+except ImportError:
+    from runtime import JOINTS
+
+
+def joint_state(observation):
+    joints = observation['joints']
+    if 'ids' in joints:
+        return {JOINTS[i]: {k: v[n] for k, v in joints.items() if k != 'ids' and isinstance(v, list)}
+                for n, i in enumerate(joints['ids'])}
+    return joints
+
 
 def feedback_geometry(mapping, joint, feedback):
     """Express the body's existing feedback calibration in model coordinates.
@@ -80,6 +93,11 @@ def enrich(value):
         # The compact contract stores the same measurements in joint columns.
         result['tracking_error_deg']=[b-a if isinstance(a,(int,float)) and isinstance(b,(int,float))
                                       else None for a,b in zip(measured,target)]
+        tolerance=value.get('arrival_tolerance_deg')
+        if isinstance(tolerance,list) and len(tolerance)==len(measured):
+            result['within_arrival_tolerance']=[
+                abs(b-a)<=t if isinstance(a,(int,float)) and isinstance(b,(int,float)) and isinstance(t,(int,float))
+                else None for a,b,t in zip(measured,target,tolerance)]
     joints=result.get('joints')
     if isinstance(joints,dict) and joints and all(isinstance(v,dict) for v in joints.values()):
         # Exact aggregation of the supplied measurements. This says nothing
