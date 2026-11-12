@@ -14,16 +14,15 @@
 | `depth_motion.py`, `depth_motion_worker.py`, & `ground_plane.py` | On-demand metric distance/odometry (`depthDemand`): calibrated ground-plane geometry or isolated MoGe-2 + IMU-constrained SIFT landmark odometry. |
 | `host_audio.py` & `environment_adapter/speech_transport.py` | Speech routing to either the robot's onboard speaker or host PulseAudio/PipeWire (`paplay` / Bluetooth) with heartbeat `external_speech` mic suppression. |
 | `hotspot.py` & `launch_connection.py` | Managed `ainekio-hotspot.target` (`hostapd`/`dnsmasq`) vs LAN Wi-Fi connection-mode control and startup mode prompts. |
-| `neural_gait/` | Independent host neural walking & MuJoCo/MJX simulation service (`127.0.0.1:8796`), Microduck `mjlab` PPO training/export, Pupper MJX policy import, and physical REDQ learning. |
-| `gait_learning_service.py`, `gait_learning.py`, & `gait_training.py` | Optional CBOR (`application/cbor-seq`) P4 `gait_trace_v1` recorder (`~/.local/state/ainekio/gait-learning`) and BoTorch Bayesian residual/profile gait optimizer. |
+| `neural_gait/` | Independent host neural walking & MuJoCo/MJX simulation service (`127.0.0.1:8796`), MicroDuck `mjlab` PPO training/export, and Pupper MJX policy import/inference. |
 
 ## Body Control workspace
 
 The browser cockpit (`http://127.0.0.1:8791`) organizes live robot operation and diagnostics into a left-hand **Tools** drawer alongside the **Ainekio Cockpit** camera/telemetry split view:
 
-- **Operate**: *Ainekio Cockpit*, *Overview*, *Movement* (Walk / automatic Run / Crawl / Crab + live steering), *Neural gait* (virtual MuJoCo body, Microduck, Pupper MJX, physical policy trials), *Poses and emotes* (Freestyle prompt & manual library), *Faces and assets*, *Self-leveling* (`balance_control_v1` / `balance_tuning_v1` / gyro bias calibration), *Mode and power* (`idle_rest_v1` inactivity lay-down, sleep/restart), and *Motion speeds* (`joint_speed_limit_v1`).
+- **Operate**: *Ainekio Cockpit*, *Overview*, *Movement* (Walk / automatic Run / Crawl / Crab + live steering), *Neural gait* (virtual MuJoCo body, MicroDuck `mjlab`, and Pupper MJX policies), *Poses and emotes* (Freestyle prompt & manual library), *Faces and assets*, *Self-leveling* (`balance_control_v1` / `balance_tuning_v1` / gyro bias calibration), *Mode and power* (`idle_rest_v1` inactivity lay-down, sleep/restart), and *Motion speeds* (`joint_speed_limit_v1`).
 - **Perception**: *Camera settings* (stream/still resolutions, `AUTO` / `960P` / `FHD`, `max_exposure_us`, depth/odometry source), *Recognition* (YOLO/YOLOE prompts & enrolled people), *Audio and wake word* (mic gain, VAD/wake sensitivity, speaker volume, speech destination), *Body events* (tilt/shake thresholds & cooldowns), and *MetaHuman control* (`/environment` bridge status & handoff toggle).
-- **Recordings & Maintenance**: *Video and SD card* (`storage_control_v1` rolling AVI clips), *Learning history* (scored locomotion windows), *Calibration* (`body_calibration_v2` 12-joint pulse/angle mapping & 4th-wire ADC calibration), and *Firmware & logs* (Wi-Fi OTA upload/activation).
+- **Recordings & Maintenance**: *Video and SD card* (`storage_control_v1` rolling AVI clips), *Calibration* (`body_calibration_v2` 12-joint pulse/angle mapping & 4th-wire ADC calibration), and *Firmware & logs* (Wi-Fi OTA upload/activation).
 
 ## P4 recording and firmware in Body Control
 
@@ -35,19 +34,24 @@ Body Control proxies pairing-token-authenticated HTTP maintenance requests to th
 
 ## Physical Robot Gateway operation
 
-Configure an untracked `.env` in the repository root (`AINEKIO_ROBOT_ID`, `AINEKIO_PAIRING_TOKEN`, `AINEKIO_ADAPTER_TOKEN`, `AINEKIO_HOTSPOT=0|1`) and start or stop the physical stack with the repository scripts:
+Configure an untracked `.env` in the repository root (`AINEKIO_ROBOT_ID`, `AINEKIO_ROBOT_TOKEN`, `AINEKIO_ENVIRONMENT_ADAPTER_TOKEN`, `AINEKIO_HOTSPOT=0|1`) and start or stop the physical stack with the launchers in `Master/`:
 
 ```sh
-# Interactive launcher (prompts for LAN Wi-Fi vs robot hotspot when interactive; sets AINEKIO_DASHBOARD_NO_LOGIN=1)
-./Master/run-physical-gateway.sh
+# Start physical Body Control (offers local, LAN / Wi-Fi, or Cloudflare access on interactive terminals)
+./Master/start-physical-gateway.sh
 
-# Direct non-interactive validation, service installation, and clean shutdown
+# Non-interactive validation, systemd user service installation, and clean shutdown
 ./Master/start-physical-gateway.sh --check
 ./Master/start-physical-gateway.sh --install-service && systemctl --user daemon-reload
 ./Master/stop-physical-gateway.sh
+
+# Optional neural gait service (127.0.0.1:8796) and Cloudflare /robot relay
+./Master/start-neural-gait.sh
+./Master/start-physical-relay.sh --check
 ```
 
-- **Local login behavior**: Direct `gateway.server` runs require session login (`dashboard/auth.py`). `Master/run-physical-gateway.sh` and `Master/start-physical-gateway.sh` export `AINEKIO_DASHBOARD_NO_LOGIN=1` by default for local loopback operation (`127.0.0.1:8791`); set `AINEKIO_DASHBOARD_NO_LOGIN=0` before binding `AINEKIO_DASHBOARD_HOST` to a LAN interface.
+- **Local login behavior**: Dashboard access uses the saved operator password verifier (`dashboard/auth.py`) unless `AINEKIO_DASHBOARD_NO_LOGIN=1` is explicitly set for a trusted loopback (`127.0.0.1:8791`) or local display.
+- **Single connected robot selection**: The Environment Bridge automatically routes to whichever single robot (V2 12-servo or V1 8-servo) is connected; `AINEKIO_ROBOT_ID` seeds pairing identity rather than pinning the bridge.
 - **Robot hotspot mode (`hotspot.py`)**: On Linux hosts with `Master/install-robot-hotspot.py` installed (`ainekio-hotspot.target` managing `hostapd` + `dnsmasq`), **Settings → Robot connection mode** switches live between upstream LAN Wi-Fi and the dedicated robot hotspot without restarting Body Control. If hotspot activation fails at startup, the launcher logs a warning and falls back to normal LAN gateway startup so the dashboard remains reachable.
 
 ## Using more than one computer
@@ -75,7 +79,7 @@ When camera streaming or snapshots arrive from the body, `GatewayService` routes
 1. **Background object/person recognition (`perception.py`)**: Processes only the latest pending RGB frame (dropping intermediate preview backlog) and attaches timestamped detections to robot observations.
 2. **On-demand depth & camera odometry (`depth_motion.py`)**: Remains unloaded during ordinary chat/streaming and activates only while an active navigation/locomotion consumer holds `depthDemand` (or **Measure depth now** is clicked). Supports calibrated ground-plane projection or isolated **MoGe-2 + SIFT/IMU landmark odometry** (`AINEKIO_DEPTH_PYTHON`, `AINEKIO_DEPTH_COMFY_ROOT`, `AINEKIO_DEPTH_MODEL`), reporting explicit `learned-metric-estimate` provenance rather than claiming loop-closing SLAM.
 
-## Configured recognition and MetaHuman handoff
+## Configured recognition and Ainekio OS handoff
 
 Body Control's **Perception → Recognition** panel configures open-vocabulary or fixed-class Ultralytics YOLO / YOLOE detection (`yolo_backend.py`) and governs which structured observations cross `/environment` into Ainekio OS:
 
@@ -91,9 +95,9 @@ When OpenCV YuNet face detection and SFace recognition ONNX weights are installe
 
 ## Speech destination
 
-Body Control routes synthesized speech received over `/environment` (`sendText` / PCM audio stream) according to **Perception → Audio and wake word → Speech destination**:
+Body Control routes synthesized speech received over `/environment` (`sendText` / PCM audio stream) according to **Perception → Audio and wake word → Speech destination** (reading and saving the active owner's `tts.outputTarget` preference over `/environment` rather than keeping a duplicate store in Body Control):
 
-- **Robot speaker**: Streams 16 kHz mono PCM over `protocol-v1` binary frames (`0x01`) to the P4's `ES8311`/`NS4150B` output, scaled by the robot's saved `speaker_volume_percent`.
+- **Robot speaker**: Streams 16 kHz mono PCM in 20 ms `protocol-v1` binary frames (`0x01`) to the robot's speaker output with no arbitrary reply-duration cutoff, scaled on P4 firmware by the persistent `speaker_volume_percent` master volume. Interrupted speech cancels via the audio command handshake rather than a motion stop.
 - **Body Control computer**: Plays audio locally on the gateway host through PulseAudio/PipeWire (`paplay`, including paired Bluetooth speakers) via `host_audio.py`. While host playback is active, heartbeats send transient `external_speech` / `external_speech_ms` notices so the P4 suppresses microphone capture and `microWakeWord` self-triggers until playback finishes.
 
 ## V2 body events and IMU status
@@ -105,23 +109,16 @@ Body Control routes synthesized speech received over `/environment` (`sendText` 
 
 ## Neural walking simulation and policy service
 
-`Master/gateway/neural_gait/` runs as an independent local HTTP/simulation service (`127.0.0.1:8796`, started on demand or standalone via `python3 -m gateway.neural_gait.server`) owning virtual MuJoCo/MJX body simulation and learned locomotion policies:
+`Master/gateway/neural_gait/` runs as an independent local HTTP/simulation service (`127.0.0.1:8796`, started on demand or standalone via `python3 -m gateway.neural_gait.server`) owning virtual MuJoCo/MJX body simulation and the two supported locomotion policy families:
 
-- **Microduck `mjlab` PPO (`microduck.py`, `microduck_actor.py`, `microduck_mdp.py`)**: Trains velocity-tracking quadruped policies in MuJoCo Warp (`vendor/microduck_rl`), serves live host `walk_nominal_v1` foot targets, and exports quantized `int8` weights (`Slave/software/models/v2-12servo/tools/compile_microduck.py`) for standalone 50 Hz on-chip ESP32-P4 execution.
-- **Pupper MJX & virtual body (`pupper_mjx_actor.py`, `virtual.py`, `virtual_body.c`)**: Runs the native C V2 linkage/controller loop inside MuJoCo for side-by-side virtual robot testing in Body Control before physical floor trials.
-
-### Learning from the physical robot
-
-Two complementary physical-robot learning paths consume real P4 4th-wire shaft and 208 Hz IMU telemetry stored under `$XDG_STATE_HOME/ainekio/gait-learning` (`~/.local/state/ainekio/gait-learning`, untracked):
-
-1. **Physical REDQ neural policy learning (`neural_gait/physical.py`, `redq.py`, `replay.py`)**: Collects paired host action / `joint_feedback` / IMU transition replay buffers during supervised `walk_nominal_v1` physical trials and updates actor-critic ensembles off-board.
-2. **CBOR trace recording & Bayesian gait optimization (`gait_learning_service.py`, `gait_learning.py`, `gait_training.py`)**: Drains P4 `application/cbor-seq` `gait_trace_v1` rings and optimizes compact periodic/sensor/profile parameters (`gait_learning_v2`–`v4`) via ILC or BoTorch Gaussian-process search (`build/gait-training-env`), staging candidates in P4 RAM (`persist: false`) until repeated directional windows demonstrate progress over the incumbent.
+- **MicroDuck `mjlab` PPO (`microduck.py`, `microduck_actor.py`, `microduck_mdp.py`, `requirements-microduck-training.txt`)**: Trains velocity-tracking quadruped policies in MuJoCo Warp (`vendor/microduck_rl`), serves live host `walk_nominal_v1` foot targets via ONNX Runtime, renders MuJoCo evaluation replays (`evaluation.py`, `replay.py`), and exports quantized `int8` weights (`Slave/software/models/v2-12servo/tools/compile_microduck.py`) for standalone 50 Hz on-chip ESP32-P4 execution.
+- **Pupper MJX & virtual body (`import_pupper_mjx.py`, `pupper_mjx_actor.py`, `jax_hardware.py`, `virtual.py`, `virtual_body.c`)**: Imports RTNeural JSON checkpoints trained with MJX/JAX kinematics, serves live host `walk_nominal_v1` joint targets, and runs the native C V2 linkage/controller loop inside MuJoCo for side-by-side virtual robot evaluation before physical floor trials.
 
 ## Validation
 
-Run the gateway, perception, neural gait, and emulator integration suites from the repository root:
+Run the gateway, perception, and neural gait test suites from the repository root:
 
 ```sh
-PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests \
-  python3 -m unittest discover -s Emulator/tests -p 'test_*.py'
+PYTHONPATH=Master:Slave/software:.:tests \
+  python3 -m unittest discover -s tests -p 'test_*.py'
 ```

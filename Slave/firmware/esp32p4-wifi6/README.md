@@ -93,5 +93,5 @@ idf.py -B build -p /dev/serial/by-id/<your-ch343-port> monitor
   ctest --test-dir /tmp/ainekio-p4-driver-tests --output-on-failure
 
   # Full native P4 body/camera/feedback/gait suite (see Slave/software/models/v2-12servo/README.md)
-  PYTHONPATH=Master:Slave/software python3 -m unittest Emulator.tests.test_p4_audio_transport -v
+  PYTHONPATH=Master:Slave/software:. python3 -m unittest tests.test_p4_audio_transport -v
   ```

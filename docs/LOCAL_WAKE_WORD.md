@@ -22,7 +22,7 @@ The accepted listening reference and comparison checks are outside the
 repository at:
 
 ```text
-/home/greggles/ainekio-wake-training/pronunciation-check/
+~/ainekio-wake-training/pronunciation-check/
   01-ay-neck-ee-oh.wav                 # accepted reference
   target-a-nek-io-lessac.wav
   target-a-nek-io-amy.wav
@@ -39,7 +39,7 @@ remain too small to accept a production model.
 ### Local seed corpus checkpoint
 
 The first positive seed set is stored outside the repository at
-`/home/greggles/ainekio-wake-training/positive-corpus/v1`. It contains 96
+`~/ainekio-wake-training/positive-corpus/v1`. It contains 96
 unique English Piper samples using only the accepted `Ay-neck-ee-oh` phoneme
 target:
 
@@ -62,8 +62,8 @@ features, downloaded negative datasets, notebooks with outputs, and checkpoints
 do not belong in this repository.
 
 ```sh
-mkdir -p /home/greggles/ainekio-wake-training
-cd /home/greggles/ainekio-wake-training
+mkdir -p ~/ainekio-wake-training
+cd ~/ainekio-wake-training
 git clone https://github.com/OHF-Voice/micro-wake-word.git
 cd micro-wake-word
 git checkout 4665173cd35f1cff9a61e06fc427f124766c488e
@@ -83,7 +83,7 @@ jupyter lab notebooks/basic_training_notebook.ipynb
 ```
 
 On the current Linux host, the isolated Python 3.10 environment lives at
-`/home/greggles/ainekio-wake-training/.venv`. TensorFlow's pip-provided CUDA
+`~/ainekio-wake-training/.venv`. TensorFlow's pip-provided CUDA
 libraries are not in the process loader path by default on this machine. Run
 training commands through the repository launcher so it selects that virtual
 environment and exposes only its local NVIDIA libraries:
@@ -105,12 +105,12 @@ the final model.
 ### Owner recordings and `pilot-v1` checkpoint
 
 The 13 owner recordings remain outside the repository at
-`/home/greggles/ainekio-wake-training/owner-recordings/raw`. Inspection found
+`~/ainekio-wake-training/owner-recordings/raw`. Inspection found
 that every file was already 16 kHz, mono, signed 16-bit PCM, with durations from
 0.714 to 1.166 seconds. The originals were not modified.
 
 Because the recordings sounded slightly high, a second pool was generated at
-`/home/greggles/ainekio-wake-training/owner-recordings/corrected-speed-0p91875`
+`~/ainekio-wake-training/owner-recordings/corrected-speed-0p91875`
 using SoX `speed 0.91875` followed by high-quality resampling to 16 kHz. This is
 the exact 44.1/48 replay-speed ratio: it lowers both pitch and tempo. Validation
 of all 13 pairs measured a median duration ratio of 1.08842 and median pitch
@@ -157,7 +157,7 @@ bar.
 The evaluation artifact is:
 
 ```text
-/home/greggles/ainekio-wake-training/runs/pilot-v1/model/
+~/ainekio-wake-training/runs/pilot-v1/model/
   tflite_stream_state_internal_quant/stream_state_internal_quant.tflite
 ```
 
@@ -217,7 +217,7 @@ file. Replace the example provenance values with the real dataset/model record:
 
 ```sh
 python3 Slave/software/tools/package_micro_wake_word.py \
-  --model /home/greggles/ainekio-wake-training/micro-wake-word/trained_models/wakeword/tflite_stream_state_internal_quant/stream_state_internal_quant.tflite \
+  --model ~/ainekio-wake-training/micro-wake-word/trained_models/wakeword/tflite_stream_state_internal_quant/stream_state_internal_quant.tflite \
   --output-dir Slave/software/assets/local/wake/ainekio \
   --id ainekio \
   --wake-word Ainekio \
@@ -252,7 +252,7 @@ LittleFS without replacing either OTA application slot:
 
 ```sh
 cd Slave/firmware/esp32s3
-source /home/greggles/esp/esp-idf-v5.5.4/export.sh
+source ~/esp/esp-idf-v5.5.4/export.sh
 idf.py build
 idf.py littlefs-flash
 ```

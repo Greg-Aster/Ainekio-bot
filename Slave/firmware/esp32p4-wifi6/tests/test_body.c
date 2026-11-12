@@ -6,8 +6,6 @@
 #include <string.h>
 #include "../main/body.c"
 #include "../main/controller_motion.h"
-void ainekio_p4_gait_trace_output(const uint16_t pulses[12],uint64_t timestamp_us,bool armed)
-{ (void)pulses;(void)timestamp_us;(void)armed; }
 void ainekio_p4_log_stage(const char *stage){assert(stage && *stage);}
 #include "ainekio/control_codec.h"
 #include "cJSON.h"

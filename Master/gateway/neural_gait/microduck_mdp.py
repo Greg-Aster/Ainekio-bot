@@ -288,9 +288,11 @@ def standing_pose(env):
     measured,_=_true_joint_state(feet)
     pose_error=(measured-feet.body.q0.reshape(1,12).to(measured.dtype)).square().mean(-1)
     contact=env.scene["feet_ground_contact"].data
-    air_hang=(contact.current_air_time-.40).clamp(0,1).mean(-1)
-    stance_stall=(contact.current_contact_time-.60).clamp(0,1).mean(-1)
-    return pose_error*(~moving)+(air_hang+.5*stance_stall)*moving
+    air_hang=(contact.current_air_time-.40).clamp(0.,1.).mean(-1)
+    drag_over=(contact.current_contact_time-.70).clamp(0.,1.6)
+    peer_stepping=(contact.current_contact_time.amin(-1)<.38).to(drag_over.dtype)
+    stance_stall=.5*(contact.current_contact_time-.60).clamp(0.,1.).mean(-1)+1.15*drag_over.amax(-1)*peer_stepping
+    return pose_error*(~moving)+(air_hang+stance_stall)*moving
 
 
 def tracked_air_time(env):
@@ -413,9 +415,12 @@ def randomize_multisurface_friction(env, env_ids=None, asset_cfg=None, ranges=(0
 
 
 @requires_model_fields("actuator_forcerange", "actuator_gainprm", "actuator_biasprm")
-def randomize_actuators(env, env_ids=None, kp_range=(0.70, 1.15), kd_range=(0.80, 1.45),
-                        rear_kp_range=(0.62, 1.00), weak_corner_kp_range=(0.55, 0.78)):
-    """Randomize per-joint kp/kd, single-corner leg compliance, and ratiometric 4th-wire ADC rail sag."""
+def randomize_actuators(env, env_ids=None, kp_range=(0.72, 1.15), kd_range=(0.80, 1.45),
+                        effort_range=(0.85, 1.08), shoulder_kp_range=(0.48, 1.05),
+                        shoulder_effort_range=(0.65, 1.02), rear_kp_range=(0.60, 0.98),
+                        rear_effort_range=(0.76, 1.00), weak_corner_kp_range=(0.42, 0.72),
+                        weak_corner_effort_range=(0.60, 0.86), diag_shoulder_kp_range=(0.42, 0.72)):
+    """Randomize per-joint kp/kd/stall-torque, weak-corner + diagonal-shoulder compliance, and 4th-wire ADC rail sag."""
     ids=torch.arange(env.num_envs,device=env.device) if env_ids is None else env_ids
     n=len(ids)
     if n==0:
@@ -424,20 +429,40 @@ def randomize_actuators(env, env_ids=None, kp_range=(0.70, 1.15), kd_range=(0.80
     base_kp=torch.as_tensor(mj_m.actuator_gainprm[:12,0],dtype=torch.float32,device=env.device).unsqueeze(0)
     base_kd=torch.as_tensor(-mj_m.actuator_biasprm[:12,2],dtype=torch.float32,device=env.device).unsqueeze(0)
     kp_mult=kp_range[0]+(kp_range[1]-kp_range[0])*torch.rand((n,12),device=env.device)
+    effort_mult=effort_range[0]+(effort_range[1]-effort_range[0])*torch.rand((n,12),device=env.device)
+    sh_mask=(torch.rand((n,1),device=env.device)<0.45)
+    sh_kp=shoulder_kp_range[0]+(shoulder_kp_range[1]-shoulder_kp_range[0])*torch.rand((n,4),device=env.device)
+    sh_eff=shoulder_effort_range[0]+(shoulder_effort_range[1]-shoulder_effort_range[0])*torch.rand((n,4),device=env.device)
+    kp_mult[:,[0,3,6,9]]=torch.where(sh_mask,sh_kp,kp_mult[:,[0,3,6,9]])
+    effort_mult[:,[0,3,6,9]]=torch.where(sh_mask,sh_eff,effort_mult[:,[0,3,6,9]])
     u_mode=torch.rand(n,device=env.device)
-    # 30% symmetric rear-load compliance, 30% single-corner weak leg (65% RL/RR), 40% nominal per-joint spread.
-    rear_load_mask=(u_mode<0.30).unsqueeze(-1)
-    rear_mult=rear_kp_range[0]+(rear_kp_range[1]-rear_kp_range[0])*torch.rand((n,4),device=env.device)
-    kp_mult[:,[1,2,4,5]]=torch.where(rear_load_mask,rear_mult,kp_mult[:,[1,2,4,5]])
-    weak_mask=(u_mode>=0.30)&(u_mode<0.60)
+    # 25% symmetric rear-load compliance, 32% single-corner weak leg (45% RL, 25% RR, 15% FL, 15% FR), 43% nominal spread.
+    rear_load_mask=(u_mode<0.25).unsqueeze(-1)
+    rear_kp=rear_kp_range[0]+(rear_kp_range[1]-rear_kp_range[0])*torch.rand((n,4),device=env.device)
+    rear_eff=rear_effort_range[0]+(rear_effort_range[1]-rear_effort_range[0])*torch.rand((n,4),device=env.device)
+    kp_mult[:,[1,2,4,5]]=torch.where(rear_load_mask,rear_kp,kp_mult[:,[1,2,4,5]])
+    effort_mult[:,[1,2,4,5]]=torch.where(rear_load_mask,rear_eff,effort_mult[:,[1,2,4,5]])
+    weak_mask=(u_mode>=0.25)&(u_mode<0.57)
     u_leg=torch.rand(n,device=env.device)
-    weak_leg=torch.where(u_leg<0.325,0,torch.where(u_leg<0.650,1,torch.where(u_leg<0.825,2,3)))
-    weak_mult=weak_corner_kp_range[0]+(weak_corner_kp_range[1]-weak_corner_kp_range[0])*torch.rand((n,2),device=env.device)
+    weak_leg=torch.where(u_leg<0.45,0,torch.where(u_leg<0.70,1,torch.where(u_leg<0.85,2,3)))
+    weak_kp=weak_corner_kp_range[0]+(weak_corner_kp_range[1]-weak_corner_kp_range[0])*torch.rand((n,2),device=env.device)
+    weak_eff=weak_corner_effort_range[0]+(weak_corner_effort_range[1]-weak_corner_effort_range[0])*torch.rand((n,2),device=env.device)
+    diag_sh_kp=diag_shoulder_kp_range[0]+(diag_shoulder_kp_range[1]-diag_shoulder_kp_range[0])*torch.rand((n,2),device=env.device)
+    diag_sh_eff=shoulder_effort_range[0]+(shoulder_effort_range[1]-shoulder_effort_range[0])*torch.rand((n,2),device=env.device)
     row_idx=torch.arange(n,device=env.device)[weak_mask]
     if len(row_idx)>0:
         leg_sel=weak_leg[weak_mask]
-        kp_mult[row_idx,leg_sel*3+1]=weak_mult[weak_mask,0]
-        kp_mult[row_idx,leg_sel*3+2]=weak_mult[weak_mask,1]
+        kp_mult[row_idx,leg_sel*3+1]=weak_kp[weak_mask,0]
+        kp_mult[row_idx,leg_sel*3+2]=weak_kp[weak_mask,1]
+        effort_mult[row_idx,leg_sel*3+1]=weak_eff[weak_mask,0]
+        effort_mult[row_idx,leg_sel*3+2]=weak_eff[weak_mask,1]
+        diag_b=(leg_sel==0)|(leg_sel==3)
+        sh_a=torch.where(diag_b,3,0)
+        sh_b=torch.where(diag_b,6,9)
+        kp_mult[row_idx,sh_a]=diag_sh_kp[weak_mask,0]
+        kp_mult[row_idx,sh_b]=diag_sh_kp[weak_mask,1]
+        effort_mult[row_idx,sh_a]=diag_sh_eff[weak_mask,0]
+        effort_mult[row_idx,sh_b]=diag_sh_eff[weak_mask,1]
     kd_mult=kd_range[0]+(kd_range[1]-kd_range[0])*torch.rand((n,12),device=env.device)
     kp=base_kp*kp_mult
     kd=base_kd*kd_mult
@@ -445,6 +470,13 @@ def randomize_actuators(env, env_ids=None, kp_range=(0.70, 1.15), kd_range=(0.80
     env.sim.model.actuator_gainprm[ids.unsqueeze(1),ctrl_ids.unsqueeze(0),0]=kp
     env.sim.model.actuator_biasprm[ids.unsqueeze(1),ctrl_ids.unsqueeze(0),1]=-kp
     env.sim.model.actuator_biasprm[ids.unsqueeze(1),ctrl_ids.unsqueeze(0),2]=-kd
+    robot_entity=env.scene["robot"] if hasattr(env.scene,"__getitem__") else None
+    for act in getattr(robot_entity,"actuators",()):
+        scale=getattr(act,"effort_scale",None)
+        if scale is None or scale.shape!=(env.num_envs,12) or scale.device!=effort_mult.device:
+            scale=torch.ones((env.num_envs,12),dtype=torch.float32,device=effort_mult.device)
+            act.effort_scale=scale
+        scale[ids]=effort_mult
     if hasattr(env,"action_manager"):
         feet=env.action_manager.get_term("feet")
         if hasattr(feet,"sensors") and hasattr(feet.sensors,"raw_scale"):

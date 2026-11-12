@@ -5,7 +5,7 @@ Design baseline: 2026-10-02. Documentation scope clarified: 2026-11-03.
 Status: **design proposal for distributed coordination**. This page owns proposed
 local/remote roles, control handoff, shared-state requirements and open decisions.
 The existing software map is maintained in
-[Robot software architecture](../../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md).
+[Robot software architecture](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/robot/SYSTEM_ARCHITECTURE.md).
 The proposal does not establish implementation, deployment or physical qualification;
 its recorded baseline leaves cross-installation task continuation and controller
 grants unimplemented. Confirmed requirements and proposed mechanisms are distinguished below.
@@ -13,20 +13,20 @@ grants unimplemented. Confirmed requirements and proposed mechanisms are disting
 This extends [Body Control Integration](BODY_CONTROL_INTEGRATION.md). The
 [resource budget](v2-12servo/RESOURCE_BUDGET.md) owns hardware limits/arithmetic.
 The design does not amend the normative Ainekio specification or supersede
-[MetaHuman runtime ownership rules](../../metahuman/docs/technical/MAINTAINED_SURFACE.md).
+[Ainekio OS runtime ownership rules](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/technical/MAINTAINED_SURFACE.md).
 
 ## 1. Confirmed requirements
 
 | Owner requirement | Consequence |
 | --- | --- |
-| Body control remains independent of the command source | Use the existing body execution boundary mapped in the [architecture](../../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md#contracts-at-the-handoffs) for interchangeable control hosts |
+| Body control remains independent of the command source | Use the existing body execution boundary mapped in the [architecture](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/robot/SYSTEM_ARCHITECTURE.md#contracts-at-the-handoffs) for interchangeable control hosts |
 | Wireless first, Q6A offboard to reduce robot weight and carried power | Reuse wireless transport; native USB remains an alternative |
-| Q6A and remote both run MetaHuman OS | Allocate the suite across installations; remote is more than an LLM endpoint |
+| Q6A and remote both run Ainekio OS | Allocate the suite across installations; remote is more than an LLM endpoint |
 | Q6A handles STT, TTS, image/audio processing and lightweight routing | Prefer nearby responsive processing and send selected data upstream |
 | Remote handles heavy reasoning, memory, training and expensive functions; may be offshore | Keep WAN responses outside P4's local motion/feedback loop |
 | No Q6A → remote can take over; no remote → Q6A owns | Neither host can be a mandatory intermediary for the other |
 | Neither available → manual Body Control remains possible | A surviving independent manual client/server path is required |
-| Manual device remains undecided: laptop, desktop without MetaHuman, future phone app, etc. | Define the interface independently of deployment device; do not assume an on-P4 web dashboard was selected |
+| Manual device remains undecided: laptop, desktop without Ainekio OS, future phone app, etc. | Define the interface independently of deployment device; do not assume an on-P4 web dashboard was selected |
 | Continue defined local skills during remote outage; pause remote-dependent tasks | Advertise capabilities/dependencies for each operating mode |
 | One universal connection system and a solid foundation before coding | Extend existing owners with shared contracts rather than separate control stacks |
 
@@ -37,9 +37,9 @@ withdrawn because it cannot satisfy Q6A-absent operation.
 
 ## 2. Existing implementation
 
-Use the [software architecture](../../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md)
+Use the [software architecture](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/robot/SYSTEM_ARCHITECTURE.md)
 for current processes, connections, execution paths and state owners. Its
-[distribution boundary](../../metahuman/docs/robot/SYSTEM_ARCHITECTURE.md#intended-boundaries-and-remaining-distribution-work)
+[distribution boundary](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/robot/SYSTEM_ARCHITECTURE.md#intended-boundaries-and-remaining-distribution-work)
 separates host reconnection from the cross-installation handoff proposed here.
 The [connection-switching implementation record](BODY_CONTROL_INTEGRATION.md#2026-10-02-implementation-portable-body-control-and-host-switching)
 retains the P4 pairing/discovery behavior, source identities and software-test limits.
@@ -48,8 +48,8 @@ retains the P4 pairing/discovery behavior, source identities and software-test l
 
 ```mermaid
 flowchart LR
-    Q[Q6A MetaHuman / local tools] --> QG[Shared Ainekio gateway on Q6A]
-    R[Remote MetaHuman / remote tools] --> RG[Same gateway on remote host]
+    Q[Q6A Ainekio OS / local tools] --> QG[Shared Ainekio gateway on Q6A]
+    R[Remote Ainekio OS / remote tools] --> RG[Same gateway on remote host]
     M[Manual Body Control on available device] --> MA[Manual control adapter]
     QG --> P[P4 universal control admission]
     RG --> P
@@ -65,7 +65,7 @@ contract and one authoritative admission policy, not one irreplaceable server.
 
 **Proposed implementation:** extend shared admission and P4 connection ownership
 so P4 grants the right to control the body. Reuse the same Ainekio gateway code on
-any host that needs it. Every motion source, including manual, MetaHuman and ROS,
+any host that needs it. Every motion source, including manual, Ainekio OS and ROS,
 must converge on these rules. Preserve authentication and source permissions.
 
 | Control responsibility | Proposed rule |
@@ -103,11 +103,11 @@ Likewise, a remote relay whose origin is Q6A is not an independent fallback.
 | Camera encoding, mic, playback, wake/VAD, display hardware | P4 media/display owners | Consumers may change; physical I/O remains on P4 |
 | Control-source grant and host selection | Extend P4/shared admission and connection owner | Reject stale/displaced sources even if hosts disagree |
 | Protocol translation, manual dashboard and media delivery | Same Ainekio gateway implementation on available host | Independent manual deployment when other hosts are absent |
-| STT/TTS and image/audio processing | Q6A MetaHuman voice owners and selected perception runtime | Remote supplies only explicitly installed/qualified equivalents, with separate WAN budget |
+| STT/TTS and image/audio processing | Q6A Ainekio OS voice owners and selected perception runtime | Remote supplies only explicitly installed/qualified equivalents, with separate WAN budget |
 | Lightweight routing and local skills | Q6A model router, Agent Catalog and graphs | Remote-only/manual modes advertise their actual available capabilities |
-| Heavy reasoning, expensive tools, training | Remote MetaHuman provider/Coordinator/training owners | Pause remote-dependent work; Q6A local skills continue |
-| Long-term memory, retrieval, consolidation and persona evolution | Proposed remote MetaHuman memory/storage/Agency/persona owners | Bounded local cache, working context and pending events |
-| Active high-level robot execution | Existing Coordinator/durable graph owner in the currently controlling MetaHuman instance | Reconcile before explicit handoff; no independent continuation by both hosts |
+| Heavy reasoning, expensive tools, training | Remote Ainekio OS provider/Coordinator/training owners | Pause remote-dependent work; Q6A local skills continue |
+| Long-term memory, retrieval, consolidation and persona evolution | Proposed remote Ainekio OS memory/storage/Agency/persona owners | Bounded local cache, working context and pending events |
+| Active high-level robot execution | Existing Coordinator/durable graph owner in the currently controlling Ainekio OS instance | Reconcile before explicit handoff; no independent continuation by both hosts |
 | Autonomy admission | Existing Robot Operator in current controlling provider | Other installations can compute but cannot produce effects for the leased body |
 | Organizer, curator, reflection, curiosity/research, daydreaming, psychoanalysis, mood | Remote by default through existing catalog/work owners | Inventory each workflow's dependencies before migration |
 | Status and diagnostics | Shared typed facts consumed by existing status/UI owners | Consumers show freshness and current authority, not guessed availability |
@@ -116,8 +116,8 @@ Likewise, a remote relay whose origin is Q6A is not an independent fallback.
 When both hosts are available, propose Q6A for live interaction and remote for
 heavy jobs. User preference and precise return policy still need definition.
 Remote takeover means control availability, not a promise of identical speech,
-vision performance or automatic recovery of every interrupted MetaHuman task.
-Use one MetaHuman codebase with role configuration, initially at the same tested
+vision performance or automatic recovery of every interrupted Ainekio OS task.
+Use one Ainekio OS codebase with role configuration, initially at the same tested
 release. Existing local/server deployment modes alone do not implement this split.
 
 ## 5. Shared status, routing and queues
@@ -134,7 +134,7 @@ be required to detect a disconnected controller or allow an emergency stop.
 | --- | --- | --- |
 | Shared status/read model | Existing Robot Status, gateway/body telemetry and service diagnostics | Projects authoritative facts; never creates or resumes an objective |
 | Body-source selection | Existing P4 admission/connection owner, extended | P4 grants/revokes physical control |
-| Work/provider routing | Existing MetaHuman work submission/Coordinator; model router/resolver for model selection | Select providers by capability, readiness, locality, resource capacity and deadline |
+| Work/provider routing | Existing Ainekio OS work submission/Coordinator; model router/resolver for model selection | Select providers by capability, readiness, locality, resource capacity and deadline |
 | Finite-job queues | Existing Work Coordinator on each installation | One owner per admitted job; explicit parent/remote-child correlation |
 | Speech delivery | Existing voice/robot speech/delivery owners | Preserve phrase ordering, cancellation and delivery identity |
 | Body command queues | Existing gateway and P4 queues | Enforce current grant, expiry, bounded capacity and result correlation |
@@ -142,8 +142,8 @@ be required to detect a disconnected controller or allow an emergency stop.
 | ROS diagnostics | Adapter into/out of shared health facts | Standard health reporting and visualization, not work admission or election |
 
 The universal body-control contract must remain usable by a standalone manual
-client without MetaHuman's Coordinator. MetaHuman job orchestration is layered
-above it. Reusing its Coordinator does not make MetaHuman a dependency of P4 or
+client without Ainekio OS's Coordinator. Ainekio OS job orchestration is layered
+above it. Reusing its Coordinator does not make Ainekio OS a dependency of P4 or
 manual Body Control.
 
 Do not put emergency stop, camera frames, speech, walking intentions and training
@@ -158,8 +158,8 @@ existing owners enforce the relevant queues and resource limits.
 | Robot mode, current control source, grant, actuator/fault state and sensed telemetry | P4 | Robot identity, boot/session, monotonic sequence, source time, validity |
 | Host/service capability and resource availability | The reporting host/service | Provider identity/boot, revision, health, observed time, freshness limit |
 | Job/action lifecycle | Admitting execution owner; P4/gateway supplies physical receipts | Job/action and parent IDs, owner, revision, control grant and outcome evidence |
-| Memory/persona revision | Selected MetaHuman memory/persona owner | Logical identity, revision and provenance |
-| Situation summary | Current MetaHuman interpretation | Observation references, age and uncertainties; cannot overwrite measured facts |
+| Memory/persona revision | Selected Ainekio OS memory/persona owner | Logical identity, revision and provenance |
+| Situation summary | Current Ainekio OS interpretation | Observation references, age and uncertainties; cannot overwrite measured facts |
 
 Publish typed updates and provide a bounded snapshot for reconnect/resynchronizing.
 Each consumer maintains a read view; all three machines must not edit the same
@@ -186,7 +186,7 @@ is being monitored.
 
 **Decision proposal:** adapt existing Robot Status and Coordinator owners; use ROS
 diagnostics for the health/tooling part if ROS is adopted. Do not replace the
-complete MetaHuman status/task model with diagnostics or build a new standalone
+complete Ainekio OS status/task model with diagnostics or build a new standalone
 scheduler. New work belongs in the missing cross-host contracts, P4 source
 arbitration and adapters. A new broker is not selected; ROS/DDS versus existing
 application transport must be evaluated against these contracts, including
@@ -233,10 +233,10 @@ P4 camera data still consumes the body Wi-Fi link even when Q6A reduces WAN data
 | Scenario | Required result |
 | --- | --- |
 | Remote absent, Q6A/body healthy | Local skills continue; remote work pauses; bounded pending uploads |
-| MetaHuman process fails but gateway remains | Distinguish provider failure from host failure; manual remains available |
+| Ainekio OS process fails but gateway remains | Distinguish provider failure from host failure; manual remains available |
 | Q6A host fails, independent network/remote healthy | Authorized remote candidate can take over; obsolete commands rejected |
 | Old host returns | Explicit return policy; no takeover of active manual session or replay |
-| Both MetaHuman installations unavailable | Standalone Body Control can acquire control through an available device/path |
+| Both Ainekio OS installations unavailable | Standalone Body Control can acquire control through an available device/path |
 | Network partition / competing sources | P4 admits only its current grant; stale status cannot confer control |
 | Lost action acknowledgement | Expose uncertainty and reconcile before retry |
 | Camera congestion | Bound expendable media; preserve control supervision |
@@ -273,7 +273,7 @@ bounds from transport specifications.
 | --- | --- | --- |
 | 0 — foundation | Shared control/status/work schemas, ownership, priority/return policy, function map and first-skill targets | Every requirement has an owner, surviving failure path and testable contract |
 | 1 — control independence | Extend existing P4/shared admission/gateway with grants and approved endpoint selection | Competing sources, expiry, stale/duplicate actions, stop, restart and manual takeover in fixtures |
-| 2 — shared visibility | Versioned facts/capabilities and status projection through existing owners; optional ROS diagnostics adapter | Correct freshness, restart/sequence-gap recovery and views from manual/MetaHuman clients |
+| 2 — shared visibility | Versioned facts/capabilities and status projection through existing owners; optional ROS diagnostics adapter | Correct freshness, restart/sequence-gap recovery and views from manual/Ainekio OS clients |
 | 3 — host roles and work routing | Existing Coordinators/catalog/model owners handle declared local/remote work | One active body source, bounded queues, dependency-aware pauses and correlated cancellation/results |
 | 4 — memory/handoff | Deduplicated memory/context sync and explicit interrupted-work reconciliation | Offline/reconnect, conflicts/deletion, full cache, late results and provider return |
 | 5 — expanded media/body | Scheduling repair, quality settings, IMU feedback and identified LCD | Revised budgets, concurrent workload evidence, then separate loaded-motion proof |
@@ -283,7 +283,7 @@ One codebase can have multiple deployments without duplicating ownership of a
 specific job or active body grant. Implement one observable slice at a time,
 remove superseded active paths, and retain a compatible rollback release.
 Protocol/physical-failure changes need a numbered specification revision/erratum.
-Record MetaHuman/gateway/P4 revisions, capabilities, model artifacts and role
+Record Ainekio OS/gateway/P4 revisions, capabilities, model artifacts and role
 configuration versions. Do not copy live execution databases for takeover.
 
 ## 9. Remaining decisions
@@ -295,9 +295,9 @@ skill/handoff targets. No further endpoint/model-address decision is needed to
 finish design. Existing launcher, pairing and connection-return behavior remains
 documented in the [implementation record](BODY_CONTROL_INTEGRATION.md#2026-10-02-implementation-portable-body-control-and-host-switching).
 
-Source review: Ainekio `270537fa56c8d77efd72ff694f4294d15381de52`; MetaHuman
+Source review: Ainekio `270537fa56c8d77efd72ff694f4294d15381de52`; Ainekio OS
 `8f9ee64558a9d67854fbaae62d796151f871b98d`. Resource figures retain the prior
 budget's recorded identities. See the
-[MetaHuman foundation audit](https://github.com/Greg-Aster/metahuman-os/blob/main/docs/audits/2026-09-28-distributed-robot-foundation.md)
+[Ainekio OS foundation audit](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/audits/2026-09-28-distributed-robot-foundation.md)
 for source owners and gaps. This is a focused architecture review, not a new
 line-by-line audit of every repository file.

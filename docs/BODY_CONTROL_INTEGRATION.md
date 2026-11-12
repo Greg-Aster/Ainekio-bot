@@ -8,20 +8,20 @@ Status: Living research, implementation and decision record
 
 ## Purpose and current direction
 
-Record how ROS 2 can supplement Ainekio and MetaHuman OS, compare the two ways
+Record how ROS 2 can supplement Ainekio and Ainekio OS, compare the two ways
 to connect the ESP32-P4 body controller to Q6A, and preserve the findings and
 implementation targets for later work.
 
 **Selected direction: wireless P4/C6 body to offboard Q6A, with a separate
-Q6A connection to remote MetaHuman OS.** The owner selected this to reduce robot
-weight and carried compute power. Both Q6A and the remote machine run MetaHuman:
-Q6A handles responsive local processing; remote MetaHuman handles heavy reasoning,
+Q6A connection to remote Ainekio OS.** The owner selected this to reduce robot
+weight and carried compute power. Both Q6A and the remote machine run Ainekio OS:
+Q6A handles responsive local processing; remote Ainekio OS handles heavy reasoning,
 long-term memory and training. The remote machine may be geographically distant.
 
 The previous native-USB recommendation compared transport with power excluded.
 Its capacity advantages remain valid, but it is now the alternative rather than
 the implementation priority. Wi-Fi already has an Ainekio implementation; the
-two-installation MetaHuman division of labor still needs defined contracts.
+two-installation Ainekio OS division of labor still needs defined contracts.
 
 The [distributed robot foundation](DISTRIBUTED_ROBOT_FOUNDATION.md) records the
 function allocation, existing source owners, proposed communication contracts,
@@ -30,7 +30,7 @@ features.** The owner confirmed that Q6A should continue defined local skills
 while remote-dependent tasks pause when the remote server is unavailable.
 
 **Latest control requirement:** P4 is the robot brain and accepts the same
-control contract from interchangeable authorized sources. Q6A, remote MetaHuman
+control contract from interchangeable authorized sources. Q6A, remote Ainekio OS
 and standalone manual Body Control must each be usable without requiring the
 other hosts. Available-gateway connection switching is implemented in source;
 general source grants and cross-installation task continuation remain planned. The shared
@@ -44,7 +44,7 @@ update latency before offloading additional computation. Neither connection has
 a qualified full-load latency bound.
 
 **ROS 2 is an optional Q6A integration layer.** Preserve the existing gateway,
-body controller and MetaHuman responsibilities. Start with telemetry and tools;
+body controller and Ainekio OS responsibilities. Start with telemetry and tools;
 keep the local motion/IMU feedback loop on P4. Details and sources are below.
 
 **Use the [complete system budget](v2-12servo/RESOURCE_BUDGET.md) for design
@@ -54,7 +54,7 @@ and frees a dedicated 3 A servo branch. Those are distinct benefits. Neither
 transport is qualified for maximum concurrent media and loaded motion.
 
 The [2026-09-28 audit](v2-12servo/BUDGET_AUDIT_EVIDENCE.md) covers P4 firmware,
-gateway and MetaHuman speech paths, manufacturer specifications, Q6A interface
+gateway and Ainekio OS speech paths, manufacturer specifications, Q6A interface
 capabilities and a new offline Kokoro timing/memory measurement. It also records
 why chip typical-current figures cannot form a guaranteed whole-robot total.
 
@@ -77,10 +77,10 @@ timestamped SI-unit samples, explicit mounting/calibration, attitude estimates,
 freshness and recovery state, with host tests and P4 compilation. There is no
 live sensor task, wire telemetry or movement correction yet. The GY-LSM6DS3 is
 not wired; GPIO7/8 on the existing media/control I2C bus is the recommendation,
-pending the owner's wiring choice and physical axis verification. MetaHuman
+pending the owner's wiring choice and physical axis verification. Ainekio OS
 retains command authority through the existing gateway and Environment Bridge.
 
-The host now uses MetaHuman's existing durable execution and Work Coordinator
+The host now uses Ainekio OS's existing durable execution and Work Coordinator
 for one active task program. Environment Mode and the autonomy executor both
 select ordered semantic actions, generated gestures, and ongoing behaviors for
 that same executor. A behavior starts one continuous gait; fresh recognition can
@@ -114,12 +114,12 @@ capture age and recognition accuracy remain unqualified.
 | Device | Intended responsibility |
 | --- | --- |
 | ESP32-P4 | Execute the existing gait and servo control; acquire the planned LSM6DS3 IMU; own local movement supervision and future fast posture correction. |
-| Offboard Q6A | Host the existing Ainekio gateway and local MetaHuman; provide lightweight task coordination, bounded media transport, responsive feedback and defined local skills. |
+| Offboard Q6A | Host the existing Ainekio gateway and local Ainekio OS; provide lightweight task coordination, bounded media transport, responsive feedback and defined local skills. |
 | Remote computer/server | Run heavy inference and perception, long-term memory, training and expensive tools; may run on a distant server. |
 
 The deployment split and takeover policy are still design work. All sources
 must use the common Ainekio control contract and P4 admission/output owner.
-The existing gateway serves manual and MetaHuman requests. P4 now selects another
+The existing gateway serves manual and Ainekio OS requests. P4 now selects another
 available paired gateway after losing its current connection, without replaying
 movement or transferring an active objective. The LSM6DS3 has been received; its installation and integration
 are planned, not verified. Whether ROS is used for sensors or diagnostics is a
@@ -149,7 +149,7 @@ The native `v2_run_source` failure from the earlier checkout is resolved by the
 preserved remote changes. The three native skips remain the unqualified geometry
 and generator gates. Aggregate asset/header/sit, run-to-walk and protocol
 schema/fixture failures remain. Commands were
-`PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests .venv/bin/python3 -m unittest Emulator.tests.test_gateway_switching Emulator.tests.test_robot_settings Emulator.tests.test_p4_foundation Emulator.tests.test_robot_hotspot_installation`,
+`PYTHONPATH=Master:Slave/software:.:tests .venv/bin/python3 -m unittest tests.test_gateway_switching tests.test_robot_settings tests.test_p4_foundation tests.test_robot_hotspot_installation`,
 `cmake --build build/host-switching/p4 -j4`,
 `ctest --test-dir build/host-switching/p4 --output-on-failure`, and the existing
 acceptance runner with the Chromium/offline gait CLI configuration recorded below.
@@ -226,7 +226,7 @@ existing owner. No additional runtime, queue or behavior policy was introduced.
 
 Follow-up source files are `Slave/firmware/esp32p4-wifi6/main/controller.c`,
 `Slave/software/core/src/admission.c`, its public header and admission tests,
-`Emulator/tests/test_gateway_switching.py`, the native firmware README,
+`tests/test_gateway_switching.py`, the native firmware README,
 `docs/v2-12servo/FIRMWARE_DESIGN.md` and this existing record. The hotspot source
 files listed below were also included in this work.
 
@@ -325,7 +325,7 @@ The gateway/hotspot were restarted and left running.
 This is a private robot-to-Q6A LAN (`10.42.77.0/24`, gateway endpoint
 `ws://10.42.77.1:8790/robot`). DHCP is restricted to the AP; it advertises neither
 Internet routing nor DNS. Q6A's applications use its existing uplink for remote
-work. No NAT/router, Cloudflare setup or remote MetaHuman runtime was added.
+work. No NAT/router, Cloudflare setup or remote Ainekio OS runtime was added.
 At verification time hostapd reported zero associated clients and the Q6A had
 no body connection events. Actual P4 association, DHCP exchange, authenticated
 body connection and computer handoff remain untested. The desktop's running
@@ -348,7 +348,7 @@ changed. Robot power/configuration still requires confirmation: there are no
 Q6A body connections or recorded AP association attempts yet.
 
 Source changes are `Master/install-robot-hotspot.py`,
-`Emulator/tests/test_robot_hotspot_installation.py`, `Master/gateway/README.md`,
+`tests/test_robot_hotspot_installation.py`, `Master/gateway/README.md`,
 `.env.example` and this record. Reproduction instructions and radio/channel
 requirements are in the [gateway README](../Master/gateway/README.md).
 
@@ -397,7 +397,7 @@ unchanged: `origin/dev` is `7cf5a543e086bd94f3c0833e5e7d1bd054df5bf2` and
 `origin/main` is `022bda54ebd97711d656313513d29c3a80bb3f28`. The remote dev increment
 contains only front/rear structural crossbar STL exports and overlaps none of
 this repair. No merge was performed. The supplied prep, parent `AGENTS.md`,
-distributed foundation, maintained MetaHuman boundaries and protocol/firmware
+distributed foundation, maintained Ainekio OS boundaries and protocol/firmware
 records were read; no Ainekio repository-specific `AGENTS.md` exists.
 
 **Connection and identity contract.** P4 advertises `gateway_switching_v1`
@@ -432,14 +432,14 @@ a sequence or dispatching. No substitute command is sent.
 The existing security owners export/import a versioned, owner-only bundle of
 saved robot tokens (including pending rotation) and dashboard password verifier.
 The bundle excludes sessions, task/action databases, logs, `.env`, machine paths,
-MetaHuman and tunnel credentials. Imports validate the whole bundle and both
+Ainekio OS and tunnel credentials. Imports validate the whole bundle and both
 stores first, preserve conflicting credentials with an explicit error, and
 allow identical retries. Each new store is written exclusively and atomically;
 an explicit disk failure may leave one imported store, and the same import
 finishes it. This is credential portability, not another writable authority.
 Later credential changes must be coordinated across the hosts.
 
-Standalone Body Control no longer requires a MetaHuman Bridge token; configured
+Standalone Body Control no longer requires a Ainekio OS Bridge token; configured
 recognition still requires the authenticated Bridge. Start, stop and relay now
 share the existing trusted `.env` loader and preserve explicit environment
 precedence. Stop uses the same configured runtime directory as start. Production
@@ -458,7 +458,7 @@ simulated Cloudflare header. A real production subprocess shutdown test covers
 an authenticated body, authenticated Bridge and incomplete HTTP handshake.
 The existing recognition/steering and emergency-stop regressions also run in
 the aggregate. No second queue, durable executor, inference runtime or LLM
-behavioral substitute was introduced; task ownership remains in MetaHuman.
+behavioral substitute was introduced; task ownership remains in Ainekio OS.
 
 Changed files, grouped by owner (paths are relative to the named directory):
 
@@ -471,7 +471,7 @@ Changed files, grouped by owner (paths are relative to the named directory):
 | `Slave/firmware/esp32s3/` | `CMakeLists.txt`, `components/ainekio_platform/CMakeLists.txt` |
 | `Slave/software/` | `core/include/ainekio/protocol.h`, `protocol/control_v1.py`, `protocol/README.md` |
 | `Slave/firmware/esp32p4-wifi6/tests/` | `CMakeLists.txt`, `test_robot_settings.c`, `test_robot_settings_store.c`, new `test_gateway_selection.c`, `test_gateway_discovery.c`, `discovery_shim/esp_netif.h`, `discovery_shim/mdns.h` |
-| `Emulator/` | new `tests/test_pairing_transfer.py`, `tests/test_gateway_switching.py`; `tests/test_physical_gateway_launcher.py`, `tests/test_robot_settings.py`, `tools/run_acceptance.py`, `tools/dashboard_browser_acceptance.mjs` |
+| `tests/` | new `tests/test_pairing_transfer.py`, `tests/test_gateway_switching.py`; `tests/test_physical_gateway_launcher.py`, `tests/test_robot_settings.py`, `tools/run_acceptance.py`, `tools/dashboard_browser_acceptance.mjs` |
 | Root/docs | `.env.example`, `docs/BODY_CONTROL_INTEGRATION.md`, `docs/DISTRIBUTED_ROBOT_FOUNDATION.md` |
 
 **Configuration changes to use after review/build.** Export pairing once from
@@ -506,7 +506,7 @@ Final software validation:
 
 The full native failure is the existing exact `run_blend` source assertion;
 the skips require scientific Python dependencies. Existing aggregate failures
-in asset counts/sit poses, the missing Sesame source header, run-to-walk blending
+in asset counts/sit poses, the missing legacy V1 source header, run-to-walk blending
 and protocol schema/fixture coverage are outside this increment. Their source
 inputs are unchanged from starting HEAD, and the prior implementation record
 below reports the same failures. Chromium is installed here instead of Google
@@ -514,7 +514,7 @@ Chrome: the browser test now accepts `AINEKIO_TEST_BROWSER`; its first cold
 launch missed the existing five-second DevTools readiness window, and the
 subsequent full run passed. There is no configured Python lint/type check and
 Ruff/Mypy/Pyright/ShellCheck are absent; syntax checks do not prove Python static
-type correctness. No MetaHuman/TypeScript source changed in this increment.
+type correctness. No Ainekio OS/TypeScript source changed in this increment.
 
 **Remaining build/hardware blockers.** ESP-IDF 5.5.4 and `idf.py` are absent on
 this machine. The P4 manifest pins the shared `espressif/mdns` dependency to
@@ -533,10 +533,10 @@ blocker does not affect the isolated test fixtures.
 Reproduce from the repository root:
 
 ```sh
-env PYTHONPATH=Master:Slave/software:Emulator .venv/bin/python3 -m unittest \
-  Emulator.tests.test_pairing_transfer Emulator.tests.test_physical_gateway_launcher \
-  Emulator.tests.test_robot_settings Emulator.tests.test_gateway_security \
-  Emulator.tests.test_gateway_switching
+env PYTHONPATH=Master:Slave/software:. .venv/bin/python3 -m unittest \
+  tests.test_pairing_transfer tests.test_physical_gateway_launcher \
+  tests.test_robot_settings tests.test_gateway_security \
+  tests.test_gateway_switching
 
 cmake -S Slave/firmware/esp32p4-wifi6/tests -B build/host-switching/p4 \
   -DCMAKE_BUILD_TYPE=Debug -DPython3_EXECUTABLE=/usr/bin/python3
@@ -546,7 +546,7 @@ ctest --test-dir build/host-switching/p4 --output-on-failure \
 
 env AINEKIO_TEST_BROWSER=/snap/bin/chromium \
   AINEKIO_V2_WALK_COMMAND="$PWD/build/host-switching/p4/v2_model/v2_walk_command" \
-  .venv/bin/python3 Emulator/tools/run_acceptance.py
+  .venv/bin/python3 tests/
 ```
 
 The aggregate report is `build/acceptance/a-series.json`; full native results
@@ -562,19 +562,19 @@ recorded after fetching remote refs without changing either checkout:
 | Repository | Starting refs |
 | --- | --- |
 | Ainekio-bot | Local `main` HEAD, `origin/dev` and `origin/main`: `022bda54ebd97711d656313513d29c3a80bb3f28` |
-| MetaHuman OS | Local `main` HEAD and `origin/dev`: `3445379711a58c2360928e700d418728e839bd4b`; `origin/main`: `c3f56d41dfb396cd68391d12a2910aee8c32870b` |
+| Ainekio OS | Local `main` HEAD and `origin/dev`: `3445379711a58c2360928e700d418728e839bd4b`; `origin/main`: `c3f56d41dfb396cd68391d12a2910aee8c32870b` |
 
 The initial Ainekio edits were gateway/launcher documentation and launcher
 changes, this record, docs index, resource budget, plus untracked distributed
 foundation and launcher tests. A backup of those exact files, the starting
 binary diff and refs is at
 `/tmp/ainekio-steering-recognition-start-hie6r8r_/`. Existing unrelated edits
-were preserved. MetaHuman initially had a local backend configuration edit;
+were preserved. Ainekio OS initially had a local backend configuration edit;
 its consumer implementation changed concurrently during this task. This
-Ainekio repair did not edit MetaHuman source or configuration.
+Ainekio repair did not edit Ainekio OS source or configuration.
 
 Historical speech cleanup commit `9e1e402c` is already an ancestor of the
-MetaHuman starting HEAD. The maintained architecture/source retains the current
+Ainekio OS starting HEAD. The maintained architecture/source retains the current
 speech chunk/delivery owners and active-task executor. No separate patch bundle
 was found. Reapplying that cleanup would conflict with newer code. The old
 speech/catalog test doubles were instead updated to supply the real gateway
@@ -587,7 +587,7 @@ The owner approved the steering contract before source changes:
 is distinct from `walk_controls_v2`. Paired finite `forward` and `turn` use
 signed percentages from −100 to +100; positive forward advances and positive
 turn turns left. ACK confirms admission, and an update ACK cannot complete the
-original action or goal. The existing MetaHuman action/update fields agree with
+original action or goal. The existing Ainekio OS action/update fields agree with
 these signs, units and receipt semantics. Current P4 source advertises the new
 feature for its existing decoder/model. The gateway rejects either steering
 field on an unsupported body before allocating a sequence or dispatching,
@@ -606,13 +606,13 @@ followed. JPEG/result/object bounds and request/read deadlines remain. Failures
 reach the existing observation route with robot/epoch/frame/gateway correlation
 and a reason, rather than becoming empty successful observations or causing a
 new behavioral policy. Q6A transports bounded requests/results, the remote
-service performs perception, MetaHuman's LLM/executor owns behavior, and P4's
+service performs perception, Ainekio OS's LLM/executor owns behavior, and P4's
 existing owner performs body execution. No queue, inference runtime or durable
 execution authority was added.
 
 Configuration uses the existing `AINEKIO_VISION_URL`, `AINEKIO_VISION_MODEL`,
 `AINEKIO_VISION_API_KEY`, timeout and frame-age options documented in the
-[gateway README](../Master/gateway/README.md#configured-recognition-and-metahuman-handoff).
+[gateway README](../Master/gateway/README.md#configured-recognition-and-ainekio-os-handoff).
 Both URL/model and an authenticated Environment Bridge are required. Remote
 URL must name an HTTPS Chat Completions route; API key comes from the ignored
 environment configuration. Optional private CA trust uses standard
@@ -627,7 +627,7 @@ native production P4 decoder/model. It verifies that recognition alone sends no
 motion, update results retain action/revision/original sequence correlation,
 and the original receipt remains started until its terminal result. Inference
 responses, task/model decisions and device ACK/DONE transport are simulated.
-Separate MetaHuman consumer tests exercise the actual coordinator/task-state
+Separate Ainekio OS consumer tests exercise the actual coordinator/task-state
 code. This establishes software integration; it does not demonstrate hosted
 inference, Q6A performance or physical motion.
 
@@ -637,7 +637,7 @@ Repair files (existing unrelated dirty files are excluded):
 | --- | --- |
 | Gateway | `Master/gateway/server/service.py`, `Master/gateway/environment_adapter/server.py`, `Master/gateway/perception.py`, `Master/gateway/plugins.py`, `Master/gateway/server/__main__.py` |
 | P4/protocol | `Slave/firmware/esp32p4-wifi6/main/controller.c`, `Slave/software/core/include/ainekio/protocol.h`, `Slave/software/protocol/control_v1.py`, `Slave/software/protocol/schemas/control-v1.schema.json` |
-| Regression tests | `Emulator/tests/test_active_movement.py`, `Emulator/tests/test_recognition_backend.py`, `Emulator/tests/test_camera_perception.py`, `Emulator/tests/test_action_receipts.py`, `Emulator/tests/test_environment_command_catalog.py`, `Emulator/tests/test_environment_speech.py`, `Slave/software/core/tests/test_control_encode.c`, `Slave/software/models/v2-12servo/tests/test_locomotion.c` |
+| Regression tests | `tests/test_active_movement.py`, `tests/test_recognition_backend.py`, `tests/test_camera_perception.py`, `tests/test_action_receipts.py`, `tests/test_environment_command_catalog.py`, `tests/test_environment_speech.py`, `Slave/software/core/tests/test_control_encode.c`, `Slave/software/models/v2-12servo/tests/test_locomotion.c` |
 | Configuration/docs | `.env.example`, `Master/gateway/README.md`, `Slave/software/protocol/README.md`, `Slave/firmware/esp32p4-wifi6/README.md`, this record |
 
 Final validation (software only):
@@ -651,15 +651,15 @@ Final validation (software only):
 | Aggregate emulator component | 367 tests: 360 passed, 6 failures, 1 error; 103.444 s |
 | Aggregate protocol component | 14 tests: 11 passed, 3 failures; 0.159 s |
 | Aggregate portable C component | 13/13 passed |
-| MetaHuman `pnpm test:environment-perception` | 33/33 passed, 199401.668296 ms; exit 0 |
-| MetaHuman Bridge lifecycle tests | 4/4 passed, 11814.459383 ms; exit 0 |
-| MetaHuman `pnpm typecheck:core` | Passed; exit 0 |
-| MetaHuman `pnpm check:architecture` | Passed, 0 violations; exit 0 |
+| Ainekio OS `pnpm test:environment-perception` | 33/33 passed, 199401.668296 ms; exit 0 |
+| Ainekio OS Bridge lifecycle tests | 4/4 passed, 11814.459383 ms; exit 0 |
+| Ainekio OS `pnpm typecheck:core` | Passed; exit 0 |
+| Ainekio OS `pnpm check:architecture` | Passed, 0 violations; exit 0 |
 | Syntax and whitespace checks | 12 changed Python files parsed successfully; protocol schema JSON parsed; `git diff --check` passed |
 
 Ainekio has no configured Python lint/static-type check and its venv has no
 Ruff, Mypy or Pyright. The Python syntax and whitespace checks above do not
-establish Python static type correctness. C compiler warnings and MetaHuman's
+establish Python static type correctness. C compiler warnings and Ainekio OS's
 configured TypeScript/architecture checks passed. The five original unrelated
 dirty files remain byte-identical to the starting-state backup; additions to
 the two overlapping documentation files preserve their prior content.
@@ -667,13 +667,13 @@ the two overlapping documentation files preserve their prior content.
 Reproduce the focused check from Ainekio root:
 
 ```sh
-env PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests \
+env PYTHONPATH=Master:Slave/software:.:tests \
   .venv/bin/python3 -m unittest \
-  Emulator.tests.test_active_movement Emulator.tests.test_recognition_backend \
-  Emulator.tests.test_camera_perception Emulator.tests.test_action_receipts \
-  Emulator.tests.test_environment_adapter Emulator.tests.test_environment_speech \
-  Emulator.tests.test_environment_command_catalog Emulator.tests.test_gateway_service \
-  Emulator.tests.test_p4_foundation
+  tests.test_active_movement tests.test_recognition_backend \
+  tests.test_camera_perception tests.test_action_receipts \
+  tests.test_environment_adapter tests.test_environment_speech \
+  tests.test_environment_command_catalog tests.test_gateway_service \
+  tests.test_p4_foundation
 
 cmake -S Slave/firmware/esp32p4-wifi6/tests -B build/steering-recognition/p4 \
   -DPython3_EXECUTABLE=/usr/bin/python3
@@ -681,12 +681,12 @@ cmake --build build/steering-recognition/p4 --parallel 2
 ctest --test-dir build/steering-recognition/p4 --output-on-failure \
   --output-junit "$PWD/build/steering-recognition/native-final.xml"
 
-env PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests \
+env PYTHONPATH=Master:Slave/software:.:tests \
   AINEKIO_V2_WALK_COMMAND="$PWD/build/steering-recognition/p4/v2_model/v2_walk_command" \
-  .venv/bin/python3 Emulator/tools/run_acceptance.py
+  .venv/bin/python3 tests/
 ```
 
-From MetaHuman root, the consumer commands are `pnpm test:environment-perception`,
+From Ainekio OS root, the consumer commands are `pnpm test:environment-perception`,
 `pnpm typecheck:core`, `pnpm check:architecture`, and:
 
 ```sh
@@ -704,7 +704,7 @@ repair regression results even when the aggregate gate fails.
 The native Run recording assertion and gateway Walk→Run→Walk assertion both
 fail identically using archived pristine starting-commit sources. The asset
 counts (38 versus expected 36), owner Sit pose/excursion mismatches, missing
-ignored Sesame source header, and schema/fixture message-type coverage gaps
+ignored legacy V1 source header, and schema/fixture message-type coverage gaps
 also reproduce there. No assertion was relaxed, assets regenerated or Run
 behavior changed. The protocol gaps concern `robot_settings`,
 `robot_settings_status`, `motion_speed` and `motion_speed_status`. A29 cannot
@@ -731,7 +731,7 @@ merge, deployment, firmware flash or robot movement occurred.
 
 For the proposed shared status/router/queue system, see
 [foundation section 5](DISTRIBUTED_ROBOT_FOUNDATION.md#5-shared-status-routing-and-queues).
-Reuse MetaHuman's Robot Status projection and Work Coordinator. ROS diagnostics
+Reuse Ainekio OS's Robot Status projection and Work Coordinator. ROS diagnostics
 can supply component-health reporting and monitoring; control-source arbitration,
 durable job ownership and application state synchronization still need explicit
 contracts. The existing status file is not a distributed coordination service.
@@ -744,7 +744,7 @@ not connect Ainekio automatically. [ROS 2 Jazzy node concepts](https://github.co
 **Recommendation: supplement the existing system with a Q6A adapter when the
 following tools are needed.** No required feature in the audited design was
 identified as depending on ROS 2. The benefit is reuse of its interfaces and
-tools; adopting it does not require replacing MetaHuman or the P4 gait code.
+tools; adopting it does not require replacing Ainekio OS or the P4 gait code.
 
 | Use | Proposed integration | Boundary |
 | --- | --- | --- |
@@ -762,7 +762,7 @@ Run visualization on the desktop when desired; Q6A can remain headless.
 
 Add the adapter first as a telemetry consumer. Extend it to action requests only
 through Ainekio's existing admission, cancellation and result handling. Keep
-MetaHuman responsible for cognition/personality and high-level intent, and the
+Ainekio OS responsible for cognition/personality and high-level intent, and the
 embodied runtime responsible for perception, state estimation and skill execution.
 ROS is not selected as a replacement controller in this recommendation.
 
@@ -770,7 +770,7 @@ Installed ROS package size is not its runtime RAM cost. Charge each selected
 node, message copy, history queue and recorder to the Q6A budget. Keep camera
 queues bounded and consume fresh frames. The audit identified no deployed ROS
 robot graph, balance controller or selected YOLO pipeline; these remain
-implementation work. See the [host budget](v2-12servo/RESOURCE_BUDGET.md#9-q6a-metahuman-and-desktop-budget).
+implementation work. See the [host budget](v2-12servo/RESOURCE_BUDGET.md#9-q6a-ainekio-os-and-desktop-budget).
 
 ## Recommended operating targets
 
@@ -784,7 +784,7 @@ owns the detailed arithmetic and alternative profiles.
 | Body transport | Existing Wi-Fi/WebSocket path to offboard Q6A; USB HS remains an alternative | Establish network topology and bounded media/control scheduling; qualify concurrent latency and queues before increasing load |
 | Camera | Preserve 1920 × 1080 RGB565/hardware JPEG/YUV420 as the quality target, initially quality 75; desired 30 fps remains subject to encoded-byte admission | At 256 KiB/frame, 30 fps needs 62.915 Mbit/s before audio, above the linked 53.4 Mbit/s TX reference; define stream purpose, codec, queue and byte budget before choosing the final rate |
 | Physical audio | 24 kHz, 16-bit mono duplex | Shared I2S/codec clock; resize and relocate buffers where required |
-| Speaker transport | 24 kHz, 16-bit mono | Preserve Kokoro's native rate across MetaHuman, gateway and firmware |
+| Speaker transport | 24 kHz, 16-bit mono | Preserve Kokoro's native rate across Ainekio OS, gateway and firmware |
 | Mic for wake/STT and transport | Resample physical capture to 16 kHz, 16-bit mono | Account separately for resampling and physical-rate input buffers |
 | IMU | Initial 208 Hz local acquisition | Integrate driver and attitude/controller code; sampling rate alone does not establish fall recovery |
 | Servo targets/PWM | Retain 50 Hz | Loaded gait speed remains a separate mechanical qualification |
@@ -860,7 +860,7 @@ uses one configured gateway URL and retries that host; DNS-SD advertisement by
 the gateway does not establish discovery in this firmware target. A direct Q6A
 hotspot is the second topology below; wireless
 selection does not require hotspot/client concurrency. No network topology has
-been configured by this document. The remote MetaHuman connection is separate
+been configured by this document. The remote Ainekio OS connection is separate
 from the body connection and can traverse the Internet.
 
 Q6A cannot be the robot's only access point/Internet route if remote takeover
@@ -1160,11 +1160,11 @@ unqualified; the resource document records the specific evidence and sources.
 
 1. Complete the [distributed foundation](DISTRIBUTED_ROBOT_FOUNDATION.md): allocate
    functions, identity, memory, work ownership and failure handling across both
-   MetaHuman installations before feature migration.
+   Ainekio OS installations before feature migration.
 2. Address shared media/control scheduling and failure handling before increasing
    stream rates. Define response deadlines and acceptable frame age separately
    from the local 20 ms servo cadence.
-3. Implement the recommended media formats across firmware, gateway and MetaHuman;
+3. Implement the recommended media formats across firmware, gateway and Ainekio OS;
    retain the budget's buffer ownership, stack and DMA constraints.
 4. Integrate LSM6DS3 acquisition and local correction into the current P4 owners;
    identify the LCD before implementing its native-resolution display path.
@@ -1189,7 +1189,7 @@ serve as a substitute for selecting one.
 | Date | Finding or decision | Evidence level |
 | --- | --- | --- |
 | 2026-09-28, latest clarification | P4 is the robot brain; Q6A, remote and standalone manual Body Control are interchangeable authorized sources. Shared status/routing/queues should reuse existing owners. P4 currently retries one configured gateway; cross-host takeover remains to be designed. | Owner requirements and targeted source inspection; ROS diagnostics/control packages researched; no feature migration. |
-| 2026-09-28, latest | Owner selected wireless body/offboard Q6A to reduce carried weight and power; clarified that both Q6A and remote run MetaHuman with different responsibilities. Define the foundation before feature migration. Continue defined local skills during remote outages and pause remote-dependent tasks. | Explicit owner decisions; distributed contracts are proposed, not implemented. |
+| 2026-09-28, latest | Owner selected wireless body/offboard Q6A to reduce carried weight and power; clarified that both Q6A and remote run Ainekio OS with different responsibilities. Define the foundation before feature migration. Continue defined local skills during remote outages and pause remote-dependent tasks. | Explicit owner decisions; distributed contracts are proposed, not implemented. |
 | 2026-09-28 | Native USB recommended for onboard P4/Q6A; Q6A Wi-Fi reserved for upstream desktop communication. | Engineering recommendation; implementation pending. |
 | 2026-09-28 | Q6A hotspot plus Wi-Fi client is advertised by the installed driver and chipset documentation. | Read-only capability inspection; no networking changes or concurrency trial. |
 | 2026-09-28 | Audio payload rates calculated from code; media transport and queue owners inspected. | Source evidence and arithmetic; no live throughput or latency measurement. |
@@ -1198,7 +1198,7 @@ serve as a substitute for selecting one.
 | 2026-09-28 | Added a firmware-backed P4 resource budget, including generic 1.9-inch LCD without touch. GPIO and flash capacity support further integration; complete concurrent CPU and power totals remain open. | Current source, prior build/bench records, schematic and revision-matched datasheets; conditional display arithmetic and explicitly proposed balance allowances. |
 | 2026-09-28 | Withdrew assistant-assigned CPU/RAM/power totals and low-quality workload assumptions after owner correction. Replaced them with repository measurements, identified-part specifications and transparent calculations at higher hardware capabilities. | Published component benchmarks retain their conditions; unidentified parts and unmeasured application costs are explicitly unresolved. |
 | 2026-09-28 | Completed the whole-system budget and recorded native USB P4→Q6A / Wi-Fi Q6A→desktop as the recommendation with power excluded from the comparison. Added final media/sensor targets and concrete memory, ISP, transport, scheduling and speech constraints. | Engineering recommendation grounded in the linked audit; implementation and concurrent qualification pending. |
-| 2026-09-28 | Clarified ROS 2 as an optional Q6A adapter for telemetry, RViz, recording and future package integration, preserving MetaHuman cognition, gateway command authority and P4 local feedback. | ROS Jazzy documentation and existing ownership boundaries; no robot ROS graph deployed by this document update. |
+| 2026-09-28 | Clarified ROS 2 as an optional Q6A adapter for telemetry, RViz, recording and future package integration, preserving Ainekio OS cognition, gateway command authority and P4 local feedback. | ROS Jazzy documentation and existing ownership boundaries; no robot ROS graph deployed by this document update. |
 
 When revisiting this document, date new findings and label manufacturer claims,
 source inspection, calculations, and measured behavior separately. Preserve the

@@ -27,7 +27,6 @@ from gateway.security import DashboardPasswordStore, RobotTokenStore
 from protocol.binary_helpers import MIC_PCM_FRAME_TYPE
 
 from .service import GatewayService, GatewayServiceConfig, MAX_WEBSOCKET_MESSAGE_BYTES
-from .stub import GatewayStub, GatewayStubConfig, build_phase_one_commands
 
 WEBSOCKET_OPEN_TIMEOUT_SECONDS = 10.0
 MICROPHONE_AUDIT_INTERVAL_SECONDS = 1.0
@@ -135,12 +134,6 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile", choices=("home", "tether"), default="home")
     parser.add_argument("--dashboard-host", default="127.0.0.1")
     parser.add_argument("--dashboard-port", type=int, default=8791)
-    parser.add_argument(
-        "--dashboard-primary-view",
-        choices=("camera", "simulator"),
-        default="camera",
-        help="Primary Body Control panel",
-    )
     parser.add_argument("--data-dir", type=Path, default=Path("build/gateway"))
     parser.add_argument("--vision-url", default=os.environ.get("AINEKIO_VISION_URL"),
                         help="Configured Chat Completions endpoint (remote requires authenticated HTTPS); disabled when omitted")
@@ -160,16 +153,6 @@ def _parser() -> argparse.ArgumentParser:
         "--environment-session-id",
         default=os.environ.get("AINEKIO_ENVIRONMENT_SESSION_ID", "ainekio-01"),
         help="Session ID exposed by the authenticated environment adapter",
-    )
-    parser.add_argument(
-        "--stub",
-        action="store_true",
-        help="Run the scripted development stub without the dashboard",
-    )
-    parser.add_argument(
-        "--commands",
-        default="stand",
-        help="Comma-separated stub script: stand,neutral,walk,stop",
     )
     return parser
 
@@ -221,31 +204,6 @@ def _print_gateway_addresses(
     )
 
 
-async def _run_stub(args: argparse.Namespace, token: str) -> None:
-    names = [name.strip() for name in args.commands.split(",") if name.strip()]
-    stub = GatewayStub(
-        GatewayStubConfig(auth_token=token, profile=args.profile),
-        build_phase_one_commands(names),
-    )
-    async with serve(
-        stub.handler,
-        args.host,
-        args.port,
-        max_size=MAX_WEBSOCKET_MESSAGE_BYTES,
-        max_queue=32,
-        ping_interval=None,
-        close_timeout=1.0,
-        create_protocol=BoundedHandshakeProtocol,
-        logger=_websocket_logger(),
-    ):
-        _print_gateway_addresses(
-            bind_host=args.host,
-            port=args.port,
-            environment_enabled=False,
-        )
-        await asyncio.Future()
-
-
 async def _run_production(args: argparse.Namespace) -> None:
     adapter_token = os.environ.get("AINEKIO_ENVIRONMENT_ADAPTER_TOKEN", "").strip()
     yolo_weights = getattr(args, "vision_yolo_weights", None)
@@ -281,7 +239,7 @@ async def _run_production(args: argparse.Namespace) -> None:
     _seed_environment_token(token_store)
 
     audit_log = AuditLog(args.data_dir / "operations.jsonl")
-    service = dashboard = camera = gait_learning = server = None
+    service = dashboard = camera = server = None
     dashboard_thread = None
     dashboard_started = False
     signal_installed = False
@@ -319,7 +277,6 @@ async def _run_production(args: argparse.Namespace) -> None:
             password_store=password_store,
             token_store=token_store,
             audit_log=audit_log,
-            primary_view=args.dashboard_primary_view,
             hotspot=hotspot,
             environment_adapter=adapter,
         )
@@ -353,12 +310,6 @@ async def _run_production(args: argparse.Namespace) -> None:
                 adapter.selected_ground_range = camera.selected_ground_range
                 adapter.depth_demand = camera.depth_demand
         service.subscribe_events(dashboard.restore_camera)
-        from gateway.gait_learning_service import GaitLearningService
-        from gateway.robot_learning_transport import RobotLearningTransport
-        gait_learning = GaitLearningService(service, RobotLearningTransport(service, token_store),
-                                           camera.locomotion_measurement, depth_demand=camera.depth_demand)
-        dashboard.gait_learning = gait_learning
-        await gait_learning.start()
 
         async def route(websocket: object, path: str) -> None:
             if path == "/robot":
@@ -422,40 +373,36 @@ async def _run_production(args: argparse.Namespace) -> None:
             try:
                 try:
                     if server is not None:
-                        server.close()
+                        server.close(close_connections=False)
                 finally:
                     try:
-                        if gait_learning is not None:
-                            await gait_learning.close()
+                        if service is not None:
+                            await service.close()
                     finally:
-                        try:
-                            if service is not None:
-                                await service.close()
-                        finally:
-                            if server is not None:
-                                try:
-                                    # Release environment and unfinished-handshake
-                                    # sockets before waiting for all handlers.
-                                    established = []
-                                    errors = []
-                                    for websocket in tuple(server.websockets):
-                                        if websocket.open:
-                                            established.append(websocket.close(1001, "gateway stopped"))
-                                        elif not websocket.closed:
-                                            try:
-                                                websocket.transport.close()
-                                            except Exception as error:
-                                                errors.append(error)
-                                    # Drain every concurrent close before reporting
-                                    # failures, including synchronous handshake errors.
-                                    results = await asyncio.gather(*established, return_exceptions=True)
-                                    errors.extend(error for error in results if isinstance(error, BaseException))
-                                    if len(errors) == 1:
-                                        raise errors[0]
-                                    if errors:
-                                        raise BaseExceptionGroup("WebSocket shutdown failed", errors)
-                                finally:
-                                    await server.wait_closed()
+                        if server is not None:
+                            try:
+                                # Release environment and unfinished-handshake
+                                # sockets before waiting for all handlers.
+                                established = []
+                                errors = []
+                                for websocket in tuple(server.websockets):
+                                    if websocket.open:
+                                        established.append(websocket.close(1001, "gateway stopped"))
+                                    elif not websocket.closed:
+                                        try:
+                                            websocket.transport.close()
+                                        except Exception as error:
+                                            errors.append(error)
+                                # Drain every concurrent close before reporting
+                                # failures, including synchronous handshake errors.
+                                results = await asyncio.gather(*established, return_exceptions=True)
+                                errors.extend(error for error in results if isinstance(error, BaseException))
+                                if len(errors) == 1:
+                                    raise errors[0]
+                                if errors:
+                                    raise BaseExceptionGroup("WebSocket shutdown failed", errors)
+                            finally:
+                                await server.wait_closed()
             finally:
                 try:
                     if signal_installed:
@@ -514,15 +461,7 @@ def _audit_fields(payload: dict[str, object]) -> dict[str, object]:
 def main() -> int:
     args = _parser().parse_args()
     try:
-        if args.stub:
-            token = os.environ.get("AINEKIO_ROBOT_TOKEN")
-            if not token:
-                raise SystemExit(
-                    "AINEKIO_ROBOT_TOKEN must be set; tokens are not stored in the repo"
-                )
-            asyncio.run(_run_stub(args, token))
-        else:
-            asyncio.run(_run_production(args))
+        asyncio.run(_run_production(args))
     except KeyboardInterrupt:
         return 130
     return 0

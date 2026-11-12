@@ -1,0 +1,304 @@
+from __future__ import annotations
+
+import unittest
+
+from gateway.body_capabilities import DECLARED_EMOTES, body_command_available, body_commands
+from gateway.environment_adapter import EnvironmentAdapter, EnvironmentAdapterConfig
+from gateway.environment_adapter.translation import translate_environment_action
+from gateway.server.service import GatewayConnection, GatewayError, GatewayService, GatewayServiceConfig
+from protocol.control_v1 import ProtocolValidationError, validate_control_message
+from tests.test_environment_adapter import FakeGateway
+from tests.test_p4_foundation import Socket
+
+
+FEATURES = ("body_capabilities_v1", "body_commands_v1")
+
+
+def capabilities(ready: bool) -> dict[str, object]:
+    return {"motion": ready, "camera": False, "speaker": False, "microphone": False, "commands": ["walk", "stop"]}
+
+
+TURNS = tuple(f"turn_{direction}_{angle}" for direction in ("left", "right") for angle in (15, 45, 90, 180))
+GESTURES = ("sit", "rest", "wave", "dance", "swim", "point", "nod", "pushup", "bow",
+            "cute", "freaky", "worm", "shake", "shrug", "dead", "crab", "celebrate",
+            "stretch", "surprised", "sad", "curious")
+
+
+class V2CommandsTests(unittest.IsolatedAsyncioTestCase):
+    def connection(self, model: str, *, ready: bool = True) -> tuple[GatewayConnection, Socket]:
+        gateway = GatewayService(GatewayServiceConfig(tokens={"test-body": "test"}), clock=lambda: 100.0)
+        socket = Socket()
+        connection = GatewayConnection(gateway, socket, "test-body", 7,
+                                       FEATURES if model != "v1-8servo" else (), model=model,
+                                       capabilities=capabilities(ready) if model != "v1-8servo" else None)
+        gateway._connections["test-body"] = connection
+        return connection, socket
+
+    async def test_lay_down_is_declared_and_keeps_rest_and_dead_distinct(self) -> None:
+        self.assertIn('lay_down', DECLARED_EMOTES)
+        self.assertIsNone(translate_environment_action({'type':'robotCommand','command':'lay_down'},model='v2-12servo'))
+        c,socket=self.connection('v2-12servo')
+        with self.assertRaises(GatewayError):await c.service.emote('lay_down',robot_id='test-body',received_at=100.)
+        c.capabilities['commands']=['lay_down','dead','rest','stop']
+        for name in ('lay_down','dead','rest'):
+            await c.service.emote(name,robot_id='test-body',received_at=100.)
+            self.assertEqual(socket.messages[-1]['asset'],name)
+        c,socket=self.connection('v1-8servo')
+        with self.assertRaises(GatewayError):await c.service.emote('lay_down',robot_id='test-body',received_at=100.)
+        self.assertFalse(socket.messages)
+
+    async def test_same_walk_wire_and_lifecycle_for_both_bodies(self) -> None:
+        translated = translate_environment_action({"type": "move", "direction": "forward", "units": 3})
+        self.assertEqual((translated.kind, translated.name, translated.params),
+                         ("intent", "walk", {"dir": "fwd", "steps": 3}))
+        sent = []
+        for model in ("v1-8servo", "v2-12servo"):
+            connection, socket = self.connection(model)
+            seq = await connection.service.queue_intent(translated.name, translated.params,
+                                                       robot_id="test-body", received_at=100.0)
+            await connection._handle_control({"t": "ack", "seq": seq})
+            self.assertIn(seq, connection.pending)
+            await connection._handle_control({"t": "done", "seq": seq})
+            result = await connection.wait_terminal(seq, timeout=1)
+            self.assertEqual(result["t"], "done")
+            self.assertEqual(connection.service.terminals[-1]["epoch"], 7)
+            sent.append(socket.messages)
+        self.assertEqual(sent[0], sent[1])
+
+    async def test_unimplemented_motions_and_v1_calibration_do_not_dispatch(self) -> None:
+        connection, socket = self.connection("v2-12servo")
+        requests = [
+            {"t": "intent", "name": "stand"},
+            {"t": "intent", "name": "walk", "dir": "back", "steps": 1},
+            {"t": "intent", "name": "emote", "asset": "wave"},
+            {"t": "servo", "id": 0, "deg": 90, "ms": 100},
+            {"t": "cal_save"},
+            {"t": "pose_save", "name": "neutral", "servos": [[0,90]]},
+        ]
+        for request in requests:
+            with self.subTest(request=request), self.assertRaises(GatewayError):
+                await connection.send_command(request, received_at=100.0)
+        self.assertEqual(connection.next_sequence, 1)
+        self.assertEqual(socket.messages, [])
+
+    async def test_unready_body_still_accepts_stop(self) -> None:
+        connection, socket = self.connection("v2-12servo",ready=False)
+        with self.assertRaises(GatewayError):
+            await connection.send_command({"t":"intent","name":"walk","dir":"fwd","steps":1},received_at=100.0)
+        await connection.send_command({"t":"stop","detach":True},received_at=100.0)
+        self.assertEqual(socket.messages,[{"t":"stop","detach":True,"seq":1}])
+
+    async def test_motion_speed_negotiation_and_saved_readback(self) -> None:
+        import asyncio
+        from protocol.control_v1 import MOTION_SPEED_FEATURE
+        for model,feature in (("v1-8servo",False),("v1-8servo",True),("v2-12servo",False)):
+            connection,socket=self.connection(model)
+            if feature: connection.features+=(MOTION_SPEED_FEATURE,)
+            for msg in ({"t":"intent","name":"emote","asset":"wave","playback_rate":2},
+                        {"t":"motion_speed","op":"get"}):
+                with self.assertRaises(GatewayError): await connection.send_command(msg,received_at=100.)
+            self.assertEqual(socket.messages,[]);self.assertEqual(connection.next_sequence,1)
+        connection,socket=self.connection("v2-12servo")
+        connection.features+=(MOTION_SPEED_FEATURE,)
+        connection.capabilities["commands"]=["wave","sit","stand","walk","stop"]
+        for name in ("sit","stand","emote"):
+            params={"playback_rate":6,**({"asset":"wave"} if name=="emote" else {})}
+            seq=await connection.service.queue_intent(name,params,robot_id="test-body",received_at=100.)
+            self.assertEqual(socket.messages[-1]["playback_rate"],6)
+            await connection._handle_control({"t":"ack","seq":seq})
+            await connection._handle_control({"t":"done","seq":seq})
+        for rate in (0,-1,True,"2",float("nan"),float("inf")):
+            with self.assertRaises(ProtocolValidationError):
+                await connection.send_command({"t":"motion_speed","op":"save","rate":rate},received_at=100.)
+        task=asyncio.create_task(connection.service.body_motion_speed("save",{"rate":1.35},robot_id="test-body"))
+        await asyncio.sleep(0)
+        seq=socket.messages[-1]["seq"]
+        status={"t":"motion_speed_status","seq":seq,"rate":1.35,"saved":True}
+        await connection._handle_control(status);self.assertFalse(task.done(),"unacknowledged readback must not settle a save")
+        await connection._handle_control({"t":"ack","seq":seq})
+        await connection._handle_control({**status,"seq":seq+100});self.assertFalse(task.done())
+        await connection._handle_control(status)
+        self.assertEqual(await task,status)
+
+    async def test_joint_speed_limit_negotiation_and_saved_readback(self) -> None:
+        import asyncio
+        from protocol.control_v1 import MOTION_SPEED_FEATURE, JOINT_SPEED_LIMIT_FEATURE
+        connection,socket=self.connection("v2-12servo")
+        connection.features+=(MOTION_SPEED_FEATURE,)
+        with self.assertRaises(GatewayError):
+            await connection.service.body_motion_speed("save",{"joint_speed_limit_deg_s":2000},robot_id="test-body")
+        self.assertEqual(socket.messages,[])
+        connection.features+=(JOINT_SPEED_LIMIT_FEATURE,)
+        for value in (0,-1,True,"2000",float("nan"),float("inf")):
+            with self.assertRaises(ProtocolValidationError):
+                await connection.send_command({"t":"motion_speed","op":"save","joint_speed_limit_deg_s":value},received_at=100.)
+        task=asyncio.create_task(connection.service.body_motion_speed("save",{"joint_speed_limit_deg_s":2000},robot_id="test-body"))
+        await asyncio.sleep(0)
+        seq=socket.messages[-1]["seq"]
+        self.assertEqual(socket.messages[-1]["joint_speed_limit_deg_s"],2000)
+        status={"t":"motion_speed_status","seq":seq,"rate":2,"saved":True,
+                "joint_speed_limit_deg_s":2000,"joint_speed_limit_saved":True}
+        await connection._handle_control({"t":"ack","seq":seq})
+        await connection._handle_control(status)
+        self.assertEqual(await task,status)
+        for message in ({"t":"motion_speed","op":"save","rate":2,"joint_speed_limit_deg_s":2000,"seq":1},
+                        {"t":"motion_speed","op":"get","joint_speed_limit_deg_s":2000,"seq":1}):
+            with self.assertRaises(ProtocolValidationError): validate_control_message(message)
+
+    async def test_newly_advertised_clip_uses_existing_semantic_motion_lifecycle(self) -> None:
+        connection, socket = self.connection("v2-12servo")
+        connection.capabilities["commands"].append("new_pose")
+        seq = await connection.service.emote("new_pose", robot_id="test-body", received_at=100.0)
+        self.assertEqual(socket.messages[-1], {"t": "intent", "name": "emote", "asset": "new_pose", "seq": seq})
+        await connection._handle_control({"t": "ack", "seq": seq})
+        self.assertIn(seq, connection.pending)
+        await connection._handle_control({"t": "done", "seq": seq})
+        self.assertEqual((await connection.wait_terminal(seq, timeout=1))["t"], "done")
+        with self.assertRaises(GatewayError):
+            await connection.service.emote("uninstalled_pose", robot_id="test-body", received_at=100.0)
+
+    async def test_turns_use_same_wire_and_correlated_completion(self) -> None:
+        for name in TURNS:
+            models = ("v2-12servo",) if name.endswith("_15") else ("v1-8servo", "v2-12servo")
+            sent = []
+            for model in models:
+                connection, socket = self.connection(model)
+                if connection.capabilities is not None:
+                    connection.capabilities["commands"] = list(TURNS)
+                seq = await connection.service.queue_intent("emote", {"asset": name},
+                                                           robot_id="test-body", received_at=100.0)
+                await connection._handle_control({"t": "ack", "seq": seq})
+                self.assertIn(seq, connection.pending)
+                await connection._handle_control({"t": "done", "seq": seq})
+                self.assertEqual((await connection.wait_terminal(seq, timeout=1))["t"], "done")
+                self.assertEqual(connection.service.terminals[-1]["epoch"], 7)
+                sent.append(socket.messages)
+            if len(sent) == 2:
+                self.assertEqual(sent[0], sent[1])
+
+    async def test_new_turns_require_declared_support_and_motion_readiness(self) -> None:
+        for model, ready in (("v1-8servo", True), ("v2-12servo", False), ("v2-12servo", True)):
+            connection, socket = self.connection(model, ready=ready)
+            if model == "v2-12servo" and not ready:
+                connection.capabilities["commands"] = list(TURNS)
+            for name in ("turn_left_15", "turn_right_15"):
+                with self.subTest(model=model, ready=ready, command=name), self.assertRaises(GatewayError):
+                    await connection.service.queue_intent("emote", {"asset": name},
+                                                           robot_id="test-body", received_at=100.0)
+            self.assertEqual(socket.messages, [])
+            self.assertEqual(connection.next_sequence, 1)
+
+    async def test_gestures_keep_existing_wire_and_terminal_correlation_for_both_bodies(self) -> None:
+        for name in GESTURES:
+            sent = []
+            intent_name, intent_params = ("sit", {}) if name == "sit" else ("emote", {"asset": name})
+            for model in ("v1-8servo", "v2-12servo"):
+                connection, socket = self.connection(model)
+                if connection.capabilities is not None:
+                    connection.capabilities["commands"] = ["walk", "stop", *TURNS, *GESTURES]
+                seq = await connection.service.queue_intent(intent_name, intent_params,
+                                                           robot_id="test-body", received_at=100.0)
+                await connection._handle_control({"t":"ack", "seq":seq})
+                self.assertIn(seq, connection.pending)
+                # Cancellation uses the same session/action ownership as completion.
+                terminal = {"t":"cancelled", "seq":seq, "reason":"stop"} if name == "rest" else {"t":"done", "seq":seq}
+                await connection._handle_control(terminal)
+                result = await connection.wait_terminal(seq, timeout=1)
+                self.assertEqual(result["t"], terminal["t"])
+                self.assertEqual(connection.service.terminals[-1]["epoch"], 7)
+                sent.append(socket.messages)
+            self.assertEqual(sent[0], sent[1])
+
+    async def test_all_new_gestures_require_declaration_and_readiness(self) -> None:
+        for ready in (False, True):
+            connection, socket = self.connection("v2-12servo", ready=ready)
+            connection.capabilities["commands"] = list(GESTURES) if not ready else ["walk", "stop"]
+            for name in GESTURES:
+                intent_name, intent_params = ("sit", {}) if name == "sit" else ("emote", {"asset": name})
+                with self.subTest(ready=ready, command=name), self.assertRaises(GatewayError):
+                    await connection.service.queue_intent(intent_name, intent_params,
+                                                           robot_id="test-body", received_at=100.0)
+            self.assertEqual(socket.messages, [])
+            self.assertEqual(connection.next_sequence, 1)
+
+    def test_complete_p4_catalog_stays_body_control_only_while_adapter_advertises_freestyle_and_locomotion(self) -> None:
+        installed = ["walk", "stop", *TURNS, *GESTURES]
+        class Gateway(FakeGateway):
+            ready = True
+
+            def status(self):
+                result = super().status()
+                result["robots"]["test-body"].update(model="v2-12servo", features=list(FEATURES),
+                    capabilities={**capabilities(self.ready), "commands":installed})
+                return result
+
+        gateway = Gateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:", token="test"))
+        self.addCleanup(adapter.receipts.close)
+        observed = adapter._observation()["capabilities"]
+        self.assertNotIn("robotCommands", observed)
+        self.assertNotIn("robotCommandDescriptions", observed)
+        self.assertIn("requestMotion", observed["actions"])
+        self.assertIn("move", observed["actions"])
+        self.assertEqual(observed["locomotion"]["commands"], ["walk", "crab"])
+        gateway.ready = False
+        self.assertNotIn("requestMotion", adapter._observation()["capabilities"]["actions"])
+        self.assertNotIn("move", adapter._observation()["capabilities"]["actions"])
+
+    def test_new_turn_names_require_body_declaration_and_are_not_advertised_on_environment_bridge(self) -> None:
+        class Gateway(FakeGateway):
+            ready = True
+
+            def status(self) -> dict[str, object]:
+                result = super().status()
+                result["robots"]["test-body"].update(model="v2-12servo", features=list(FEATURES),
+                    capabilities={**capabilities(self.ready), "commands": list(TURNS)})
+                return result
+
+        gateway = Gateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:", token="test"))
+        self.addCleanup(adapter.receipts.close)
+        self.assertNotIn("robotCommands", adapter._observation()["capabilities"])
+        self.assertIn("requestMotion", adapter._observation()["capabilities"]["actions"])
+        gateway.ready = False
+        self.assertFalse(adapter._observation()["capabilities"]["movement"])
+        self.assertFalse(body_command_available("turn_left_15", None))
+        self.assertFalse(body_command_available("turn_right_15", None))
+        for direction in ("left", "right"):
+            for spelling in (f"turn_{direction}_15", f"turn {direction} 15 degrees"):
+                self.assertIsNone(translate_environment_action({"type": "robotCommand", "command": spelling}))
+
+    def test_adapter_advertises_ready_locomotion_without_legacy_command_catalog(self) -> None:
+        class Gateway(FakeGateway):
+            ready = True
+
+            def status(self) -> dict[str, object]:
+                result = super().status()
+                result["robots"]["test-body"].update(model="v2-12servo", features=list(FEATURES), capabilities=capabilities(self.ready))
+                return result
+
+        gateway = Gateway()
+        adapter = EnvironmentAdapter(gateway, EnvironmentAdapterConfig(receipt_path=":memory:",token="test"))
+        self.addCleanup(adapter.receipts.close)
+        observation = adapter._observation()
+        self.assertNotIn("robotCommands", observation["capabilities"])
+        self.assertNotIn("robotCommandDescriptions", observation["capabilities"])
+        self.assertEqual(observation["capabilities"]["locomotion"]["commands"], ["walk"])
+        gateway.ready = False
+        self.assertEqual(adapter._observation()["capabilities"]["locomotion"]["commands"], [])
+
+    def test_new_models_never_inherit_legacy_catalog_without_declaration(self) -> None:
+        self.assertIsNone(body_commands("v1-8servo",(),None))
+        self.assertEqual(body_commands("v2-12servo",(),None),())
+        self.assertEqual(body_commands("unknown",(),None),())
+        self.assertEqual(body_commands("v2-12servo",FEATURES,capabilities(False)),())
+
+    def test_handshake_requires_bounded_unique_command_names(self) -> None:
+        hello = {"t":"hello","ver":1,"fw":"test","id":"p4","auth":"test","model":"v2-12servo",
+                 "features":list(FEATURES),"capabilities":capabilities(False)}
+        validate_control_message(hello)
+        for commands in (None, ["walk","walk"], [""], [True], ["x"*33], [str(i) for i in range(65)]):
+            with self.subTest(commands=commands), self.assertRaises(ProtocolValidationError):
+                validate_control_message({**hello,"capabilities":{**capabilities(False),"commands":commands}})
+        with self.assertRaises(ProtocolValidationError):
+            validate_control_message({**hello,"features":["body_commands_v1"]})

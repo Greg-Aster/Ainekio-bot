@@ -75,11 +75,6 @@ def walking_profile(value):
            or value[key] <= 0 for key in names):
         raise ValueError("Supply positive finite forward/lateral m/s and yaw rad/s at 100%")
     profile = {"source": "neural", **{key: float(value[key]) for key in names}}
-    if "exploration_buffer_steps" in value:
-        steps = value["exploration_buffer_steps"]
-        if type(steps) is not int or steps < 2:
-            raise ValueError("exploration_buffer_steps must be an integer of at least 2")
-        profile["exploration_buffer_steps"] = steps
     return profile
 
 
@@ -121,7 +116,7 @@ def walking_orientation_reference(quaternion):
 
 
 def observation(source, environment, command, *, vision=None, previous_action=None,
-                orientation_reference=None, history=None, pending_actions=None):
+                orientation_reference=None, history=None):
     """Use the gateway sensor observation's calibrated model coordinates.
 
     The policy action domain stays the domain it trained on. Servo feedback
@@ -181,9 +176,6 @@ def observation(source, environment, command, *, vision=None, previous_action=No
         imu_quality={key: imu.get(key) for key in IMU_QUALITY_FIELDS},
         observation_time_s=device_us/1e6 if type(device_us) in (int, float) else None,
     )
-    from .contract import PENDING_SCHEMA, pending_rows
-    if result['schema'] == PENDING_SCHEMA:
-        result['pending_actions'] = pending_rows(pending_actions)
     result = (history if history is not None else ObservationHistory()).project(result)
     vector(result)
     return result

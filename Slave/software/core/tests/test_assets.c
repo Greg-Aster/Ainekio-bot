@@ -127,7 +127,7 @@ static void test_length_delimited_names_cannot_alias_shorter_assets(void)
     free(asset);
 }
 
-static void test_sesame_walk_is_one_bounded_gait_cycle(void)
+static void test_v1_walk_is_one_bounded_gait_cycle(void)
 {
     size_t length = 0U;
     uint8_t *bytes = read_asset("walk_forward", &length);
@@ -251,7 +251,7 @@ int main(void)
     test_all_seed_assets_decode_and_fit_default_calibration();
     test_corruption_truncation_and_trailing_data_are_rejected();
     test_length_delimited_names_cannot_alias_shorter_assets();
-    test_sesame_walk_is_one_bounded_gait_cycle();
+    test_v1_walk_is_one_bounded_gait_cycle();
     test_fallbacks_are_bounded();
     test_feedback_frames_are_small_and_pose_relative();
     puts("asset tests passed");

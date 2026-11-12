@@ -1,4 +1,4 @@
-# Final robot resource budget — Ainekio / MetaHuman OS
+# Final robot resource budget — Ainekio / Ainekio OS
 
 Audited 2026-09-28. **Design reference, not completed-robot qualification.**
 
@@ -16,7 +16,7 @@ existing 1024×768 resize scratch, and one 256 KiB JPEG buffer: **10,129,408 B /
 9.660 MiB**, before compressed copies, wake, ISP/driver and other allocations.
 Historical throughput/combined-load results below do not qualify this mode.
 Scope: twelve servos, P4 / C6, camera, audio, LCD, IMU, storage, Q6A, gateway,
-MetaHuman services and remote LLM boundary. This supersedes the earlier partial
+Ainekio OS services and remote LLM boundary. This supersedes the earlier partial
 budgets and withdrawn invented CPU / RAM / power allowances.
 
 Later owner decision: wireless body with offboard Q6A, remote/manual takeover and
@@ -35,7 +35,7 @@ Quick reference: [power](#3-electrical-budget) ·
 [audio](#6-audio-quality-memory-and-delay) ·
 [pins and sensors](#7-imu-lcd-pins-and-buses) ·
 [motion](#8-cpu-deadlines-walking-speed-and-servo-lag) ·
-[Q6A](#9-q6a-metahuman-and-desktop-budget) ·
+[Q6A](#9-q6a-ainekio-os-and-desktop-budget) ·
 [wired/Wi-Fi](#10-wired-versus-wireless) ·
 [settings](#11-operating-targets-and-adjustment-rules).
 
@@ -75,7 +75,7 @@ through the P4.
 | Q6A USB storage | 1 currently used | Kokoro model cache | Actual 31.407 GB device; conflicts with no-USB-storage deployment until cache relocation |
 | Remote desktop / server | 1 | Heavy LLM | Off robot battery; hardware / model / context allocation not supplied in robot records |
 | Ainekio gateway / adapter | 1 authority | Commands and media | Existing Python WebSocket path; native USB transport not implemented |
-| MetaHuman / Robot Status | Existing system | Coordination and state projection | Host processes; separate from P4 motion deadline |
+| Ainekio OS / Robot Status | Existing system | Coordination and state projection | Host processes; separate from P4 motion deadline |
 | Kokoro / Whisper | Host services | TTS / STT | CPU Kokoro installed; Whisper configured base.en / int8 / CPU, configured environment absent here |
 | YOLO | Proposed | Q6A object detection | No selected / implemented pipeline found in gateway source |
 | ROS 2 Jazzy | Installed, optional | Sensor / tool interoperability | No selected ROS robot graph or ROS balance integration identified |
@@ -365,7 +365,7 @@ four 1 MiB log files and 32 captures, each capped at 1 MiB. With the current
 ## 6. Audio quality, memory and delay
 
 ES8311 supports mono 8–96 kHz / up to 24-bit. The current P4, gateway validation,
-speech adapter and MetaHuman resampling fix 16k / 16-bit / mono / 20 ms frames.
+speech adapter and Ainekio OS resampling fix 16k / 16-bit / mono / 20 ms frames.
 Higher rates require changes across all those owners.
 [Codec specification](https://files.waveshare.com/wiki/common/ES8311.DS.pdf).
 
@@ -409,7 +409,7 @@ sum alone is not its complete memory allocation.
 | Delay / storage mechanism | Exact behavior / evidence |
 | --- | --- |
 | Synthesis | Offline Q6A test: 5 s voice took **15.068–15.904 s**; **1,537.797 MiB** peak process RSS |
-| MetaHuman delivery | Collects all Kokoro chunks before staging / enqueueing robot speech |
+| Ainekio OS delivery | Collects all Kokoro chunks before staging / enqueueing robot speech |
 | Gateway | Up to five-frame initial prebuffer, then 20 ms pacing |
 | P4 startup buffer | Four queued frames or end-of-stream; 80 ms of audio, not a fixed 80 ms network wait |
 | Speaker queue | 50 × 20 ms = 1 s capacity; not normal latency |
@@ -562,7 +562,7 @@ TowerPro's separate MG90S specifies 0.10 s / 60° at 4.8 V, equivalent 600° / s
 The installed Miuzei servos are not that identified product; this is a comparison,
 not their loaded response bound. [TowerPro](https://towerpro.com.tw/product/mg90s-3/).
 
-## 9. Q6A, MetaHuman and desktop budget
+## 9. Q6A, Ainekio OS and desktop budget
 
 Eight host cores and **11.288 GiB Linux-visible RAM** are separate from P4 pools.
 GPU / DSP acceleration also uses buffers / host memory; a 12-TOPS product figure does
@@ -572,7 +572,7 @@ not determine application FPS or available CPU.
 | --- | --- | --- |
 | Ubuntu / shared services | Snapshot about 7.5–7.7 GiB available during audit | Instantaneous observation, not final headless reservation |
 | Gateway | Camera queue 1; body frame cap 256 KiB + 5 B; bridge JSON 384 KiB / binary 512 KiB | Python / SSL / WebSocket heap additional to payloads |
-| MetaHuman speech | Input stream cap 3 MiB / 64 chunks; individual WAV 2 MiB; PCM ≤ 480,000 B; four staged files | Conversions / copies additional; preparation collects full speech before dispatch |
+| Ainekio OS speech | Input stream cap 3 MiB / 64 chunks; individual WAV 2 MiB; PCM ≤ 480,000 B; four staged files | Conversions / copies additional; preparation collects full speech before dispatch |
 | Kokoro | **1,537.797 MiB peak process RSS** measured | Five-second phrase: **15.068–15.904 s** synthesis, eight threads |
 | Whisper base.en / int8 | Configuration present; configured environment absent | No local working-set / runtime result; do not borrow another machine / model's benchmark |
 | Optional Qwen 3.5-0.8B | 532,517,120 B text weights + 204,987,232 B projector = **703.339 MiB on disk** | Four A78 threads, context 4096, one slot; model-file size is not runtime RAM |
@@ -589,7 +589,7 @@ Uncooled tests reached about 95°C; records also document USB / PCIe / storage e
 These are local workload evidence, not a forecast of remote desktop performance.
 
 Host admission equation:
-`OS + gateway/MetaHuman + concurrent TTS/STT/vision working sets + buffers + optional model runtime < usable RAM`.
+`OS + gateway/Ainekio OS + concurrent TTS/STT/vision working sets + buffers + optional model runtime < usable RAM`.
 Use proportional set size or whole-host deltas when adding shared processes;
 summing every RSS can double-count shared pages. zram is not extra physical RAM
 or a guarantee against latency.

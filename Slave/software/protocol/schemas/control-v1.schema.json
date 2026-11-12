@@ -94,6 +94,12 @@
       "$ref": "#/$defs/motion_speed_status"
     },
     {
+      "$ref": "#/$defs/robot_settings"
+    },
+    {
+      "$ref": "#/$defs/robot_settings_status"
+    },
+    {
       "$ref": "#/$defs/storage"
     },
     {
@@ -192,6 +198,9 @@
         },
         "rate": {
           "$ref": "#/$defs/motionRate"
+        },
+        "joint_speed_limit_deg_s": {
+          "$ref": "#/$defs/motionRate"
         }
       },
       "if": {
@@ -202,13 +211,29 @@
         }
       },
       "then": {
-        "required": [
-          "rate"
+        "oneOf": [
+          {
+            "required": [
+              "rate"
+            ],
+            "properties": {
+              "joint_speed_limit_deg_s": false
+            }
+          },
+          {
+            "required": [
+              "joint_speed_limit_deg_s"
+            ],
+            "properties": {
+              "rate": false
+            }
+          }
         ]
       },
       "else": {
         "properties": {
-          "rate": false
+          "rate": false,
+          "joint_speed_limit_deg_s": false
         }
       }
     },
@@ -222,6 +247,11 @@
         "rate",
         "saved"
       ],
+      "dependentRequired": {
+        "joint_speed_limit_deg_s": [
+          "joint_speed_limit_saved"
+        ]
+      },
       "properties": {
         "t": {
           "const": "motion_speed_status"
@@ -234,8 +264,252 @@
         },
         "saved": {
           "type": "boolean"
+        },
+        "joint_speed_limit_deg_s": {
+          "$ref": "#/$defs/motionRate"
+        },
+        "joint_speed_limit_saved": {
+          "type": "boolean"
         }
       }
+    },
+    "settingsEndpoint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^wss?://[^/@?#\\s]+/robot$"
+    },
+    "robot_settings": {
+      "x-ainekio-message-type": "robot_settings",
+      "x-ainekio-direction": "brain-to-body",
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "op"
+      ],
+      "properties": {
+        "t": {
+          "const": "robot_settings"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "get",
+            "network",
+            "remove",
+            "security",
+            "apply"
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "op": {
+              "const": "get"
+            },
+            "revision": false,
+            "index": false,
+            "ssid": false,
+            "endpoint": false,
+            "wifi_password": false,
+            "robot_token": false,
+            "setup_password": false
+          }
+        },
+        {
+          "required": [
+            "revision",
+            "index",
+            "ssid",
+            "endpoint"
+          ],
+          "properties": {
+            "op": {
+              "const": "network"
+            },
+            "revision": {
+              "$ref": "#/$defs/counter"
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            },
+            "ssid": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            "endpoint": {
+              "$ref": "#/$defs/settingsEndpoint"
+            },
+            "wifi_password": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^(|[ -~]{8,63}|[0-9a-fA-F]{64})$"
+            },
+            "robot_token": false,
+            "setup_password": false
+          }
+        },
+        {
+          "required": [
+            "revision",
+            "index"
+          ],
+          "properties": {
+            "op": {
+              "const": "remove"
+            },
+            "revision": {
+              "$ref": "#/$defs/counter"
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            },
+            "ssid": false,
+            "endpoint": false,
+            "wifi_password": false,
+            "robot_token": false,
+            "setup_password": false
+          }
+        },
+        {
+          "required": [
+            "revision"
+          ],
+          "anyOf": [
+            {
+              "required": [
+                "robot_token"
+              ]
+            },
+            {
+              "required": [
+                "setup_password"
+              ]
+            }
+          ],
+          "properties": {
+            "op": {
+              "const": "security"
+            },
+            "revision": {
+              "$ref": "#/$defs/counter"
+            },
+            "robot_token": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "setup_password": {
+              "type": "string",
+              "maxLength": 63,
+              "pattern": "^(|[ -~]{8,63})$"
+            },
+            "index": false,
+            "ssid": false,
+            "endpoint": false,
+            "wifi_password": false
+          }
+        },
+        {
+          "required": [
+            "revision"
+          ],
+          "properties": {
+            "op": {
+              "const": "apply"
+            },
+            "revision": {
+              "$ref": "#/$defs/counter"
+            },
+            "index": false,
+            "ssid": false,
+            "endpoint": false,
+            "wifi_password": false,
+            "robot_token": false,
+            "setup_password": false
+          }
+        }
+      ]
+    },
+    "robot_settings_status": {
+      "x-ainekio-message-type": "robot_settings_status",
+      "x-ainekio-direction": "body-to-brain",
+      "type": "object",
+      "required": [
+        "t",
+        "seq",
+        "revision",
+        "active_index",
+        "pending_restart",
+        "setup_open",
+        "networks"
+      ],
+      "properties": {
+        "t": {
+          "const": "robot_settings_status"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "revision": {
+          "$ref": "#/$defs/counter"
+        },
+        "active_index": {
+          "type": "integer",
+          "minimum": -1,
+          "maximum": 3
+        },
+        "pending_restart": {
+          "type": "boolean"
+        },
+        "setup_open": {
+          "type": "boolean"
+        },
+        "networks": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "required": [
+              "index",
+              "ssid",
+              "endpoint",
+              "open"
+            ],
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3
+              },
+              "ssid": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "endpoint": {
+                "$ref": "#/$defs/settingsEndpoint"
+              },
+              "open": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "x-ainekio-rules": [
+        "unique-network-slots"
+      ]
     },
     "bodyCapabilities": {
       "type": "object",

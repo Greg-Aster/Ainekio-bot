@@ -94,7 +94,7 @@ with one-example microbatches. This uses each example's mean response loss and
 the installed Trainer's normal accumulation scaling. Token-normalized batches
 underweight a 3-token completion relative to a 294-token continuing wave.
 The gradient comparison is tested against the installed Trainer; the shared
-MetaHuman trainer is unchanged. Frozen manifests record the selected objective,
+Ainekio OS trainer is unchanged. Frozen manifests record the selected objective,
 adapter ancestry, observation transform and complete untruncated input sizes.
 
 The balanced candidate passed all three recorded completion replays and 35/36
@@ -281,9 +281,9 @@ their source targets and metadata.
 The continuation retains v7's rank 16, alpha 32, learning rate 8e-5 and three
 epochs, using parent `artifacts/spatial-v7/qwen-fit` and base
 `unsloth/Qwen3.5-0.8B` at revision
-`23c69c53358a07516b5827588b3fdb12ae78fd65`. Training uses
-`/home/greggles/metahuman/venv/bin/python`, which contains Unsloth. Offline
-SciPy/tokenizer work used `/home/greggles/ComfyUI/venv/bin/python`; that environment
+`23c69c53358a07516b5827588b3fdb12ae78fd65`. Training uses the Ainekio OS
+Unsloth Python environment (`~/metahuman/venv/bin/python`). Offline
+SciPy/tokenizer work used `~/ComfyUI/venv/bin/python`; that environment
 is not the training environment. The generic exporter has a different initial
 learning-rate default; the frozen final configuration contains 8e-5.
 
@@ -411,8 +411,7 @@ On DNDIY, `artifacts/spatial-v9-compact/next-reviewed/dataset/` contains the
 `artifacts/spatial-v8/pending-motion-review/train.jsonl`: 893 training rows.
 Use `artifacts/spatial-v9-compact/next-reviewed/qwen-data/` for the next trainer
 input, including its `train.jsonl`, `evaluation.jsonl`, `manifest.json` and
-`training-config.json`. Paths are relative to `experiments/freestyle/` in
-`/home/greggles/Ainekio` on DNDIY.
+`training-config.json`. Paths are relative to `experiments/freestyle/` in the `Ainekio` checkout on DNDIY.
 
 `next-reviewed/preparation-result.json` maps all 14 source IDs to compact IDs.
 Their decoded motion targets and physical-qualification labels are preserved;
@@ -506,7 +505,7 @@ physical-success label. Older edit targets were discarded.
 
 The desktop's next trainer input is
 `artifacts/spatial-v9-compact/next-library-current-20261025/qwen-data/` under
-`/home/greggles/Ainekio/experiments/freestyle/`. It contains **889 current training
+`experiments/freestyle/`. It contains **889 current training
 examples**; the canonical pending subset contains 13. Older untrained
 `next-reviewed*` and `next-library-reviewed-20261025` train files are discarded
 and marked retired. Their hashes/receipts remain for provenance. The frozen

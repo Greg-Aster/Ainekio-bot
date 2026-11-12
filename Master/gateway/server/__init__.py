@@ -1,6 +1,5 @@
-"""Protocol-v1 gateway server and local development stub."""
+"""Protocol-v1 gateway server."""
 
-from .stub import GatewayStub, GatewayStubConfig
 from .service import (
     ActionExpiredError,
     GatewayError,
@@ -14,7 +13,5 @@ __all__ = [
     "GatewayError",
     "GatewayService",
     "GatewayServiceConfig",
-    "GatewayStub",
-    "GatewayStubConfig",
     "RobotOfflineError",
 ]

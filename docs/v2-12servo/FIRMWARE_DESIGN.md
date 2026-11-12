@@ -268,7 +268,7 @@ eight-servo robot is defective.
 | --- | --- | --- |
 | [protocol.h](../../Slave/software/core/include/ainekio/protocol.h) | `AINEKIO_SERVO_COUNT` is eight; joint IDs and pose/plan arrays use V1's order. | Separate active model joint count from bounded storage capacity. Keep V1 IDs and formats stable. |
 | [motion_service.h](../../Slave/firmware/esp32s3/components/ainekio_platform/include/ainekio/platform/motion_service.h) and [motion_service.c](../../Slave/firmware/esp32s3/components/ainekio_platform/src/motion_service.c) | `calibration_pending_mask`, its local copy, and shifted bits are eight-bit values. Merely raising the servo count would lose calibration requests for joints 8–11. | Use a count-aware pending representation and test the upper four joints explicitly. |
-| [servo.h](../../Slave/software/core/include/ainekio/servo.h) and [servo.c](../../Slave/software/core/src/servo.c) | Angle conversion embeds Sesame's effective 732–2500 microsecond pulse range and rounding behavior. | Preserve that conversion for V1; give V2 its own measured servo calibration. |
+| [servo.h](../../Slave/software/core/include/ainekio/servo.h) and [servo.c](../../Slave/software/core/src/servo.c) | Angle conversion embeds V1's effective 732–2500 microsecond pulse range and rounding behavior. | Preserve that conversion for V1; give V2 its own measured servo calibration. |
 | [runtime_service.h](../../Slave/firmware/esp32s3/components/ainekio_platform/include/ainekio/platform/runtime_service.h) and motion service | Runtime dependencies contain `ainekio_mcpwm_adapter_t *mcpwm`; motion calls MCPWM directly. | Introduce a small servo-output contract and make both board implementations use it. |
 | [nvs_adapter.c](../../Slave/firmware/esp32s3/components/ainekio_platform/src/nvs_adapter.c) | Calibration stores an eight-element C array as a blob; poses use `sizeof(*poses)`. Loading validates schema and blob size. | Preserve V1 decoding. Define an explicit V2 storage format with model/joint-map identity; never reinterpret a V1 blob as twelve joints. |
 | [assets.c](../../Slave/software/core/src/assets.c), [seed assets](../../Slave/software/assets/seed/), and `perform_stop()` in motion service | Fallback poses and feedback movements are V1-specific. Ordinary stop transitions to V1 stand and leaves PWM holding; detach or a failed hold disables signals. | Move V1 motion data into its model. Define V2 stop, hold, and detach behavior against its actual geometry. |
@@ -302,7 +302,7 @@ assets, and Body Control behavior incomplete.
 | `Slave/firmware/common/` **(proposed additional owner)** | ESP-IDF orchestration that both targets actually consume: motion task, session/queue lifecycle, and reusable transport services after concrete hardware dependencies are removed. |
 | `Slave/firmware/esp32s3/` | V1 startup, board resources, MCPWM, existing camera/audio hardware, and target build configuration. |
 | `Slave/firmware/esp32p4-wifi6/` | P4 startup, board resources, PCA9685, C6 host integration, OV5647 capture, ES8311 audio, and target build configuration. |
-| `Master/gateway/` and `Emulator/` | One shared Body Control service and host runtime, selecting the connected model's capabilities and the appropriate simulator backend. |
+| `Master/gateway/` and `tests/` | One shared Body Control service and host test suite, selecting the connected model's capabilities. |
 
 The proposed `firmware/common/` location keeps ESP-IDF services out of the
 portable core. Create it only with real extracted consumers. Its code must not
@@ -332,7 +332,7 @@ board-selection conditionals spread through the runtime.
 - Derive Body Control calibration controls and advertised semantic capabilities
   from the selected body's definition and readiness. Keep an explicit legacy V1
   connection path; reject an unknown model instead of guessing V1.
-- Keep raw joint calibration in the authorized operator path. MetaHuman receives
+- Keep raw joint calibration in the authorized operator path. Ainekio OS receives
   semantic robot commands governed by the body's supported capabilities and
   firmware admission rules.
 - Version stored calibration and poses independently of C structure layout.
@@ -688,12 +688,12 @@ have been added.
 - `Master/gateway/plugins.py` already assembles bounded microphone utterances,
   accepts a transcription callback and delivers camera frames. Preserve its
   20 ms PCM transport and complete-utterance STT input.
-- In the inspected MetaHuman checkout, Whisper and Kokoro providers call
+- In the inspected Ainekio OS checkout, Whisper and Kokoro providers call
   `getVoiceServiceUrl()` from `packages/core/src/voice-service-manager.ts`.
   That owner currently constructs `http://127.0.0.1:<port>` and manages local
   processes. Remote Q6A providers therefore need a configurable endpoint and an
   externally-managed lifecycle in **that existing owner**, plus provider health
-  checks. This is not already an all-configuration deployment; no MetaHuman files
+  checks. This is not already an all-configuration deployment; no Ainekio OS files
   were changed here. Vision and LLM backends need their own compatibility and
   measured throughput review before selection, including ARM64/accelerator
   support. Do not assume desktop CUDA packages will run on Q6A.

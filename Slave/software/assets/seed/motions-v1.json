@@ -18262,8 +18262,6 @@
   "source": {
     "frame_delay_ms": 100,
     "motor_current_delay_ms": 20,
-    "path": "docs/sesame-robot/firmware/movement-sequences.h",
-    "sha256": "f77d713703e361dff2458f4fd02356ed397b8f47d83bd7a87587e8f6e899d2f1",
     "turn_cycles": 10,
     "walk_cycles": 5
   }

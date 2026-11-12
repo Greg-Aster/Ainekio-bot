@@ -23,7 +23,7 @@ config AINEKIO_MOTION_RANGE_PERCENT
     default 100
     help
         Scales every platform motion target around logical center 90 degrees.
-        The default preserves the source 0-180 degree Sesame motion range.
+        The default preserves the full 0-180 degree V1 motion range.
         Installed linkage limits remain enforced by per-servo calibration.
 
 config AINEKIO_MOTION_MIN_FRAME_MS
@@ -31,7 +31,7 @@ config AINEKIO_MOTION_MIN_FRAME_MS
     range 20 1000
     default 20
     help
-        Sets the minimum motion frame duration. The default preserves Sesame's
+        Sets the minimum motion frame duration. The default preserves the V1
         20 ms delay between individual servo writes.
 
 config AINEKIO_MOTION_SMOOTH_PLAYBACK
@@ -40,9 +40,9 @@ config AINEKIO_MOTION_SMOOTH_PLAYBACK
     help
         Keeps every motion target and total frame duration, but moves all
         targets in each frame together with bounded ease-in/ease-out
-        interpolation. This applies to imported Sesame assets, owner-authored
+        interpolation. This applies to seed motion assets, owner-authored
         motions, and feedback poses. Disable this option to reproduce the
-        original asset timing behavior exactly.
+        original step-exact asset timing behavior.
 
 config AINEKIO_MOTION_SMOOTH_TRANSITION_MS
     int "Smooth motion transition duration (milliseconds)"
@@ -60,7 +60,7 @@ config AINEKIO_SERVO_STARTUP_STAGGER_MS
     default 20
     help
         Enables the eight centered 50 Hz outputs sequentially to reduce the
-        instantaneous current step, following the Sesame firmware pattern.
+        instantaneous current step at V1 startup.
 
 config AINEKIO_BATTERY_MONITOR_ENABLED
     bool "Enable the GPIO3 battery divider and cutoff monitor"

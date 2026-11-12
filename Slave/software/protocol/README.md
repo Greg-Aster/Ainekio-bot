@@ -1,6 +1,6 @@
 # Ainekio Protocol v1
 
-`Slave/software/protocol/` owns the machine-checkable `protocol-v1` wire contract shared across Body Control (`Master/gateway/`), the emulator, host tests, and the ESP32-P4 (`v2-12servo`) and ESP32-S3 (`v1-8servo`) firmware targets.
+`Slave/software/protocol/` owns the machine-checkable `protocol-v1` wire contract shared across Body Control (`Master/gateway/`), host tests, and the ESP32-P4 (`v2-12servo`) and ESP32-S3 (`v1-8servo`) firmware targets.
 
 ## Core Contract Owners
 

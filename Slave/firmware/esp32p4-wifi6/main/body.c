@@ -5,7 +5,6 @@
 #include "system.h"
 #include "config.h"
 #include "servo_feedback.h"
-#include "gait_trace_runtime.h"
 #include "trajectory_program.h"
 #include "ainekio/v2_walk.h"
 #include "ainekio/v2_microduck.h"
@@ -156,8 +155,6 @@ static void publish(const uint16_t *pulses)
     memcpy(commanded, pulses, sizeof(commanded));
     commanded_us=now;
     portEXIT_CRITICAL(&pulse_lock);
-    ainekio_p4_gait_trace_output(pulses,now,
-        ainekio_pca_status(ainekio_p4_output()).armed);
 }
 
 void ainekio_p4_body_pulses(uint16_t pulses[AINEKIO_PCA_BODY_CHANNELS])

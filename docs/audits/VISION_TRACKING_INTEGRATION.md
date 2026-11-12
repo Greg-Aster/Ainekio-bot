@@ -16,7 +16,7 @@ is recorded; do not silently turn an untested proposal into a completed feature.
 | Audit and ownership inventory | Complete | Baseline findings and test results below |
 | Integration questions and architecture | Recorded | Existing workflow and bridge; continuous perception with asynchronous reasoning |
 | 1. Repair existing evidence flow | In progress | Correct duplicate stale recognition and associate finite image reasoning with its actual frame |
-| 2. Visible recognition in Body Control | Source/fixture checks complete; live data verified | Real P4 camera detections and correlated target updates reached MetaHuman on DNDIY; live browser interaction remains to be qualified |
+| 2. Visible recognition in Body Control | Source/fixture checks complete; live data verified | Real P4 camera detections and correlated target updates reached Ainekio OS on DNDIY; live browser interaction remains to be qualified |
 | 3. Shared target/task contract | Source implemented; integration verification in progress | Approved task schema, correlated bridge requests, query IDs and track IDs use existing owners |
 | 4. Stationary acquisition and continuity | Live partial proof; reliability incomplete | Actual model search/select and returned evidence verified; moved chair reacquired with changed ID; model routing, detector quality and body disconnects prevent full qualification |
 | 5. Requested physical behavior | Planned | Existing task/body owners; physical tests require an available robot |
@@ -31,7 +31,7 @@ Earlier entries describe evidence at their recorded stage, before installation.
 
 Source changes implemented; focused verification is underway:
 
-- MetaHuman's current recognition projection now includes generic objects and
+- Ainekio OS's current recognition projection now includes generic objects and
   the existing person view derived from those same objects. Removed the stale
   raw-perception duplicate from the current selector state; historical stored
   observations remain intact.
@@ -46,7 +46,7 @@ Source changes implemented; focused verification is underway:
   Its JSON result carries the image and observation together; unchanged source
   images are not retransmitted. Overlays display class/name and available
   detector scores. No second capture/inference worker was added.
-- Tests so far: MetaHuman perception 7/7; Robot Status/context 12/12, including
+- Tests so far: Ainekio OS perception 7/7; Robot Status/context 12/12, including
   the previously failing stale-name regression and a generic-keys context case.
   Gateway/dashboard: 59/59 passed. Isolated context-builder: 14/14 passed.
   Core type checking passed. Browser checks passed against an isolated synthetic
@@ -78,14 +78,14 @@ remain outstanding.
   generation selection; discarded inference cannot update the tracker. Camera
   session/generation changes reset the tracker and its ID namespace.
 - Recognized objects carry optional `trackId` through the Python contract,
-  existing Environment Bridge telemetry, MetaHuman normalization and Robot
+  existing Environment Bridge telemetry, Ainekio OS normalization and Robot
   Status. Body Control's exact-image overlay exposes the ID in its tooltip.
   No additional inference worker, stream or movement command was introduced.
 - All detector results remain present, including unconfirmed tracks. Missing
   objects are not emitted from tracker predictions. Named-face recognition uses
   generic association when configured rather than starting a competing box/color
   association; its existing face-evidence lifetime and uncertainty remain.
-- Verification: gateway/camera/person/detector/dashboard 63/63; MetaHuman
+- Verification: gateway/camera/person/detector/dashboard 63/63; Ainekio OS
   perception 8/8; Robot Status 12/12; Core type checking passed. Tests include
   source reset, unmatched detections, shared face/track identity and transport.
 - Actual-library smoke test used the already-installed person YOLO weights,
@@ -149,7 +149,7 @@ remain outstanding.
   library call ignored its cached encoder; explicitly passing locally computed
   embeddings resolved the attempted duplicate download. A regression test covers
   local encoder use and detector class-order preservation.
-- Broader MetaHuman checks passed 44/45; the failure is an existing Robot Status
+- Broader Ainekio OS checks passed 44/45; the failure is an existing Robot Status
   graph-shape assertion (`robot-status.spec.ts:888`, expected one task review
   `active_desires` node, found zero). This is recorded separately from the vision
   source tests. Gateway checks now pass 106/106 with the repository-pinned
@@ -189,8 +189,8 @@ remain outstanding.
   request-routing tests pass 46/46 after updating their changed schema/camera-read
   fixtures. Core type checking passes.
 - Removed the old 80-character recognition-label restriction in both Python and
-  MetaHuman so a visual target description survives unchanged. Focused camera/
-  detector tests pass 25/25, and MetaHuman recognition tests pass 8/8. Other
+  Ainekio OS so a visual target description survives unchanged. Focused camera/
+  detector tests pass 25/25, and Ainekio OS recognition tests pass 8/8. Other
   historical caps in the baseline table remain as recorded unless noted here.
 - Remaining in this package: end-to-end actual-model workflow evidence,
   deployment/reconnect qualification, and Q6A measurements. Production remains on
@@ -207,7 +207,7 @@ environment, place YOLOE-26n-seg and MobileCLIP2-B weights in ignored local mode
 storage, and set its existing detector configuration to those weights with
 ByteTrack at size 320/CPU. Restart Body Control once to load the new backend and
 dashboard. No firmware flash or robot movement is part of that installation.
-MetaHuman must subsequently load the updated source for live workflow testing.
+Ainekio OS must subsequently load the updated source for live workflow testing.
 Do not label this Q6A-qualified; actual board and mixed-workload tests remain.
 
 Installation and verification completed on 2026-10-11:
@@ -239,10 +239,10 @@ Installation and verification completed on 2026-10-11:
   `scripts/sync-cognitive-graph-artifacts.ts`; differences were only the intended
   acquisition-result handoff wiring.
 - No robot was connected: live status reported body unauthenticated and zero
-  camera frames. MetaHuman Site/Coordinator was not running. The complete deployed
+  camera frames. Ainekio OS Site/Coordinator was not running. The complete deployed
   conversational acquisition/tracking workflow, actual camera continuity, Q6A,
   Cloudflare and physical behavior remain unqualified. Next: connect the robot and
-  run MetaHuman through its existing service owners for stationary end-to-end tests.
+  run Ainekio OS through its existing service owners for stationary end-to-end tests.
 
 ### Integration entry 5 — Selection accuracy and instance continuity
 
@@ -292,7 +292,7 @@ behavior stays unchanged. This proposal adds no movement to stationary search or
 tracking and no new scheduler, command sender, or time limit.
 
 At this check, DNDIY's live gateway service was up, but no local robot/Bridge
-client, MetaHuman Site/Coordinator,
+client, Ainekio OS Site/Coordinator,
 Cloudflare forwarding process, or configured Q6A SSH destination was available
 during this check. Desktop size 640 is a measured candidate for visual prompting,
 not a Q6A recommendation or proof that arbitrary objects can be tracked reliably.
@@ -304,7 +304,7 @@ not a Q6A recommendation or proof that arbitrary objects can be tracked reliably
   `EnvironmentAdapter.publish_camera_analysis`. The simulated body socket rejects
   command sends. All six frames produced accepted recognition without processing
   errors; counts were 4, 3, 4, 3, 0, 4. This includes a genuinely empty image result.
-- Replayed those exact serialized recognition messages through MetaHuman's
+- Replayed those exact serialized recognition messages through Ainekio OS's
   authenticated telemetry handler in isolated storage, using the recorded times
   as the replay clock. The normal store, Environment Bridge Input node and Robot
   Status preserved boxes, scores, track IDs, query ID and complete source-frame
@@ -355,14 +355,14 @@ Current completion audit (the overall goal is not complete):
 
 | Requirement | Authoritative evidence | Remaining work |
 | --- | --- | --- |
-| Reuse existing owners without competing systems | Source owners and maintained-surface documentation; finite acquisition/continuation and wire replay tests | Complete live workflow through the deployed MetaHuman/Bridge owners |
+| Reuse existing owners without competing systems | Source owners and maintained-surface documentation; finite acquisition/continuation and wire replay tests | Complete live workflow through the deployed Ainekio OS/Bridge owners |
 | Exact image and recognition association | Full source identity in camera/dashboard/Core; actual-model six-frame replay preserves boxes, IDs and query | Live robot camera and selected-model input trace |
 | Bidirectional acquisition/search/select/release | Actual desktop gateway operations passed; durable workflow fixture preserves original user admission and retained reference | Actual task-model decisions and connected-robot stationary workflow |
 | Selected-instance continuity | ByteTrack transformed-image trial; selected-track steering regression | Independent object motion, same-class crossings, ambiguity/loss/reacquisition and reference-target qualification |
 | Requested physical behavior through existing command owner | Correlated selected-track revision test; no physical commands issued | Owner's loss-policy decision, reconcile single-person policy, then authorized physical tests |
 | Configurable LAN/SSH/Cloudflare deployment | Five connection-owner fixtures; actual configured Cloudflare route currently returns 502 | Inspect/repair deployed route at its owner after obtaining Q6A access; qualify reconnect |
 | Actual-model and Q6A resource limits | Desktop timing and demonstrated model failures recorded | Q6A runtime/dependencies, CPU/RAM/frame age and concurrent camera/audio workloads |
-| Progress and operator documentation | This audit and maintained gateway/MetaHuman ownership documentation | Record actual Q6A deployment and final acceptance when evidence exists |
+| Progress and operator documentation | This audit and maintained gateway/Ainekio OS ownership documentation | Record actual Q6A deployment and final acceptance when evidence exists |
 
 ### Blocked checkpoint — 2026-10-11
 
@@ -383,11 +383,11 @@ available. Do not repeat completed tests unless their inputs change.
 ### Integration entry 8 — Live desktop camera and configurable vision placement
 
 The owner reconnected the P4 on 2026-10-12 and authorized continued work. The
-robot is connected to DNDIY's existing gateway and local MetaHuman Environment
+robot is connected to DNDIY's existing gateway and local Ainekio OS Environment
 Bridge. The earlier Q6A access blocker does not prevent this desktop test.
 
 - After the owner enabled the saved camera setting, real camera frames produced
-  person detections and track IDs in MetaHuman's live bridge state. An authenticated
+  person detections and track IDs in Ainekio OS's live bridge state. An authenticated
   request through the running Site Coordinator's existing `environment.visual-read`
   owner returned the actual robot JPEG and its gateway/robot/epoch/counter tuple.
 - A `search` for chair through that same owner completed; live chair detections
@@ -451,7 +451,7 @@ Captured camera images and diagnostic outputs stay outside the repository.
 
 ### Integration entry 9 — Restarted Site qualification with CPU-only Qwen 0.8B
 
-The owner restarted MetaHuman and confirmed that another task still uses the GPU.
+The owner restarted Ainekio OS and confirmed that another task still uses the GPU.
 The running Site started after the build containing `environmentVision`; its
 compiled identification handler uses that role. The robot and existing local
 Environment Bridge remained connected and fresh camera evidence was available.
@@ -712,7 +712,7 @@ candidate is acceptable. The overall vision integration remains incomplete.
 The owner requested using the new tracking operations from the existing autonomy
 agents, with a live investigate/play demonstration. The first demonstration is
 explicitly stationary; the owner will move scene objects. The owner confirmed
-MetaHuman is intentionally stopped on DNDIY while another agent trains adapters.
+Ainekio OS is intentionally stopped on DNDIY while another agent trains adapters.
 No live autonomy run, service restart, model reassignment or robot movement has
 been performed for this work.
 
@@ -758,7 +758,7 @@ actual model choices or a completed live demonstration.
 
 This is approval for the test instruction, not a permanent replacement of the
 Controller's normal prompt or automatic movement policy. Execute through the
-existing saved-graph/Coordinator owner after MetaHuman is restored. Inspect the
+existing saved-graph/Coordinator owner after Ainekio OS is restored. Inspect the
 actual model image, chosen intention, retained acquisition frame, selected query,
 distinct tracking updates and final evidence-backed response. Incorrect or absent
 model selections remain failures to report, not permission to force a target.
@@ -796,7 +796,7 @@ training remains undisturbed. The launcher HTTP contract test and `--help` pass.
 
 #### Live test procedure after training
 
-1. Restore MetaHuman through its normal launcher after the training agent finishes
+1. Restore Ainekio OS through its normal launcher after the training agent finishes
    restoring model services. Keep the separately assigned Intent, Task, persona
    and vision roles; record which adapters actually qualified and were activated.
 2. Connect the robot through its normal Environment Bridge, enable the camera and
@@ -804,7 +804,7 @@ training remains undisturbed. The launcher HTTP contract test and `--help` pass.
    owner selected stationary observation; confirm that setup before dispatch.
 3. Use an existing authenticated owner session. The cookie file below is a private
    file containing the existing Cookie header (`mh_session=...`), not a repository
-   configuration file. Submit exactly one invocation from the MetaHuman checkout:
+   configuration file. Submit exactly one invocation from the Ainekio OS checkout:
 
    ```sh
    node scripts/smoke-autonomy-vision.mjs --url http://127.0.0.1:4321 --cookie-file /tmp/ainekio-demo-cookie --output /tmp/ainekio-investigate.sse
@@ -817,19 +817,19 @@ training remains undisturbed. The launcher HTTP contract test and `--help` pass.
    actual supplied image and frame identity, the controller-selected intention,
    the Executor's acquire/search/select operations, and the correlated result.
 5. Move the chosen object manually. Compare distinct Body Control frames/track
-   IDs with recognition updates reaching MetaHuman. Then test brief occlusion,
+   IDs with recognition updates reaching Ainekio OS. Then test brief occlusion,
    a similar object, and an explicit release through Environment Mode. Record
    loss, incorrect selection, missing action or false success claims as failures.
 6. Match the final spoken response to actual tracking evidence. Preserve model
    inputs/outputs, query and frame identities, receipts and timestamps privately.
    Do not count successful API admission or a configured target as live tracking.
 
-At that preparation checkpoint MetaHuman was intentionally stopped. The launcher
+At that preparation checkpoint Ainekio OS was intentionally stopped. The launcher
 was not scheduled to fire when training ended. Live follow-up is recorded below.
 
 ### Integration entry 16 — Restarted live autonomy tests and interface repair
 
-On 2026-10-13 the owner restarted MetaHuman. The Site, normal 9B server,
+On 2026-10-13 the owner restarted Ainekio OS. The Site, normal 9B server,
 specialist server and P4 Environment Bridge were online. The saved Task role now
 uses adapter `llama-cpp-lora.0936233688dc327c`; Intent remains
 `llama-cpp-lora.3dd0c9e1e92db777`. This records observed assignments, not a new
@@ -937,7 +937,7 @@ and returned one correct empty-chair candidate at x=0.71, y=0.52, width=0.29,
 height=0.48. Inspection of the source image confirms this box. The test driver
 submitted that unedited candidate and exact source JPEG through the existing
 visual selection owner. YOLOE accepted it; the first 21 distinct sampled frames
-reaching MetaHuman retained one query/track identity. This proves real component
+reaching Ainekio OS retained one query/track identity. This proves real component
 transport and stationary detection, not autonomous operation selection. The owner
 was asked to move and obscure the chair; that result remains pending.
 
@@ -1211,7 +1211,7 @@ that last difference because the baseline also failed its context selection;
 the field-level comparison and owner-facing assessment were corrected.
 No commands were dispatched by qualification. The private recorded autonomous
 request replay correctly selected visual planning and image context in 398 ms.
-The complete report is in MetaHuman's ignored
+The complete report is in Ainekio OS's ignored
 `out/environment-action-selector/training/vision-branch-20261013/qualification-summary.md`.
 The owner has been asked whether to activate this candidate for the live trial
 with these disclosed tradeoffs. Installed Intent and Task assignments remain
@@ -1233,7 +1233,7 @@ executor choice. Intent chose the visual branch, and 9B configured YOLOE search
 through the existing executor/Bridge. One trial spoke of target lock despite an
 empty detection result; it did not issue a reference-region select. That is a
 model evidence-interpretation failure, not successful acquisition. The next trial
-returned real chair boxes, query/frame correlation and a track ID to MetaHuman.
+returned real chair boxes, query/frame correlation and a track ID to Ainekio OS.
 After the owner moved the chair, 30 sampled updates detected its new location
 with a stable ID. The ID differed from the earlier sample, so uninterrupted
 identity through movement is **not** established. No locomotion was requested.
@@ -1295,7 +1295,7 @@ The tests do not establish reliable autonomous decisions or uninterrupted tracki
 Environment-only live replay `f6c994a4-e040-41cb-bbd8-72ac4c4b8418` selected a
 real retained frame (`epoch 7`, counter 149), a normalized box and a stationary
 behavior. Body Control accepted the visual reference and returned query
-`task-1791934580875-50cd8cfd`; fresh YOLOE feedback reached MetaHuman. This proves
+`task-1791934580875-50cd8cfd`; fresh YOLOE feedback reached Ainekio OS. This proves
 actual-model frame/box delivery through the shared owners, but detections remained
 empty. The image evaluator correctly reported a visible chair without declaring
 continuous tracking complete. A subsequent body disconnect interrupted assessment
@@ -1533,7 +1533,7 @@ Expose a `vision` step with these operations through the existing bridge:
 
 | Operation / field | Proposed model-visible description |
 | --- | --- |
-| `vision` | A finite vision operation. Body Control owns detector configuration; MetaHuman owns image interpretation. It does not command movement. |
+| `vision` | A finite vision operation. Body Control owns detector configuration; Ainekio OS owns image interpretation. It does not command movement. |
 | `acquire` (`target`, optional `referenceFrameId`) | Locate the requested target in a robot image and return candidates with their source frame and visible evidence. Candidate acquisition does not establish current tracking or task completion. |
 | `search` (`labels`) | Configure the detector to search camera frames for the supplied object descriptions. Matching a category does not identify a particular physical object. |
 | `select` (`frameId`, `box`, `description`) | Use the selected region of the supplied source frame as a visual reference for the tracker. The frame ID refers to image evidence retained by this execution; box coordinates refer to that image. |
@@ -1545,7 +1545,7 @@ The task step returns correlated operation results to its existing execution.
 Continuous frames remain with the camera worker; the LLM is called only for
 finite interpretation work selected by that execution. No automatic movement,
 target-loss stop/restart policy or new scheduler is proposed here. The exact
-descriptions above are approved under MetaHuman `AGENTS.md` for insertion into
+descriptions above are approved under Ainekio OS `AGENTS.md` for insertion into
 model-visible schemas. This proposal does not replace the
 approved acquisition instruction below.
 
@@ -1579,9 +1579,9 @@ not generated text. This proposal adds no candidate-count cap or motion policy.
 
 | Question | Integration direction |
 | --- | --- |
-| What triggers it? | Normal spoken/typed requests through MetaHuman, or explicit target selection in Body Control. An admitted ongoing task retains the objective after the initial response. |
+| What triggers it? | Normal spoken/typed requests through Ainekio OS, or explicit target selection in Body Control. An admitted ongoing task retains the objective after the initial response. |
 | Is it part of node-based workflows? | Yes. Extend the existing active-task step/wait workflow and finite model-work owner. No independent vision scheduler or workflow runner. |
-| Which agent carries communication? | The existing Environment Bridge and its Local/Remote connection owners. Body Control owns detection/continuity; MetaHuman owns interpretation and behavior selection. |
+| Which agent carries communication? | The existing Environment Bridge and its Local/Remote connection owners. Body Control owns detection/continuity; Ainekio OS owns interpretation and behavior selection. |
 | Does Cloudflared work? | Preserve the same application protocol over existing local/LAN/SSH/Cloudflare forwarding. Current source supports these transports; qualify the actual tunnel, reconnect and task continuation separately. |
 | Can YOLOE run well on Q6A? | Not yet measured. Evaluate the selected model and runtime on the actual board alongside speech/gateway work. Q6A NPU support does not establish YOLOE model compatibility or frame rate. Keep placement configurable. |
 | How can a turn-based LLM follow a live stream? | The worker and task remain active between model calls. Perception updates state and wakes the existing execution. Finite LLM calls review selected evidence when another decision is needed; no new user turn or LLM call for each frame. |
@@ -1597,10 +1597,10 @@ has been selected.
 
 ## Owner request and intended result
 
-Let MetaHuman's selected vision model identify an object in a robot image or
+Let Ainekio OS's selected vision model identify an object in a robot image or
 reference image, select it as a target, and ask the existing Body Control system
 to find or track it. Return visible, correlated tracking evidence to Body Control
-and MetaHuman. Optional physical looking/following must use the existing semantic
+and Ainekio OS. Optional physical looking/following must use the existing semantic
 movement, execution and command owners.
 
 Preserve the robot's intended capabilities. Audit existing implementations before
@@ -1612,7 +1612,7 @@ separately from hardcoded application restrictions.
 
 1. Inventory current camera capture/transport, recognition, identity, perception
    contracts, image association, model inputs, task execution, movement feedback,
-   dashboard visibility, configuration and tests across Ainekio and MetaHuman.
+   dashboard visibility, configuration and tests across Ainekio and Ainekio OS.
 2. Trace each live entrypoint to its owner and consumers; distinguish current
    executable code, unused contracts, historical experiments and runtime proof.
 3. Audit omissions, conflicting ownership, coded limits, failures and existing
@@ -1630,7 +1630,7 @@ separately from hardcoded application restrictions.
 ## Scope and evidence
 
 This audits the robot camera → Body Control recognition → Environment Bridge →
-MetaHuman image reasoning → ongoing task → body-command path, including its UI,
+Ainekio OS image reasoning → ongoing task → body-command path, including its UI,
 contracts, settings and tests. It is not a repository-wide audit of unrelated
 audio, training, CAD or motion generation. Hardware accuracy, deployed Q6A
 performance and actual Qwen grounding remain separate qualification work.
@@ -1640,12 +1640,12 @@ Source baselines at audit start:
 | Repository | HEAD | Source reviewed |
 | --- | --- | --- |
 | Ainekio | `436c035f17d15ed7fff9afb20f3997c432bd39ca` | Current working files, including existing uncommitted work |
-| MetaHuman | `8b398f0dc2125b5698cb8d1fd0d7bdc3c3e65e10` | Current working files, including existing uncommitted work |
+| Ainekio OS | `8b398f0dc2125b5698cb8d1fd0d7bdc3c3e65e10` | Current working files, including existing uncommitted work |
 
 Both worktrees contain concurrent changes. Results describe the reviewed
 worktrees, not a clean release at these commits. Recheck affected files before
 implementation. `A:` paths below are relative to Ainekio; `M:` paths are relative
-to MetaHuman. Source locations name the owning function where practical, because
+to Ainekio OS. Source locations name the owning function where practical, because
 line numbers will drift.
 
 Only documentation was changed by this audit. No firmware was flashed, models
@@ -1677,7 +1677,7 @@ generic “follow person” loop.
 ### F2 — Image/metadata association exists, but is not uniform across consumers
 
 The gateway's `_camera_visual` gives a frame the tuple
-`gatewayInstance / robotId / epoch / counter`. MetaHuman's
+`gatewayInstance / robotId / epoch / counter`. Ainekio OS's
 `buildEnvironmentSelectorEnvelope` compares this tuple and reports
 `exact_frame`, `different_frame` or `no_image`. This is the existing association
 contract to extend.
@@ -1733,7 +1733,7 @@ already define target IDs, frame IDs, boxes, inspection requests and progress.
 The selector and action normalizers know `inspect` and `visualApproach`.
 
 The Ainekio adapter does not advertise either action, and the audited maintained
-gateway/Emulator/MetaHuman paths contain no executable Ainekio Active View,
+gateway/host-test/Ainekio OS paths contain no executable Ainekio Active View,
 YOLOE or Cutie backend. Existing types/tests must not be presented as a working
 tracker. Some older contracts assume adapter-owned movement; the current active
 task graph owns ongoing movement decisions. Resolve this overlap before adding
@@ -1759,7 +1759,7 @@ at image size 320, and configured face-recognition models. Saved recognition is
 enabled; the saved P4 preview setting is off, with VGA/1 fps settings retained.
 Disabling preview does not prevent requested stills from using the camera path.
 
-The stored MetaHuman bridge state reports two processed/fresh recognition results
+The stored Ainekio OS bridge state reports two processed/fresh recognition results
 and zero recognition errors from an earlier gateway report. At inspection it
 has no authenticated body and no current perception. This establishes a reported
 analysis history, not successful current target selection or proof that Qwen saw
@@ -1768,7 +1768,7 @@ Q6A deployment and the loaded model's actual class table were not requalified.
 
 ### F9 — Existing tests expose integration debt before new features
 
-Focused camera/perception/state tests pass; broader MetaHuman workflow tests do
+Focused camera/perception/state tests pass; broader Ainekio OS workflow tests do
 not. Details and environmental reruns are recorded below. Fix fixtures or runtime
 according to the actual contract failure, rather than making a parallel pipeline
 that bypasses the failing owner.
@@ -1782,7 +1782,7 @@ flowchart LR
   W --> Y[YOLO and optional face identity]
   Y --> B[Existing environment bridge telemetry]
   G --> I[Correlated snapshot or cached visual read]
-  B --> S[MetaHuman perception store]
+  B --> S[Ainekio OS perception store]
   I --> C[Existing image/context owners]
   S --> C
   C --> Q[Configured vision model through model router]
@@ -1829,7 +1829,7 @@ trackable target box. That return contract is an implementation gap.
 - **Boundary/complexity:** Preserve a single recognition worker and result
   publisher. Add target commands at this owner rather than another camera
   subscriber doing competing inference. Do not add a second Qwen client to
-  `VisionBackend`; MetaHuman already routes its model calls.
+  `VisionBackend`; Ainekio OS already routes its model calls.
 - **Tests/disposition:** Keep and extend. Gallery/continuity/YOLO tests pass.
   Generic tracking needs source-session lifecycle, distinct-object continuity,
   model/setting change and target-replacement coverage. If generic continuity
@@ -1855,7 +1855,7 @@ trackable target box. That return contract is an implementation gap.
   operation handlers. Test target change, reconnect, late reply and manual
   takeover through existing ownership, without a new command queue.
 
-### MetaHuman bridge and perception owner group
+### Ainekio OS bridge and perception owner group
 
 - **Files/layer:** `M:brain/agents/environment-bridge/core.ts`,
   `packages/core/src/api/handlers/environment-bridge.ts`,
@@ -1877,7 +1877,7 @@ trackable target box. That return contract is an implementation gap.
   Retain useful target types, revise or retire unused conflicting contracts
   deliberately rather than creating an additional public API by default.
 
-### MetaHuman model-context and model-routing owner group
+### Ainekio OS model-context and model-routing owner group
 
 - **Files/layer:** `M:packages/core/src/nodes/environment/{image-input.node,
   context-builder.node,helpers}.ts`, `robot-status-live.ts`, `model-router.ts`,
@@ -1897,9 +1897,9 @@ trackable target box. That return contract is an implementation gap.
 - **Tests/disposition:** Keep and extend. Isolated context tests pass; the live
   status/context suite has the stale-name failure. Qualify actual selected Qwen
   localization separately from fixture/schema success. Model-visible wording
-  needs the owner's review under MetaHuman `AGENTS.md` before editing it.
+  needs the owner's review under Ainekio OS `AGENTS.md` before editing it.
 
-### MetaHuman task, execution and motion owner group
+### Ainekio OS task, execution and motion owner group
 
 - **Files/layer:** `M:packages/core/src/nodes/environment/active-task.node.ts`,
   `environment-interface/active-task.ts`, `queue/execution-engine.ts`,
@@ -1928,17 +1928,17 @@ hardware maxima. No limit was changed in this audit.
 
 | Current setting/limit | Owner | Meaning and integration consequence |
 | --- | --- | --- |
-| 32 objects per recognition result | Gateway `MAX_OBJECTS`, YOLO `max_det`, MetaHuman perception parser | Detection/output cap, not 32 learned categories or proof of 32 stable tracks. Both ends must change together if revised. |
+| 32 objects per recognition result | Gateway `MAX_OBJECTS`, YOLO `max_det`, Ainekio OS perception parser | Detection/output cap, not 32 learned categories or proof of 32 stable tracks. Both ends must change together if revised. |
 | 16 enrolled people; 4 samples each | `person_identity.py` | Private gallery policy, not a physical P4 limit. Distinct from detections and temporary tracks. |
 | Person-oriented configured weights | Gateway configuration | Vocabulary comes from actual weights; Qwen identifying a cup does not teach these weights to detect cups. Inspect model names in the qualification run. |
 | YOLO confidence .25; input size default 640, inspected config 320 | `yolo_backend.py`, launcher | Inference tradeoffs; adapter accepts multiples of 32 from 32–2048. No actual performance benchmark here. |
 | One in-flight inference and one waiting frame | `CameraFramePlugin` | Latest-frame processing rather than replaying a backlog. Does not mean only one object can be detected. |
 | One-second default accepted frame age | Gateway plugin/CLI | Includes inference time, uses gateway receipt, can discard slow results. Separate it from historical semantic evidence. |
 | 1.5-second person continuity gap; 3-second remembered face evidence | `person_identity.py` | Current identity assumptions. Sparse frames/occlusion may reset IDs or remove a name. |
-| 1% minimum box width/height | MetaHuman `normalizeEnvironmentTargetBox` | Dormant target API restriction absent from ordinary recognition boxes; would exclude small/distant targets if reused unchanged. |
+| 1% minimum box width/height | Ainekio OS `normalizeEnvironmentTargetBox` | Dormant target API restriction absent from ordinary recognition boxes; would exclude small/distant targets if reused unchanged. |
 | 256 KiB JPEG; camera fps field 0–15 | Shared protocol | Transport/configuration limits. Neither specifies achievable tracking rate or image quality. |
 | Two firmware camera packet slots | P4 controller | Transport buffering, not tracked-object capacity. |
-| Optional HTTP backend: default 2 s timeout, 1024 output tokens, 64 KiB response | Gateway `VisionBackend` | Existing alternate recognition path; not the required route for MetaHuman's Qwen. |
+| Optional HTTP backend: default 2 s timeout, 1024 output tokens, 64 KiB response | Gateway `VisionBackend` | Existing alternate recognition path; not the required route for Ainekio OS's Qwen. |
 | Labels 80 characters; model 160; summary 1000; 8 uncertainties of 240 | Recognition normalization | Serialization limits to review when extending target descriptions; do not silently truncate new requested evidence. |
 | One outstanding gait update; validity at most 2000 ms | Existing V2 movement-update contract | Body-command lifecycle, not detector capacity. Reuse ownership rather than adding a second sender. |
 
@@ -1951,10 +1951,10 @@ provider capacity and measured Q6A/P4 resources must remain distinct.
 
 ### One target lifecycle, two computation rates
 
-1. The user or MetaHuman identifies the desired object from an existing image,
+1. The user or Ainekio OS identifies the desired object from an existing image,
    a clicked box, a description, a saved person, or a supplied reference image.
 2. The existing finite vision job localizes/selects it on a specific robot frame.
-   MetaHuman owns what is wanted; the gateway owns image-space continuity.
+   Ainekio OS owns what is wanted; the gateway owns image-space continuity.
 3. A tracking operation reaches the gateway through the existing authenticated
    bridge and Work Coordinator action path. It seeds tracking on the identified
    frame and advances that target through subsequent camera frames.
@@ -1974,11 +1974,11 @@ Reporting these distinctions does not authorize new automatic motion stops.
 ### Contract reconciliation before adding code
 
 Use the existing visual-target fields as the starting point. The implementation
-design should specify these concepts once across Ainekio and MetaHuman:
+design should specify these concepts once across Ainekio and Ainekio OS:
 
 | Concept | Owner and purpose |
 | --- | --- |
-| `targetId` and revision | MetaHuman task identity; changes when selection changes |
+| `targetId` and revision | Ainekio OS task identity; changes when selection changes |
 | Source frame | Full gateway/robot/epoch/counter tuple plus image ID, dimensions and presented orientation; not a timestamp alone |
 | Selection | Box and, if supported, mask/crop reference on that exact image; description and acquisition evidence |
 | `trackId` | Gateway continuity identifier, scoped to its source stream/session; distinct from semantic target and enrolled person |
@@ -2064,7 +2064,7 @@ performance target, new restriction or target-loss policy is selected here.
 - Inventory all affected parsers/schema consumers and existing caps. Propose
   specific changes for owner review; do not choose invisible new defaults.
 - Present exact model-visible wording/schema descriptions for owner approval,
-  as required by MetaHuman `AGENTS.md`, before applying them.
+  as required by Ainekio OS `AGENTS.md`, before applying them.
 - **Acceptance:** contract fixtures round-trip between repositories; one
   operation has one execution owner; no dummy motion or duplicate scheduler;
   delayed results remain tied to their original request and source frame.
@@ -2081,7 +2081,7 @@ performance target, new restriction or target-loss policy is selected here.
   equivalent named-person behavior is demonstrated.
 - **Acceptance:** choose between two same-class objects; follow the selected
   one across frames; distinguish lost/replaced/reacquired targets; demonstrate
-  stationary operation and visible agreement between dashboard and MetaHuman.
+  stationary operation and visible agreement between dashboard and Ainekio OS.
   Test one unsupported-category target and one reference-image target using
   the actual chosen models, not just fake detections.
 
@@ -2113,14 +2113,14 @@ performance target, new restriction or target-loss policy is selected here.
 ## Verification performed for this audit
 
 All tests below pre-existed this work; no production/test source was repaired.
-Python tests used Python 3.12 with `Master`, `Slave/software`, `Emulator` and
-`Emulator/tests` on `PYTHONPATH`. TypeScript tests used Node 22.23.1 with
+Python tests used Python 3.12 with `Master`, `Slave/software`, `.` and
+`tests` on `PYTHONPATH`. TypeScript tests used Node 22.23.1 with
 `--experimental-test-module-mocks --import tsx`, executing each spec directly.
 
 | Existing suite | Result | What it establishes |
 | --- | --- | --- |
-| `A:Emulator/tests/test_camera_perception.py` | 15/15 passed | Worker lifecycle, frame correlation, freshness, reconnect/generation and telemetry behavior with fake frames |
-| `A:Emulator/tests/test_person_identity.py` + `test_yolo_backend.py` | 12/12 passed | Gallery/identity continuity and adapter contracts; not actual face/YOLO accuracy |
+| `A:tests/test_camera_perception.py` | 15/15 passed | Worker lifecycle, frame correlation, freshness, reconnect/generation and telemetry behavior with fake frames |
+| `A:tests/test_person_identity.py` + `test_yolo_backend.py` | 12/12 passed | Gallery/identity continuity and adapter contracts; not actual face/YOLO accuracy |
 | `M:packages/core/src/environment-interface/perception.spec.ts` | 6/6 passed | Stored perception and coalesced event semantics |
 | `M:packages/core/src/nodes/environment/context-builder.node.spec.ts` | 14/14 passed with isolated data root | Current context/schema/image-selection fixtures |
 | `M:packages/core/src/environment-interface/active-task-state.spec.ts` | 69/69 passed | Existing task-state, cancellation, receipt and observation behavior fixtures |
@@ -2148,7 +2148,7 @@ acceptance tasks above, not inferred successes.
 ## Owner decisions before implementation
 
 The recommended architecture is concrete: extend the existing gateway camera
-worker and MetaHuman active-task/Coordinator path, with observable target
+worker and Ainekio OS active-task/Coordinator path, with observable target
 selection and stationary tracking first. The remaining decisions are backend
 choice after measured acquisition/continuity trials; host placement; reference
 retention; operator-visible capacity settings; and the requested motion behavior

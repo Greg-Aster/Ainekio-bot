@@ -10,8 +10,6 @@
 #include "ainekio/control_codec.h"
 #include "ainekio/control_encode.h"
 #include "ainekio/admission.h"
-#include "esp_http_server.h"
-#include "nvs.h"
 #include "cJSON.h"
 
 static ainekio_admission_t admission;
@@ -130,24 +128,6 @@ ainekio_p4_system_status_t ainekio_p4_system_status(void)
 ainekio_p4_media_status_t ainekio_p4_media_status(void)
 {return (ainekio_p4_media_status_t){0};}
 void ainekio_p4_log_stage(const char *stage){(void)stage;}
-void ainekio_p4_gait_trace_output(const uint16_t p[12],uint64_t at,bool armed)
-{(void)p;(void)at;(void)armed;}
-void ainekio_p4_gait_trace_tracking(const ainekio_gait_trace_event_t *event){(void)event;}
-
-/* The virtual body has no saved legacy gait model. Compile its real owner,
- * including its no-model path; do not substitute empty learning callbacks. */
-esp_err_t nvs_open(const char *name,int mode,nvs_handle_t *handle)
-{(void)name;(void)mode;*handle=1;return ESP_OK;}
-esp_err_t nvs_get_blob(nvs_handle_t h,const char *k,void *v,size_t *n)
-{(void)h;(void)k;(void)v;(void)n;return ESP_ERR_NVS_NOT_FOUND;}
-esp_err_t nvs_set_blob(nvs_handle_t h,const char *k,const void *v,size_t n)
-{(void)h;(void)k;(void)v;(void)n;return ESP_ERR_NOT_SUPPORTED;}
-esp_err_t nvs_commit(nvs_handle_t h){(void)h;return ESP_ERR_NOT_SUPPORTED;}
-void nvs_close(nvs_handle_t h){(void)h;}
-esp_err_t httpd_resp_set_status(httpd_req_t *r,const char *s){(void)r;(void)s;return ESP_ERR_NOT_SUPPORTED;}
-esp_err_t httpd_resp_set_type(httpd_req_t *r,const char *s){(void)r;(void)s;return ESP_ERR_NOT_SUPPORTED;}
-esp_err_t httpd_resp_sendstr(httpd_req_t *r,const char *s){(void)r;(void)s;return ESP_ERR_NOT_SUPPORTED;}
-int httpd_req_recv(httpd_req_t *r,char *out,size_t n){(void)r;(void)out;(void)n;return -1;}
 
 void virtual_body_close(void)
 {

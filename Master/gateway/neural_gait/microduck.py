@@ -52,7 +52,7 @@ from .native import motor_force_range
 
 RECIPE = "microduck-mjlab-v1"
 UPSTREAM = Path(__file__).with_name("vendor") / "microduck_rl" / "UPSTREAM.json"
-TASK_REVISION = 17
+TASK_REVISION = 18
 DEFAULT_ACTOR_HIDDEN_DIMS = (128, 64, 32)
 
 
@@ -137,7 +137,9 @@ class MG90SActuator(Actuator):
                 transmission_type=self.cfg.transmission_type))
 
     def compute(self, cmd):
-        lower, upper = motor_force_range(cmd.vel, self.cfg.effort_limit,
+        effort_scale = getattr(self, "effort_scale", None)
+        limit = self.cfg.effort_limit if effort_scale is None else self.cfg.effort_limit * effort_scale
+        lower, upper = motor_force_range(cmd.vel, limit,
                                         self.cfg.speed_rad_s, array=torch)
         ranges = self.entity.data.model.actuator_forcerange
         ranges[:, self._global_ctrl_ids, 0] = lower
@@ -306,9 +308,9 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
             "slope_up":LearningSlopeCfg(proportion=.20,
                 slope_range=(0.,math.tan(math.radians(8))),platform_width=.5,vertical_scale=.001),
             "cable_ledges":LearningStairsCfg(proportion=.25,
-                step_height_range=(.004,.015),step_width=.18,platform_width=1.2,border_width=.5),
+                step_height_range=(.004,.018),step_width=.18,platform_width=1.2,border_width=.5),
             "obstacles":LearningObstaclesCfg(proportion=.20,
-                obstacle_width_range=(.10,.26),obstacle_height_range=(.005,.015),
+                obstacle_width_range=(.10,.26),obstacle_height_range=(.005,.018),
                 num_obstacles=12,platform_width=.45,horizontal_scale=.10,vertical_scale=.001),
             "waves":LearningWaveCfg(proportion=.15,
                 amplitude_range=(.004,.014),num_waves=3,horizontal_scale=.10,vertical_scale=.001)})
@@ -359,10 +361,10 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
                 asset.site_names = feet
     cfg.rewards["foot_clearance"]=RewardTermCfg(func=ainekio_mdp.foot_clearance,weight=-.2,
         params=dict(cfg.rewards["foot_clearance"].params,sensor_name="feet_ground_contact",
-                    target_height=.021,max_free_height=.040))
+                    target_height=.022,max_free_height=.042))
     cfg.rewards["foot_swing_height"]=RewardTermCfg(func=ainekio_mdp.foot_swing_height,weight=-.05,
-        params=dict(cfg.rewards["foot_swing_height"].params,target_height=.022,max_free_height=.040))
-    cfg.rewards["foot_slip"]=RewardTermCfg(func=ainekio_mdp.foot_slip,weight=-.30,
+        params=dict(cfg.rewards["foot_swing_height"].params,target_height=.022,max_free_height=.042))
+    cfg.rewards["foot_slip"]=RewardTermCfg(func=ainekio_mdp.foot_slip,weight=-.32,
         params=cfg.rewards["foot_slip"].params)
     cfg.rewards.update({
         "tracking_twist":RewardTermCfg(func=ainekio_mdp.tracking_twist,weight=3.5),
@@ -376,7 +378,7 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
     # Per-step cost budgets prevent one finite physics excursion from
     # dominating PPO returns. They do not alter plant state or motion limits.
     for name,limit in {"body_ang_vel":20.,"foot_slip":1.5,
-                       "foot_clearance":1.5,"foot_swing_height":1.,"standing_pose":2.}.items():
+                       "foot_clearance":1.5,"foot_swing_height":1.,"standing_pose":2.5}.items():
         term=cfg.rewards[name]
         cfg.rewards[name]=RewardTermCfg(func=ainekio_mdp.BoundedCost,weight=term.weight,
             params={"function":term.func,"parameters":term.params,"limit":limit})
@@ -405,7 +407,7 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
 def evaluate_run(directory, *, episode_seconds=8., seeds=(1000, 1001)):
     """Evaluate a trained MicroDuck policy in GaitEnvironment and record evaluation.json."""
     from .microduck_actor import MicroduckActor
-    from .training import evaluate
+    from .evaluation import evaluate
     directory=Path(directory)
     config=EnvironmentConfig(**json.loads((directory/"environment.json").read_text()))
     eval_config=replace(config,episode_seconds=episode_seconds,randomization=0.)
@@ -556,7 +558,7 @@ def train(directory, config, *, iterations, num_envs=1024, device="cuda:0", seed
             has_opt="optimizer_state_dict" in torch.load(ckpt_path,map_location="cpu",weights_only=False)
             runner.load(ckpt_path,load_cfg={"actor":True,"critic":True,"optimizer":has_opt,"iteration":has_opt,"rnd":False},map_location=device)
             if hasattr(runner,"alg") and hasattr(runner.alg,"learning_rate"):
-                runner.alg.learning_rate=min(float(runner.alg.learning_rate),2.5e-4)
+                runner.alg.learning_rate=min(float(runner.alg.learning_rate),1.5e-4)
                 for group in runner.alg.optimizer.param_groups:
                     group["lr"]=runner.alg.learning_rate
         elif distill_from:

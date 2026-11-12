@@ -124,7 +124,7 @@ acceptance must treat a Cloudflare-initiated close like any other disconnect.
 
 This review compares the relay plan with the bridge-hardening work recorded in
 [the historical bridge-hardening plan](https://github.com/Greg-Aster/Ainekio-bot/blob/b46a5f7da7d25db945ca2c6e6321d344030acc3c/docs/BRIDGE_HARDENING_PLAN.md). The relay does not require a second bridge or a
-protocol translation layer. MetaHuman continues to connect locally to
+protocol translation layer. Ainekio OS continues to connect locally to
 `/environment`; the physical body alone uses the public `/robot` endpoint. Robot
 identity, pairing token, epochs, semantic action gates, capability truth,
 terminal feedback, and correlated camera handling remain owned by the existing

@@ -141,15 +141,6 @@ h2 { margin-bottom: 0; font-size: 1.05rem; line-height: 1.2; }
 }
 .primary-view-section { width: 100%; padding-inline: 0; border-right: 0 !important; }
 .primary-view-section .section-heading { padding-inline: 1.25rem; }
-body[data-dashboard-primary="camera"] [data-dashboard-panel="simulator"],
-body[data-dashboard-primary="simulator"] [data-dashboard-panel="camera"] { display: none; }
-.simulator-frame {
-  display: block;
-  width: 100%;
-  height: clamp(520px, 72vh, 820px);
-  border: 0;
-  background: var(--dark);
-}
 .camera-stage {
   position: relative;
   width: 100%;
@@ -377,7 +368,6 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
   .control-section { padding-inline: 0.5rem; }
   .primary-view-section { padding-inline: 0; }
   .primary-view-section .section-heading { padding-inline: 0.5rem; }
-  .simulator-frame { height: 620px; }
   .camera-stage { min-height: clamp(300px, 55vh, 520px); }
   .camera-controls { grid-template-columns: 1fr; padding-inline: 0.75rem; }
   .section-heading { flex-direction: column; }
@@ -453,7 +443,6 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
 .primary-view-container .camera-stage { min-height: 180px; }
 .primary-view-container .camera-image-plane { max-width: 100%; }
 .primary-view-container .camera-detection-status { font-size: .78rem; }
-.primary-view-container .simulator-frame { height: calc(100vh - 230px); }
 #camera-view-message { font-size: .85rem; }
 @media (max-width: 1200px) {
   .dashboard-shell { grid-template-columns: 195px minmax(0, 1fr); }
@@ -484,23 +473,11 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
   .primary-view-container .camera-image-plane { width: auto; height: 100%; max-width: 100%; }
   .primary-view-container .camera-frame { width: auto; height: 100%; max-width: 100%; }
   .primary-view-container .camera-detection-status { margin: .2rem 0 0; font-size: .65rem; }
-  .primary-view-container .simulator-frame { min-height: 0; flex: 1; height: auto; }
   .tool-workspace > .control-section { padding: .9rem; }
 }
 
-/* Learning history shares the existing workspace and follows its available width. */
-.gait-history-chart svg { display: block; width: 100%; height: auto; }
-.gait-history-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: .75rem; }
-.gait-history-filters label { min-width: 0; }
-.gait-history-filters select { width: 100%; }
-.gait-history-chart circle { cursor: pointer; }
-.gait-history-chart circle:focus { stroke: currentColor; stroke-width: 3; }
-.gait-history-scroll { overflow-x: auto; }
-.gait-history-table { width: 100%; border-collapse: collapse; text-align: left; }
-.gait-history-table th, .gait-history-table td { padding: .5rem; border-bottom: 1px solid #64748b55; }
-.gait-history-model { border: 1px solid #64748b55; border-radius: .5rem; padding: .7rem; margin: .6rem 0; overflow-wrap: anywhere; }
+/* Neural gait panel shares the existing workspace and follows its available width. */
 #gait-history-panel select { max-width: 100%; }
-#gait-history-point { overflow-wrap: anywhere; }
 
 /* Optional Freestyle panel; scoped so ordinary controls retain their layout. */
 
@@ -594,8 +571,6 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
 .neural-model-card { margin: .85rem 0; padding: .85rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); display: grid; gap: .65rem; }
 .neural-model-row { display: grid; grid-template-columns: minmax(200px, 1fr) auto; align-items: end; gap: .65rem; }
 .neural-model-row label { display: grid; gap: .35rem; min-width: 0; }
-.legacy-gait-history-details { margin-top: 1.25rem; padding: .75rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
-.legacy-gait-history-details > summary { cursor: pointer; font-weight: 650; color: var(--muted); font-size: .85rem; }
 
 .mode-switch-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem; margin-bottom: .75rem; padding: .4rem .75rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
 .mode-switch-bar .motion-system-toggle { margin: 0; min-height: 38px; }
@@ -855,9 +830,6 @@ th { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
   .primary-view-container .camera-detection-status {
     margin: 0.25rem 0 0;
     font-size: 0.72rem;
-  }
-  .primary-view-container .simulator-frame {
-    height: 260px;
   }
   .tool-workspace {
     overflow: visible;

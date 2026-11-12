@@ -9,6 +9,7 @@ from typing import Any
 
 from protocol.binary_helpers import (
     AUDIO_PAYLOAD_BYTES,
+    CAMERA_CHUNK_FRAME_TYPE,
     CAMERA_JPEG_FRAME_TYPE,
     HEADER_BYTES,
     MAX_BINARY_COUNTER,
@@ -266,6 +267,16 @@ def assert_matches_schema(instance: object, schema: object, root: dict[str, Any]
                 and not 1 <= instance.get("origin_id", 0) <= MAX_SEQUENCE
             ):
                 raise SchemaMismatch("command camera origin is out of range")
+        elif rule == "unique-network-slots":
+            if not isinstance(instance, dict) or not isinstance(instance.get("networks"), list):
+                raise SchemaMismatch("settings status networks is not a list")
+            indices = [
+                profile["index"]
+                for profile in instance["networks"]
+                if isinstance(profile, dict) and "index" in profile
+            ]
+            if len(indices) != len(set(indices)):
+                raise SchemaMismatch("duplicate network slot")
         else:
             raise SchemaMismatch(f"unknown semantic rule: {rule}")
 
@@ -408,15 +419,26 @@ class BinaryContractTests(unittest.TestCase):
         self.assertEqual(self.contract["header"][1]["wrapsAt"] - 1, MAX_BINARY_COUNTER)
 
         frame_types = {entry["id"]: entry for entry in self.contract["frameTypes"]}
-        self.assertEqual(set(frame_types), {MIC_PCM_FRAME_TYPE, CAMERA_JPEG_FRAME_TYPE, SPEAKER_PCM_FRAME_TYPE})
+        self.assertEqual(
+            set(frame_types),
+            {
+                MIC_PCM_FRAME_TYPE,
+                CAMERA_JPEG_FRAME_TYPE,
+                CAMERA_CHUNK_FRAME_TYPE,
+                SPEAKER_PCM_FRAME_TYPE,
+            },
+        )
         self.assertEqual(frame_types[MIC_PCM_FRAME_TYPE]["payload"]["exactBytes"], AUDIO_PAYLOAD_BYTES)
         self.assertEqual(frame_types[SPEAKER_PCM_FRAME_TYPE]["payload"]["exactBytes"], AUDIO_PAYLOAD_BYTES)
         self.assertEqual(frame_types[CAMERA_JPEG_FRAME_TYPE]["payload"]["maximumBytes"], MAX_JPEG_BYTES)
+        self.assertEqual(frame_types[CAMERA_CHUNK_FRAME_TYPE]["payload"]["headerBytes"], 8)
+        self.assertEqual(frame_types[CAMERA_CHUNK_FRAME_TYPE]["payload"]["imageMaximumBytes"], MAX_JPEG_BYTES)
 
     def test_known_frames_round_trip(self) -> None:
         cases = [
             (MIC_PCM_FRAME_TYPE, 0, bytes(AUDIO_PAYLOAD_BYTES)),
             (CAMERA_JPEG_FRAME_TYPE, 1042, b"\xff\xd8\xff\xd9"),
+            (CAMERA_CHUNK_FRAME_TYPE, 42, bytes.fromhex("0600000000000000ffd8")),
             (SPEAKER_PCM_FRAME_TYPE, MAX_BINARY_COUNTER, bytes(AUDIO_PAYLOAD_BYTES)),
         ]
         for frame_type, counter, payload in cases:

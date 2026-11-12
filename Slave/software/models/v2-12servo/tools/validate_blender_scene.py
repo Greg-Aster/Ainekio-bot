@@ -5,7 +5,7 @@ import numpy as np
 from mathutils import Euler,Vector
 import argparse
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--workspace',type=Path,default=Path('/home/greggles/blender-5.0.0-linux-x64/variable-gait'))
+parser.add_argument('--workspace',type=Path,default=Path.home()/'blender-5.0.0-linux-x64/variable-gait')
 parser.add_argument('--report',type=Path,required=True)
 parser.add_argument('--motion-scene',default='Motions - Current Geometry')
 parser.add_argument('--motion-prefix',default='ML | ')

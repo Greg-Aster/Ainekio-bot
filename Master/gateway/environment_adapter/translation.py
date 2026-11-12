@@ -27,6 +27,8 @@ def translate_environment_action(action: Mapping[str, object], *, model: str | N
 def _translate_environment_action(action: Mapping[str, object], *, model: str | None = None) -> BridgeAction | None:
     if "continuous" in action and type(action["continuous"]) is not bool:
         raise ProtocolValidationError("type:continuous")
+    if "detach" in action and type(action["detach"]) is not bool:
+        raise ProtocolValidationError("type:detach")
     action_type = _normalized(action.get("type"))
     if action_type == "requestmotion":
         description = action.get("description")
@@ -49,8 +51,9 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
         if not isinstance(text, str) or not text.strip():
             return None
         return BridgeAction("text", params={"text": text})
-    if action_type == "stop":
-        return BridgeAction("stop")
+    if action_type in {"stop", "release"}:
+        detach = action_type == "release" or action.get("detach") is True
+        return BridgeAction("stop", "release", {"detach": True}) if detach else BridgeAction("stop")
     if action_type == "move":
         return _translate_move(action, model=model)
     return None

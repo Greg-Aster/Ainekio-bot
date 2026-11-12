@@ -21,7 +21,7 @@ photographs confirm them. The controller, OV3660 camera, and eight remapped PWM
 allocations now have USB-only evidence; the external power system, physical
 servo signals and joints, and attached peripherals remain open physical gates.
 
-The companion MetaHuman OS plan is `docs/implementation-plans/VISION_MODEL_IMPLEMENTATION.md` in the MetaHuman repository. MetaHuman owns provider-neutral image-model routing. Ainekio owns real and virtual capture, bounded JPEG and PCM transport, utterance handling, speaker delivery, and hardware safety. Neither program should import the other's private implementation.
+The companion Ainekio OS plan is `docs/implementation-plans/VISION_MODEL_IMPLEMENTATION.md` in the `ainekio-os` repository. Ainekio OS owns provider-neutral image-model routing. Ainekio owns real and virtual capture, bounded JPEG and PCM transport, utterance handling, speaker delivery, and hardware safety. Neither program should import the other's private implementation.
 
 ## Owner-confirmed power topology
 
@@ -95,7 +95,7 @@ not close the remaining assembled-hardware gates.
 - [x] Preserve explicit `stop`/failsafe detachment of all eight signal GPIOs. This affects the 3.3 V PWM signals only; the external 5 V servo rail is not software-switched.
 - [x] Add boot reporting for board profile, PSRAM size, camera readiness, battery-monitor state, and the physical-motion build gate; dump remapped GPIO47/48 configuration for H2 evidence.
 - [x] Pass all 11 portable C tests after enabling battery monitoring, including battery thresholds and the calibration-motion gate.
-- [x] Re-run the complete A1-A30 emulator/protocol acceptance suite after enabling the all-servo profile; all 30 cases pass.
+- [x] Re-run the complete A1-A30 host/protocol acceptance suite after enabling the all-servo profile; all 30 cases pass.
 - [x] Cross-build with ESP-IDF 5.5.4 and battery monitoring enabled. Padded image size is `0x119c20` bytes (1,154,080 bytes), leaving 63 percent of a 3 MiB OTA slot free; DIRAM use is 230,875 bytes (67.55 percent).
 
 ### MAP_B board-only remap for H2/H3 - 2026-07-21
@@ -131,10 +131,8 @@ Close this software gate before using physical camera, microphone, or speaker re
 ### Virtual vision
 
 - [ ] Add a deterministic, valid JPEG fixture no larger than 120 KiB with a stable visual marker such as `AINEKIO-7` and a prominent color.
-- [ ] Prove `snap` produces a protocol-v1 camera JPEG frame, the gateway converts it into a generic Environment Bridge visual observation, and MetaHuman sends it to a captured or fake image-model endpoint.
+- [ ] Prove `snap` produces a protocol-v1 camera JPEG frame, the gateway converts it into a generic Environment Bridge visual observation, and Ainekio OS sends it to a captured or fake image-model endpoint.
 - [ ] Prove the same known image produces the expected marker/color answer from the configured real image model.
-- [ ] Add a Sesame renderer snapshot producer to the browser shim or a bounded browser-capture adapter and use it as a `CameraSource`.
-- [ ] Prove a post-action snapshot reflects a visible simulator scene change.
 - [ ] Keep continuous video out of the cognition loop; use explicit or low-rate bounded JPEG snapshots first.
 
 ### Virtual hearing and speaking
@@ -147,12 +145,12 @@ Close this software gate before using physical camera, microphone, or speaker re
 - [ ] Use a recording or fixture speaker sink to prove the outbound PCM stream without ALSA or physical hardware.
 - [ ] Prove camera frames, microphone frames, and speaker frames retain their bandwidth priority and drop/counter behavior under combined virtual load.
 
-**Pass:** A known virtual image reaches the image model, a bounded virtual utterance reaches MetaHuman as text, and a bounded MetaHuman speech response reaches a recording speaker sink. No physical device, Linux webcam, or ALSA device is required for this pass.
+**Pass:** A known virtual image reaches the image model, a bounded virtual utterance reaches Ainekio OS as text, and a bounded Ainekio OS speech response reaches a recording speaker sink. No physical device, Linux webcam, or ALSA device is required for this pass.
 
 **Hearing evidence (2026-07-17):** Focused gateway and bridge tests prove VAD
 grouping, missing-frame silence, bounded duration, WAV validation, one Whisper
 call, and one metadata-bearing text observation. A live 2.1-second, 16 kHz mono
-PCM fixture passed through the Ainekio binary-envelope parser and MetaHuman's
+PCM fixture passed through the Ainekio binary-envelope parser and Ainekio OS's
 running `base.en` Whisper server. Whisper returned `Inekio hears this test
 phrase.` The full Foundation 0 pass remains open because virtual vision and
 outbound speech delivery are separate unfinished gates.
@@ -162,8 +160,8 @@ outbound speech delivery are separate unfinished gates.
 - [x] Add the authenticated protocol-v1 `wake` command with persistent `enabled` and trained-model `model` fields.
 - [x] Store the robot-owned setting in the existing NVS preferences namespace as optional `wake_enabled` and `wake_model` keys.
 - [x] Default a first boot or missing-key migration to `enabled=false` and `model=ainekio` without erasing profile, ADC calibration, servo calibration, poses, Wi-Fi, or identity settings.
-- [x] Report `wake_enabled`, `wake_model`, and `wake_ready` in firmware and emulator status.
-- [x] Add gateway API and dashboard controls for the setting, plus protocol, emulator, gateway, and dashboard coverage.
+- [x] Report `wake_enabled`, `wake_model`, and `wake_ready` in firmware status.
+- [x] Add gateway API and dashboard controls for the setting, plus protocol, host, gateway, and dashboard coverage.
 - [x] Keep `wake_ready=false` and reject both wake enablement and `mic` with `gate=wake` while no trained model is installed. The fixed energy detector is not presented as wake-word detection.
 - [x] Select the open microWakeWord quantized TFLite format instead of attempting to reverse engineer proprietary WakeNet weights. Pin TensorFlow Lite Micro 1.3.7, ESP-NN 1.1.2, and the micro-speech frontend 1.2.3.
 - [x] Integrate on-device 16 kHz streaming feature generation and TFLite Micro inference. Wake mode keeps PCM local until a real model detection, emits the wake event once, and forwards the following bounded utterance through the existing VAD boundary protocol.

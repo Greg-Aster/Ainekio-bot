@@ -812,7 +812,7 @@ esp_err_t ainekio_motion_service_start(
     ESP_LOGI(
         TAG,
         "all-servo profile range=%d%% logical=%.1f..%.1f min_frame_ms=%d "
-        "playback=sesame_exact",
+        "playback=step_exact",
         CONFIG_AINEKIO_MOTION_RANGE_PERCENT,
         (double)configured_logical_degrees(0.0F),
         (double)configured_logical_degrees(180.0F),

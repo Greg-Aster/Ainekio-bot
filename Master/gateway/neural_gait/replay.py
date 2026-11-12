@@ -12,11 +12,11 @@ import zipfile
 os.environ.setdefault('MUJOCO_GL', 'egl')
 import mujoco
 from PIL import Image, ImageDraw, ImageFont
-import torch
 
 from .environment import EnvironmentConfig, make_environment, ENVIRONMENT_VERSION, POLICY_ENVIRONMENT_VERSIONS, representation_identity
 from .contract import SCHEMA, SCHEMAS
-from .training import load_policy, request_interval_steps, save_json
+from .artifacts import save_json
+from .evaluation import SUPPORTED_KINDS, load_policy, request_interval_steps
 
 WIDTH, HEIGHT, RENDER_VERSION = 1280, 720, 4
 
@@ -34,12 +34,12 @@ def versions(directory, progress, *, comparison=False):
     evaluation = json.loads((directory/'evaluation.json').read_text())['candidate']
     manifest_path = directory/'manifest.json'
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
-    policy = manifest.get('policy') or 'policy.zip'
+    policy = manifest.get('policy') or ('policy.json' if manifest.get('kind') == 'pupper-mjx' else 'policy.onnx')
     selection = directory/'selection.json'
     if selection.exists():
         return [dict(json.loads(selection.read_text()), policy=policy, evaluation=evaluation)]
     return [dict(id=result.get('selected_checkpoint_id', f"{result['steps']:09d}"),
-                 steps=result['steps'], imitation_updates=result.get('imitation_updates', 0),
+                 steps=result['steps'],
                  policy=policy, evaluation=evaluation)]
 
 
@@ -86,11 +86,8 @@ def clip(directory, config, checkpoint, seed, *, model=None, episode=None):
             if previous.get('command_segments', []) == command_segments:
                 return previous
     if model is None:
-        model = load_policy(directory, checkpoint['policy'], device='cpu')
-    imitation_path = directory/'imitation.json'
-    imitation = json.loads(imitation_path.read_text()) if imitation_path.exists() else None
-    updates = checkpoint.get('imitation_updates', imitation['updates'] if imitation else 0)
-    training_label = (f'{updates:,} imitation updates + ' if updates else '') + f'{checkpoint["steps"]:,} RL steps'
+        model = load_policy(directory, checkpoint.get('policy'))
+    training_label = f'{checkpoint["steps"]:,} RL steps'
     initialization = manifest.get('initialization') or {}
     if 'source_rl_steps' in initialization:
         inherited = initialization['source_rl_steps']
@@ -99,8 +96,6 @@ def clip(directory, config, checkpoint, seed, *, model=None, episode=None):
         training_label += f' | Trained env {training_version}, replay env {ENVIRONMENT_VERSION}'
     if checkpoint.get('training_method'):
         training_label = checkpoint['training_method'] + ' | ' + training_label
-    if checkpoint.get('aggregation_round') is not None:
-        training_label += f' | DAgger round {checkpoint["aggregation_round"]}'
     replay_commands = [row["command"] for row in command_segments] or [config.command]
     env = make_environment(config, commands=replay_commands)
     env.model.vis.global_.offwidth = WIDTH
@@ -194,7 +189,6 @@ def clip(directory, config, checkpoint, seed, *, model=None, episode=None):
             body_terminal=info.get('body_terminal'), body_rejection=info.get('body_rejection'),
             producer_failure=info.get('producer_failure'),
             geometry_rejection=info.get('geometry_rejection'),
-            imitation_updates=updates,
             physical_execution=False, width=WIDTH, height=HEIGHT, fps=fps)
         save_json(metadata_path, metadata)
         return metadata
@@ -212,12 +206,12 @@ def write_footage(directory, destination):
     directory = Path(directory)
     with (directory/'render.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_SH)
-        # Footage only, never the optimizer replay buffer or model weights.
+        # Footage only, never model weights.
         with zipfile.ZipFile(destination, 'w', compression=zipfile.ZIP_STORED) as archive:
             for path in sorted((directory/'clips').glob('*')):
                 if path.is_file() and path.suffix in ('.mp4', '.json') and '.tmp.' not in path.name:
                     archive.write(path, path.relative_to(directory))
-            for filename in ('manifest.json', 'imitation.json', 'aggregation.json', 'selection.json',
+            for filename in ('manifest.json', 'selection.json',
                              'checkpoints.json', 'evaluation.json', 'progress-video.mp4',
                              'progress-video.json', 'replay.mp4', 'replay.json'):
                 path = directory/filename
@@ -261,13 +255,14 @@ def render(directory, *, progress=False, comparison=False):
         except BlockingIOError:
             return
         manifest = json.loads((directory/'manifest.json').read_text())
+        if manifest.get('kind') not in SUPPORTED_KINDS:
+            raise ValueError('Replay supports MicroDuck and Pupper MJX runs only')
         if (manifest.get('schema') not in SCHEMAS or
                 manifest.get('environment_version') not in POLICY_ENVIRONMENT_VERSIONS or
                 manifest.get('representation') != representation_identity()):
             raise ValueError('Replay requires the original observation and robot representation')
         config = EnvironmentConfig(**manifest['environment'])
         checkpoints = versions(directory, progress, comparison=True) if comparison else versions(directory, progress)
-        torch.set_num_threads(1)
         name = 'progress-video' if progress else 'replay'
         metadata_path = directory/(name+'.json')
         previous = json.loads(metadata_path.read_text()) if metadata_path.exists() else {}

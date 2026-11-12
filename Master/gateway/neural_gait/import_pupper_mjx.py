@@ -21,8 +21,8 @@ def load_json(path: str | Path):
 
 DEFAULT_NEURAL_GAIT_DIR = Path(__file__).resolve().parents[3] / "build/neural-gait"
 DEFAULT_TEMPLATE_RUN = DEFAULT_NEURAL_GAIT_DIR / "pupper-mjx-200m"
-DEFAULT_PUPPER_RL_VENV_PYTHON = Path(
-    "/home/greggles/Ainekio/build/pupper-v3-upstream/pupperv3-monorepo/ai/rl/.venv/bin/python"
+DEFAULT_PUPPER_RL_VENV_PYTHON = (
+    Path(__file__).resolve().parents[3] / "build/pupper-v3-upstream/pupperv3-monorepo/ai/rl/.venv/bin/python"
 )
 
 
@@ -75,28 +75,30 @@ def _restore_orbax_arrays(checkpoint_dir: Path, rl_python: Path = DEFAULT_PUPPER
     except ImportError:
         if not rl_python.exists():
             raise RuntimeError(f"Orbax is not installed in {sys.executable} and {rl_python} was not found")
-        helper = (
-            "import json, sys, numpy as np, jax; "
-            "from pathlib import Path; "
-            "from orbax import checkpoint as ocp; "
-            "p = Path(sys.argv[1]).resolve(); "
-            "meta = json.loads((p / '_METADATA').read_text())['tree_metadata']; "
-            "sharding = jax.sharding.SingleDeviceSharding(jax.devices('cpu')[0]); "
-            "arg = ocp.ArrayRestoreArgs(restore_type=jax.Array, sharding=sharding); "
-            "tree = [{}, {'params': {}}, {'params': {}}]; "
-            "for entry in meta.values():\n"
-            "    keys = [k['key'] for k in entry['key_metadata']]\n"
-            "    cur = tree[int(keys[0])]\n"
-            "    for k in keys[1:-1]: cur = cur.setdefault(k, {})\n"
-            "    cur[keys[-1]] = arg\n"
-            "ck = ocp.PyTreeCheckpointer(); "
-            "r = ck.restore(p, restore_args=tree); ck.close(); "
+        helper = "\n".join([
+            "import json, sys, numpy as np, jax",
+            "from pathlib import Path",
+            "from orbax import checkpoint as ocp",
+            "p = Path(sys.argv[1]).resolve()",
+            "meta = json.loads((p / '_METADATA').read_text())['tree_metadata']",
+            "sharding = jax.sharding.SingleDeviceSharding(jax.devices('cpu')[0])",
+            "arg = ocp.ArrayRestoreArgs(restore_type=jax.Array, sharding=sharding)",
+            "tree = [{}, {'params': {}}, {'params': {}}]",
+            "for entry in meta.values():",
+            "    keys = [k['key'] for k in entry['key_metadata']]",
+            "    cur = tree[int(keys[0])]",
+            "    for k in keys[1:-1]:",
+            "        cur = cur.setdefault(k, {})",
+            "    cur[keys[-1]] = arg",
+            "ck = ocp.PyTreeCheckpointer()",
+            "r = ck.restore(p, restore_args=tree)",
+            "ck.close()",
             "out = {'mean': np.asarray(r[0]['mean'], dtype=np.float32).tolist(), "
             "'std': np.asarray(r[0]['std'], dtype=np.float32).tolist(), "
             "'params': {k: {'kernel': np.asarray(v['kernel'], dtype=np.float32).tolist(), "
-            "'bias': np.asarray(v['bias'], dtype=np.float32).tolist()} for k, v in r[1]['params'].items()}}; "
-            "print(json.dumps(out))"
-        )
+            "'bias': np.asarray(v['bias'], dtype=np.float32).tolist()} for k, v in r[1]['params'].items()}}",
+            "print(json.dumps(out))",
+        ])
         env = dict(os.environ, JAX_PLATFORMS="cpu", CUDA_VISIBLE_DEVICES="")
         proc = subprocess.run(
             [str(rl_python), "-c", helper, str(checkpoint_dir)],

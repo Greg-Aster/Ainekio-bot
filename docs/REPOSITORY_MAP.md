@@ -30,7 +30,7 @@ Only the selected board's firmware image runs on the microcontroller; Body Contr
 | `Master/gateway/server/` | `protocol-v1` `/robot` WebSocket server, session epochs, sequence fencing, capability negotiation, and command receipts |
 | `Master/gateway/environment_adapter/` | Loopback `/environment` WebSocket bridge, semantic translation, speech routing, body-event forwarding, and durable receipt replay |
 | `Master/gateway/dashboard/` | Operator HTTP API and browser UI (`127.0.0.1:8791`), optional `AINEKIO_DASHBOARD_NO_LOGIN=1` local mode, and Freestyle runtime wiring |
-| `Master/gateway/neural_gait/` | Neural locomotion service (`8796`), Microduck PPO/mjlab GPU training & ONNX export, Pupper MJX / physical REDQ policies, and sensor/body tensor engines |
+| `Master/gateway/neural_gait/` | Neural locomotion service (`8796`), Microduck PPO/mjlab GPU training & ONNX export, Pupper MJX policies, and sensor/body tensor engines |
 | `Master/gateway/plugins.py`, `perception.py`, `depth_motion*.py` | Non-blocking camera frame worker, YOLO/YOLOE detection, YuNet/SFace person recognition, and depth/visual motion helpers |
 | `Master/gateway/hotspot.py` | Robot Wi-Fi hotspot management and service fallback |
 | `Master/start-physical-gateway.sh`, `stop-physical-gateway.sh` | Physical Body Control lifecycle launchers and pairing import/export utilities |
@@ -42,12 +42,12 @@ Only the selected board's firmware image runs on the microcontroller; Body Contr
 - `generator.py` & `big_brother.py` — HTTP generation server backed by native `llama-cpp.service` (`environment-0.8b-base` + Freestyle LoRA) or remote Big Brother over SSH.
 - `bridge.py`, `runtime.py`, `program.py`, `compact_wire.py` — Request admission, compact-operation compilation, P4 target dispatch, and observation-driven stall/slip/tip recovery.
 - `motion_library.py` / `motion_library.js`, `body_control.js` — Editable motion library backend and Body Control UI panels.
-- `freestyle_curriculum.py`, `semantic_teachers.py`, `stand_curriculum.py`, `continue_training.py`, `train_full.py` — Dataset construction, curriculum splits, and model training/evaluation.
+- `freestyle_curriculum.py`, `semantic_teachers.py`, `stand_curriculum.py`, `continue_training.py`, `train_full.py`, `neural_pose/` — Dataset construction, curriculum splits, pose generation, and model training/evaluation.
 
-## Emulator and Integration Tests (`Emulator/`)
+## Host and Integration Test Suites (`tests/`)
 
-- `Emulator/emulator/body/` & `backends/sesame.py` — Host `protocol-v1` robot emulator and browser-rendered V1 visual simulator.
-- `Emulator/tests/` — Gateway, dashboard, `/environment` adapter, V2 P4 transport/commands, Microduck neural gait, depth motion, and acceptance tests (`Emulator/tools/run_acceptance.py`).
+- `tests/test_*.py` — Gateway, dashboard, `/environment` adapter, V2 P4 transport/commands/feedback, Microduck & Pupper MJX neural gait, depth motion, and hotspot/pairing tests.
+- `tests/test_*.js` — Node `--test` browser/dashboard interaction and race suites.
 
 ## End-to-End Runtime Flow
 

@@ -1,4 +1,4 @@
-#include "ainekio/v2_learning.h"
+#include "ainekio/v2_walk.h"
 #include "ainekio/v2_posture.h"
 #include "walk_data.h"
 #include <assert.h>

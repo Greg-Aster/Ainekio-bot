@@ -1,5 +1,4 @@
 #include "ainekio/v2_walk.h"
-#include "ainekio/v2_learning.h"
 #include "ainekio/v2_limits.h"
 #include "ainekio/control_codec.h"
 #include <assert.h>

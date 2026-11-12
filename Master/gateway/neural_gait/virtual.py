@@ -471,24 +471,27 @@ async def run_recovery_scenario(environment, policy_run, directory, endpoint, *,
     from pathlib import Path
     import numpy as np
     from .environment import GaitEnvironment, ENVIRONMENT_VERSION, representation_identity
-    from .training import load_policy, save_json
+    from .artifacts import save_json
+    from .evaluation import load_policy
     from .contract import vector
     policy_run, directory = Path(policy_run), Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     destination = directory / "recovery-evaluation.json"
     if destination.exists():
         raise ValueError("Choose a new recovery trial directory to preserve its evidence")
+    manifest = json.loads((policy_run / "manifest.json").read_text())
+    policy_file = policy_run / manifest["policy"]
     report = dict(scope="simulation_recovery_qualification", physical_qualification=False,
         self_righting_trained=False, seed=seed, environment=asdict(environment),
         environment_version=ENVIRONMENT_VERSION, representation=representation_identity(),
         policy=dict(directory=str(policy_run.resolve()),
-            sha256=hashlib.sha256((policy_run/"policy.zip").read_bytes()).hexdigest()),
+            sha256=hashlib.sha256(policy_file.read_bytes()).hexdigest()),
         generator=dict(kind="configured_freestyle_service", endpoint=endpoint, canned=False),
         body_events=[], commands=[], trajectory=[], original_walk_terminal=None)
     plant = GaitEnvironment(environment, include_visuals=False)
     executor = session = policy_task = None
     try:
-        model = load_policy(policy_run, device="cpu")
+        model = load_policy(policy_run)
         plant.reset(seed=seed)
         executor = plant.virtual_body()
         profile = {"source":"neural", **{key:abs(environment.command[i]) or 1.

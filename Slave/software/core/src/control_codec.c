@@ -1576,6 +1576,12 @@ static ainekio_decode_result_t validate_outbound(
         result = validate_string_enum(parser, root, "res", resolutions, 5U);
         if (result == AINEKIO_DECODE_OK) result = required_integer(parser, root, "fps", 0, 15, &integer);
         if (result == AINEKIO_DECODE_OK) result = required_integer(parser, root, "counter_base", 0, UINT32_MAX, &integer);
+        if (result == AINEKIO_DECODE_OK && object_get(parser, root, "frame_completed_us") >= 0) {
+            result = required_integer(parser, root, "frame_completed_us", 1, INT64_MAX, &integer);
+        }
+        if (result == AINEKIO_DECODE_OK && object_get(parser, root, "boot_id") >= 0) {
+            result = required_integer(parser, root, "boot_id", 0, UINT32_MAX, &integer);
+        }
     }
     return result;
 }

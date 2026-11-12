@@ -64,7 +64,6 @@ process_matches_gateway() {
   local pid="$1"
   local cwd argument next_argument
   local found_module=0
-  local found_camera_view=0
   local candidate_port=""
   local candidate_data_dir=""
   local candidate_common_dir=""
@@ -86,8 +85,6 @@ process_matches_gateway() {
       else
         candidate_data_dir="$(realpath -m "$cwd/$next_argument")"
       fi
-    elif [[ "$argument" == "--dashboard-primary-view" && "$next_argument" == "camera" ]]; then
-      found_camera_view=1
     elif [[ "$argument" == "--port" && -n "$next_argument" ]]; then
       candidate_port="$next_argument"
     fi
@@ -100,7 +97,6 @@ process_matches_gateway() {
   fi
 
   if [[ -z "$explicit_data_dir" && -n "$REPO_GIT_COMMON_DIR" ]] &&
-     (( found_camera_view )) &&
      [[ "${candidate_port:-8790}" == "$GATEWAY_PORT" &&
         "$candidate_data_dir" == "$(realpath -m "$cwd/build/gateway/physical")" ]]; then
     candidate_common_dir="$(git_common_dir "$cwd" || true)"

@@ -435,6 +435,7 @@ class CameraFramePlugin:
         self._metric_consumers = {}
         self._metric_frames = {}
         self._metric_ready = {}
+        self._metric_pre_demand_frame = {}
         self._camera_latest = {}
         gateway.subscribe_frames(self._handle_frame)
 
@@ -654,6 +655,7 @@ class CameraFramePlugin:
                     self._depth_motion = None
             self._metric_latest.pop(robot_id, None)
         await asyncio.get_running_loop().run_in_executor(self._metric_executor, update)
+        self._metric_pre_demand_frame.pop(robot_id, None)
         ready = self._metric_ready.pop(robot_id, None)
         if ready is not None and not ready.done():
             ready.set_result({"available": False, "robotId": robot_id, "reason": "Depth configuration changed"})
@@ -689,6 +691,7 @@ class CameraFramePlugin:
         """
         if not isinstance(consumer_id, str) or not consumer_id or type(enabled) is not bool:
             raise ValueError("Depth demand requires a consumer identifier and boolean enabled")
+        had_consumer = robot_id in self._metric_consumers.values()
         previous = self._metric_consumers.get(consumer_id)
         if enabled:
             self._metric_consumers[consumer_id] = robot_id
@@ -702,6 +705,7 @@ class CameraFramePlugin:
         for released in released_robots:
             self._metric_generation[released] = self._metric_generation.get(released, 0) + 1
             self._metric_latest.pop(released, None)
+            self._metric_pre_demand_frame.pop(released, None)
             ready = self._metric_ready.pop(released, None)
             if ready is not None and not ready.done():
                 ready.set_result({"available": False, "reason": "Depth demand released", "robotId": released})
@@ -731,6 +735,8 @@ class CameraFramePlugin:
         ready = self._metric_ready.get(robot_id)
         if ready is None or ready.done():
             ready = self._metric_ready[robot_id] = asyncio.get_running_loop().create_future()
+            if not had_consumer and self._depth_settings.get(robot_id, {}).get("mode") == "moge-open3d":
+                self._metric_pre_demand_frame[robot_id] = frame[0]
             self._queue_metric(*frame)
         if not wait_for_measurement:
             return {"enabled": True, "measurement": measurement}
@@ -821,19 +827,44 @@ class CameraFramePlugin:
                     continue
                 result = await asyncio.get_running_loop().run_in_executor(
                     self._metric_executor, self._process_metric, frame, received_iso)
-                if not self._body_current(frame) and generation == self._metric_generation.get(frame.robot_id, 0):
-                    ready = self._metric_ready.pop(frame.robot_id, None)
-                    if ready is not None and not ready.done():
-                        ready.set_result({"available": False, "robotId": frame.robot_id,
-                            "reason": "Depth observation belongs to disconnected body epoch"})
-                if self._body_current(frame) and generation == self._metric_generation.get(frame.robot_id, 0):
-                    result["expiresAt"] = (datetime.fromisoformat(received_iso) + timedelta(seconds=self.max_frame_age_s)).isoformat()
-                    self._metric_latest[frame.robot_id] = result
-                    ready = self._metric_ready.pop(frame.robot_id, None)
-                    if ready is not None and not ready.done():
-                        ready.set_result(result)
-                    await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": frame.robot_id,
-                        "epoch": frame.epoch, "measurement": {k: v for k, v in result.items() if k != "depthPreview"}})
+                pre_demand_frame = (
+                    self._metric_pre_demand_frame.pop(frame.robot_id, None)
+                    if self._metric_pre_demand_frame.get(frame.robot_id) is frame
+                    else None
+                )
+                if generation == self._metric_generation.get(frame.robot_id, 0):
+                    latest = self._metric_frames.get(frame.robot_id)
+                    has_fresh_replacement = (
+                        latest is not None
+                        and latest[0] is not frame
+                        and self._body_current(latest[0])
+                        and 0 <= self.gateway.clock() - latest[0].received_at <= self.max_frame_age_s
+                    )
+                    expired_during_inference = not (
+                        0 <= self.gateway.clock() - frame.received_at <= self.max_frame_age_s
+                    )
+                    if not self._body_current(frame):
+                        if has_fresh_replacement:
+                            if not any(item is latest[0] for item, _ in self._metric_queue._queue):
+                                self._queue_metric(*latest)
+                        else:
+                            ready = self._metric_ready.pop(frame.robot_id, None)
+                            if ready is not None and not ready.done():
+                                ready.set_result({"available": False, "robotId": frame.robot_id,
+                                    "reason": "Depth observation belongs to disconnected body epoch"})
+                    else:
+                        result["expiresAt"] = (datetime.fromisoformat(received_iso) + timedelta(seconds=self.max_frame_age_s)).isoformat()
+                        self._metric_latest[frame.robot_id] = result
+                        if has_fresh_replacement and (
+                                expired_during_inference or (pre_demand_frame is frame and not result.get("available"))):
+                            if not any(item is latest[0] for item, _ in self._metric_queue._queue):
+                                self._queue_metric(*latest)
+                        else:
+                            ready = self._metric_ready.pop(frame.robot_id, None)
+                            if ready is not None and not ready.done():
+                                ready.set_result(result)
+                        await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": frame.robot_id,
+                            "epoch": frame.epoch, "measurement": {k: v for k, v in result.items() if k != "depthPreview"}})
             except Exception as error:
                 failed = {"available": False, "robotId": frame.robot_id, "epoch": frame.epoch,
                     "observedAt": received_iso, "frameTimestamp": received_iso, "reason": str(error),

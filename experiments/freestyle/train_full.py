@@ -13,7 +13,10 @@ import time
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-from continue_training import align_qwen_mlp
+try:
+    from .continue_training import align_qwen_mlp
+except ImportError:
+    from continue_training import align_qwen_mlp
 
 
 def sha(path):

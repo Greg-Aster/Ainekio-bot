@@ -41,7 +41,6 @@ STATIC_ROOT = Path(__file__).with_name("static")
 FREESTYLE_ROOT = Path(__file__).resolve().parents[3] / "experiments" / "freestyle"
 ROBOT_MAINTENANCE = {
     "/api/robot/idle-rest": "/api/idle-rest",
-    "/api/robot/gait-learning": "/api/gait-learning",
     "/api/robot/servo-feedback": "/api/servo-feedback",
     "/api/robot/logs": "/api/logs",
     "/api/robot/recording": "/api/recording",
@@ -55,7 +54,6 @@ STATIC_FILES = {
     "/login": ("login.html", "text/html; charset=utf-8", False),
     "/assets/dashboard.css": ("dashboard.css", "text/css; charset=utf-8", False),
     "/assets/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8", False),
-    "/assets/gait-history.js": ("gait-history.js", "text/javascript; charset=utf-8", False),
 }
 # Generated from the same face definitions and C renderer used by the P4.
 # Extend the existing explicit static-file map; request paths never become
@@ -93,17 +91,13 @@ class DashboardHttpServer(ThreadingHTTPServer):
         password_store: DashboardPasswordStore,
         token_store: RobotTokenStore,
         audit_log: AuditLog | None = None,
-        primary_view: str = "camera",
         hotspot: RobotHotspot | None = None,
         environment_adapter: EnvironmentAdapter | None = None,
     ) -> None:
-        if primary_view not in {"camera", "simulator"}:
-            raise ValueError("primary_view must be camera or simulator")
         super().__init__(server_address, DashboardHandler)
         self.gateway = gateway
         self.host_audio = HostAudio()
         self.freestyle = None
-        self.gait_learning = None
         from gateway.neural_gait.client import Client
         self.neural_gait = getattr(self.gateway, "neural_gait", None) or Client()
         self.gateway.neural_gait = self.neural_gait
@@ -127,7 +121,6 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self.login_limiter = LoginRateLimiter()
         self.authentication_lock = threading.RLock()
         self.stop_latched = False
-        self.primary_view = primary_view
         self.hotspot = hotspot if hotspot is not None else RobotHotspot()
         self.environment_adapter = environment_adapter
         self._camera_condition = threading.Condition()
@@ -250,8 +243,6 @@ class DashboardHttpServer(ThreadingHTTPServer):
         for robot_id, robot in status.get("robots", {}).items():
             robot["locomotion_measurement"] = camera.locomotion_measurement(robot_id) if camera else {
                 "robotId": robot_id, "available": False, "reason": "Camera processing is not configured"}
-            if self.gait_learning:
-                robot["gait_training"] = self.gait_learning.status(robot_id)
         return status
 
     async def neural_gait_request(self, payload):
@@ -270,28 +261,9 @@ class DashboardHttpServer(ThreadingHTTPServer):
         if operation == 'status':
             status = await self.neural_gait.call('/status')
             return {**status, 'walking_source':self.gateway.walking_sources.get(payload.get('robot_id'), {'source':'native'})}
-        if operation in ('train', 'load', 'render', 'physical-create', 'physical-train'):
+        if operation in ('train', 'load', 'render'):
             return await self.neural_gait.call('/'+operation,
                 {key:value for key,value in payload.items() if key not in ('op', 'robot_id')})
-        if operation == 'physical-trial':
-            robot = _required_string(payload, 'robot_id')
-            collection_policy = payload.get('collection_policy', 'policy')
-            if collection_policy not in ('policy', 'native-c'):
-                raise ValueError('Choose policy or native-c collection')
-            if self.gait_learning is None:
-                raise GatewayError('The gait recorder is unavailable')
-            recording = self.gait_learning.status(robot)
-            if not recording['settings'].get('logging') or not recording.get('recording'):
-                raise ValueError('Enable Log gait data before starting a recorded learning Walk')
-            if recording['settings'].get('learning'):
-                raise ValueError('Turn off the native Learn while walking optimizer for a REDQ trial')
-            connection = self.gateway._connection(robot)
-            sequence = await connection.send_command(dict(t='intent', name='walk', steps=0,
-                dir=payload.get('dir', 'fwd'), speed=payload.get('speed', 100)),
-                received_at=self.gateway.clock(), learning_trial=True, collection_policy=collection_policy)
-            return dict(robot_id=robot, sequence=sequence, state='submitted',
-                        recording=recording['recording'],
-                        completion='Existing Walk Finish, Stop and Release controls')
         if operation == 'preview':
             from gateway.neural_gait.client import observation,walking_orientation_reference
             from gateway.neural_gait.depth import project_depth
@@ -301,12 +273,10 @@ class DashboardHttpServer(ThreadingHTTPServer):
             if model.get('environment') is None:
                 raise ValueError('Select a neural gait checkpoint first')
             source = self.gateway.body_sensor_observation(robot)
-            active_walk = self.gateway._connection(robot).neural_walk
             camera = self.camera_recognition
             metric = camera.locomotion_measurement(robot) if camera else {'available':False}
             data = observation(source, model['environment'], payload.get('command', [.08,0.,0.]),
                 orientation_reference=walking_orientation_reference(source['imu']['orientation_wxyz']),
-                pending_actions=active_walk.pending_inputs(source) if active_walk is not None else [],
                 vision=(project_depth(metric,self.gateway.clock(),robot,source['epoch'])
                         if model['environment'].get('observation_schema') in DEPTH_SCHEMAS else None))
             inference = {'observation':data}
@@ -672,9 +642,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if self.headers.get("X-Ainekio-CSRF") != session.csrf_token:
             self._send_json({"error": "csrf"}, status=HTTPStatus.FORBIDDEN)
             return
-        if path == "/api/gait-learning/train":
-            self._train_gait_learning()
-            return
         if path in ROBOT_MAINTENANCE:
             self._robot_maintenance(path, post=True)
             return
@@ -718,21 +685,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "gateway timeout"}, status=HTTPStatus.GATEWAY_TIMEOUT)
             return
         self._send_json(response)
-
-    def _train_gait_learning(self) -> None:
-        """Host-only fit in this request thread; does not submit robot motion."""
-        try:
-            length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= 8*1024*1024:
-                raise ValueError("Upload up to 8 MiB of tracking records per fit")
-            payload = json.loads(self.rfile.read(length))
-            from ..gait_learning import fit
-            result = fit(payload["batches"], float(payload.get("gain", .5)))
-            self._send_json(result)
-        except (ValueError, KeyError, TypeError) as exc:
-            self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
-        except ImportError:
-            self._send_json({"error": "Install NumPy in the gateway Python environment for training"}, status=HTTPStatus.SERVICE_UNAVAILABLE)
 
     def _robot_maintenance(self, path: str, *, post: bool = False) -> None:
         """Stream between browser and selected robot; credentials stay here.
@@ -782,7 +734,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     payload = self._read_json()
                     if payload is None: return
                     operation = _required_string(payload, "op")
-                    if path in ("/api/robot/servo-feedback", "/api/robot/gait-learning", "/api/robot/idle-rest"):
+                    if path in ("/api/robot/servo-feedback", "/api/robot/idle-rest"):
                         headers["Content-Type"] = "application/json"
                         operation = json.dumps(payload, allow_nan=False)
                     upstream.request("POST", target, operation, headers)
@@ -893,28 +845,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return self.server.call_gateway(self.server.freestyle_request(payload))
         if path == "/api/neural-gait":
             return self.server.call_gateway(self.server.neural_gait_request(payload), timeout=None)
-        if path == "/api/gait-learning/service":
-            service = self.server.gait_learning
-            if service is None:
-                raise GatewayError("Host gait learning service is not running")
-            robot_id = _required_string(payload, "robot_id")
-            operation = payload.get("op", "status")
-            if operation == "history":
-                return self.server.call_gateway(service.history(robot_id))
-            if operation == "configure":
-                return self.server.call_gateway(service.configure(robot_id, payload.get("settings", {})))
-            if operation == "analyze":
-                async def analyze():
-                    return service.analyze(robot_id)
-                return self.server.call_gateway(analyze())
-            if operation == "restore":
-                return self.server.call_gateway(service.restore(robot_id,
-                    _required_string(payload, "gait"), _required_string(payload, "model_id")))
-            if operation == "status":
-                async def status():
-                    return service.status(robot_id)
-                return self.server.call_gateway(status())
-            raise ValueError("Unknown host gait-learning operation")
         if path in {"/api/people/enroll", "/api/people/forget"}:
             camera = self.server.camera_recognition
             if camera is None:
@@ -1303,11 +1233,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if (FREESTYLE_ROOT / "body_control.js").is_file():
                 body = body.replace(b'<script src="/assets/dashboard.js" defer></script>',
                     b'<script src="/assets/freestyle.js" defer></script><script src="/assets/motion-library.js" defer></script><script src="/assets/dashboard.js" defer></script>')
-            body = body.replace(
-                b'data-dashboard-primary="camera"',
-                f'data-dashboard-primary="{self.server.primary_view}"'.encode("ascii"),
-                1,
-            )
         self._send_bytes(body, content_type)
 
     def _send_bytes(
@@ -1360,8 +1285,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' blob:; "
-            "frame-src http://127.0.0.1:8765",
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' blob:",
         )
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -1380,7 +1304,6 @@ def start_dashboard_server(
     password_store: DashboardPasswordStore,
     token_store: RobotTokenStore,
     audit_log: AuditLog | None = None,
-    primary_view: str = "camera",
     hotspot: RobotHotspot | None = None,
     environment_adapter: EnvironmentAdapter | None = None,
 ) -> DashboardHttpServer:
@@ -1391,7 +1314,6 @@ def start_dashboard_server(
         password_store=password_store,
         token_store=token_store,
         audit_log=audit_log,
-        primary_view=primary_view,
         hotspot=hotspot,
         environment_adapter=environment_adapter,
     )

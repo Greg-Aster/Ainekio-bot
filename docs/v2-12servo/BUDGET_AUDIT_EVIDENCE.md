@@ -9,7 +9,7 @@ Final document verification: the arithmetic calculator executed successfully;
 camera/audio allocations, link rates, servo allocation thresholds, flash remainder
 and gait equations were reviewed. Local links, section anchors and table column
 counts were checked across the budget, evidence, integration record, documentation
-index and MetaHuman audit note. `git diff --check` passed in both repositories.
+index and Ainekio OS audit note. `git diff --check` passed in both repositories.
 Application builds and robot load tests were not used to claim qualification.
 
 Publication note: upstream commit `afc30d7` was integrated after this audit.
@@ -22,7 +22,7 @@ does not certify the newer firmware or motion implementation under full load.
 | Authority inspected | Identity / result |
 | --- | --- |
 | Ainekio | Git `b46a5f7da7d25db945ca2c6e6321d344030acc3c`; P4 application, media, wake engine, PCA driver, protocol, gateway and V2 gait sources read. Existing budget/integration/index document changes preserved and expanded. |
-| MetaHuman OS | Git `b57d205895d785d96194b9b9893f7c0b07838447`; repository guidance and maintained architecture read; voice lifecycle, Kokoro/Whisper servers, robot speech conversion/staging inspected. Pre-existing `etc/voice-servers.json` CPU settings preserved. |
+| Ainekio OS | Git `b57d205895d785d96194b9b9893f7c0b07838447`; repository guidance and maintained architecture read; voice lifecycle, Kokoro/Whisper servers, robot speech conversion/staging inspected. Pre-existing `etc/voice-servers.json` CPU settings preserved. |
 | Installed host | Radxa Q6A, aarch64, kernel `6.18.2-3-qcom`; eight CPUs, four A55 and four A78. `/proc/meminfo` MemTotal = 11,835,852 KiB = 12,119,912,448 B. |
 | Host storage | microSD block device 31,914,983,424 B; removable USB 31,406,948,352 B. Capacities are not RAM. |
 | Local installation records | `Projects/ROBOT-SOFTWARE.md`, Q6A Qwen comparison and tuning summaries. Historical raw model tests were deleted at the owner's request; their summaries are explicitly historical. |
@@ -31,7 +31,7 @@ does not certify the newer firmware or motion implementation under full load.
 
 ## New offline Kokoro measurement
 
-Used the installed MetaHuman Kokoro Python environment on this Q6A. Network
+Used the installed Ainekio OS Kokoro Python environment on this Q6A. Network
 downloads disabled with `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1`. No server,
 speaker playback, personal text, robot connection or new model download.
 Kokoro 0.9.4, PyTorch 2.14.0+cpu, American English, `af_heart`, speed 1,
@@ -100,8 +100,8 @@ created and the upstream connection was not changed.
 | P4 `components/ainekio_p4_media/media.c` | Four-block playback prebuffer, four DMA descriptors per direction; wake processing runs synchronously in microphone task. Larger sample blocks also enlarge local stack arrays. |
 | Same file, `audio_start` | TX/RX use the same BCLK/WS GPIOs and duplex codec rate. A 24k speaker/16k mic network profile needs resampling; physical buffers follow the common rate. IDF's 4,092-byte DMA-buffer limit also prevents a packed 96k/24-bit 20 ms mono block from fitting one descriptor. |
 | P4 `components/ainekio_p4_media/camera.c`, initialization; `sdkconfig.defaults` | Enables CSI + ISP for RGB565. Revision-matched P4 datasheet §4.2.1.2 limits ISP to 1920×1080, so sensor 5 MP capability is not current-pipeline capability. Hardware H.264 supports 1080p30 YUV420 (§4.2.1.5), but is disabled in configuration. |
-| MetaHuman `tts/robot-speech.ts` | Collects the Kokoro stream before staging and enqueuing speech; cap 3 MiB / 64 chunks. Robot delivery does not begin at the first synthesis chunk. |
-| MetaHuman `tts/robot-audio.ts` | Converts to 16 kHz mono 16-bit PCM, cap 480,000 B / 15 s; individual WAV cap 2 MiB; four staged artifacts. Raising P4 codec rate alone does not preserve higher-quality speech. |
+| Ainekio OS `tts/robot-speech.ts` | Collects the Kokoro stream before staging and enqueuing speech; cap 3 MiB / 64 chunks. Robot delivery does not begin at the first synthesis chunk. |
+| Ainekio OS `tts/robot-audio.ts` | Converts to 16 kHz mono 16-bit PCM, cap 480,000 B / 15 s; individual WAV cap 2 MiB; four staged artifacts. Raising P4 codec rate alone does not preserve higher-quality speech. |
 | Ainekio `Master/gateway/environment_adapter/speech_transport.py` | Validates that same fixed format, frame length and 15 s cap. |
 | Gateway `server/service.py` | Five-frame initial send prebuffer, thereafter 20 ms pacing; JSON/control and media use one WebSocket. Clock/state liveness is separate from physical joint feedback. |
 | Gateway `environment_adapter/server.py` | One-item camera delivery queue drops the previous queued image when full. Base64 camera observations expand image storage/wire payload; JSON cap 384 KiB, binary cap 512 KiB. |

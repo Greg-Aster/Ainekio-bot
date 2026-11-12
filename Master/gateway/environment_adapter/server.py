@@ -810,7 +810,11 @@ class EnvironmentAdapter:
         if translated.kind == "stop":
             await self._send_telemetry(
                 "movement.stop",
-                {"actionId": action_id, "status": "requested"},
+                {
+                    "actionId": action_id,
+                    "status": "requested",
+                    **({"detach": True} if translated.params.get("detach") is True else {}),
+                },
             )
         try:
             if translated.kind == "snapshot":
@@ -882,6 +886,7 @@ class EnvironmentAdapter:
                 robot_id=robot_id,
                 received_at=received_at,
                 on_sequence=on_sequence,
+                **({"detach": True} if action.params.get("detach") is True else {}),
             )
         if action.kind == "intent" and action.name is not None:
             return await self.gateway.queue_intent(

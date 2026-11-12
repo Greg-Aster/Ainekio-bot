@@ -13,7 +13,7 @@ case "${1:-}" in
     echo "Interactive starts offer local, LAN / Wi-Fi, or Cloudflare access (10-second saved-choice timeout)."
     echo "Set AINEKIO_DASHBOARD_CONNECTION=local|lan|cloudflare to select without prompting."
     echo "Cloudflare uses AINEKIO_DASHBOARD_PUBLIC_URL and your existing running tunnel."
-    echo "AINEKIO_CLOUDFLARE_RELAY_SERVICE starts the configured user service for remote MetaHuman."
+    echo "AINEKIO_CLOUDFLARE_RELAY_SERVICE starts the configured user service for remote Ainekio OS."
     echo "Python defaults to .venv/bin/python3; override with AINEKIO_PYTHON."
     echo "Pairing export/import shares the existing robot token and dashboard password; it starts no services."
     exit 0
@@ -62,7 +62,7 @@ if [[ "$MODE" == export-pairing || "$MODE" == import-pairing ]]; then
 fi
 if ! "$GATEWAY_PYTHON" -c 'import gateway.server.__main__; import gateway.ground_plane'; then
   echo "Gateway dependencies are unavailable in $GATEWAY_PYTHON." >&2
-  echo "Install them with: $GATEWAY_PYTHON -m pip install -r \"$REPO_ROOT/Emulator/requirements-host.txt\"" >&2
+  echo "Install them with: $GATEWAY_PYTHON -m pip install -r \"$REPO_ROOT/Master/requirements-host.txt\"" >&2
   exit 2
 fi
 if [[ "$LOCAL_DISCOVERY" == "1" ]] && ! command -v avahi-publish-service >/dev/null 2>&1; then
@@ -117,7 +117,7 @@ if [[ "$HOTSPOT" != "0" && "$HOTSPOT" != "1" ]]; then
 fi
 
 if [[ -n "${AINEKIO_VISION_URL:-}" && -z "${AINEKIO_ENVIRONMENT_ADAPTER_TOKEN:-}" ]]; then
-  echo "AINEKIO_ENVIRONMENT_ADAPTER_TOKEN is required when recognition uses the MetaHuman Environment Bridge." >&2
+  echo "AINEKIO_ENVIRONMENT_ADAPTER_TOKEN is required when recognition uses the Ainekio OS Environment Bridge." >&2
   exit 2
 fi
 
@@ -140,12 +140,12 @@ if [[ "$MODE" == check ]]; then
   echo "  Dashboard bind:  $DASHBOARD_HOST:$DASHBOARD_PORT"
   echo "  Local discovery: $LOCAL_DISCOVERY"
   if [[ -n "${AINEKIO_ENVIRONMENT_ADAPTER_TOKEN:-}" ]]; then
-    echo "  MetaHuman Bridge: configured (authentication required)"
+    echo "  Ainekio OS Bridge: configured (authentication required)"
     if [[ -n "$CLOUDFLARE_RELAY_SERVICE" ]]; then
       echo "  Remote relay:    $CLOUDFLARE_RELAY_SERVICE (starts with Body Control)"
     fi
   else
-    echo "  MetaHuman Bridge: disabled; standalone Body Control is available"
+    echo "  Ainekio OS Bridge: disabled; standalone Body Control is available"
   fi
   echo "No listeners, discovery announcements or robot connections were started."
   exit 0
@@ -254,10 +254,10 @@ trap 'exit 143' TERM
 if [[ -n "$CLOUDFLARE_RELAY_SERVICE" ]]; then
   # Queue the existing owner without waiting: its unit may order After this gateway.
   if ! systemctl --user --no-block start -- "$CLOUDFLARE_RELAY_SERVICE"; then
-    echo "Could not start the remote MetaHuman relay: $CLOUDFLARE_RELAY_SERVICE" >&2
+    echo "Could not start the remote Ainekio OS relay: $CLOUDFLARE_RELAY_SERVICE" >&2
     exit 1
   fi
-  echo "  Remote MetaHuman:  Cloudflare relay requested ($CLOUDFLARE_RELAY_SERVICE)"
+  echo "  Remote Ainekio OS: Cloudflare relay requested ($CLOUDFLARE_RELAY_SERVICE)"
 fi
 
 if [[ "$LOCAL_DISCOVERY" == "1" ]]; then
@@ -283,7 +283,6 @@ env \
     --port "$GATEWAY_PORT" \
     --dashboard-host "$DASHBOARD_HOST" \
     --dashboard-port "$DASHBOARD_PORT" \
-    --dashboard-primary-view camera \
     --data-dir "$DATA_DIR" \
     "$@" &
 gateway_pid=$!

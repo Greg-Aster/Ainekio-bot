@@ -166,12 +166,7 @@ class NeuralWalk:
     controls: dict
     geometry: str
     checkpoint_id: str | None = None
-    learning_trial: bool = False
-    collection_policy: str = 'policy'
-    collection_owner: str = field(default_factory=lambda: uuid4().hex)
-    physical_policy: bool = False
     record_observation: bool = False
-    exploration_noise: object | None = None
     sequence: int = 0
     revision: int = 0
     sample: int = 0
@@ -180,19 +175,9 @@ class NeuralWalk:
     orientation_reference: tuple[float, int] | None = None
     observation_history: ObservationHistory = field(default_factory=ObservationHistory)
     sent_actions: dict = field(default_factory=dict)
-    sent_request_context: dict = field(default_factory=dict)
     latest: dict | None = None
     changed: asyncio.Event = field(default_factory=asyncio.Event)
     task: asyncio.Task | None = None
-
-    def pending_inputs(self, source):
-        return [
-            [*self.sent_actions[sample],
-             (source['feedback']['device_us']-context['source_device_us'])/1e6,
-             context['sent_monotonic_s']-source['received_monotonic_s']]
-            for sample, context in sorted(self.sent_request_context.items())
-            if sample > self.consumed and context.get('sent_monotonic_s') is not None
-        ]
 
 
 class GatewayConnection:
@@ -277,7 +262,7 @@ class GatewayConnection:
 
     def _neural_observation(self, state, source, *, history=None):
         from gateway.neural_gait.client import observation, walking_orientation_reference
-        from gateway.neural_gait.contract import DEPTH_SCHEMAS, PENDING_SCHEMA
+        from gateway.neural_gait.contract import DEPTH_SCHEMAS
         if state.orientation_reference is None:
             state.orientation_reference = walking_orientation_reference(source["imu"]["orientation_wxyz"])
         vision = None
@@ -285,20 +270,19 @@ class GatewayConnection:
             from gateway.neural_gait.depth import project_depth
             vision = project_depth(self.service.locomotion_measurement(self.robot_id),
                 self.service.clock(), self.robot_id, self.epoch)
-        pending = state.pending_inputs(source) if state.environment.get('observation_schema') == PENDING_SCHEMA else []
         return observation(source, state.environment, state.controls["twist"], vision=vision,
             previous_action=state.previous_action, orientation_reference=state.orientation_reference,
-            history=state.observation_history if history is None else history, pending_actions=pending)
+            history=state.observation_history if history is None else history)
 
     def _record_neural_outcome(self, state, outcome, evidence=None):
         """Retain final measured state without issuing another policy target."""
-        if not (state.physical_policy or state.record_observation) or state.latest is None:
+        if not state.record_observation or state.latest is None:
             return
         from gateway.neural_gait.contract import recorded_observation
         source = state.latest
         row = dict(event="neural_gait", robot_id=self.robot_id, epoch=self.epoch,
             walk=state.sequence, model_id=state.model_id, checkpoint_id=state.checkpoint_id,
-            learning_trial=state.learning_trial, revision=state.revision,
+            revision=state.revision,
             feedback_revision=source["feedback"]["revision"], consumed_sample=state.consumed,
             observation_device_us=source["feedback"]["device_us"], observation_boot_id=source["imu"].get("boot_id"),
             observation_received_at=source.get("received_monotonic_s"),
@@ -312,7 +296,7 @@ class GatewayConnection:
 
     def _record_neural_body_event(self, event):
         state = self.neural_walk
-        if state is None or not (state.physical_policy or state.record_observation):
+        if state is None or not state.record_observation:
             return
         data = event.get("data", {})
         sequence = data.get("command_sequence", (data.get("motion") or {}).get("sequence"))
@@ -325,13 +309,11 @@ class GatewayConnection:
                 and state.sequence in self.pending and not self.websocket.closed
                 and self.service._connections.get(self.robot_id) is self)
 
-    async def _prepare_neural_walk(self, command, *, learning_trial=False, collection_policy='policy'):
+    async def _prepare_neural_walk(self, command):
         from gateway.neural_gait.client import walking_profile, walking_reference, walking_twist
         message = dict(command)
         if message.get("t") != "intent" or message.get("name") != "walk":
             return message, None
-        if collection_policy not in ('policy', 'native-c') or (collection_policy != 'policy' and not learning_trial):
-            raise GatewayError('Native demonstrations require an explicit physical learning trial')
         active = self.pending.get(message.get("update"))
         if active is not None:
             if active.producer_error and message.get("speed") != 0:
@@ -354,30 +336,18 @@ class GatewayConnection:
                 return message, controls
             return message, None
         profile = walking_profile(self.service.walking_sources.get(self.robot_id, {"source": "native"}))
-        if learning_trial and profile['source'] != 'neural':
-            raise GatewayError('Select neural walking before starting a physical learning trial')
-        if message.get("source") == "native" or profile["source"] != "neural":
+        if message.get("source") in {"native", "host"} or profile["source"] != "neural":
             return message, None
         # Inference metadata lookup is asynchronous; admission below rechecks
         # the existing motion owner so an intervening Stop/replacement wins.
         status = await self.service.neural_gait.call("/status?history=0")
         reference = walking_reference(status)
-        if learning_trial and status.get('kind') != 'physical-redq':
-            raise GatewayError('Select a physical REDQ checkpoint for this learning trial')
         twist = walking_twist(message, profile)
         message.update(source="host", twist=twist, **reference)
         state = NeuralWalk(status["model_id"], status["environment"], profile,
                            dict(message), reference["geometry"],
                            checkpoint_id=status.get("checkpoint_id"),
-                           learning_trial=learning_trial,
-                           collection_policy=collection_policy,
-                           physical_policy=status.get('kind') == 'physical-redq',
-                           record_observation=status.get('kind') in {'physical-redq', 'pupper-mjx', 'microduck-mjlab'})
-        if learning_trial and collection_policy == 'policy':
-            from pink.cnrl import PinkNoiseProcess
-            profile["exploration_buffer_steps"] = profile.get("exploration_buffer_steps", 1000)
-            profile["exploration_noise"] = "pink-noise-rl-2.0.1"
-            state.exploration_noise = PinkNoiseProcess((12, profile["exploration_buffer_steps"]))
+                           record_observation=status.get("kind") in {"pupper-mjx", "microduck-mjlab"})
         return message, state
 
     def _neural_sensor(self):
@@ -399,7 +369,6 @@ class GatewayConnection:
             state.previous_action = state.sent_actions[sample]
             state.consumed = sample
             state.sent_actions = {key: value for key, value in state.sent_actions.items() if key > sample}
-            state.sent_request_context = {key: value for key, value in state.sent_request_context.items() if key > sample}
         state.latest = self.service.body_sensor_observation(self.robot_id)
         state.changed.set()
 
@@ -420,19 +389,9 @@ class GatewayConnection:
                 revision, consumed = state.revision, state.consumed
                 data = self._neural_observation(state, source)
                 started = self.service.clock()
-                inference = {"observation": data, 'walk_context':{
-                    'gateway_instance':self.service.instance_id,'robot_id':self.robot_id,
-                    'epoch':self.epoch,'walk':state.sequence,'revision':revision}}
-                if state.physical_policy:
-                    inference.update(explore=state.learning_trial,
-                                     model_id=state.model_id, checkpoint_id=state.checkpoint_id)
-                if state.learning_trial and state.collection_policy == 'native-c':
-                    inference['demonstration'] = dict(source='native-c', robot_id=self.robot_id,
-                        owner=state.collection_owner, device_us=source['feedback']['device_us'],
-                        gateway_instance=self.service.instance_id, epoch=self.epoch, walk=state.sequence,
-                        command=state.controls)
-                elif state.learning_trial:
-                    inference["noise"] = state.exploration_noise.sample().tolist()
+                inference = {"observation": data, "walk_context": {
+                    "gateway_instance": self.service.instance_id, "robot_id": self.robot_id,
+                    "epoch": self.epoch, "walk": state.sequence, "revision": revision}}
                 result = await self.service.neural_gait.call("/infer", inference)
                 if not self._neural_current(state):
                     return
@@ -444,14 +403,12 @@ class GatewayConnection:
                 feet = foot_offsets(action, state.environment["foot_action_scale_mm"])
                 state.sample += 1
                 state.sent_actions[state.sample] = action
-                state.sent_request_context[state.sample] = dict(source_device_us=source['feedback']['device_us'])
                 try:
                     await self.send_command(dict(t="walk_target", walk=state.sequence,
                         sample=state.sample, geometry=state.geometry, feet_mm=feet),
                         received_at=self.service.clock(), neural_owner=(state, revision))
                 except _NeuralSampleSuperseded:
                     state.sent_actions.pop(state.sample, None)
-                    state.sent_request_context.pop(state.sample, None)
                     continue
                 self.service._record_diagnostic(dict(event="neural_gait", robot_id=self.robot_id,
                     epoch=self.epoch, walk=state.sequence, sample=state.sample, model_id=state.model_id,
@@ -459,30 +416,22 @@ class GatewayConnection:
                     action=action, requested_foot_offset_mm=feet,
                     observation_device_us=source["feedback"]["device_us"], observation_boot_id=source["imu"].get("boot_id"),
                     observation_received_at=(source.get("received_monotonic_s", source["received_at"])
-                        if (state.physical_policy or state.record_observation) else source["received_at"]), scan=source["feedback"]["scan"],
+                        if state.record_observation else source["received_at"]), scan=source["feedback"]["scan"],
                     inference_elapsed_s=self.service.clock()-started, source_profile=state.profile,
                     consumed_sample=consumed,
                     orientation_reference_yaw_rad=state.orientation_reference[0],
                     orientation_reference_sign=state.orientation_reference[1],
-                    **(dict(learning_trial=state.learning_trial, exploration_noise=inference.get("noise"), revision=revision,
-                            feedback_revision=source['feedback']['revision'],
-                            **({'demonstration': result['demonstration']} if 'demonstration' in result else {}),
-                            **({'raw_action': result['raw_action']} if 'raw_action' in result else {}),
-                            **({'motor_targets_rad': result['motor_targets_rad']} if 'motor_targets_rad' in result else {}),
+                    **(dict(revision=revision,
+                            feedback_revision=source["feedback"]["revision"],
+                            **({"raw_action": result["raw_action"]} if "raw_action" in result else {}),
+                            **({"motor_targets_rad": result["motor_targets_rad"]} if "motor_targets_rad" in result else {}),
                             policy_observation=recorded_observation(data))
-                       if (state.physical_policy or state.record_observation) else {})))
+                       if state.record_observation else {})))
         except asyncio.CancelledError:
             raise
         except Exception as error:
             await self._fail_neural_walk(state, str(error), source=source, consumed=consumed)
         finally:
-            if state.collection_policy == 'native-c':
-                try:
-                    await self.service.neural_gait.call('/collection-end',
-                        dict(robot_id=self.robot_id, owner=state.collection_owner))
-                except Exception as error:
-                    self.service._record_diagnostic(dict(event='neural_gait', robot_id=self.robot_id,
-                        epoch=self.epoch, walk=state.sequence, error=f'Native collection cleanup failed: {error}'))
             if uses_depth and self.service.depth_demand is not None:
                 await self.service.depth_demand(self.robot_id, depth_consumer, False, wait_for_measurement=False)
 
@@ -587,20 +536,23 @@ class GatewayConnection:
         on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
         valid_for_ms: int | None = None,
         neural_owner=None,
-        learning_trial=False,
-        collection_policy='policy',
     ) -> int:
         owner_at_request = self.body_command_sequence
         # Normalize existing manual gait aliases before choosing its configured
         # source; semantic goal admission remains in MetaHuman/Environment Bridge.
         command = dict(command)
-        if self.model == "v2-12servo" and command.get("t") == "intent" and command.get("name") == "emote":
+        if (
+            self.model == "v2-12servo"
+            and command.get("t") == "intent"
+            and command.get("name") == "emote"
+            and not ({"forward", "turn", "lateral"} & command.keys())
+        ):
+            extra = {k: v for k, v in command.items() if k not in {"t", "name", "asset"}}
             if command.get("asset") == "run":
-                command = {"t":"intent", "name":"walk", "dir":"fwd", "steps":0, "gait":"walk", "speed":150}
+                command = {**extra, "t": "intent", "name": "walk", "dir": "fwd", "steps": 0, "gait": "walk", "speed": 150}
             elif CRAB_GAIT_FEATURE in self.features and command.get("asset") in CRAB_DIRECTIONS:
-                command = {"t":"intent", "name":"walk", "dir":CRAB_DIRECTIONS[command["asset"]], "steps":0, "gait":"crab", "speed":50}
-        command, neural = await self._prepare_neural_walk(command, learning_trial=learning_trial,
-                                                        collection_policy=collection_policy)
+                command = {**extra, "t": "intent", "name": "walk", "dir": CRAB_DIRECTIONS[command["asset"]], "steps": 0, "gait": "crab", "speed": 50}
+        command, neural = await self._prepare_neural_walk(command)
         async with self._send_lock:
             if neural_owner is not None:
                 state, revision = neural_owner
@@ -800,10 +752,6 @@ class GatewayConnection:
                             self._cancel_neural_walk()
                     await asyncio.wait_for(self.websocket.send(json.dumps(message, separators=(",", ":"))), timeout=5.0)
                     sent_monotonic_s = self.service.clock()
-                    if neural_owner is not None and message.get('t') == 'walk_target':
-                        context = neural_owner[0].sent_request_context.get(message['sample'])
-                        if context is not None:
-                            context['sent_monotonic_s'] = sent_monotonic_s
             except Exception:
                 self.pending.pop(sequence, None)
                 raise

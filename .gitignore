@@ -14,6 +14,9 @@ build/
 # Python/runtime artifacts
 __pycache__/
 *.py[cod]
+.pytest_cache/
+unsloth_compiled_cache/
+MUJOCO_LOG.TXT
 .venv/
 venv/
 
@@ -21,7 +24,6 @@ venv/
 .env
 .env.*
 !.env.example
-/Emulator/legacy/motion/config.json
 *.pem
 *.key
 *.crt
@@ -31,9 +33,6 @@ secrets/
 AGENTS.md
 .agents/
 .codex/
-
-# Local reference repositories
-/docs/sesame-robot/
 
 # Robot/runtime data
 /Slave/software/assets/local/
@@ -60,6 +59,7 @@ memory/
 personal-data/
 
 # OS/editor noise
+.vscode/
 .DS_Store
 Thumbs.db
 .~lock.*#

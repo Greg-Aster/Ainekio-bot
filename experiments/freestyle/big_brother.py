@@ -1,10 +1,10 @@
-"""Freestyle inference through MetaHuman's existing Big Brother provider over SSH."""
+"""Freestyle inference through Ainekio OS's existing Big Brother provider over SSH."""
 import asyncio
 import json
 import shlex
 
 
-# Execute inside the installed MetaHuman checkout. Its provider owns authentication,
+# Execute inside the installed Ainekio OS checkout. Its provider owns authentication,
 # model selection, terminal visibility, and cancellation; this is only transport.
 REMOTE_CLIENT = r'''
 import { createInterface } from 'node:readline';
@@ -21,7 +21,7 @@ input.once('line', async line => {
   try {
     const {profile, payload} = JSON.parse(line);
     const user = getUserByUsername(profile);
-    if (!user) throw new Error('MetaHuman profile does not exist: ' + profile);
+    if (!user) throw new Error('Ainekio OS profile does not exist: ' + profile);
     const result = await withUserContext({userId:user.id, username:user.username, role:user.role},
       () => callProvider('big-brother', payload.messages, {
         jsonSchema:payload.response_format.json_schema.schema,

@@ -1,0 +1,4 @@
+# CPU MicroDuck ONNX and Pupper MJX RTNeural actor serving on desktop or Q6A.
+numpy>=1.26,<3
+# Imported MicroDuck ONNX actors include their observation normalizer.
+onnxruntime>=1.24.4,<2

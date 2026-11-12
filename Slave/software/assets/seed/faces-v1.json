@@ -581,11 +581,5 @@
     "number_one",
     "number_two"
   ],
-  "schema_version": 1,
-  "source": {
-    "bitmap_path": "docs/sesame-robot/firmware/face-bitmaps.h",
-    "bitmap_sha256": "722692894402d9eccf5c022ed7b4eb090c2de6b171b7872cedce55609dac1f06",
-    "runtime_path": "docs/sesame-robot/firmware/sesame-firmware-main.ino",
-    "runtime_sha256": "1357700f0a7dae3c0e1fd55199186e53870dc29f46f472705e276f3836666c84"
-  }
+  "schema_version": 1
 }

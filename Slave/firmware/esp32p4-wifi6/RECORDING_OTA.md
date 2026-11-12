@@ -37,7 +37,7 @@ dirty firmware, IMU, gait, calibration and gateway work was retained.
 - `main/controller.c` copies JPEGs into its existing two-entry transmit queue;
   the link task sends metadata/binary packets over the selected gateway's
   WebSocket. Audio, control replies and heartbeats share that transport.
-  The gateway and MetaHuman consume JPEG frames; neither requires a new service
+  The gateway and Ainekio OS consume JPEG frames; neither requires a new service
   or changed protocol for these additions. Prior camera timeout, queue-drop,
   exposure and microphone-stack issues are recorded in the main README.
 
@@ -231,8 +231,8 @@ setter rejected even that no-op while an upload was busy, causing WELCOME to
 tear the connection down repeatedly until upload completed. A different profile
 remains subject to the existing OTA restriction. Regression tests exercise the
 production scan scheduler and profile setter in
-`Emulator/tests/test_p4_feedback_cadence.py` and
-`Emulator/tests/test_p4_ota_preparation.py`.
+`tests/test_p4_feedback_cadence.py` and
+`tests/test_p4_ota_preparation.py`.
 
 On 2026-10-20, `0.8.108-p4-ota-fix` passed two consecutive Body Control
 upload/immediate-activation cycles across both OTA slots. Uploads took 35.57

@@ -44,13 +44,15 @@
       "name": "invalid_camera_chunk_empty",
       "frame": {"type": 3, "counter": 42, "payload_hex": "0600000000000000"},
       "valid": false,
-      "known_type": true
+      "known_type": true,
+      "reason": "length:camera_chunk"
     },
     {
       "name": "invalid_camera_chunk_overrun",
       "frame": {"type": 3, "counter": 42, "payload_hex": "0600000005000000ffd9"},
       "valid": false,
-      "known_type": true
+      "known_type": true,
+      "reason": "length:camera_chunk"
     },
     {
       "name": "unknown_type",

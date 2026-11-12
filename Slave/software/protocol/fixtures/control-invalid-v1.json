@@ -1358,7 +1358,8 @@
           0,
           0
         ]
-      }
+      },
+      "reason": "invalid:feet_mm"
     },
     {
       "name": "host_walk_is_task_owned_continuous",
@@ -1390,7 +1391,8 @@
           0,
           0.1
         ]
-      }
+      },
+      "reason": "value:walk.host_continuous"
     },
     {
       "name": "host_walk_update_cannot_change_reference",
@@ -1422,7 +1424,8 @@
           346,
           -2163
         ]
-      }
+      },
+      "reason": "value:walk.fixed_reference"
     },
     {
       "name": "host_walk_requires_fixed_reference",
@@ -1440,7 +1443,8 @@
           0,
           0.1
         ]
-      }
+      },
+      "reason": "invalid:reference_cd"
     },
     {
       "name": "microphone_invalid_vad_mode_5",
@@ -1632,6 +1636,67 @@
         "boot_id": true
       },
       "reason": "type:boot_id"
+    },
+    {
+      "name": "motion_speed_get_with_rate",
+      "receiver": "body",
+      "message": {
+        "t": "motion_speed",
+        "seq": 60,
+        "op": "get",
+        "rate": 1.0
+      },
+      "reason": "unexpected speed setting"
+    },
+    {
+      "name": "motion_speed_status_nonpositive_rate",
+      "receiver": "gateway",
+      "message": {
+        "t": "motion_speed_status",
+        "seq": 61,
+        "rate": 0,
+        "saved": true
+      },
+      "reason": "range:rate"
+    },
+    {
+      "name": "robot_settings_remove_index_out_of_range",
+      "receiver": "body",
+      "message": {
+        "t": "robot_settings",
+        "seq": 70,
+        "op": "remove",
+        "revision": 1,
+        "index": 4
+      },
+      "reason": "range:index"
+    },
+    {
+      "name": "robot_settings_status_duplicate_slot",
+      "receiver": "gateway",
+      "message": {
+        "t": "robot_settings_status",
+        "seq": 71,
+        "revision": 1,
+        "active_index": 0,
+        "pending_restart": false,
+        "setup_open": false,
+        "networks": [
+          {
+            "index": 0,
+            "ssid": "AinekioLab",
+            "endpoint": "ws://192.168.1.10:8765/robot",
+            "open": false
+          },
+          {
+            "index": 0,
+            "ssid": "AinekioBackup",
+            "endpoint": "ws://192.168.1.11:8765/robot",
+            "open": true
+          }
+        ]
+      },
+      "reason": "duplicate network slot"
     }
   ]
 }

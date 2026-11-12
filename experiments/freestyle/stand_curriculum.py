@@ -6,7 +6,9 @@ coordinates identify posture landmarks, never elapsed-time advancement.
 import argparse
 import json
 import math
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 from .challenge import digest, read_rows, write_rows
@@ -20,7 +22,7 @@ from .semantic_teachers import call
 ROOT = Path(__file__).resolve().parents[2]
 MODEL = ROOT / 'Slave/software/models/v2-12servo'
 P4 = ROOT / 'Slave/firmware/esp32p4-wifi6/main'
-PYTHON = '/home/greggles/ComfyUI/venv/bin/python'
+PYTHON = os.environ.get('FREESTYLE_PYTHON', sys.executable)
 
 
 def final_pose(values, speed=50):

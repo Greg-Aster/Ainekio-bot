@@ -13,12 +13,11 @@ from collections import deque
 SCHEMA = "ainekio-neural-gait-v3"
 DEPTH_SCHEMA = "ainekio-neural-gait-v4-depth"
 HISTORY_SCHEMA = "ainekio-neural-gait-v5-history"
-PENDING_SCHEMA = "ainekio-neural-gait-v6-pending"
 PROPRIO_SCHEMA = "ainekio-neural-gait-v7-proprio"
 PROPRIO_FEATURES = 48
 PROPRIO_SAMPLES = 15
 PROPRIO_SIZE = PROPRIO_FEATURES * PROPRIO_SAMPLES
-HISTORY_SCHEMAS = frozenset((HISTORY_SCHEMA, PENDING_SCHEMA))
+HISTORY_SCHEMAS = frozenset((HISTORY_SCHEMA,))
 DEPTH_SCHEMAS = frozenset((DEPTH_SCHEMA, *HISTORY_SCHEMAS))
 SCHEMAS = frozenset((SCHEMA, *DEPTH_SCHEMAS, PROPRIO_SCHEMA))
 LEGS = ("rear_left", "rear_right", "front_left", "front_right")
@@ -52,28 +51,11 @@ HISTORY_SIZE = HISTORY_START + HISTORY_SAMPLES * HISTORY_ROW_SIZE + CRITIC_FEATU
 def recorded_observation(observation):
     """Lossless float32 policy inputs without duplicating verbose sensor history."""
     values = vector(observation)
-    result = dict(schema=observation['schema'], encoding='float32-le-zlib-base64',
-                values=base64.b64encode(zlib.compress(struct.pack('<%df' % len(values), *values))).decode())
-    if observation['schema'] == PENDING_SCHEMA:
-        result['pending_actions'] = pending_rows(observation['pending_actions'])
-    return result
-
-
-def pending_rows(value):
-    """Ordered, uncapped sent requests: action[12], source age, signed send time.
-
-    Send time is relative to the current sensor receipt, not a claimed physical
-    output time. A positive value means the send followed that sensor receipt.
-    """
-    if not isinstance(value, (list, tuple)):
-        raise ValueError('Expected pending action rows')
-    result = []
-    for row in value:
-        if (len(row) != 14 or any(type(x) not in (int, float) or not math.isfinite(x) for x in row)
-                or any(abs(x) > 1.000001 for x in row[:12]) or row[12] < 0):
-            raise ValueError('Expected finite pending action[12], nonnegative source age and signed send time')
-        result.append([float(x) for x in row])
-    return result
+    return dict(
+        schema=observation["schema"],
+        encoding="float32-le-zlib-base64",
+        values=base64.b64encode(zlib.compress(struct.pack("<%df" % len(values), *values))).decode(),
+    )
 
 
 def observation_size(schema=SCHEMA):
@@ -209,8 +191,6 @@ def vector(observation):
         values += [float(value) for value in critic]
     if len(values) != size or not all(math.isfinite(x) for x in values):
         raise ValueError("Invalid neural gait observation")
-    if observation['schema'] == PENDING_SCHEMA:
-        pending_rows(observation['pending_actions'])
     return values
 
 

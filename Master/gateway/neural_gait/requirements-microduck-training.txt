@@ -1,0 +1,8 @@
+# Install after uv sync of the pinned vendor/microduck_rl/uv.lock in the
+# separate build/microduck-training-env. Keep its MuJoCo/torch versions intact.
+gymnasium==1.2.2
+# mjlab's viewer imports websockets.asyncio; Ainekio uses its legacy namespace.
+websockets==15.0.1
+opencv-python-headless>=4.8,<5
+jsonschema>=4,<5
+coacd==1.0.7

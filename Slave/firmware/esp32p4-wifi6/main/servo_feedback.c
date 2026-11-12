@@ -1,6 +1,5 @@
 #include "servo_feedback.h"
 #include "body_readings.h"
-#include "gait_trace_runtime.h"
 #include "board.h"
 #include "body.h"
 #include "config.h"
@@ -125,7 +124,6 @@ static void acquire(void *unused)
                     } else {sample.error=e;filters[channel].initialized=false;}
                 }
                 sample.scan_us=esp_timer_get_time()-start;
-                bool published=false;
                 portENTER_CRITICAL(&lock);
                 /* A configuration write invalidates an in-progress old scan. */
                 if(state->revision==sample.revision&&state->config.enabled) {
@@ -137,10 +135,9 @@ static void acquire(void *unused)
                     memcpy(state->sampled_us,sample.sampled_us,sizeof(sample.sampled_us));
                     state->valid_mask=sample.valid_mask;state->error=sample.error;
                     state->scan_us=sample.scan_us;state->scan++;
-                    sample.scan=state->scan;published=true;
+                    sample.scan=state->scan;
                 }
                 portEXIT_CRITICAL(&lock);
-                if(published)ainekio_p4_gait_trace_sample(&sample);
             }
         }
         /* Sensor scan cadence; never delays the independent body task. */
@@ -266,10 +263,6 @@ esp_err_t ainekio_p4_feedback_http(httpd_req_t *r)
                 cJSON *o=cJSON_Parse(input);
                 if(!o)result=ESP_ERR_INVALID_ARG;
                 else {
-                    const cJSON *op=cJSON_GetObjectItemCaseSensitive(o,"op");
-                    if(cJSON_IsString(op)&&!strncmp(op->valuestring,"trace_",6)) {
-                        result=ainekio_p4_gait_trace_http(r,o);cJSON_Delete(o);return result;
-                    }
                     xSemaphoreTake(config_mutex,portMAX_DELAY);
                     result=change(o);xSemaphoreGive(config_mutex);cJSON_Delete(o);
                 }

@@ -46,7 +46,7 @@ the same time.
 
 View the Freenove board from the component side, with the antenna at the top and
 the two USB-C ports at the bottom, as shown in the checked-in
-[Freenove pinout](../Freenove_ESP32_S3_WROOM_Board-main/ESP32S3_Pinout.png).
+[Freenove pinout](reference/ESP32S3_Pinout.png).
 
 - `L1` through `L20` number the left header from top to bottom.
 - `R1` through `R20` number the right header from top to bottom.

@@ -62,7 +62,7 @@ uint16_t ainekio_servo_degrees_to_pulse(float physical_degrees)
                                AINEKIO_SERVO_MIN_PULSE_US);
     /*
      * ESP32Servo v3.0.9 uses Arduino map(), whose integer division truncates.
-     * Casting instead of rounding preserves Sesame's angle-to-pulse behavior.
+     * Casting instead of rounding preserves V1 angle-to-pulse behavior.
      */
     return (uint16_t)((float)AINEKIO_SERVO_MIN_PULSE_US +
                       (physical_degrees / 180.0F) * span);

@@ -5,10 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ainekio Body Control</title>
     <link rel="stylesheet" href="/assets/dashboard.css">
-    <script src="/assets/gait-history.js" defer></script>
     <script src="/assets/dashboard.js" defer></script>
   </head>
-  <body class="dashboard-page" data-dashboard-primary="camera">
+  <body class="dashboard-page">
     <header class="app-header">
       <div class="brand-block">
         <button id="tools-toggle" type="button" aria-expanded="true" aria-controls="tool-sidebar"><span aria-hidden="true">☰</span> Tools</button>
@@ -70,7 +69,6 @@
 </ul></details>
 <details class="navigation-group" data-navigation-group="storage"><summary>Recordings</summary><ul>
 <li><button type="button" data-workspace="recordings">Video and SD card</button></li>
-<li><button type="button" data-workspace="learning-history">Learning history</button></li>
 </ul></details>
 <details class="navigation-group" data-navigation-group="maintenance"><summary>Maintenance</summary><ul>
 <li><button type="button" data-workspace="calibration">Joint calibration</button></li>
@@ -89,7 +87,7 @@
 </nav></aside>
 <main class="dashboard-grid" id="dashboard-grid">
 <div class="primary-view-container">
-        <section class="control-section primary-view-section camera-view-section" data-dashboard-panel="camera" aria-labelledby="camera-view-title">
+        <section class="control-section primary-view-section camera-view-section" aria-labelledby="camera-view-title">
           <div class="section-heading">
             <div>
               <p class="section-kicker">Physical robot</p>
@@ -120,22 +118,6 @@
             </div>
             <p id="camera-detection-status" class="muted camera-detection-status" aria-live="polite">Live camera view.</p>
           </div>
-        </section>
-
-        <section class="control-section primary-view-section simulator-section" data-dashboard-panel="simulator" aria-labelledby="simulator-title">
-          <div class="section-heading">
-            <div>
-              <p class="section-kicker">Emulator</p>
-              <h2 id="simulator-title">Visual robot</h2>
-            </div>
-          </div>
-          <iframe
-            id="simulator-frame"
-            class="simulator-frame"
-            data-src="http://127.0.0.1:8765/"
-            title="Ainekio visual robot simulator"
-            loading="eager"
-          ></iframe>
         </section>
       </div>
 <div id="tool-workspace" class="tool-workspace" tabindex="-1">
@@ -412,7 +394,7 @@
             <label id="walk-cycles-field">Cycles <input id="walk-cycles" type="number" min="1" max="10" value="3" required></label>
             <p id="walk-run-hint" hidden>0–100% walks. Above 100% transitions to paired-leg Run; 200% is full Run.</p>
             <p id="walk-native-hint">On-chip MicroDuck runs the quantized 50 Hz neural policy directly on the ESP32-P4 at full movement speed. Stride and steering scale foot excursion and direction; Finish settles the feet.</p>
-            <p id="walk-neural-hint" hidden>Host neural walking streams targets from the selected host policy (MicroDuck, Pupper MJX or physical REDQ) using the SI scales below or in Neural gait. Continue until Finish; MetaHuman goals still determine arrival. Switch to On-chip MicroDuck above to run the policy directly on the P4.</p>
+            <p id="walk-neural-hint" hidden>Host neural walking streams targets from the selected host policy (MicroDuck or Pupper MJX) using the SI scales below or in Neural gait. Continue until Finish; MetaHuman goals still determine arrival. Switch to On-chip MicroDuck above to run the policy directly on the P4.</p>
             <div id="walk-neural-quick-controls" class="neural-quick-card" hidden>
               <div class="neural-quick-header">
                 <strong id="walk-neural-active-model">Active policy: loading…</strong>
@@ -580,18 +562,18 @@
 
       </section>
 
-<section id="gait-history-panel" class="control-section workspace-section" data-workspace-panel="neural-gait learning-history" aria-labelledby="gait-history-title" hidden>
+<section id="gait-history-panel" class="control-section workspace-section" data-workspace-panel="neural-gait" aria-labelledby="gait-history-title" hidden>
   <div class="section-heading">
     <div>
       <p class="section-kicker">Locomotion policy</p>
-      <h2 id="gait-history-title">Neural gait &amp; learning history</h2>
+      <h2 id="gait-history-title">Neural gait</h2>
     </div>
     <button id="neural-gait-refresh" type="button">Refresh neural training</button>
   </div>
   <details id="neural-gait-panel" open>
     <summary>Neural walking · active policy, velocity scales and simulation training</summary>
     <p id="neural-gait-selection" class="neural-active-banner">Active model: loading…</p>
-    <p>Train from simulation or recorded physical trials, inspect evaluation results and select the active walking policy. Preview reads robot sensors without moving. The walking source below applies to new Walk requests from Body Control and MetaHuman; existing goals still own arrival and Finish.</p>
+    <p>Train MicroDuck policies in simulation, inspect MicroDuck and Pupper MJX evaluation results, and select the active walking policy. Preview reads robot sensors without moving. The walking source below applies to new Walk requests from Body Control and MetaHuman; existing goals still own arrival and Finish.</p>
     <div class="neural-form-grid">
       <label>Walking source<select id="neural-walking-source"><option value="native">On-chip MicroDuck (native)</option><option value="neural">Selected host neural policy</option></select></label>
       <label>Forward m/s at 100%<input id="neural-walking-forward" type="number" step="any"></label>
@@ -608,82 +590,28 @@
         <button id="neural-gait-preview" type="button">Preview from robot sensors</button>
       </div>
       <div class="command-row">
-        <button id="neural-gait-resume" type="button">Continue simulation training</button>
+        <button id="neural-gait-resume" type="button">Continue MicroDuck training</button>
         <button id="neural-gait-render" type="button">Render evaluation trials</button>
         <button id="neural-gait-progress" type="button">Watch learning progress</button>
       </div>
     </div>
     <div class="neural-form-grid">
       <label>Additional training steps<input id="neural-gait-steps" type="number" min="1" step="1000" value="50000"></label>
-      <label>Simulation workers for new runs<input id="neural-gait-workers" type="number" min="1" step="1" value="2"></label>
-      <button id="neural-gait-train" type="button">Start new simulation training</button>
+      <label>Parallel environments for new runs<input id="neural-gait-workers" type="number" min="1" step="1" value="1024"></label>
+      <button id="neural-gait-train" type="button">Start new MicroDuck training</button>
     </div>
     <details><summary>Robot configuration and simulation settings</summary>
       <p>Total mass is measured. Component mass distribution, actuator strength and friction are estimates. Exploration ranges describe simulation, not measured mechanical stops. Keep the same configuration when resuming a checkpoint.</p>
       <label>Environment configuration (JSON)<textarea id="neural-gait-environment" rows="12"></textarea></label>
-      <label>Training requests (optional JSON list of [forward m/s, lateral m/s, turn rad/s])<textarea id="neural-gait-commands" rows="3" placeholder="[[0.03,0,0],[-0.03,0,0],[0,0,0.4]]"></textarea></label>
-    </details>
-    <details><summary>Physical REDQ adaptation runs</summary>
-      <fieldset>
-        <legend>Physical learning</legend>
-        <p>These controls retain the existing physical REDQ runs. Simulation policies (Pupper MJX and MicroDuck) train through the simulation controls above.</p>
-        <p>Create a run from the configuration above, then select its saved actor for inference and save Selected neural policy as the walking source. Enable Log gait data before starting a recorded learning Walk. Use the existing Finish, Stop and Release controls to end movement.</p>
-        <div class="neural-form-grid">
-          <button id="neural-gait-physical-create" type="button">Create physical learning run</button>
-          <label>Forward speed %<input id="neural-gait-physical-speed" type="number" step="any" value="100"></label>
-          <button id="neural-gait-physical-trial" type="button">Start recorded learning Walk</button>
-        </div>
-        <p>The trial uses the active physical actor. Creating or training a run does not select it or start movement. Training uses saved recordings on the desktop; the Q6A runs the selected actor for inference.</p>
-        <label>Recording directories on the training computer (one per line)<textarea id="neural-gait-physical-recordings" rows="3" placeholder="/path/to/recording"></textarea></label>
-        <div class="neural-form-grid">
-          <label>Training updates<input id="neural-gait-physical-updates" type="number" min="1" step="1" value="1000"></label>
-          <button id="neural-gait-physical-train" type="button">Train saved physical run</button>
-        </div>
-        <p id="neural-gait-physical-result" role="status"></p>
-      </fieldset>
     </details>
     <p id="neural-gait-summary" role="status">Connecting to the neural gait service…</p>
     <div class="table-scroll"><table><thead><tr><th>Training checkpoint</th><th>Mean trial reward</th><th>Falls / evaluated trials</th><th>Inference selection</th></tr></thead><tbody id="neural-gait-checkpoints"></tbody></table></div>
     <p id="neural-gait-measurement-note">Latest checkpoint: requested versus measured movement. Values are forward/lateral m/s and turn rad/s, grouped across the simulated trials.</p>
     <div class="table-scroll"><table><thead><tr><th>Requested</th><th>Measured</th><th>Seconds sampled</th></tr></thead><tbody id="neural-gait-command-results"></tbody></table></div>
-    <details id="neural-gait-physical-evidence" hidden><summary>Recorded physical evidence</summary><pre id="neural-gait-physical-measurements"></pre></details>
     <p id="neural-gait-video-note">Progress videos compare the same reference trials at each checkpoint. A deterministic environment uses one trial; varied environments use multiple seeds. Failed trials remain visible.</p>
     <video id="neural-gait-video" controls loop playsinline hidden></video>
     <p><a id="neural-gait-footage" hidden>Download clean clips, labelled clips and training measurements</a></p>
     <details><summary>Detailed training measurements</summary><pre id="neural-gait-status"></pre><pre id="neural-gait-prediction"></pre></details>
-  </details>
-  <details class="legacy-gait-history-details" hidden>
-    <summary>Legacy firmware gait perturbation history (archived)</summary>
-    <p>Follow measured performance and the changes tried during ordinary walking. Each point is a scored observation, not a whole walk.</p>
-    <div class="command-row">
-      <button id="gait-history-refresh" type="button">Refresh history</button>
-      <button id="gait-history-export" type="button" disabled>Download history JSON</button>
-    </div>
-    <p id="gait-history-state" role="status">Select a robot to view its learning history.</p>
-    <div class="gait-history-filters">
-      <label>Gait and measurement context<select id="gait-history-context"></select></label>
-      <label>Motion and command settings<select id="gait-history-condition"></select></label>
-      <label>Measurement<select id="gait-history-metric">
-        <option value="score">Learning score · higher is better</option>
-        <option value="progress_m_s">Estimated forward progress (m/s)</option>
-        <option value="turn_rad_s">Estimated turning progress (rad/s)</option>
-        <option value="tilt_rms_rad">Body tilt RMS (rad)</option>
-        <option value="angular_rms_rad_s">Body angular motion RMS (rad/s)</option>
-        <option value="tracking_rms_mm">Joint tracking error RMS (mm)</option>
-        <option value="acceleration_deviation_rms_m_s2">Acceleration deviation RMS (m/s²)</option>
-        <option value="yaw_tracking_error_rad_s">Heading-rate error (rad/s)</option>
-        <option value="lateral_m_s">Estimated sideways motion (m/s)</option>
-      </select></label>
-    </div>
-    <p id="gait-history-summary"></p>
-    <p class="muted">Compare matching motions and settings within one measurement context. Camera distance is an estimate, not a tape-measure result. Missing measurements are not zero. Higher score does not by itself prove an improvement.</p>
-    <div id="gait-history-chart" class="gait-history-chart"></div>
-    <p class="muted">Horizontal axis: observation order within this context. Dates appear where recorded; older observations have no saved timestamp. Select a point to inspect its model and measurements below.</p>
-    <p id="gait-history-point" role="status"></p>
-    <details><summary>Observation measurements</summary><div class="gait-history-scroll"><table class="gait-history-table"><thead><tr><th>Observation</th><th>Recorded</th><th>Model</th><th>Value</th></tr></thead><tbody id="gait-history-observations"></tbody></table></div></details>
-    <h3>Candidate decisions and changes</h3>
-    <p class="muted">A candidate is an experiment. Only a demonstrated improvement is promoted. Expand a model to see its changes relative to the reference model.</p>
-    <div id="gait-history-models"></div>
   </details>
 </section>
 
@@ -700,40 +628,6 @@
             <p class="muted">Corrects heading drift during the ongoing stride, independently of Self-leveling. Follows requested curves without slowing servo strokes. Gyro heading is relative and can drift; it does not measure distance or foot slip.</p>
             <p id="walking-feedback-status" role="status"></p>
             <p id="walking-feedback-live" role="status"></p>
-          </div>
-          <div id="learned-controls" class="field-group" hidden>
-            <h3>Learned walking corrections</h3>
-            <p class="muted">Learn from normal forward, backward, turning and bounding Run commands. This computer records and trains; the robot executes saved policies with live heading and leveling feedback. Crab and Crawl are experimental and are outside this training scope.</p>
-            <h4>Host training</h4>
-            <div class="input-with-actions">
-              <label><input id="gait-log-enabled" type="checkbox"> Log gait data on this computer</label>
-              <label><input id="gait-train-enabled" type="checkbox"> Learn while walking</label>
-              <button id="gait-training-save" type="button">Apply host settings</button>
-              <button id="gait-training-analyze" type="button">Analyze now</button>
-            </div>
-            <p class="muted">Learning includes recording and runs independently of this browser. Turn learning off on a smaller computer; saved robot policies still work. Data stays in this host’s private state directory. Missing distance measurements are reported, never scored as zero.</p>
-            <pre id="gait-training-status" role="status">Host training is off.</pre>
-            <details><summary>Learning parameters and saved models</summary>
-              <label>Exploration radii (JSON)<textarea id="gait-training-radii" rows="4"></textarea></label>
-              <p class="muted">Radii vary duty, stride, front/rear lift and landing, body height, tilt response and fourth-wire joint response around the reference policy. They do not change the robot’s mechanical limits.</p>
-              <label>Saved model<select id="gait-training-history"></select></label>
-              <button id="gait-training-restore" type="button">Use saved model and turn training off</button>
-            </details>
-            <div class="input-with-actions">
-              <label>Learned corrections<select id="learned-enabled"><option value="false">Off</option><option value="true">On</option></select></label>
-              <label>Correction amount (%)<input id="learned-amount" type="number" min="0" max="100" value="100"></label>
-              <button id="learned-save" type="button">Save correction setting</button>
-              <button id="learned-read" type="button">Read from robot</button>
-            </div>
-            <pre id="learned-live" role="status"></pre>
-            <p class="muted">Use Log gait data above to record regular motion commands. Records are saved on this computer even when this tab is closed.</p>
-            <label>Recording or candidate<input id="learned-file" type="file" accept=".json,.jsonl"></label>
-            <label>Learning fraction<input id="learned-gain" type="number" min="0.01" max="1" step="0.05" value="0.5"></label>
-            <div class="input-with-actions">
-              <button id="learned-train" type="button">Train / load and download candidate</button>
-              <button id="learned-install" type="button" disabled>Install candidate on robot</button>
-            </div>
-            <p id="learned-result" role="status"></p>
           </div>
           <label for="balance-enabled">Self-leveling</label>
           <div class="input-with-actions">
@@ -894,8 +788,8 @@
             <p>MoGe estimates depth from the existing camera; no depth sensor or checkerboard is needed.
               Distances are model estimates with unknown metric accuracy. Tracking is relative to its starting view;
               it does not recognize a return to an earlier location. Without a measured mounting transform,
-              it tracks the camera's position, not the body centre. The selected source supplies gait-learning measurements.
-              Processing runs only for requested measurements, navigation or active gait recording.
+              it tracks the camera's position, not the body centre.
+              Processing runs only for requested measurements or navigation.
               The host unloads the depth model after its last consumer finishes. A new measurement may need to load it again.</p>
             <pre id="depth-motion-status" aria-live="polite"></pre>
             <pre id="depth-sample-status" aria-live="polite"></pre>

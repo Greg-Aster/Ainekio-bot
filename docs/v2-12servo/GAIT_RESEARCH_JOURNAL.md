@@ -82,9 +82,9 @@ Original Brax PPO, networks and reward functions remain their upstream versions.
   Each closure gap at the home pose is approximately 8.08e-14 m. The CAD preview
   was rendered and inspected. No rollout, training, robot commands, firmware
   change or service restart occurred.
-- **Artifacts:** [static body preview](../../build/pupper-v3-upstream/pupperv3-monorepo/ai/rl/assets/ainekio-preview.png),
-  [model XML](../../build/pupper-v3-upstream/pupperv3-monorepo/ai/rl/assets/ainekio.xml),
-  [geometry review](../../build/pupper-v3-upstream/pupperv3-monorepo/ai/rl/assets/ainekio-geometry-review.json).
+- **Artifacts:** static body preview (`../../build/pupper-v3-upstream/pupperv3-monorepo/ai/rl/assets/ainekio-preview.png`),
+  model XML (`../../build/pupper-v3-upstream/pupperv3-monorepo/ai/rl/assets/ainekio.xml`),
+  geometry review (`../../build/pupper-v3-upstream/pupperv3-monorepo/ai/rl/assets/ainekio-geometry-review.json`).
   Local source changes are reproducible using the two `pupper-*-ainekio.patch`
   files alongside the maintained simulation assembly export. Original Pupper
   source/model reference remains selectable as `simulation=pupper`.
@@ -241,9 +241,9 @@ are not launched, and no walking algorithm is replaced by the launcher.
   delivery rate alone does not identify controller versus transport loss.
   Median recorded policy inference was 1.03 ms. Simulator time was not recorded,
   so this is not a validated real-time speed benchmark or Q6A performance test.
-- **Artifacts:** [22-second video](../../build/pupper-v3-upstream/stock-pupper-v3-forward.mp4),
-  [measurement summary](../../build/pupper-v3-upstream/stock-pupper-v3-forward-result.json),
-  [recorded virtual telemetry](../../build/pupper-v3-upstream/stock-pupper-v3-forward-telemetry.json).
+- **Artifacts:** 22-second video (`../../build/pupper-v3-upstream/stock-pupper-v3-forward.mp4`),
+  measurement summary (`../../build/pupper-v3-upstream/stock-pupper-v3-forward-result.json`),
+  recorded virtual telemetry (`../../build/pupper-v3-upstream/stock-pupper-v3-forward-telemetry.json`).
   Telemetry contains 3,693 state samples and 682 target messages. Original
   checkpoints and earlier trial history remain preserved.
 - **Next action:** preserve this stock baseline, then adapt the existing hardware
@@ -1408,7 +1408,7 @@ restart or physical movement was performed in this work.
 ### Geometry comparison and steering experiment
 
 Offline reports are retained in
-[`docs/gait-research/locomotion-modernization-20261012/`](../gait-research/locomotion-modernization-20261012/).
+`../gait-research/locomotion-modernization-20261012/`.
 
 | Experiment | Result | Interpretation |
 | --- | --- | --- |
@@ -1491,12 +1491,12 @@ cmake -S Slave/software/models/v2-12servo -B /tmp/ainekio-gait-audit -DPython3_E
 cmake --build /tmp/ainekio-gait-audit --parallel 4
 ctest --test-dir /tmp/ainekio-gait-audit --output-on-failure
 /path/to/python Slave/software/models/v2-12servo/tools/audit_gait.py /tmp/ainekio-gait-audit/v2_walk_command --out /tmp/gait-audit.json
-node Emulator/tests/test_dashboard_motion_races.js
-PYTHONPATH=Master:Slave/software /path/to/python -m unittest discover -s Emulator/tests -p test_gateway_dashboard.py -q
+node tests/test_dashboard_motion_races.js
+PYTHONPATH=Master:Slave/software /path/to/python -m unittest discover -s tests -p test_gateway_dashboard.py -q
 ```
 
 The local SciPy-capable interpreter used here was
-`/home/greggles/ComfyUI/venv/bin/python`. `/usr/bin/ctest` was used because the
+`~/ComfyUI/venv/bin/python`. `/usr/bin/ctest` was used because the
 user-local `ctest` launcher could not import its CMake Python package. HTTP tests
 needed permission to bind local sockets outside the restricted sandbox.
 
@@ -1908,11 +1908,11 @@ the installed per-joint NVS mapping. They were not sent to the robot. Changing
 height alone does not reconcile motor zeros, horn indexing or available travel.
 
 Results and input/binary hashes:
-[`compact-posture-study.json`](../gait-research/locomotion-modernization-20261012/compact-posture-study.json).
+`compact-posture-study.json` (`../gait-research/locomotion-modernization-20261012/compact-posture-study.json`).
 Reproduced with:
 
 ```sh
-/home/greggles/ComfyUI/venv/bin/python Slave/software/models/v2-12servo/tools/study_gait_posture.py \
+~/ComfyUI/venv/bin/python Slave/software/models/v2-12servo/tools/study_gait_posture.py \
   --root /tmp/ainekio-locomotion-modernization-20261012/stage/Slave/software/models/v2-12servo \
   --out docs/gait-research/locomotion-modernization-20261012/compact-posture-study.json
 ```
@@ -1997,7 +1997,7 @@ Verified its rounded pulses against **production `joint_calibration.c`** compile
 with the read-back records: 37,081 native frames, 444,972 individual joint pulses,
 32 cases across old and compact geometry, **zero mismatches**. This checks mapping
 math and joint order, not physical shaft angles. See
-[`mapper-verification.json`](../gait-research/locomotion-modernization-20261012/mapper-verification.json).
+`mapper-verification.json` (`../gait-research/locomotion-modernization-20261012/mapper-verification.json`).
 
 ### Results at the owner's saved 1,000°/s command limit
 
@@ -2048,10 +2048,10 @@ it does not qualify full walking or imply permission to send the outlying pulses
 
 Reports:
 
-- [`current-device-mapping-audit.json`](../gait-research/locomotion-modernization-20261012/current-device-mapping-audit.json)
-- [`compact-device-mapping-audit.json`](../gait-research/locomotion-modernization-20261012/compact-device-mapping-audit.json)
-- [`compact-minus10-device-mapping-audit.json`](../gait-research/locomotion-modernization-20261012/compact-minus10-device-mapping-audit.json)
-- [`standing-replay.json`](../gait-research/locomotion-modernization-20261012/standing-replay.json)
+- `current-device-mapping-audit.json` (`../gait-research/locomotion-modernization-20261012/current-device-mapping-audit.json`)
+- `compact-device-mapping-audit.json` (`../gait-research/locomotion-modernization-20261012/compact-device-mapping-audit.json`)
+- `compact-minus10-device-mapping-audit.json` (`../gait-research/locomotion-modernization-20261012/compact-minus10-device-mapping-audit.json`)
+- `standing-replay.json` (`../gait-research/locomotion-modernization-20261012/standing-replay.json`)
 
 Raw gateway/readback data remains outside the repository under
 `/tmp/ainekio-joint-reconciliation/`. Reports contain only the relevant numerical
@@ -2361,7 +2361,7 @@ serial adapter during this check. No USB reset, flash or serial command occurred
 
 Current source contains authenticated `/api/logs`, its selected-robot dashboard
 proxy, and the bounded current/previous-boot recorder. The production recorder's
-host test (`python3 Emulator/tests/test_p4_logs.py`) passed, covering wraparound,
+host test (`python3 tests/test_p4_logs.py`) passed, covering wraparound,
 warm-reset retention, power-on clearing and nonblocking panic capture. This test
 is not evidence that the running application exposes the endpoint. The last live
 read in this session still found 0.8.22 and HTTP 404 for logs.
@@ -2415,9 +2415,9 @@ may need reconciliation with the compact geometry, but no assertion should be
 weakened merely to pass. The existing source profile's 300–3000 us window is not
 measured physical servo travel and does not by itself resolve these failures.
 
-The missing NumPy was in that run's `/home/greggles/.local/bin/python3.10` test
+The missing NumPy was in that run's `~/.local/bin/python3.10` test
 interpreter. Reran `tests/test_upright.py` using the already available NumPy-equipped
-`/home/greggles/ComfyUI/venv/bin/python`, without installing packages or changing
+`~/ComfyUI/venv/bin/python`, without installing packages or changing
 code. It gets through the earlier geometric/support checks but then fails line 77:
 `min(rows[-1]['arm_reach_mm'][2:]) > 90`. Thus the dependency error hid an additional
 reach/expectation mismatch; fixing Python dependencies alone is insufficient.
@@ -2745,7 +2745,7 @@ compiled profile by at most 0.152 mm including allowance. Hidden alternative
 boots were excluded. No Blender geometry, control, frame or action was modified.
 
 Added `tools/study_linkage_workspace.py` and the
-[workspace study](../gait-research/locomotion-modernization-20261012/workspace-20261013/README.md).
+workspace study (`../gait-research/locomotion-modernization-20261012/workspace-20261013/README.md`).
 It samples carrier/crank combinations independently of the current authored gait,
 then derives monotonic planted strokes on constant-height contours. The original
 Walk is a 78 mm authored foot path centered 16 mm forward at body Z −10 mm; it
@@ -4132,7 +4132,7 @@ A dense 622-position support/rise envelope with horizontal forces +/-25% of vert
 
 **Contact finding:** the 70 mm stroke at 70 mm shaft height closes but brings another part of the foot within 1.69 mm of the floor before accounting for material thickness. An 82 mm stroke at 65 mm height closes but leaves only 0.77 mm at the foot bend; at 70 mm height it does not close throughout the cycle. These are not recommended usable strides. Actual housing/horn/joint/ground clearance and contact shape require CAD evaluation before printing or firmware changes.
 
-Artifacts: [review, comparisons and reproduction commands](../gait-research/locomotion-modernization-20261012/geometry-ratios-20261013/wavego-fixed-shafts-review.md), [three-pose dimensioned reference](../gait-research/locomotion-modernization-20261012/geometry-ratios-20261013/wavego-fixed-shafts-50mm.svg), calculator-import JSON and dense results beside it. Script: `tools/leg-geometry-calculator/wavego-study.js`. Calculator foot-angle control now spans +/-180 degrees to represent the same-side foot. Nine numerical tests pass, including independent FK and finite-difference Jacobian checks for this topology. Dense reports also validate FK/Jacobians. A local headless-browser import check passed with the fixed mounts, selected geometry and zero JavaScript exceptions; the reference SVG was visually inspected. No firmware, physical motion, calibration or Blender scene was changed.
+Artifacts: review, comparisons and reproduction commands (`../gait-research/locomotion-modernization-20261012/geometry-ratios-20261013/wavego-fixed-shafts-review.md`), three-pose dimensioned reference (`../gait-research/locomotion-modernization-20261012/geometry-ratios-20261013/wavego-fixed-shafts-50mm.svg`), calculator-import JSON and dense results beside it. Script: `tools/leg-geometry-calculator/wavego-study.js`. Calculator foot-angle control now spans +/-180 degrees to represent the same-side foot. Nine numerical tests pass, including independent FK and finite-difference Jacobian checks for this topology. Dense reports also validate FK/Jacobians. A local headless-browser import check passed with the fixed mounts, selected geometry and zero JavaScript exceptions; the reference SVG was visually inspected. No firmware, physical motion, calibration or Blender scene was changed.
 
 
 ## 2026-10-14 — Shorter pickup: compensate with a shorter crank
@@ -4350,7 +4350,7 @@ The planned travel increase is 18.6%, not a measured speed improvement. Quarter-
 
 **Validation:** all 51 native tests pass in the final tree (25.58 seconds), plus the separate PCA9685 driver suite. Walk tests now cover every integer Speed 1–100, commanded lift, increasing stroke, at least three planned contacts, no preparation sequence and the unchanged wall-time clock. Production pulse mapping checks cover all these speeds forward/backward, curves at 50/100 Hz, Walk/Run transitions, Finish, and the historical full-curve Speed 50 → 89 → 145 failure. Combined mapped pulse span is 403–2885 us. The 16-case native audit has no linkage regression-margin misses or command failures. The archived Run recording is retained; only the four Walk demonstrations were regenerated. Register tests cover unique channel phases, unchanged 400/1500/2900 us widths, counter wrap, individual detach, unused outputs and one transaction per frame. The P4 firmware build succeeds. No scope trace, current measurement or powered walking trial has yet validated this revision.
 
-Reports: [straight comparison](../gait-research/walk-stagger-20261015/straight-comparison.json), [native commands](../gait-research/walk-stagger-20261015/native-audit.json), [curved pulse mapping](../gait-research/walk-stagger-20261015/curved-pulses.json). These contain offline target data, not captured robot logs.
+Reports: straight comparison (`../gait-research/walk-stagger-20261015/straight-comparison.json`), native commands (`../gait-research/walk-stagger-20261015/native-audit.json`), curved pulse mapping (`../gait-research/walk-stagger-20261015/curved-pulses.json`). These contain offline target data, not captured robot logs.
 
 **Wi-Fi artifact:** `0.8.49-p4-staggered-walk`, 3,028,544 bytes, SHA-256 `511da92abb50152915c3ce3692a9ca6e13a55c8987088c8ac112935adea71319`. Prepared at `/tmp/ainekio-0.8.49-p4-staggered-walk.bin`. Read-only pre-update status confirmed online robot `ainekio-p4-e6ebe5`, running `0.8.48-p4-leveling-feedback`, outputs enabled and leveling Off. Owner then confirmed frame supported and servo power Off; Wi-Fi upload initiated. Activation and runtime confirmation follow below.
 
@@ -4391,7 +4391,7 @@ At full forward commands, sampled carrier/crank speeds are approximately Run 401
 
 **Validation:** all 51 native tests pass (26.04 s). The expanded production mapping test now covers all four Crawl and six Crab directions through entry, speed/rate changes and Finish, including 10/20/40 ms output intervals. Combined production mapping checks report 402–2898 us, within the unchanged offline 400–2900 us review window. Run tests preserve paired/flight semantics, commanded cadence, curved commands and Walk/Run transitions. The 26-case native audit completes without linkage-margin failures. Fourteen locomotion demonstrations were regenerated and their full-hull/interpolated geometry checked. The historical Run and Crouch recordings remain intact. The P4 build succeeds.
 
-Reports: [native audit](../gait-research/run-crawl-crab-20261015/native-audit.json), [support/load study and exact configurations](../gait-research/run-crawl-crab-20261015/support-study.json), [validation summary](../gait-research/run-crawl-crab-20261015/validation-summary.json).
+Reports: native audit (`../gait-research/run-crawl-crab-20261015/native-audit.json`), support/load study and exact configurations (`../gait-research/run-crawl-crab-20261015/support-study.json`), validation summary (`../gait-research/run-crawl-crab-20261015/validation-summary.json`).
 
 **Prepared Wi-Fi artifact:** `0.8.50-p4-gait-library`, 3,027,824 bytes, SHA-256 `8460df6e98d55ede70e8e7e35c2702801702d2f8b736491af925ef08a3671f6b`; fixed copy `/tmp/ainekio-0.8.50-p4-gait-library.bin`. Read-only Wi-Fi status confirms robot `ainekio-p4-e6ebe5` online, still running 0.8.49 on ota_1, pending_verify false, outputs enabled and self-leveling Off. No hardware motion or update was issued in this task. Fresh supported/servo-power-off confirmation is needed before activation because restart runs startup rise. Loaded gait performance remains unverified.
 
@@ -4459,7 +4459,7 @@ All three now use their own bare Part027 contact hull copies and the installed 3
 
 Full bare-hull compiled/source comparisons cover 1,153 Point, 1,765 Pushup and 1,753 Bow sample times, with maximum sole-vertex errors 0.00834, 0.00682 and 0.00596 mm. The library-wide comparison passes as well. These are geometry and numerical playback results: actual torque/current, servo tracking, frame flex, contact friction (especially Bow's intentional forward hand slide), physical body clearance and collision remain to be tested. Blender animations were not updated by this firmware task.
 
-Reproducibility: `Slave/software/models/v2-12servo/tools/author_expressive_gestures.py` consumes the retained [baseline archives and validation summary](../gait-research/expressive-gestures-20261015/validation-summary.json), current geometry/contact assets and a local saved calibration readback. Baseline recordings are preserved as compressed JSON; Point/Bow retain their spatial choreography with bare-contact refitting, while Pushup gets the new body-space path. No unrelated gestures or locomotion were reauthored.
+Reproducibility: `Slave/software/models/v2-12servo/tools/author_expressive_gestures.py` consumes the retained baseline archives and validation summary (`../gait-research/expressive-gestures-20261015/validation-summary.json`), current geometry/contact assets and a local saved calibration readback. Baseline recordings are preserved as compressed JSON; Point/Bow retain their spatial choreography with bare-contact refitting, while Pushup gets the new body-space path. No unrelated gestures or locomotion were reauthored.
 
 **Wi-Fi installation prepared:** P4 build succeeds as `0.8.53-p4-emotes`, 2,905,072 bytes, SHA-256 `a8f6287bafd31e5b8a134b78a0d7cf579d2d18edba500c31a98567eb057fc5b3`. Pre-update live readback confirms online 0.8.52-p4-wave, ota_0 running/boot, pending_verify false, ESP_OK, Active, outputs enabled, self-leveling Off. Update uses the existing gateway upload/Doze/activation path. Startup-rise behavior was stated before upload. No physical gesture command was sent. Installation verification follows.
 
@@ -9048,36 +9048,36 @@ speed guarantee. Parallel training preserves one optimizer update per transition
 
 The following are local ignored artifacts, not media committed to the repository:
 
-- [First forward neural trial, labelled](../../build/neural-gait/cc3fe42ce50f4a56b92caab647f51d81/progress-video.mp4)
-  and [clean footage](../../build/neural-gait/cc3fe42ce50f4a56b92caab647f51d81/clips/000000000-trial1-clean.mp4).
-- [More complex imitation attempt that regressed](../../build/neural-gait/6692821f1ed948a4a787cd4d22f4c641/progress-video.mp4).
-- [Original guided example](../../build/neural-gait/guided-steps/guided-crawl.mp4).
-- [All nine maintained aggregation rounds](../../build/neural-gait/0f6006293e084eceb7951893c6f8a2e8/progress-video.mp4),
+- First forward neural trial, labelled (`../../build/neural-gait/cc3fe42ce50f4a56b92caab647f51d81/progress-video.mp4`)
+  and clean footage (`../../build/neural-gait/cc3fe42ce50f4a56b92caab647f51d81/clips/000000000-trial1-clean.mp4`).
+- More complex imitation attempt that regressed (`../../build/neural-gait/6692821f1ed948a4a787cd4d22f4c641/progress-video.mp4`).
+- Original guided example (`../../build/neural-gait/guided-steps/guided-crawl.mp4`).
+- All nine maintained aggregation rounds (`../../build/neural-gait/0f6006293e084eceb7951893c6f8a2e8/progress-video.mp4`),
   153 seconds including failed/later rounds; the directory also retains a
   selected-only replay and the full clean/labelled footage bundle.
-- [Improved clearance example, labelled](../../build/neural-gait/guided-steps/guided-clearance-improved.mp4)
-  and [clean footage](../../build/neural-gait/guided-steps/guided-clearance-improved-clean.mp4).
+- Improved clearance example, labelled (`../../build/neural-gait/guided-steps/guided-clearance-improved.mp4`)
+  and clean footage (`../../build/neural-gait/guided-steps/guided-clearance-improved-clean.mp4`).
   Both verified as 16 seconds/400 frames; replay matched the saved trace's final
   position. This is a teaching example, explicitly not the trained network.
-- [Faster aggregated-state neural trial](../../build/neural-gait/eded4cc029124e27b96e1be533830a9e/replay.mp4)
-  and [cleaner neural stepping trial](../../build/neural-gait/6d8ee2a01343418caa1a0393b1c6d090/replay.mp4).
+- Faster aggregated-state neural trial (`../../build/neural-gait/eded4cc029124e27b96e1be533830a9e/replay.mp4`)
+  and cleaner neural stepping trial (`../../build/neural-gait/6d8ee2a01343418caa1a0393b1c6d090/replay.mp4`).
   Their UUID directories retain exact selected weights, aggregate training data,
   source hashes and footage bundles. The faster policy was trained under version
   5 and explicitly re-evaluated under version 6 without changing its weights.
-- [Larger actor comparison](../../build/neural-gait/2e90f1579fc14d5e9f483c61a90e0971/replay.mp4).
-- [Six SAC checkpoints through 50,000 transitions](../../build/neural-gait/14b21a9747df4fdc8fca235c70a98d10/progress-video.mp4).
+- Larger actor comparison (`../../build/neural-gait/2e90f1579fc14d5e9f483c61a90e0971/replay.mp4`).
+- Six SAC checkpoints through 50,000 transitions (`../../build/neural-gait/14b21a9747df4fdc8fca235c70a98d10/progress-video.mp4`).
   This shows increased movement with unacceptable turning/sliding, not a
   completed walking system.
-- [New 313 mm guided example](../../build/neural-gait/guided-steps/speed-curriculum-p2.5-s40-x0-y16-z12.mp4)
-  and [238 mm lower-slip guided example](../../build/neural-gait/guided-steps/speed-curriculum-p3-s40-x0-y16-z12.mp4).
+- New 313 mm guided example (`../../build/neural-gait/guided-steps/speed-curriculum-p2.5-s40-x0-y16-z12.mp4`)
+  and 238 mm lower-slip guided example (`../../build/neural-gait/guided-steps/speed-curriculum-p3-s40-x0-y16-z12.mp4`).
   Each has a matching `-clean.mp4`; all four are verified 16 s/400 frames,
   labelled as teaching trajectories, with exact final-position replay agreement.
-- [First improved neural round](../../build/neural-gait/4844fa3392fa4ca4b4376deac3794ead/clips/000000000-imitation000018000-round000-trial1.mp4).
+- First improved neural round (`../../build/neural-gait/4844fa3392fa4ca4b4376deac3794ead/clips/000000000-imitation000018000-round000-trial1.mp4`).
   The run retains all nine rounds, selected weights and full training-data
   provenance; the selected round and montage are rendered by the same owner.
-- [Selected improved neural round](../../build/neural-gait/4844fa3392fa4ca4b4376deac3794ead/clips/000000000-imitation000030000-round006-trial1.mp4),
-  [clean selected footage](../../build/neural-gait/4844fa3392fa4ca4b4376deac3794ead/clips/000000000-imitation000030000-round006-trial1-clean.mp4),
-  and [all nine rounds](../../build/neural-gait/4844fa3392fa4ca4b4376deac3794ead/progress-video.mp4).
+- Selected improved neural round (`../../build/neural-gait/4844fa3392fa4ca4b4376deac3794ead/clips/000000000-imitation000030000-round006-trial1.mp4`),
+  clean selected footage (`../../build/neural-gait/4844fa3392fa4ca4b4376deac3794ead/clips/000000000-imitation000030000-round006-trial1-clean.mp4`),
+  and all nine rounds (`../../build/neural-gait/4844fa3392fa4ca4b4376deac3794ead/progress-video.mp4`).
   The completed montage is 153 s. Footage ZIP downloads are built on request;
   the original clean and labelled clips remain in the run directory.
 
@@ -9169,8 +9169,8 @@ This is modest, horizon-dependent improvement in one deterministic forward case,
 not evidence of speed, terrain, recovery or direction generalization. Actual
 average speed remains about 0.0169 m/s against the requested 0.08 m/s.
 
-The new [labelled video](../../build/neural-gait/guided-steps/ppo-continue-8192-to40960/clips/ppo-000040960-trial1.mp4)
-and [clean video](../../build/neural-gait/guided-steps/ppo-continue-8192-to40960/clips/ppo-000040960-trial1-clean.mp4)
+The new labelled video (`../../build/neural-gait/guided-steps/ppo-continue-8192-to40960/clips/ppo-000040960-trial1.mp4`)
+and clean video (`../../build/neural-gait/guided-steps/ppo-continue-8192-to40960/clips/ppo-000040960-trial1-clean.mp4`)
 show the 16 s evaluation, followed by a labelled one-second display hold.
 Both are 1280×720 at 25 fps. Rendered displacement matches the saved evaluation;
 `video.json` records checkpoint hash and provenance. PPO remains an experimental
@@ -9347,10 +9347,10 @@ results do not justify physical activation or a service-model replacement.
 `long-evaluation.json`, `direction-transition-evaluation.json`, initialization
 evidence, full aggregation data and per-command videos remain in the run.
 
-The completed [four-round comparison video](../../build/neural-gait/a13dd6c6cff04289ae2bfdc612a8acc7/progress-video.mp4)
+The completed four-round comparison video (`../../build/neural-gait/a13dd6c6cff04289ae2bfdc612a8acc7/progress-video.mp4`)
 contains all eight command trials (136 s), including failed rounds. Selected
-[Forward](../../build/neural-gait/a13dd6c6cff04289ae2bfdc612a8acc7/clips/000000000-imitation000041000-round002-command1-trial1.mp4)
-and [Reverse](../../build/neural-gait/a13dd6c6cff04289ae2bfdc612a8acc7/clips/000000000-imitation000041000-round002-command2-trial1.mp4)
+Forward (`../../build/neural-gait/a13dd6c6cff04289ae2bfdc612a8acc7/clips/000000000-imitation000041000-round002-command1-trial1.mp4`)
+and Reverse (`../../build/neural-gait/a13dd6c6cff04289ae2bfdc612a8acc7/clips/000000000-imitation000041000-round002-command2-trial1.mp4`)
 clips each contain 16 simulated seconds plus a one-second final display hold;
 clean counterparts are retained. The goal remains active and physical execution
 has not been enabled.
@@ -9433,8 +9433,8 @@ The raw samples, diagnostic script and explicit limitations are preserved. These
 results must not be supplied as valid physical distance labels or used to claim
 that camera/contact-assisted state estimation is already implemented.
 
-Saved footage: [Forward → Reverse → Forward](../../build/neural-gait/guided-steps/outcome-transitions-32768/clips/outcome-008192-command1-trial1.mp4)
-and [Reverse → Forward → Reverse](../../build/neural-gait/guided-steps/outcome-transitions-32768/clips/outcome-008192-command2-trial1.mp4).
+Saved footage: Forward → Reverse → Forward (`../../build/neural-gait/guided-steps/outcome-transitions-32768/clips/outcome-008192-command1-trial1.mp4`)
+and Reverse → Forward → Reverse (`../../build/neural-gait/guided-steps/outcome-transitions-32768/clips/outcome-008192-command2-trial1.mp4`).
 Each labelled/clean pair is 49 seconds at 1280×720, including the one-second
 presentation hold. Both replays exactly match their evaluated displacement and
 heading; the command overlay was visually inspected after a direction change.
@@ -9535,7 +9535,7 @@ comparison should emphasize direction changes from diverse already-moving states
 while retaining complete Forward/Reverse transition evaluation; it should not
 add another prescribed cyclic teacher.
 
-The [rejected-candidate video](../../build/neural-gait/guided-steps/outcome-transitions-32768/actor-normalized/clips/failed-normalized-016384-command1-trial1.mp4)
+The rejected-candidate video (`../../build/neural-gait/guided-steps/outcome-transitions-32768/actor-normalized/clips/failed-normalized-016384-command1-trial1.mp4`)
 shows the complete 48-second Forward/Reverse/Forward trial, plus the one-second
 presentation hold. Its clean counterpart is retained. Both files are 1280×720,
 1,225 frames, and replay exactly the evaluated displacement and heading. The
@@ -9639,7 +9639,7 @@ consolidation with narrower exploration while preserving the learned actor,
 critic and optimizer. No follow-on training choice is implied before this
 comparison finishes.
 
-[Matched learning curves](../../build/neural-gait/guided-steps/outcome-transitions-32768/matched-learning-curves.png)
+Matched learning curves (`../../build/neural-gait/guided-steps/outcome-transitions-32768/matched-learning-curves.png`)
 show return, weakest requested-direction segment, heading deviation and contact
 slip against **additional** training transitions. The figure now contains both completed budgets. A separate evaluation probes 12- and
 20-second command switches for the source and both 16,384-step candidates;
@@ -9677,7 +9677,7 @@ useful deterministic actions. This is an outcome-training change, not new
 prescribed leg patterns. The maintained training owner is being extended to
 resume PPO so continued work no longer depends on a disposable experiment driver.
 
-[Adaptive Forward/Reverse/Forward video](../../build/neural-gait/guided-steps/outcome-transitions-32768/adaptive-exploration/clips/adaptive-016384-command1-trial1.mp4)
+Adaptive Forward/Reverse/Forward video (`../../build/neural-gait/guided-steps/outcome-transitions-32768/adaptive-exploration/clips/adaptive-016384-command1-trial1.mp4`)
 is 49 seconds including the one-second presentation hold, 1,225 frames at
 1280×720. Its clean counterpart is retained. Replay displacement, heading and
 command segments match the saved evaluation exactly; the Reverse overlay was
@@ -11624,7 +11624,7 @@ through the **`body_control`** backend, confirming they are not `direct`-backend
 artifacts. Forward retained 80% (29.8 → 24.0 mm/s), reverse 109% and 96%, turns 81%
 and 112%.
 
-Five tests were added as `GuidedTeacherTests` in `Emulator/tests/test_neural_gait.py`,
+Five tests were added as `GuidedTeacherTests` in `tests/test_neural_gait.py`,
 using synthesized waveforms so they do not depend on the gitignored `build/` tree:
 exact reconstruction including the startup ramp, per-leg asymmetry preservation,
 requested-period re-timing, action-envelope rejection before any simulator is
@@ -13004,8 +13004,8 @@ Body Control, with the actual V2 body geometry and defensible hardware/contact
 physics. Merely rendering a robot or providing plausible sensor numbers does
 not satisfy that requirement.
 
-Inspected `/home/greggles/Desktop/Ainekio in MegaMeal.desktop` and its target
-`/home/greggles/Documents/Codex/2026-10-28/task/ainekio-megameal/`:
+Inspected `~/Desktop/Ainekio in MegaMeal.desktop` and its target
+`~/Documents/Codex/2026-10-28/task/ainekio-megameal/`:
 
 - This is a standalone Three.js/MuJoCo prototype using a frozen Ainekio source
   copy and a copied MegaMeal room, not a connection to the running game or Body
@@ -13396,7 +13396,7 @@ work described above remains unfinished.
   Stop/replacement/recovery and asynchronous sensing. Host policy activation
   itself requires no firmware flash.
 - **Normal checks:**
-  `PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests:. MUJOCO_GL=egl build/gait-training-env/bin/python -m unittest Emulator.tests.test_neural_gait Emulator.tests.test_neural_gait_sensors Emulator.tests.test_depth_motion`.
+  `PYTHONPATH=Master:Slave/software:.:tests:. MUJOCO_GL=egl build/gait-training-env/bin/python -m unittest tests.test_neural_gait tests.test_neural_gait_sensors tests.test_depth_motion`.
   Run affected gateway/paired lifecycle checks when changing those handoffs; do not
   claim unrelated checks passed. OpenCV was added to the existing training venv
   for the camera suite and recorded in the existing gait-training requirements;

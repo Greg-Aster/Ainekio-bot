@@ -119,8 +119,6 @@ def library():
     lib.simulation_walk_configure.argtypes = [
         ctypes.c_void_p,
         ARRAY,
-        ARRAY,
-        ctypes.c_int,
     ]
     lib.simulation_walk_accept.argtypes = [
         ctypes.c_void_p,
@@ -131,8 +129,6 @@ def library():
         ctypes.c_void_p,
         ctypes.c_double,
         ARRAY,
-        ARRAY,
-        ctypes.c_int,
         ARRAY,
     ]
     lib.virtual_body_reset.argtypes = [ctypes.c_void_p, ARRAY, ARRAY, ctypes.c_uint64]
@@ -366,25 +362,15 @@ class BodyModel:
         heading_enabled,
         balance_enabled,
         tuning=(1.0, 1.0, 0.0, 0.0),
-        model=None,
-        amount=1.0,
     ):
-        """Reset offline WALK state, with explicit controller settings.
-
-        Optional model is 237 floats in production struct order: phase(60),
-        feedback(96), command(48), gait profile(33). This replays the policy
-        math only; it does not claim saved-model admission/signature parity.
-        """
+        """Reset offline WALK state, with explicit controller settings."""
         settings = finite_array(
-            [speed_deg_s, heading_enabled, balance_enabled, *tuning, amount], 8
+            [speed_deg_s, heading_enabled, balance_enabled, *tuning], 7
         )
-        coefficients = np.zeros(237) if model is None else finite_array(model, 237)
         with WALK_LOCK:
-            valid = self.lib.simulation_walk_configure(
-                self.state, settings, coefficients, model is not None
-            )
+            valid = self.lib.simulation_walk_configure(self.state, settings)
         if not valid:
-            raise ValueError("Invalid production WALK settings or gait profile")
+            raise ValueError("Invalid production WALK settings")
 
     def walk_accept(self, command, now_us):
         """Decode the actual intent wire format and admit/update existing WALK.
@@ -398,32 +384,21 @@ class BodyModel:
         with WALK_LOCK:
             return bool(self.lib.simulation_walk_accept(self.state, encoded, now_us))
 
-    def walk_tick(
-        self, now_us, previous_angles, *, learning_input=None, learning_usable=False
-    ):
-        """Advance production WALK/balance/optional policy, using estimated IMU.
+    def walk_tick(self, now_us, previous_angles):
+        """Advance production WALK/balance, using estimated IMU.
 
         previous_angles is the last commanded output, not measured feedback.
-        learning_input, when supplied, is 4x8 timestamp-aligned policy features
-        from the caller's replay, not simulated true contact/pose information.
         Predicted grounded states follow physical rear-left/rear-right/front-left/front-right
         order (CAD FL/FR/RL/RR, as declared by the existing model.json).
         """
         if not math.isfinite(now_us) or now_us < 0:
             raise ValueError("WALK timestamp must be finite and nonnegative")
-        features = (
-            np.zeros(32)
-            if learning_input is None
-            else finite_array(np.asarray(learning_input).reshape(-1), 32)
-        )
-        out = np.zeros(80)
+        out = np.zeros(66)
         with WALK_LOCK:
             valid = self.lib.simulation_walk_tick(
                 self.state,
                 now_us,
                 finite_array(previous_angles, 12),
-                features,
-                learning_usable,
                 out,
             )
         if not valid:
@@ -431,14 +406,13 @@ class BodyModel:
         result = dict(
             nominal_angles=out[:12],
             balanced_angles=out[12:24],
-            applied_angles=out[24:36],
-            mapped_angles=out[36:48],
-            phase=out[48],
-            run_blend=out[49],
-            predicted_grounded=out[50:54].astype(bool),
-            command_features=out[54:58],
-            body_mm=out[74:77],
-            euler_rad=out[77:80],
+            mapped_angles=out[24:36],
+            phase=out[36],
+            run_blend=out[37],
+            predicted_grounded=out[38:42].astype(bool),
+            command_features=out[42:46],
+            body_mm=out[60:63],
+            euler_rad=out[63:66],
         )
         names = (
             "complete",
@@ -450,8 +424,6 @@ class BodyModel:
             "balance_usable",
             "balance_reduced",
             "imu_usable",
-            "learning_blend",
-            "learning_fit",
             "command_sequence",
             "latest_sequence",
             "last_us",
@@ -468,7 +440,7 @@ class BodyModel:
             "balance_reduced",
             "imu_usable",
         }
-        for key, value in zip(names, out[58:74]):
+        for key, value in zip(names, out[46:60]):
             result[key] = bool(value) if key in bool_keys else float(value)
         return result
 

@@ -6,25 +6,13 @@ target_link_libraries(test_speech_gate PRIVATE ainekio_core)
 target_include_directories(test_speech_gate PRIVATE ../components/ainekio_p4_media ../../../software/core/include)
 target_compile_options(test_speech_gate PRIVATE -Wall -Wextra -Werror -Wpedantic -UNDEBUG)
 add_test(NAME speech_recording_gate COMMAND test_speech_gate)
-add_executable(test_gait_trace test_gait_trace.c ../main/gait_trace.c)
-target_include_directories(test_gait_trace PRIVATE ../main)
-target_link_libraries(test_gait_trace PRIVATE ainekio_imu)
-target_compile_options(test_gait_trace PRIVATE -Wall -Wextra -Werror -Wpedantic -UNDEBUG)
-add_test(NAME gait_trace_ring COMMAND test_gait_trace)
-set(TRACE_JSON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../managed_components/espressif__cjson/cJSON")
-add_executable(test_idle_rest test_idle_rest.c "${TRACE_JSON_DIR}/cJSON.c")
+set(CJSON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../managed_components/espressif__cjson/cJSON")
+add_executable(test_idle_rest test_idle_rest.c "${CJSON_DIR}/cJSON.c")
 target_include_directories(test_idle_rest PRIVATE ota_shim body_shim ../main
-    ../components/ainekio_pca9685/include "${TRACE_JSON_DIR}")
+    ../components/ainekio_pca9685/include "${CJSON_DIR}")
 target_link_libraries(test_idle_rest PRIVATE ainekio_v2_motion m)
 target_compile_options(test_idle_rest PRIVATE -Wall -Wextra -Werror -UNDEBUG)
 add_test(NAME idle_rest_settings COMMAND test_idle_rest)
-
-add_executable(test_gait_trace_runtime test_gait_trace_runtime.c ../main/gait_trace.c "${TRACE_JSON_DIR}/cJSON.c")
-target_include_directories(test_gait_trace_runtime PRIVATE trace_shim ota_shim body_shim ../main
-    ../components/ainekio_p4_media/include ../components/ainekio_pca9685/include "${TRACE_JSON_DIR}")
-target_link_libraries(test_gait_trace_runtime PRIVATE ainekio_imu ainekio_v2_motion ainekio_faces m)
-target_compile_options(test_gait_trace_runtime PRIVATE -Wall -Wextra -Werror -UNDEBUG)
-add_test(NAME gait_trace_http COMMAND test_gait_trace_runtime)
 
 add_executable(test_servo_feedback test_servo_feedback.c ../main/servo_feedback_model.c)
 target_include_directories(test_servo_feedback PRIVATE ../main)
@@ -39,8 +27,8 @@ target_link_libraries(test_servo_feedback_position PRIVATE m)
 target_compile_options(test_servo_feedback_position PRIVATE -Wall -Wextra -Werror -Wpedantic -UNDEBUG)
 add_test(NAME servo_feedback_measured_arrival COMMAND test_servo_feedback_position)
 add_compile_options(-UNDEBUG) # Assertions must execute in optimized test builds.
-add_executable(test_imu_telemetry test_imu_telemetry.c ../main/imu_telemetry.c "${TRACE_JSON_DIR}/cJSON.c")
-target_include_directories(test_imu_telemetry PRIVATE ../main imu_shim body_shim "${TRACE_JSON_DIR}"
+add_executable(test_imu_telemetry test_imu_telemetry.c ../main/imu_telemetry.c "${CJSON_DIR}/cJSON.c")
+target_include_directories(test_imu_telemetry PRIVATE ../main imu_shim body_shim "${CJSON_DIR}"
     ../components/ainekio_p4_media/include ../components/ainekio_pca9685/include
     ../../../software/core/include)
 target_link_libraries(test_imu_telemetry PRIVATE ainekio_imu ainekio_v2_motion)
@@ -53,8 +41,8 @@ target_compile_options(test_video_avi PRIVATE -Wall -Wextra -Werror)
 add_test(NAME video_avi COMMAND test_video_avi)
 
 add_executable(test_ota test_ota.c)
-target_sources(test_ota PRIVATE ../main/trajectory_program.c "${TRACE_JSON_DIR}/cJSON.c")
-target_include_directories(test_ota PRIVATE "${TRACE_JSON_DIR}")
+target_sources(test_ota PRIVATE ../main/trajectory_program.c "${CJSON_DIR}/cJSON.c")
+target_include_directories(test_ota PRIVATE "${CJSON_DIR}")
 target_include_directories(test_ota PRIVATE ota_shim body_shim ../main
     ../components/ainekio_pca9685/include ../components/ainekio_p4_media/include)
 target_link_libraries(test_ota PRIVATE ainekio_v2_motion ainekio_faces)
@@ -110,8 +98,8 @@ target_link_libraries(test_connection_screen PRIVATE ainekio_faces)
 target_compile_options(test_connection_screen PRIVATE -Wall -Wextra -Werror -Wpedantic)
 add_test(NAME lcd_connection_guidance COMMAND test_connection_screen)
 add_executable(test_body test_body.c ../main/joint_calibration.c ../main/controller_motion.c)
-target_sources(test_body PRIVATE ../main/trajectory_program.c "${TRACE_JSON_DIR}/cJSON.c")
-target_include_directories(test_body PRIVATE "${TRACE_JSON_DIR}")
+target_sources(test_body PRIVATE ../main/trajectory_program.c "${CJSON_DIR}/cJSON.c")
+target_include_directories(test_body PRIVATE "${CJSON_DIR}")
 target_include_directories(test_body PRIVATE body_shim
     "../components/ainekio_pca9685/include" "../components/ainekio_p4_media/include")
 target_link_libraries(test_body PRIVATE ainekio_v2_motion ainekio_imu m)
@@ -163,13 +151,9 @@ target_include_directories(test_gateway_discovery PRIVATE discovery_shim camera_
 target_compile_options(test_gateway_discovery PRIVATE -Wall -Wextra -Werror -Wpedantic)
 add_test(NAME shared_gateway_discovery COMMAND test_gateway_discovery)
 
-add_executable(preview_gait_learning ../tools/preview_gait_learning.c ../main/joint_calibration.c)
-target_include_directories(preview_gait_learning PRIVATE ../main)
-target_link_libraries(preview_gait_learning PRIVATE ainekio_v2_motion m)
-
 # Real storage admission/worker owners with an in-memory SDK port and temporary files.
 add_executable(test_storage_record test_storage_record.c ../main/video_avi.c)
-target_include_directories(test_storage_record PRIVATE storage_shim ota_shim body_shim trace_shim ../main)
+target_include_directories(test_storage_record PRIVATE storage_shim ota_shim body_shim ../main)
 target_compile_options(test_storage_record PRIVATE -Wall -Wextra -Werror -UNDEBUG -D_DEFAULT_SOURCE
     -ffunction-sections -fdata-sections)
 target_link_options(test_storage_record PRIVATE -Wl,--gc-sections)

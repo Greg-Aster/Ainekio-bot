@@ -26,7 +26,7 @@ Source code establishes software implementation; recorded board markings, saved 
 
 | Document | Scope |
 | --- | --- |
-| [Repository Map](REPOSITORY_MAP.md) | Source ownership across `Master/`, `Slave/`, `experiments/freestyle/`, `Emulator/`, and `docs/` |
+| [Repository Map](REPOSITORY_MAP.md) | Source ownership across `Master/`, `Slave/`, `experiments/freestyle/`, `tests/`, and `docs/` |
 | [Robot Models](ROBOT_MODELS.md) | V1 (`v1-8servo`) and V2 (`v2-12servo`) architectural separation and compatibility rules |
 | [Startup Runbook](STARTUP.md) | Starting physical Body Control alongside local or remote Ainekio OS |
 | [V2 Specifications](v2-12servo/SPECIFICATIONS.md) | Active 12-servo ESP32-P4 hardware, CAD dimensions, 4th-wire feedback map, power, and network topology |

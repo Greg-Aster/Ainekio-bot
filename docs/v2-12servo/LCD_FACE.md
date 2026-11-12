@@ -140,14 +140,14 @@ the new version, OTA `accepted`, running/boot `ota_0`, `pending_verify=false`,
 The `face_feedback_v1` source extension uses the existing renderer and library
 for both movement expressions and standalone expressions. There is one active
 manual/feedback selection: a new set replaces it. A configurable robot-local
-timeout returns to the underlying face even if MetaHuman stops responding.
+timeout returns to the underlying face even if Ainekio OS stops responding.
 Release messages identify their own selection; obsolete release or conditional
 error messages cannot clear/replace a newer one.
 
 Listening follows the actual microphone capture state. Background processing
 faces yield to actual speaker playback and motion cues, then reappear between
 activities until released or expired. Existing network/gateway connection pages
-retain priority. MetaHuman's graph dropdowns select processing and failure faces
+retain priority. Ainekio OS's graph dropdowns select processing and failure faces
 from Body Control's generated catalog. See the
 [wire contract](../../Slave/software/protocol/README.md#timed-display-expressions).
 This extension requires updated P4 firmware; source/native tests alone do not

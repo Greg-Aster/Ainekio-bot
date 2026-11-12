@@ -15,27 +15,38 @@ from .compact_wire import latest_correction, joint_progress
 from .recordings import read_records
 from .observations import feedback_geometry
 from .program import JOINTS, calibrated_positions, compile_motion, packets, gait_intents
+from .neural_pose.executor import NeuralPoseRuntime, execute_neural_pose_program
 
 OWNER = contextvars.ContextVar('freestyle_job', default=None)
 
 
-def recovery_has_motion_owner(snapshot):
+def recovery_has_motion_owner(snapshot, active_job=None):
     """Recovery cannot undo a later Stop, Release or manual control handoff.
 
     Use the gateway's existing command ownership, not a separate stop latch.
     An explicit new motion changes that owner through ordinary admission.
     """
     command = snapshot.get('body_command') or {}
+    if (
+        isinstance(active_job, dict)
+        and active_job.get('neural_pose_hold_seq') is not None
+        and command.get('t') == 'stop'
+        and not command.get('detach')
+        and command.get('seq') == active_job['neural_pose_hold_seq']
+    ):
+        return True
     return command.get('t') not in ('stop', 'state', 'mode', 'calibration')
 
 
 class Bridge:
     def __init__(self, gateway, transport, generate=async_remote_generate, *, recorder=None, settings_path=None,
-                 compiler=None):
+                 compiler=None, neural_pose_runtime=None):
         self.gateway, self.transport, self.generate = gateway, transport, generate
         self.settings, self.jobs, self.tasks, self.active = {}, {}, {}, {}
         self.connection_changes = {}
+        self._custom_compiler = compiler is not None
         self.compiler = compiler or self._compile_motion
+        self.neural_pose = neural_pose_runtime or NeuralPoseRuntime()
         self.compiler_pool = None
         self.trajectory_cleanups = set()
         self.recorder = recorder
@@ -107,7 +118,17 @@ class Bridge:
                      'latest_generation':job['programs'][-1] if job['programs'] else None,
                      'completed_commands':len(job['receipts'])} for key,job in self.jobs.items()}
         return {'settings':copy.deepcopy(self.settings), 'jobs':copy.deepcopy(jobs),
+                'neural_pose_active':bool(self.neural_pose.load() is not None),
                 'recording':self.recorder.status() if self.recorder else {'enabled':False}}
+
+    def _use_neural_pose(self, obs):
+        return (
+            not self._custom_compiler
+            and 'walk_nominal_v1' in obs.get('features', [])
+            and hasattr(self.gateway, 'body_sensor_observation')
+            and hasattr(self.gateway, '_connection')
+            and self.neural_pose.load() is not None
+        )
 
     def record(self, job, kind, payload, sequence=None):
         if self.recorder:
@@ -436,7 +457,8 @@ class Bridge:
                       'event_id':original_event.get('event_id'),'epoch':original_event.get('epoch')}
                      if original_event and original_event.get('name')=='body_event' else original_event)
             obs = await self.connected_observation(job)
-            if job['event'] and not recovery_has_motion_owner({'body_command':obs.get('action')}):
+            owner_job = self.jobs.get(job.get('recovery_owner') or self.active.get(robot))
+            if job['event'] and not recovery_has_motion_owner({'body_command':obs.get('action')}, owner_job):
                 job['state']='superseded'
                 return
             expected = (job.get('event') or {}).get('data', {}).get('command_sequence')
@@ -474,6 +496,18 @@ class Bridge:
             job['observation'] = obs
             job['state']='executing'
             program = result['program']
+            if self._use_neural_pose(obs):
+                obs = await execute_neural_pose_program(
+                    self,
+                    job,
+                    program,
+                    obs,
+                    generation_index=generation_index,
+                    sequence_options=dict(sequence_options),
+                    runtime=self.neural_pose,
+                )
+                job['state'] = 'completed_section' if job.get('start_index', 0) else 'completed'
+                return
             planned = None
             planning_epoch = obs['epoch']
             for index in range(job.get('start_index',0),len(program)):
@@ -719,7 +753,8 @@ class Bridge:
         snapshot=(await self.gateway.status_snapshot())['robots'].get(robot)
         if snapshot is None or event.get('epoch',snapshot['epoch'])!=snapshot['epoch']:
             return
-        if not recovery_has_motion_owner(snapshot):
+        active_job=self.jobs.get(self.active.get(robot))
+        if not recovery_has_motion_owner(snapshot, active_job):
             return
         sequence=data.get('command_sequence')
         if sequence and sequence!=snapshot.get('body_command_sequence'):

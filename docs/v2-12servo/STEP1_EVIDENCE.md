@@ -48,7 +48,7 @@ NVS/PHY offsets are retained; firmware does not erase NVS on an error.
   diagnostic submission using existing authentication/session/result ownership.
   `dashboard/server.py` adds an authenticated operator route;
   `environment_adapter/server.py` suppresses unready motion/media features.
-- `Emulator/tests/test_p4_foundation.py`: compatibility, deadlines, correlation,
+- `tests/test_p4_foundation.py`: compatibility, deadlines, correlation,
   capability and validation checks. Documentation records Q6A placement/USB/power
   constraints without creating Q6A services or extracting the broad S3 runtime.
 
@@ -62,7 +62,7 @@ Build instructions, including the C6 image, are in the
 The actual final P4 flash command ran from its `build/` directory:
 
 ```bash
-/home/greggles/.espressif/python_env/idf5.5_py3.12_env/bin/python -m esptool \
+~/.espressif/python_env/idf5.5_py3.12_env/bin/python -m esptool \
   --chip esp32p4 \
   --port /dev/serial/by-id/usb-1a86_USB_Single_Serial_5B90184020-if00 \
   --baud 921600 --before default_reset --after hard_reset write_flash @flash_args
@@ -92,17 +92,17 @@ cmake --build /tmp/ainekio-p4-core-tests -j4
 cmake -S Slave/firmware/esp32p4-wifi6/components/ainekio_pca9685 -B /tmp/ainekio-p4-driver-tests
 cmake --build /tmp/ainekio-p4-driver-tests -j4
 /usr/bin/ctest --test-dir /tmp/ainekio-p4-driver-tests --output-on-failure
-PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests python3 -m unittest \
-  Emulator.tests.test_gateway_service Emulator.tests.test_gateway_dashboard \
-  Emulator.tests.test_environment_adapter Emulator.tests.test_environment_speech \
-  Emulator.tests.test_environment_command_catalog Emulator.tests.test_action_receipts \
-  Emulator.tests.test_p4_foundation
+PYTHONPATH=Master:Slave/software:.:tests python3 -m unittest \
+  tests.test_gateway_service tests.test_gateway_dashboard \
+  tests.test_environment_adapter tests.test_environment_speech \
+  tests.test_environment_command_catalog tests.test_action_receipts \
+  tests.test_p4_foundation
 PYTHONPATH=Slave/software python3 -m unittest discover -s Slave/software/tests/protocol -v
 ```
 
 Socket tests require local loopback access. An initial sandboxed run could not
 bind sockets; the complete affected suite was rerun with access. The corrected
-import path includes `Emulator/tests` for the existing receipt test helper.
+import path includes `tests` for the existing receipt test helper.
 
 ## Live board/network evidence
 

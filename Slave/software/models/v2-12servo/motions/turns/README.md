@@ -23,12 +23,11 @@ the duration; sampling never loops or resets the joints to zero.
 
 ## Provenance and ownership
 
-The [2026-09-15 handoff archive](../../../../../../docs/TURN_COMMANDS_12SERVO.md)
-remains preserved as historical choreography. This directory retains historical
+The [2026-09-15 task-space choreography inputs](../../../../../../docs/gait-research/README.md)
+remain preserved under `docs/gait-research/turn-commands-20260915/commands/`. This directory retains historical
 turn sources: all 22,088 body/foot/contact/twelve-joint samples were solved
 again against the present linkage and sole geometry. Updated manifests,
-configurations, schemas and reports bind the rebuilt sources. Original CSVs,
-previews and Blender files remain with the research package.
+configurations, schemas and reports bind the rebuilt sources.
 
 The geometry hash matches the model's existing `geometry.json`. `catalog.json`
 and each manifest pin the full JSON source. The original import checked source/geometry
@@ -82,17 +81,17 @@ Reproduce software checks from the repository root:
 cmake -S Slave/software/models/v2-12servo -B /tmp/ainekio-v2-turn-integration-tests
 cmake --build /tmp/ainekio-v2-turn-integration-tests -j4
 /usr/bin/ctest --test-dir /tmp/ainekio-v2-turn-integration-tests --output-on-failure
-PYTHONPATH=Master:Slave/software:Emulator:Emulator/tests:. python3 -m unittest \
-  Emulator.tests.test_gateway_service Emulator.tests.test_gateway_dashboard \
-  Emulator.tests.test_environment_adapter Emulator.tests.test_environment_command_catalog \
-  Emulator.tests.test_action_receipts Emulator.tests.test_p4_foundation \
-  Emulator.tests.test_v2_commands
-PYTHONPATH=Master:Slave/software:Emulator:. python3 -m unittest discover \
+PYTHONPATH=Master:Slave/software:.:tests python3 -m unittest \
+  tests.test_gateway_service tests.test_gateway_dashboard \
+  tests.test_environment_adapter tests.test_environment_command_catalog \
+  tests.test_action_receipts tests.test_p4_foundation \
+  tests.test_v2_commands
+PYTHONPATH=Master:Slave/software:. python3 -m unittest discover \
   -s Slave/software/tests/protocol -v
 node --check Master/gateway/dashboard/static/dashboard.js
 ```
 
-The initial affected-suite invocation omitted `Emulator/tests` from PYTHONPATH;
+The initial affected-suite invocation omitted `tests` from PYTHONPATH;
 75 tests passed and the receipt module failed to import its existing helper.
 The receipt suite then passed all 15 tests with the corrected path and host
 loopback access. The sandboxed socket run was stopped; it is not reported as a
@@ -101,7 +100,7 @@ pass. Numerical interpolation tolerances are not physical acceptance limits.
 Exact build and application flash commands used:
 
 ```bash
-source /home/greggles/esp/esp-idf-v5.5.4/export.sh
+source ~/esp/esp-idf-v5.5.4/export.sh
 cd Slave/firmware/esp32p4-wifi6
 idf.py -B build -D IDF_TARGET=esp32p4 build
 idf.py -B build \

@@ -1,7 +1,7 @@
 """Measure exact native tokenization and prepare the existing trainer's config.
 
 This loads a tokenizer, not model weights. The caller supplies the shared text
-trainer path; the experiment never edits MetaHuman or its model assignments.
+trainer path; the experiment never edits Ainekio OS or its model assignments.
 """
 from __future__ import annotations
 
@@ -10,7 +10,10 @@ import importlib.util
 import json
 from pathlib import Path
 
-from runtime import compact
+try:
+    from .runtime import compact
+except ImportError:
+    from runtime import compact
 
 
 def prepare(dataset, trainer_path, base, revision):

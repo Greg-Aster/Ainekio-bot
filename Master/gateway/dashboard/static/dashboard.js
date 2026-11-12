@@ -333,14 +333,8 @@
     return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
   }
 
-  function setupPrimaryView() {
-    if (document.body.dataset.dashboardPrimary !== "simulator") return;
-    const frame = byId("simulator-frame");
-    frame.src = frame.dataset.src;
-  }
-
   async function runCameraView() {
-    if (document.body.dataset.dashboardPrimary !== "camera" || cameraViewActive) return;
+    if (cameraViewActive) return;
     cameraViewActive = true;
     while (cameraViewActive) {
       const robotId = selectedRobotId;
@@ -1067,11 +1061,6 @@
   }
 
   function renderBalance() {
-    const learningSupported = (balanceEntry?.features || []).includes("gait_learning_v1");
-    byId("learned-controls").hidden = !learningSupported;
-    if (learnedRobot && learnedRobot !== selectedRobotId) { learnedCandidate=null;learnedRobot=null;byId("learned-install").disabled=true; }
-    if (learningSupported && Date.now()-learnedReadAt>5000) readLearning();
-    if (learningSupported && balanceEntry?.gait_training) renderGaitTraining(balanceEntry.gait_training);
     const walking = balanceSupported && (balanceEntry?.features || []).includes("walking_feedback_v1");
     byId("walking-feedback-controls").hidden = !walking;
     byId("walking-feedback-enabled").disabled = !walking || !balanceData || balanceBusy;
@@ -1102,115 +1091,6 @@
       text("cockpit-walking-feedback-state", !walking ? "Unavailable on this body" : !balanceData ? "Reading…" :
         balanceData.walking_enabled ? "On · IMU heading hold active" : "Off");
     }
-  }
-
-  let learnedCandidate = null, learnedRobot = null, learnedReadAt = 0, learnedReading = false;
-  function downloadLearning(name, value) {
-    const url = URL.createObjectURL(new Blob([value], {type: "application/json"}));
-    const link = document.createElement("a"); link.href = url; link.download = name;
-    document.body.appendChild(link); link.click(); link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-  async function readLearning(syncForm = false) {
-    const robot = selectedRobotId;
-    if (learnedReading) return;
-    learnedReading = true; learnedReadAt = Date.now();
-    try {
-      const data = await request(maintenanceUrl("gait-learning", robot));
-      if (robot !== selectedRobotId) return;
-      if (learnedRobot !== robot || syncForm) {
-        learnedRobot = robot;
-        byId("learned-enabled").value = String(data.enabled);
-        byId("learned-amount").value = String(Math.round(data.amount*100));
-      }
-      const lines = [`${data.enabled ? "Enabled" : "Off"} · model ${data.model_id ? data.model_id.slice(0,12) : "not installed"} · trained stride ${data.stride}%${data.model_saved === false ? " · temporary (not saved)" : ""}`,
-        ["gait_learning_v3", "gait_learning_v4"].includes(data.model_schema) ? `Sensor-conditioned policy · live inputs ${data.policy_input_usable ? "available" : "unavailable"}${data.model_schema === "gait_learning_v4" ? " · gait shape selected at Walk start" : ""}` : "Phase-only trajectory model",
-        `Last walking observation: ${data.reason.replaceAll("_", " ")} · applied ${Math.round(data.blend*100)}% · correction fit ${Math.round(data.fit*100)}%${data.range_reduced ? " · learned addition reduced at travel boundary" : ""}`,
-        "Foot tracking error (mm, body x/y/z; inferred from shaft positions):"];
-      ["Rear left", "Rear right", "Front left", "Front right"].forEach((name, l) => {
-        lines.push(`${name}${data.leg_fit ? ` (correction ${Math.round(data.leg_fit[l]*100)}%)` : ""}: ${data.valid_legs & (1<<l) ? data.error_mm.slice(3*l,3*l+3).map(v=>v.toFixed(1)).join(" / ") : "measurement unavailable"}`);
-      });
-      text("learned-live", lines.join("\n"));
-    } catch(error) { if (robot === selectedRobotId) text("learned-live", error.message); }
-    finally { learnedReading = false; }
-  }
-  let gaitTrainingRobot = null;
-  let gaitHistoryView = null;
-  function renderGaitTraining(data, syncForm = false) {
-    if (!data) return;
-    if (gaitTrainingRobot !== selectedRobotId || syncForm) {
-      gaitTrainingRobot = selectedRobotId;
-      byId("gait-log-enabled").checked = !!data.settings.logging;
-      byId("gait-train-enabled").checked = !!data.settings.learning;
-      byId("gait-training-radii").value = JSON.stringify(data.settings.radii || {
-        duty:.03,sweep_mm:8,front_lift_mm:4,rear_lift_mm:4,front_landing_mm:4,rear_landing_mm:4,height_mm:3,tilt_feedback_mm:1,joint_response_mm:1},null,2);
-    }
-    const lines = [`${data.state} · ${data.records} records · ${data.lost_records} lost records`,
-      `Observation windows: forward ${data.coverage.forward}, backward ${data.coverage.backward}, turning ${data.coverage.turning}, Run ${data.coverage.run}`,
-      data.analysis_running ? "Analysis running on this computer." : "Analysis idle.",
-      `Data: ${data.directory}`];
-    if (data.measurement_reason) lines.push(`Measurement: ${data.measurement_reason}`);
-    if (data.analysis_note) lines.push(data.analysis_note);
-    if (data.error) lines.push(`Error: ${data.error}`);
-    const history = byId("gait-training-history"), selected = history.value;
-    history.replaceChildren();
-    for (const [gait,bank] of Object.entries(data.banks || {})) {
-      lines.push(`${gait}: generation ${bank.generation}; ${bank.observations} scored windows; ${bank.converged ? "plateau in tested contexts" : "collecting/evaluating"}; best ${bank.incumbent.slice(0,12)}`);
-      if (bank.proposal) lines.push(`${gait}: analyzed proposal ${bank.proposal.slice(0,12)} (not installed)`);
-      if (bank.fitting) lines.push(`${gait}: ${Math.round(bank.fitting.scale*100)}% of proposed change fits ${bank.fitting.conditions} recorded command conditions; physical loading remains untested.`);
-      const ids = new Set([bank.incumbent,...bank.history.filter(h=>h.promoted).map(h=>h.model.id)]);
-      for (const id of ids) {
-        const option = document.createElement("option");option.value = `${gait}:${id}`;
-        option.textContent = `${gait} · ${id.slice(0,12)}`;history.appendChild(option);
-      }
-    }
-    if ([...history.options].some(o=>o.value===selected)) history.value=selected;
-    text("gait-training-status",lines.join("\n"));
-  }
-  async function gaitTrainingOperation(op) {
-    const robot = selectedRobotId;
-    try {
-      const payload = {robot_id:robot,op};
-      if (op === "configure") payload.settings = {
-        logging:byId("gait-log-enabled").checked,learning:byId("gait-train-enabled").checked,
-        radii:JSON.parse(byId("gait-training-radii").value)};
-      if (op === "restore") [payload.gait,payload.model_id] = byId("gait-training-history").value.split(":");
-      const data = await request("/api/gait-learning/service",{method:"POST",body:JSON.stringify(payload)});
-      if (robot === selectedRobotId && data.settings) renderGaitTraining(data,true);
-    } catch(error) { if (robot === selectedRobotId) text("gait-training-status",error.message); }
-  }
-  async function learningOperation(op) {
-    const robot = selectedRobotId;
-    try {
-      let payload;
-      if (op === "install") {
-        if (!learnedCandidate || learnedCandidate.robot !== robot) throw new Error("Train or load a candidate for the selected robot first");
-        payload = {op, model: learnedCandidate.result.model};
-      } else payload = {op, enabled: byId("learned-enabled").value === "true", amount: Number(byId("learned-amount").value)/100};
-      await request(maintenanceUrl("gait-learning", robot), {method:"POST", body:JSON.stringify(payload)});
-      if (robot === selectedRobotId) { text("learned-result", op === "install" ? "Candidate saved on robot. Compare a recorded trial before claiming improvement." : "Learned correction setting saved."); await readLearning(true); }
-    } catch(error) { if (robot === selectedRobotId) text("learned-result", error.message); }
-  }
-  async function trainLearning() {
-    const robot = selectedRobotId;
-    try {
-      const file = byId("learned-file").files[0];
-      if (!file) throw new Error("Choose a trace.jsonl recording or an exported candidate JSON");
-      const content = await file.text();
-      let parsed; try { parsed = JSON.parse(content); } catch (_) {}
-      let result;
-      if (["gait_learning_v2", "gait_learning_v3", "gait_learning_v4"].includes(parsed?.model?.schema)) result = parsed;
-      else {
-        const batches = content.split(/\r?\n/).filter(s=>s.trim()).map(line=>JSON.parse(line));
-        // Training only needs tracking records; retain headers and loss receipts.
-        for (const batch of batches) batch.records = batch.records.filter((r,i,a) => i===0 || i===a.length-1 || r.kind==="tracking");
-        result = await request("/api/gait-learning/train", {method:"POST", body:JSON.stringify({batches,gain:Number(byId("learned-gain").value)})});
-      }
-      if (robot !== selectedRobotId) return;
-      learnedCandidate = {robot,result}; byId("learned-install").disabled = false;
-      text("learned-result", `Candidate ${result.model.id.slice(0,12)} · forward Walk at ${result.model.stride}%. Training fitted a trajectory correction; physical improvement is not yet demonstrated.`);
-      downloadLearning(`${robot}-learned-candidate.json`, JSON.stringify(result,null,2));
-    } catch(error) { if (robot === selectedRobotId) text("learned-result", error.message); }
   }
 
   function balanceAttitude(entry) {
@@ -1658,13 +1538,6 @@
     byId("balance-reference").addEventListener("click", captureBalanceReference);
     byId("balance-gyro-calibrate").addEventListener("click", calibrateBalanceGyro);
     byId("balance-read").addEventListener("click", () => operateBalance("get"));
-    byId("learned-read").addEventListener("click",()=>readLearning(true));
-    byId("learned-save").addEventListener("click",()=>learningOperation("configure"));
-    byId("learned-train").addEventListener("click",trainLearning);
-    byId("learned-install").addEventListener("click",()=>learningOperation("install"));
-    byId("gait-training-save").addEventListener("click",()=>gaitTrainingOperation("configure"));
-    byId("gait-training-analyze").addEventListener("click",()=>gaitTrainingOperation("analyze"));
-    byId("gait-training-restore").addEventListener("click",()=>gaitTrainingOperation("restore"));
     byId("walking-feedback-save").addEventListener("click", () => operateBalance("walking"));
     byId("balance-save").addEventListener("click", () => operateBalance("save"));
     byId("balance-enabled").addEventListener("change", balanceFormEdited);
@@ -3018,7 +2891,6 @@
         }
       }
       if (compact.matches) showSidebar(false, false);
-      if (name === "learning-history" || name === "neural-gait") gaitHistoryView?.refresh();
     }
 
     groups.forEach(group => {
@@ -3670,7 +3542,6 @@
               ? "Active · recovers from jams & falls"
               : "Off · manual recovery only");
           }
-          gaitHistoryView?.update(selectedRobotId, payload.robots?.[selectedRobotId]?.gait_training);
           window.renderFreestyleStatus?.(payload.freestyle, selectedRobotId);
           window.renderMotionLibraryStatus?.(payload.freestyle, selectedRobotId, payload.robots?.[selectedRobotId]);
           renderHostNetwork(payload.host_network);
@@ -4032,25 +3903,6 @@
         if (op === 'progress') { payload.op = 'render'; payload.progress = true; payload.model_id = model; }
         if (['load','render'].includes(op)) payload.model_id = model;
         if (op === 'load' && checkpointId !== null) payload.checkpoint_id = checkpointId;
-        if (op === 'physical-create') {
-          const environment = JSON.parse(byId('neural-gait-environment').value);
-          payload.environment = Object.fromEntries(['robot', 'reference_joint_deg', 'target_limits_deg',
-            'foot_action_scale_mm', 'joint_speed_deg_s', 'control_hz']
-            .filter(key => key in environment).map(key => [key, environment[key]]));
-        }
-        if (op === 'physical-train') {
-          payload.model_id = model;
-          payload.recordings = byId('neural-gait-physical-recordings').value.split(/\r?\n/).map(path => path.trim()).filter(Boolean);
-          payload.updates = Number(byId('neural-gait-physical-updates').value);
-          payload.device = 'cuda';
-          if (!payload.recordings.length) throw new Error('Enter at least one recording directory.');
-          if (!Number.isInteger(payload.updates) || payload.updates <= 0)
-            throw new Error('Training updates must be a positive whole number.');
-        }
-        if (op === 'physical-trial') {
-          payload.speed = Number(byId('neural-gait-physical-speed').value);
-          payload.dir = 'fwd';
-        }
         if (op === 'train' || op === 'resume') {
           payload.op = 'train';
           payload.steps = Number(byId('neural-gait-steps').value);
@@ -4058,21 +3910,12 @@
           else {
             payload.recipe = 'microduck-mjlab-v1';
             payload.workers = Number(byId('neural-gait-workers').value);
-            if (byId('neural-gait-commands').value.trim())
-              payload.commands = JSON.parse(byId('neural-gait-commands').value);
             if (byId('neural-gait-environment').value.trim())
               payload.environment = JSON.parse(byId('neural-gait-environment').value);
           }
         }
         const result = await request('/api/neural-gait', {method:'POST', body:JSON.stringify(payload)});
         if (robotId && selectedRobotId && selectedRobotId !== robotId) return;
-        if (op.startsWith('physical-')) {
-          text('neural-gait-physical-result', op === 'physical-create'
-            ? `Created physical run ${result.run_id}. Select its actor to use it. No movement started.`
-            : op === 'physical-train'
-              ? `Physical training: ${result.state}. The active actor is unchanged.`
-              : 'Recorded learning Walk submitted. Use Finish, Stop or Release to end movement.');
-        }
         if (op === 'preview') {
           text('neural-gait-prediction', JSON.stringify(result, null, 2));
           return;
@@ -4093,13 +3936,10 @@
         const select = byId('neural-gait-model');
         const formatRunOptionText = run => {
           const labelId = formatRunId(run.id);
-          const kindLabel = run.kind === 'physical-redq' ? 'physical'
-            : run.kind === 'pupper-mjx' ? 'pupper-mjx'
+          const kindLabel = run.kind === 'pupper-mjx' ? 'pupper-mjx'
             : run.kind === 'microduck-mjlab' ? (run.id.startsWith('8533681d') ? 'microduck (v12)' : 'microduck')
-            : 'simulation';
-          return run.kind === 'physical-redq'
-            ? `${labelId} · ${kindLabel} · ${run.state} · ${(run.steps || 0).toLocaleString()} training updates`
-            : `${labelId} · ${kindLabel} · ${run.state} · ${run.imitation_updates ? `${run.imitation_updates.toLocaleString()} imitation + ` : ''}${(run.steps || 0).toLocaleString()} RL steps`;
+            : run.kind || 'simulation';
+          return `${labelId} · ${kindLabel} · ${run.state} · ${(run.steps || 0).toLocaleString()} RL steps`;
         };
         const nextSig = status.runs.map(r => `${r.id}:${r.state}:${r.steps}:${r.has_policy}`).join('|');
         if (select.dataset.sig !== nextSig && document.activeElement !== select) {
@@ -4111,14 +3951,13 @@
             return option;
           }));
         }
-        if (op === 'physical-create' && status.runs.some(run => run.id === result.run_id)) select.value = result.run_id;
-        else if (op === 'load' && status.model_id) select.value = status.model_id;
+        if (op === 'load' && status.model_id) select.value = status.model_id;
         else if (status.runs.some(run => run.id === model)) select.value = model;
         else if (status.model_id) select.value = status.model_id;
         for (const quickId of ['walk-neural-model-select', 'cockpit-neural-model-select']) {
           const quickSelect = byId(quickId);
           if (quickSelect && document.activeElement !== quickSelect) {
-            const runnable = status.runs.filter(run => run.has_policy && (run.kind === 'pupper-mjx' || run.kind === 'microduck-mjlab' || run.kind === 'physical-redq' || run.id === status.model_id));
+            const runnable = status.runs.filter(run => run.has_policy && (run.kind === 'pupper-mjx' || run.kind === 'microduck-mjlab' || run.id === status.model_id));
             const quickSig = runnable.map(r => `${r.id}:${r.steps}`).join('|');
             if (quickSelect.dataset.sig !== quickSig) {
               quickSelect.dataset.sig = quickSig;
@@ -4149,22 +3988,18 @@
         if (!robotId || selectedRobotId === robotId) {
           text('neural-gait-summary', error.message);
           if (op === 'load') showResult(error.message, true);
-          if (op.startsWith('physical-')) text('neural-gait-physical-result', error.message);
         }
       }
       finally { busy = false; }
     }
     function renderRun(status, op = 'status', result = {}) {
         const run = status.runs.find(run => run.id === byId('neural-gait-model').value);
-        const physical = run?.kind === 'physical-redq';
-        for (const id of ['resume', 'render', 'progress']) byId(`neural-gait-${id}`).hidden = physical;
-        byId('neural-gait-physical-train').disabled = !physical;
+        byId('neural-gait-resume').disabled = run?.kind !== 'microduck-mjlab';
+        byId('neural-gait-render').disabled = !run;
+        byId('neural-gait-progress').disabled = !run;
         byId('neural-gait-load').disabled = !run?.has_policy;
-        byId('neural-gait-video-note').hidden = physical;
-        byId('neural-gait-physical-evidence').hidden = !physical;
-        text('neural-gait-measurement-note', physical
-          ? 'Recorded physical movement: requested versus estimated measured speed when available. Training updates alone do not verify walking performance.'
-          : 'Latest checkpoint: requested versus measured movement. Values are forward/lateral m/s and turn rad/s, grouped across the simulated trials.');
+        text('neural-gait-measurement-note',
+          'Latest checkpoint: requested versus measured movement. Values are forward/lateral m/s and turn rad/s, grouped across the simulated trials.');
         const phase = run?.state === 'evaluating'
           ? `Evaluating ${run.evaluation_purpose === 'standing_baseline' ? 'standing baseline' : run.evaluation_purpose === 'source_policy_baseline' ? 'starting policy baseline' : run.evaluation_purpose === 'final_candidate' ? 'final candidate' : 'checkpoint'}${run.total_episodes != null ? ` · ${run.completed_episodes}/${run.total_episodes} trials` : ''}`
           : run?.state;
@@ -4178,13 +4013,12 @@
         const origin = Number.isFinite(initialization?.source_rl_steps)
           ? `Transferred weights from ${initialization.source_rl_steps.toLocaleString()} prior RL steps · `
           : '';
-        text('neural-gait-summary', physical
-          ? `Physical learning · ${phase} · ${(run.steps || 0).toLocaleString()} training updates · ${run.checkpoints?.length || 0} saved actors.`
-          : run ? `${phase} · ${origin}${(run.imitation_updates || 0).toLocaleString()} imitation updates + ${(run.steps || 0).toLocaleString()} ${run.initialization ? 'new ' : ''}RL steps · ${run.checkpoints?.length || 0} saved checkpoints${footageProgress}. Simulation only.` : 'No training runs yet.');
+        text('neural-gait-summary', run
+          ? `${phase} · ${origin}${(run.steps || 0).toLocaleString()} ${run.initialization ? 'new ' : ''}RL steps · ${run.checkpoints?.length || 0} saved checkpoints${footageProgress}. Simulation only.`
+          : 'No training runs yet.');
         byId('neural-gait-checkpoints').replaceChildren(...(run?.checkpoints || []).map(row => {
           const tr = document.createElement('tr');
-          const checkpoint = physical ? `${row.steps.toLocaleString()} training updates`
-            : `${row.aggregation_round != null ? `Round ${row.aggregation_round} · ` : ''}${row.imitation_updates ? `${row.imitation_updates.toLocaleString()} imitation + ` : ''}${row.steps.toLocaleString()} RL steps`;
+          const checkpoint = `${row.steps.toLocaleString()} RL steps`;
           const score = row.evaluation?.mean_reward;
           const falls = row.evaluation?.falls, episodes = row.evaluation?.episodes;
           for (const value of [checkpoint, Number.isFinite(score) ? score.toFixed(2) : '—',
@@ -4200,8 +4034,6 @@
           return tr;
         }));
         const commandResults = run?.checkpoints?.at(-1)?.evaluation?.command_results;
-        if (physical) text('neural-gait-physical-measurements', JSON.stringify(
-          run.checkpoints?.at(-1)?.evaluation ?? run.evaluation ?? {note: 'No physical evaluation supplied for this actor.'}, null, 2));
         const trackingRows = (commandResults || []).map(row => {
           const tr = document.createElement('tr');
           const measured = [...row.measured_velocity_command_m_s, row.measured_yaw_rate_rad_s];
@@ -4219,18 +4051,17 @@
         byId('neural-gait-command-results').replaceChildren(...trackingRows);
         const video = byId('neural-gait-video');
         const footage = byId('neural-gait-footage');
-        footage.hidden = physical || !run?.has_footage;
-        if (!physical && run?.has_footage) {
+        footage.hidden = !run?.has_footage;
+        if (run?.has_footage) {
           footage.href = `/api/neural-gait/footage?id=${encodeURIComponent(run.id)}`;
           footage.download = `neural-gait-${run.id.slice(-8)}-footage.zip`;
         }
-        video.hidden = physical || !run?.has_replay && !run?.has_progress_video;
-        if (physical) video.pause();
+        video.hidden = !run?.has_replay && !run?.has_progress_video;
         if (op === 'progress' && !run?.has_progress_video) text('neural-gait-summary',
           result.state === 'comparison_after_training'
             ? 'The before/after comparison will render when training finishes.'
             : 'The progress video is rendering. Refresh shortly to watch it.');
-        if (!physical && (run?.has_replay || run?.has_progress_video)) {
+        if (run?.has_replay || run?.has_progress_video) {
           const kind = run.has_progress_video && op !== 'render' ? 'progress-video' : 'replay';
           const revision = kind === 'progress-video'
             ? (run.progress_video.checkpoint_ids?.at(-1) ?? run.progress_video.training_steps.at(-1))
@@ -4241,7 +4072,7 @@
             video.src = url;
         }
     }
-    for (const op of ['train','resume','load','render','progress','preview','physical-create','physical-train','physical-trial'])
+    for (const op of ['train','resume','load','render','progress','preview'])
       byId(`neural-gait-${op}`).addEventListener('click', () => void operate(op));
     byId('neural-gait-model').addEventListener('change', () => { if (lastStatus) renderRun(lastStatus); });
     for (const quickId of ['walk-neural-model-select', 'cockpit-neural-model-select']) {
@@ -4606,9 +4437,7 @@
     setupNavigation();
     const session = await request("/api/session");
     csrfToken = session.csrf;
-    gaitHistoryView = window.createGaitHistory({request, getRobot: () => selectedRobotId});
     setupSensingControls();
-    setupPrimaryView();
     byId("robot-select").addEventListener("change", (event) => {
       availableBodyCommands = [];
       selectedRobotId = event.target.value || null;

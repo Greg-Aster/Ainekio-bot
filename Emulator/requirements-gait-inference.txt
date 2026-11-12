@@ -1,5 +1,0 @@
-# Physical REDQ actor serving on desktop or Q6A. No trainer or simulator.
-numpy>=1.26,<3
-pink-noise-rl==2.0.1
-# Imported MicroDuck ONNX actors include their observation normalizer.
-onnxruntime>=1.24.4,<2

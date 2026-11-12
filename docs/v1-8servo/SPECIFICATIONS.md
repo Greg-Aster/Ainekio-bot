@@ -1,7 +1,7 @@
 # V1 robot specifications
 
-Scope: `v1-8servo`, the eight-servo Sesame-based Ainekio body. For the companion's
-purpose and maintenance method, start with the [robot design core](../../../metahuman/docs/robot/ROBOT_BIBLE.md).
+Scope: `v1-8servo`, the eight-servo V1 Ainekio body. For the companion's
+purpose and maintenance method, start with the [robot design core](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/robot/ROBOT_BIBLE.md).
 For the other body, use the [V2 specifications](../v2-12servo/SPECIFICATIONS.md).
 
 **Work status (owner-confirmed 2026-10-26): V1 work is paused; V2 is active.**
@@ -16,7 +16,7 @@ for this document. Recorded installed facts retain their original evidence dates
 
 | Component | V1 specification | Basis and remaining uncertainty |
 | --- | --- | --- |
-| Body | Four-legged Sesame-based frame; eight servo outputs | V1 body/assets and [model boundaries](../ROBOT_MODELS.md); V2 geometry is not interchangeable |
+| Body | Four-legged eight-servo quadruped frame; eight servo outputs | V1 body/assets and [model boundaries](../ROBOT_MODELS.md); V2 geometry is not interchangeable |
 | Controller | Freenove ESP32-S3-WROOM CAM, ESP32-S3-WROOM-1 N16R8 | Delivered-board record; exact PCB revision remains unrecorded |
 | Memory | 16 MiB flash; 8 MiB octal PSRAM | Board profile and boot evidence; [pin-map owner](../../Slave/firmware/esp32s3/components/ainekio_platform/include/ainekio/platform/pin_map.h) |
 | Servo output | Eight direct ESP32-S3 MCPWM outputs | Firmware source; no PCA9685 in the V1 output path |
@@ -88,15 +88,15 @@ capacity. Battery protection/cutoff, loaded voltage drop, current, heating and
 backfeed evidence remain in the hardware record. These are specification limits
 and unknowns, not new firmware policies.
 
-## Body Control and remote MetaHuman connections
+## Body Control and remote Ainekio OS connections
 
 ```text
 V1 ESP32-S3 -- Wi-Fi / authenticated robot WebSocket --> Body Control host
-MetaHuman Environment Bridge -- local or tunneled WebSocket --> same Body Control
+Ainekio OS Environment Bridge -- local or tunneled WebSocket --> same Body Control
 ```
 
 Both sessions are bidirectional. The robot initiates its connection to the
-gateway's `/robot` route. MetaHuman initiates its connection to `/environment`;
+gateway's `/robot` route. Ainekio OS initiates its connection to `/environment`;
 that endpoint accepts loopback access at the gateway, including a tunnel ending
 on that host. Body Control can run on a supported desktop or Q6A host; the V1 body
 does not require the brain to be physically onboard.
@@ -105,13 +105,13 @@ does not require the brain to be physically onboard.
 | --- | --- |
 | Robot and Environment WebSockets | Gateway port `8790`; distinct `/robot` and `/environment` routes and authentication |
 | Body Control dashboard | `127.0.0.1:8791` on the gateway host; browser access is not proof of a robot session |
-| MetaHuman on the same host | Bridge connects to `ws://127.0.0.1:8790/environment` |
-| MetaHuman on another host | Its existing forwarder uses the configured SSH or Cloudflare TCP route to gateway loopback; SSH can run over the configured WireGuard network |
+| Ainekio OS on the same host | Bridge connects to `ws://127.0.0.1:8790/environment` |
+| Ainekio OS on another host | Its existing forwarder uses the configured SSH or Cloudflare TCP route to gateway loopback; SSH can run over the configured WireGuard network |
 | Pairing, tokens, addresses and calibration | Existing per-device/private configuration owners; credentials and installation-specific values are not copied into this specification |
 
 The [gateway reference](../../Master/gateway/README.md#physical-robot-gateway-operation)
-owns transport and pairing; MetaHuman's [connection owner](../../../metahuman/brain/agents/environment-bridge/connections.ts)
-and [forwarder](../../../metahuman/brain/agents/environment-bridge/forwarder.ts)
+owns transport and pairing; Ainekio OS's [connection owner](https://github.com/Greg-Aster/ainekio-os/blob/main/brain/agents/environment-bridge/connections.ts)
+and [forwarder](https://github.com/Greg-Aster/ainekio-os/blob/main/brain/agents/environment-bridge/forwarder.ts)
 own host selection and tunnel lifetime. Current source uses one Environment Bridge
 with configured local/remote endpoints, not separate Local/Remote agents. A public
 web portal and a remote model provider are separate connections from the body bridge.

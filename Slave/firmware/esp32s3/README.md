@@ -23,7 +23,7 @@ FreeRTOS is included with ESP-IDF. Do not install or vendor it separately.
 ## Build
 
 ```bash
-source /home/greggles/esp/esp-idf-v5.5.4/export.sh
+source ~/esp/esp-idf-v5.5.4/export.sh
 idf.py set-target esp32s3
 idf.py build
 idf.py size

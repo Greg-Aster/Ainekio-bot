@@ -8,9 +8,8 @@
 
 #define AINEKIO_SERVO_TICK_MS 20U
 /*
- * Sesame attaches each servo with 732-2929 us under ESP32Servo v3.0.9.
- * That library clamps the requested maximum to 2500 us, so these are the
- * effective endpoints used by the original robot.
+ * V1 8-servo endpoints (732-2500 us) matching ESP32Servo v3.0.9 clamping
+ * when attached at 732-2929 us.
  */
 #define AINEKIO_SERVO_MIN_PULSE_US 732U
 #define AINEKIO_SERVO_MAX_PULSE_US 2500U

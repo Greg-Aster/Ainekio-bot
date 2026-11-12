@@ -4,7 +4,7 @@ Source audit: **2026-10-27**. This records the existing Body Control/P4 executio
 path and the capabilities a neural gait integration must preserve. It does not
 claim that source-supported gaits walk successfully on the physical robot.
 Start with [V2 specifications](SPECIFICATIONS.md) and the shared
-[body capability contract](../../../metahuman/docs/robot/BODY_CAPABILITIES.md).
+[body capability contract](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/robot/BODY_CAPABILITIES.md).
 
 The running Body Control served `dashboard.js` byte-for-byte matching this
 checkout during the audit. Browser automation had no connected browser, so this
@@ -14,8 +14,8 @@ movement, firmware installation or Body Control restart was performed for this a
 
 ## Task-directed locomotion owns the purpose and endpoint
 
-The shared [goal-directed locomotion contract](../../../metahuman/docs/robot/BODY_CAPABILITIES.md#motion-and-posture)
-already assigns goal selection to MetaHuman and progress/execution to Core Active
+The shared [goal-directed locomotion contract](https://github.com/Greg-Aster/ainekio-os/blob/main/docs/robot/BODY_CAPABILITIES.md#motion-and-posture)
+already assigns goal selection to Ainekio OS and progress/execution to Core Active
 Task. The owner reaffirmed this scope on October 28: the robot moves to follow a
 line/person, investigate an object, explore, or perform another selected task.
 Neural walking is the adaptive locomotion implementation beneath those tasks,
@@ -23,8 +23,8 @@ not a replacement task system based on cycle counts, elapsed time or distance
 alone. An idle robot has no implicit marching task.
 
 The existing source path is Core
-[`active-task.node.ts`](../../../metahuman/packages/core/src/nodes/environment/active-task.node.ts)
-plus [`evaluateLocomotionGoal`](../../../metahuman/packages/core/src/environment-interface/active-task.ts)
+[`active-task.node.ts`](https://github.com/Greg-Aster/ainekio-os/blob/main/packages/core/src/nodes/environment/active-task.node.ts)
+plus [`evaluateLocomotionGoal`](https://github.com/Greg-Aster/ainekio-os/blob/main/packages/core/src/environment-interface/active-task.ts)
 → Environment Bridge → gateway
 [`translation.py`](../../Master/gateway/environment_adapter/translation.py)
 → the same body motion owner. Perception/visual evaluation and attributed
@@ -79,10 +79,9 @@ is:
 
 ```text
 Walk start/update -> existing motion/session/sequence owner
-  -> ainekio_v2_walk_feedback_tick (gait geometry and heading correction)
-  -> balance_frame (IMU leveling)
+  -> ainekio_v2_walk_feedback_tick (analytic gait + heading) OR ainekio_v2_microduck_step (on-chip MicroDuck policy)
+  -> balance_frame (IMU leveling for native gaits)
   -> fit_motion_frame (selected device calibration / coupled linkage)
-  -> ainekio_p4_learning_frame (saved learned corrections)
   -> calibrated PWM -> PCA9685
 Fourth-wire acquisition and IMU acquisition continue independently.
 Jam observations -> gateway body event -> existing Freestyle recovery owner.
@@ -93,7 +92,7 @@ Jam observations -> gateway body event -> existing Freestyle recovery owner.
 | Auto-leveling | `balance_frame` and [model `balance.c`](../../Slave/software/models/v2-12servo/balance.c); saved enable, strength, damping, roll and pitch targets | Applies to Stand and native walking. Preserve the switch, tuning, nominal pose and feedback reference. Physical loaded effectiveness remains a measurement question. |
 | Walking heading correction | `ainekio_v2_walk_feedback_tick`; separate saved Walking feedback switch | Uses usable IMU yaw and follows requested curves. Six-axis yaw is relative and drifts; it does not measure distance or foot slip. |
 | Fourth-wire feedback | [acquisition](../../Slave/firmware/esp32p4-wifi6/main/servo_feedback.c), [filter/curve](../../Slave/firmware/esp32p4-wifi6/main/servo_feedback_model.c), [position/arrival/jam](../../Slave/firmware/esp32p4-wifi6/main/servo_feedback_position.c) | Measured shaft position and velocity, calibration domain, freshness/health and target error. Shaft position is not ground contact, torque or clearance. |
-| Learned gait corrections | [P4 learning](../../Slave/firmware/esp32p4-wifi6/main/gait_learning.c) and [model learning](../../Slave/software/models/v2-12servo/learning.c) | Existing phase, sensor and command-conditioned policy; do not apply a second learned correction accidentally. |
+| Embedded MicroDuck policy | [`microduck.c`](../../Slave/software/models/v2-12servo/microduck.c) and compiled `motions/microduck/policy.bin` (`v2_microduck`) | Runs inference locally on P4 at gait cadence without requiring host round trips per frame. |
 | Target completion | P4 Freestyle endpoints and legacy posture/clip verification | Freestyle uses measured arrival. Native walking is a continuous trajectory with feedback corrections; it does not wait for every shaft to arrive at every 20 ms frame. These contracts are different. |
 | Jam detection | P4 no-progress tracker uses configured error band, directional measured progress and observation window | Reports a jam without automatically releasing outputs. This is already implemented and must remain effective for a neural gait. |
 | Jam/fall corrective motion | [Freestyle `event`, `submit`, recovery ownership](../../experiments/freestyle/bridge.py) | Enabled recovery accepts `servo_stall`, `servo_feedback_fault`, `tipped`, `rapid_movement`, `slip`; obtains observations and generates a replacement sequence. Same robot/session/command attribution prevents stale events overriding newer commands. Generated recovery is not proof of physical recovery. |
@@ -102,43 +101,22 @@ Jam observations -> gateway body event -> existing Freestyle recovery owner.
 | Recovery completion/resumption | Existing Freestyle generates and executes corrective targets with receipts | Automatic resumption of the original Walk after a generated correction is **not established** by the current event handler. Preserve owner/goal identity and explicitly qualify the eventual integration. |
 
 **Critical finding:** the current Freestyle `motion_plan` branch calls
-`freestyle_frame`; it does not run the native walking heading → balance → learned
-correction chain above. Wiring a neural policy directly to repeated Freestyle
+`freestyle_frame`; it does not run the native walking heading → balance
+chain above. Wiring a neural policy directly to repeated Freestyle
 plans would bypass these responsibilities and reset finite-plan lifecycle state.
 That is not an acceptable integration. Extend the existing walking owner with a
 policy source and preserve its correction/state lifecycle; do not add a parallel
 PWM owner, balance controller or recovery agent. The host policy observation must
 include the applied corrections/configuration so it does not unknowingly fight them.
 
-## Existing learning, recording and measurement
+## Active neural gait stacks and visual measurement
 
-[**GaitLearningService**](../../Master/gateway/gait_learning_service.py) already
-owns optional host recording, trace sessions, observation history, optimization,
-model installation and restoration. It is independent of the browser.
-[**gait_optimizer.py**](../../Master/gateway/gait_optimizer.py) searches
-context-conditioned `gait_learning_v4` parameters using measured progress,
-turning, tilt, acceleration and tracking. Forward, backward, turning and Run are
-its categories. Its profile includes duty, sweep, phase, lift, landing and body
-shape; it retains separate Walk/Run contexts and camera/calibration signatures.
-This is a compact policy/parameter optimizer, separate from the host neural
-policy. The current Pupper work runs the complete upstream ROS controller and
-network against Ainekio's existing virtual Body Control/P4 hardware, with CAD
-geometry, native feedback/IMU processing and rendered JPEGs through actual MoGe.
-This is not physically qualified walking. The existing Pupper trainer now imports
-all original policy layers, retains its 36 × 20 observation history and appends
-297 current Ainekio sensor features, including actual image-derived estimates
-and validity, with zero initial added weights. The rejected partial-layer
-initializer is removed. The same upstream ROS controller supports its complete
-RTNeural exports; the existing body executor owns calibrated travel. Historical
-SAC/PPO/REDQ and partial-adapter artifacts remain loadable. See the current
-status and source comparison at the top of the [gait journal](GAIT_RESEARCH_JOURNAL.md).
+Two neural locomotion stacks are maintained alongside native analytic gaits (`Walk`, `Run`, `Crawl`, `Crab`):
 
-The neural experiment must reuse the existing recorder/history and hardware
-configuration at the handoff. Existing policy upload, enable/amount, export,
-restore and Analyze controls must retain a supported owner; they cannot silently
-become controls for an unused correction layer. Current neural training has its
-own simulation artifacts because those are simulated episodes, not physical
-recordings; those artifacts must remain clearly distinguished.
+- **MicroDuck (`microduck-mjlab` / `v2_microduck`)**: [`microduck.py`](../../Master/gateway/neural_gait/microduck.py) and [`microduck_mdp.py`](../../Master/gateway/neural_gait/microduck_mdp.py) train PPO policies in MuJoCo/mjlab against the 12-servo Ainekio closed-chain CAD plant and export ONNX checkpoints and compiled firmware weights (`Slave/software/models/v2-12servo/motions/microduck/policy.bin`) so MicroDuck can run either from the host policy service (`8796`) or directly on the ESP32-P4 (`v2_microduck`).
+- **Pupper MJX (`pupper-mjx`)**: [`import_pupper_mjx.py`](../../Master/gateway/neural_gait/import_pupper_mjx.py), [`pupper_mjx_actor.py`](../../Master/gateway/neural_gait/pupper_mjx_actor.py), and [`jax_hardware.py`](../../Master/gateway/neural_gait/jax_hardware.py) bind the upstream MJX/Brax PPO trainer and actor exports to Ainekio's CAD geometry, native 4th-wire feedback, and LSM6DS3 IMU pipeline ([`server.py`](../../Master/gateway/neural_gait/server.py)). See the current status at the top of the [gait journal](GAIT_RESEARCH_JOURNAL.md).
+
+Earlier CBOR/BoTorch parameter optimizers (`GaitLearningService`, `gait_optimizer.py`, `gait_trace`), firmware phase-residual tables (`gait_learning.c`, `learning.c`), and custom SB3/REDQ/pink-noise stacks have been retired. Simulation checkpoints remain clearly distinguished from loaded physical hardware trials.
 
 [Camera motion](../../Master/gateway/depth_motion_worker.py) has metric-depth /
 feature-map and [calibrated ground-plane](../../Master/gateway/ground_plane.py)
@@ -170,7 +148,7 @@ budget. It must not advertise physical readiness based on workstation throughput
 The owner requested at least Walk, Run, turns, reverse, and slip/fall correction.
 The inventory above additionally requires retaining Crawl, Crab/lateral travel,
 curved steering, finite/continuous operation, speed/stride updates, heading
-feedback, auto-leveling, learned correction ownership and manual control.
+feedback, auto-leveling, and manual control.
 
 Training/evaluation must exercise command diversity and transitions, slopes and
 friction changes, stalls, loss of traction, different fallen orientations,
@@ -181,9 +159,9 @@ original operation's completion/cancellation. All training videos must identify
 simulation, configuration, checkpoint and failed trials.
 
 Maintained regression entry points include the gateway dashboard/service,
-body-event, gait-learning-service and depth-motion suites in `Emulator/tests`,
+body-event, neural-gait (`MicroDuck` & `Pupper MJX`), and depth-motion suites in `tests/`,
 P4 body/servo-feedback tests, and the V2 motion CMake tests for walking feedback,
-balance, posture, learning and gait timing. The neural simulator suite must test
+balance, posture, MicroDuck and gait timing. The neural simulator suite must test
 against these production owners rather than copying them into a second controller.
 Physical trials and measured Q6A timing remain separate from software tests.
 
@@ -304,54 +282,6 @@ completion remains owned by the existing goal system, not a neural cycle count.
    wait for a host inference round trip. Simulation does not establish physical
    network delay/jitter, bus timing, or inference latency on Q6A.
 
-   `neural_gait.physical --migrate-pending` explicitly upgrades a physical v5
-   learner without selecting or training it. It reconstructs causal requests
-   from recordings, verifies the original replay values unchanged, and retains
-   replay slots, import identities, optimizer state and RNG. Zero-expanded input
-   weights initially preserve existing predictions. The atomic learner checkpoint
-   owns migration/publication intent; interrupted sidecar publication resumes from
-   it. Older immutable actors retain their own schema and remain selectable.
-   Missing causal recordings fail migration rather than inventing empty requests.
-
-   Default policy-based physical learning trials use the author's NumPy
-   [pink-noise-rl 2.0.1](https://github.com/martius-lab/pink-noise-rl) Gaussian
-   exploration process. One independent twelve-channel process belongs to each
-   `NeuralWalk`, survives steering updates and ends with that operation. The
-   existing walking source profile accepts `exploration_buffer_steps` (default
-   1,000); this FFT buffer renews continuously and is not a target hold or trial
-   duration. Each inference receives the next explicit noise sample and applies
-   the learned mean, standard deviation and tanh unchanged. The recording retains
-   that sample and profile provenance. Ordinary deterministic execution and REDQ
-   minibatch training remain unchanged. This replaces independent collection noise
-   without reducing target rate, foot range or servo speed; physical improvement
-   still requires measurement.
-
-   The existing authenticated `/api/neural-gait` `physical-trial` operation
-   accepts `collection_policy:"native-c"` for demonstration collection (default:
-   `"policy"`). The same Walk producer runs the production C gait generator at
-   actual received observation timestamps and requested direction/speed. It
-   encodes the generator's calibrated joint target through production FK into
-   the run's foot-action domain. Teacher heading, balance and learned corrections
-   are disabled; physical P4 correction and feedback ownership remain unchanged.
-   No simulated observations or collection noise enter these demonstrations.
-   Stop/Release/replacement retire the teacher, including rejecting stale requests
-   from a previous Walk after its replacement.
-
-   Authoritative `neural.jsonl` rows retain the actual original policy inputs,
-   pending requests, actions and execution evidence. Their `demonstration` field
-   records `source:"native-c"`, command/device time, raw `nominal_joint_deg`,
-   calibrated `target_joint_deg` and
-   `label_contract:"native-c-calibrated-target-v1"`. Raw native generator poses
-   can exceed installed calibration; they are provenance, not executable labels.
-   The existing `physical-train` operation accepts `method:"imitation"` with
-   model/recording selection and update count, launching a finite supervised batch
-   through the same trainer lifecycle. Its default remains `"reinforcement"`.
-   Imitation needs no fabricated distance reward, and agreement with teacher
-   targets is not physical qualification.
-   Optional `fit_all:true` selects all usable rows for imitation training rather
-   than reserving a holdout; the default is `false`. No held-out score is claimed
-   in this mode, and an independent physical actor trial is still required.
-
    Physical depth odometry now retains SIFT/depth landmarks but estimates only
    translation with known camera rotation (the established known-rotation
    absolute-pose problem implemented by [OpenGV p2p](https://laurentkneip.github.io/opengv/namespaceopengv_1_1absolute__pose.html)).
@@ -392,19 +322,19 @@ completion remains owned by the existing goal system, not a neural cycle count.
    Native stride/rate, cycle counts and named gait styles remain native controls;
    the neural policy receives twist, not separate Walk/Run/Crawl/Crab style labels.
    A speed change is therefore not evidence that a running gait was trained.
-   MetaHuman's translation, active-task steering and Finish use the same gateway
+   Ainekio OS's translation, active-task steering and Finish use the same gateway
    path. Its visual goal evaluation and task lifecycle remain separate from low-level
    gait training. Forward/reverse/turn/lateral performance and complete goal execution
    require behavioral qualification, beyond the connected software tests.
 
-Maintained checks for these boundaries are `VirtualGatewayTests` in
-`Emulator/tests/test_neural_gait.py`, `VirtualBodySensorTests` and
-`NativeWalkTests` in `Emulator/tests/test_neural_gait_sensors.py`,
-`SensorTelemetryTests` in `Emulator/tests/test_gateway_service.py`, and the
-neural preview/authentication tests in `Emulator/tests/test_gateway_dashboard.py`.
+Maintained checks for these boundaries are `tests/test_neural_gait.py`,
+`tests/test_microduck_gait.py`, `tests/test_pupper_mjx_gait.py`,
+`VirtualBodySensorTests` and `NativeWalkTests` in `tests/test_neural_gait_sensors.py`,
+`SensorTelemetryTests` in `tests/test_gateway_service.py`, and the
+neural preview/authentication tests in `tests/test_gateway_dashboard.py`.
 The adapter advertises `move` when the connected body advertises walking commands;
 gestures retain `requestMotion` and do not expose the manual legacy command library.
-MetaHuman's existing `active-task-gateway.spec.ts` scenario `paired spoken Stop
+Ainekio OS's existing `active-task-gateway.spec.ts` scenario `paired spoken Stop
 routed as cancel` checks this advertised goal-directed Walk route, steering on the
 original owner, and cancellation reconciliation through its simulated body. The
 full shared suite also contains obsolete gesture and graph-response fixtures;

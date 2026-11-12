@@ -6,7 +6,7 @@
 #include "ainekio/imu.h"
 #include "ainekio/pca9685.h"
 #include "ainekio/v2_balance.h"
-#include "ainekio/v2_learning.h"
+#include "ainekio/v2_walk.h"
 #include "ainekio/control_codec.h"
 #include "virtual_body.h"
 #include "walk_data.h"
@@ -23,12 +23,10 @@ typedef struct {
     ainekio_v2_walk_state_t walk;
     ainekio_v2_balance_t balance;
     ainekio_v2_balance_tuning_t tuning;
-    ainekio_v2_learning_state_t learning;
-    ainekio_v2_learning_model_t model;
-    double speed, learning_amount;
+    double speed;
     uint64_t last_frame_us;
     uint64_t last_sensor_us;
-    bool heading_enabled, balance_enabled, model_supplied;
+    bool heading_enabled, balance_enabled;
 } simulation_t;
 static _Thread_local simulation_t *current;
 void ainekio_p4_feedback_snapshot(ainekio_p4_feedback_snapshot_t *out){*out=current->sample;}
@@ -207,35 +205,19 @@ void simulation_imu(void *state,double now,const double *accel,const double *gyr
     out[10]=obs.available;out[11]=obs.startup;out[12]=obs.gyro_recovery;out[13]=obs.acceleration_recovery;
 }
 
-/* Offline replay of WALK's production owners. No actuator or network owner.
- * Firmware saved-model admission and timestamp alignment remain gait_learning.c
- * responsibilities: optional features here must be explicit replay inputs. */
+/* Offline replay of WALK's production owners. No actuator or network owner. */
 static bool simulation_walk_valid(const ainekio_v2_frame_t *frame,void *opaque)
 {
     simulation_t *s=opaque;uint16_t pulses[12];
     return ainekio_p4_joint_map_frame(s->mapping,frame,pulses);
 }
-int simulation_walk_configure(void *state,const double *settings,const double *model,int supplied)
+int simulation_walk_configure(void *state,const double *settings)
 {
     simulation_t *s=state;
     if(!ainekio_v2_joint_speed_set(settings[0]))return 0;
     memset(&s->walk,0,sizeof s->walk);memset(&s->balance,0,sizeof s->balance);
-    memset(&s->learning,0,sizeof s->learning);memset(&s->model,0,sizeof s->model);
     s->last_frame_us=0;s->speed=settings[0];s->heading_enabled=settings[1];s->balance_enabled=settings[2];
     s->tuning=(ainekio_v2_balance_tuning_t){settings[3],settings[4],settings[5],settings[6]};
-    s->learning_amount=settings[7];s->model_supplied=supplied;
-    if(supplied) {
-        unsigned n=0;
-        for(unsigned l=0;l<4;l++)for(unsigned a=0;a<3;a++)for(unsigned k=0;k<5;k++)s->model.coefficient[l][a][k]=model[n++];
-        for(unsigned l=0;l<4;l++)for(unsigned a=0;a<3;a++)for(unsigned k=0;k<8;k++)s->model.feedback[l][a][k]=model[n++];
-        for(unsigned l=0;l<4;l++)for(unsigned a=0;a<3;a++)for(unsigned k=0;k<4;k++)s->model.command[l][a][k]=model[n++];
-        s->model.gait.duty_delta=model[n++];s->model.gait.sweep_delta_mm=model[n++];
-        for(unsigned l=0;l<4;l++)s->model.gait.phase_offset[l]=model[n++];
-        for(unsigned l=0;l<4;l++)s->model.gait.lift_delta_mm[l]=model[n++];
-        for(unsigned l=0;l<4;l++)for(unsigned a=0;a<2;a++)s->model.gait.landing_mm[l][a]=model[n++];
-        for(unsigned a=0;a<3;a++)for(unsigned k=0;k<5;k++)s->model.gait.body_mm[a][k]=model[n++];
-        if(!ainekio_v2_gait_profile_valid(&s->model.gait))return 0;
-    }
     return 1;
 }
 int simulation_walk_accept(void *state,const char *json,double now_us)
@@ -245,20 +227,17 @@ int simulation_walk_accept(void *state,const char *json,double now_us)
     ainekio_v2_joint_speed_set(s->speed);
     const bool update=message.command.data.intent.data.walk.update_sequence!=0;
     if(!ainekio_v2_walk_accept(&s->walk,&message.command,update?s->walk.last_us:(uint64_t)now_us))return 0;
-    if(!update) {
-        s->last_frame_us=(uint64_t)now_us;memset(&s->learning,0,sizeof s->learning);
-        if(s->model_supplied)ainekio_v2_walk_profile_begin(&s->walk,&s->model.gait);
-    }
+    if(!update)s->last_frame_us=(uint64_t)now_us;
     return 1;
 }
-int simulation_walk_tick(void *state,double now_us,const double *previous,const double *features,int learning_usable,double *out)
+int simulation_walk_tick(void *state,double now_us,const double *previous,double *out)
 {
     simulation_t *s=state;ainekio_imu_observation_t imu;
     ainekio_imu_observe(&s->imu,(uint64_t)now_us,&imu);
     const bool usable=imu.available&&imu.fresh&&!imu.startup&&!imu.gyro_recovery&&!imu.acceleration_recovery;
     const float *q=imu.orientation_wxyz;
     double yaw=atan2(2.*(q[0]*q[3]+q[1]*q[2]),1.-2.*(q[2]*q[2]+q[3]*q[3]));
-    double old_phase=s->walk.phase,dt=(now_us-s->last_frame_us)/1e6;
+    double dt=(now_us-s->last_frame_us)/1e6;
     ainekio_v2_joint_speed_set(s->speed);
     if(!ainekio_v2_walk_feedback_tick(&s->walk,(uint64_t)now_us,s->heading_enabled,usable,yaw,simulation_walk_valid,s))return 0;
     ainekio_v2_frame_t from={0},frame;ainekio_v2_walk_pose_t balanced;
@@ -267,29 +246,24 @@ int simulation_walk_tick(void *state,double now_us,const double *previous,const 
         &s->walk.pose,NULL,&from,s->speed,&balanced,&s->tuning,false);
     frame=balanced.frame;
     if(!ainekio_p4_joint_fit_frame(s->mapping,&frame))return 0;
-    ainekio_v2_learning_input_t input={0};
-    for(unsigned l=0;l<4;l++)for(unsigned k=0;k<8;k++)input.feature[l][k]=features[l*8+k];
-    ainekio_v2_walk_command_features(&s->walk,input.command);
-    ainekio_v2_frame_t applied;
-    ainekio_v2_learning_policy_apply(&s->learning,&s->model,&input,s->walk.phase,s->walk.phase-old_phase,
-        s->model_supplied&&learning_usable,s->learning_amount,&frame,simulation_walk_valid,s,&applied);
+    float command_features[4]={0};
+    ainekio_v2_walk_command_features(&s->walk,command_features);
     uint16_t pulses[12];
-    if(!ainekio_p4_joint_map_frame(s->mapping,&applied,pulses))return 0;
-    ainekio_v2_frame_t mapped=applied;ainekio_p4_joint_unmap_frame(s->mapping,pulses,&mapped);
+    if(!ainekio_p4_joint_map_frame(s->mapping,&frame,pulses))return 0;
+    ainekio_v2_frame_t mapped=frame;ainekio_p4_joint_unmap_frame(s->mapping,pulses,&mapped);
     for(unsigned j=0;j<12;j++) {
         out[j]=s->walk.pose.frame.position[j]/100.;out[12+j]=frame.position[j]/100.;
-        out[24+j]=applied.position[j]/100.;out[36+j]=mapped.position[j]/100.;
+        out[24+j]=mapped.position[j]/100.;
     }
-    out[48]=s->walk.phase;out[49]=s->walk.pose.run_blend;
-    for(unsigned l=0;l<4;l++)out[50+l]=s->walk.pose.grounded[(l+2)%4];
-    for(unsigned k=0;k<4;k++)out[54+k]=input.command[k];
-    out[58]=s->walk.complete;out[59]=s->walk.stopping;out[60]=s->walk.failed;
-    out[61]=s->walk.clock_scale;out[62]=s->walk.heading_active;out[63]=s->walk.heading_reduced;
-    out[64]=s->balance.sensor_usable;out[65]=s->balance.reduced;out[66]=usable;
-    out[67]=s->learning.blend;out[68]=s->learning.fit;
-    out[69]=s->walk.command_sequence;out[70]=s->walk.latest_sequence;out[71]=s->walk.last_us;
-    out[72]=s->walk.heading_error;out[73]=s->walk.feedback_turn;
-    for(unsigned a=0;a<3;a++){out[74+a]=s->walk.pose.body[a];out[77+a]=s->walk.pose.euler[a];}
+    out[36]=s->walk.phase;out[37]=s->walk.pose.run_blend;
+    for(unsigned l=0;l<4;l++)out[38+l]=s->walk.pose.grounded[(l+2)%4];
+    for(unsigned k=0;k<4;k++)out[42+k]=command_features[k];
+    out[46]=s->walk.complete;out[47]=s->walk.stopping;out[48]=s->walk.failed;
+    out[49]=s->walk.clock_scale;out[50]=s->walk.heading_active;out[51]=s->walk.heading_reduced;
+    out[52]=s->balance.sensor_usable;out[53]=s->balance.reduced;out[54]=usable;
+    out[55]=s->walk.command_sequence;out[56]=s->walk.latest_sequence;out[57]=s->walk.last_us;
+    out[58]=s->walk.heading_error;out[59]=s->walk.feedback_turn;
+    for(unsigned a=0;a<3;a++){out[60+a]=s->walk.pose.body[a];out[63+a]=s->walk.pose.euler[a];}
     s->last_frame_us=(uint64_t)now_us;return 1;
 }
 
