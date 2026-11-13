@@ -1,6 +1,8 @@
 # Ainekio
 
-Ainekio is a compact quadruped robot companion built from custom 3D-printed mechanics, real-time ESP32 firmware, and a Python Body Control gateway, powered by [Ainekio OS](https://github.com/Greg-Aster/ainekio-os) ([ainek.io](https://ainek.io)).
+Ainekio is a compact 650 g quadruped robot companion built from custom 3D-printed closed-loop four-bar mechanics, real-time ESP32-P4 firmware, and a Python Body Control gateway, powered by [Ainekio OS](https://github.com/Greg-Aster/ainekio-os) ([ainek.io](https://ainek.io)).
+
+**[Project Site](https://ainek.io)** · **[Capability & Spec Inventory](https://ainek.io/posts/what-ainekio-can-do/)** · **[Walking Videos & Hardware Gallery](https://ainek.io/gallery/)** · **[Build Journal](https://ainek.io/updates/)** · **[Ainekio OS Repo](https://github.com/Greg-Aster/ainekio-os)**
 
 This repository owns the physical chassis, microcontroller firmware, `protocol-v1` transport, local perception, and motion execution. Higher-level cognition, persistent memory, speech synthesis, and autonomous decision-making run in [Ainekio OS](https://github.com/Greg-Aster/ainekio-os) across an authenticated Environment Bridge.
 
