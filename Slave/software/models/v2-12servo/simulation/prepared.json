@@ -1,0 +1,7 @@
+{
+  "source_sha256": "892b1eb04633caf5c2c9238334715c1a8e7db33a0a118770d577108384edf319",
+  "archive_sha256": "43360cf4fa3bd0d650f49d415f07d2a094119a73b77aaebf2bec655aa0d66c64",
+  "files": 7726,
+  "basis": "Frozen verified conversion; exact mesh bytes and per-object approximation provenance retained",
+  "rebuild_limit": "Fresh CoACD 1.0.7 conversion can abort natively on some imported solids; this package avoids rerunning it for this unchanged geometry"
+}

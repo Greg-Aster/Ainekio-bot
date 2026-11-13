@@ -1,0 +1,40 @@
+Required Notice: Copyright (c) 2025-2026 Gregory Aster (https://ainek.io | https://github.com/Greg-Aster)
+
+Ainekio — Non-Commercial Licensing & Attribution Notice
+=======================================================
+
+This repository contains both software and physical hardware/3D design assets.
+Commercial use by third parties is not permitted without a separate written
+commercial license from Gregory Aster.
+
+1. Software, Firmware, Protocols, Motion Models, Policies & Datasets
+   SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+   All source code, microcontroller firmware, gateway services, kinematics and
+   simulation scripts, motion/policy weights, and training datasets in this
+   repository are licensed under the PolyForm Noncommercial License 1.0.0
+   (see `LICENSE`).
+
+   Under the Notices section of the PolyForm Noncommercial License 1.0.0, any
+   distribution of any part of the software must retain a copy of `LICENSE` (or
+   its official URL) and the `Required Notice:` line at the top of this file.
+
+2. 3D CAD/Mesh Models, Mechanical Assemblies, Hardware Layouts & Documentation
+   SPDX-License-Identifier: CC-BY-NC-SA-4.0
+   All 3D printable and mechanical models (STL, STEP, STP, 3MF, GLB, GLTF, OBJ),
+   hardware assembly references, wiring diagrams, images, and documentation in
+   this repository are licensed under the Creative Commons
+   Attribution-NonCommercial-ShareAlike 4.0 International Public License
+   (see `LICENSE-HARDWARE`).
+
+3. Third-Party Components
+   Third-party reference CAD models, libraries, and vendored upstream packages
+   retain their respective original licenses, including notices in:
+   - `Slave/hardware/v2-12servo/Servo_Reference_Assets/*LICENSE*.txt`
+   - `docs/v1-8servo/reference/LICENSE.txt`
+   - `Master/gateway/neural_gait/vendor/`
+
+4. Trademarks & Commercial Licensing
+   "Ainekio", "Ainekio OS", and `ainek.io` are project identifiers of
+   Gregory Aster. Neither `LICENSE` nor `LICENSE-HARDWARE` grants trademark
+   rights or implies endorsement. For commercial licensing inquiries, contact
+   Gregory Aster via https://ainek.io or https://github.com/Greg-Aster.

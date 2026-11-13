@@ -1,0 +1,36 @@
+COMPACT FIXED TRAINING STAND
+This replaces the earlier tall tilting/clamping stand.
+Three parts; print one of each STL. Units mm; exports already lie on their flat print faces.
+
+Base: 140 x 110 mm footprint.
+Overall height: 77.1 mm; tray support surface: 75.9 mm above base bottom.
+Solid CAD volume: 58.0 cm3 versus 440.8 cm3 previously (87% reduction). This is not a slicer filament estimate.
+
+VENT FIT
+Two rounded locating blades: 4.0 x 40.0 mm, 42 mm between centers.
+Modeled slots are 4.4 x 40.4 mm; nominal clearance 0.2 mm per side.
+Blade engagement is 1.2 mm, with a tapered lead-in.
+The cradle shoulders carry the load against the underside of the tray. Blades do not extend through the tray into the battery.
+Robot rests on the cradle and lifts straight off. No clamps, no pivots, no robot modifications.
+
+ASSEMBLY HARDWARE
+2 M3x20 socket bolts and 2 M3 hex nuts: upright into base.
+2 M3x10 socket bolts and 2 M3 hex nuts: cradle onto upright.
+Top counterbores accommodate approximately 5.5 mm diameter, 3 mm high Allen heads.
+Nut pockets: 5.8 mm across flats, 2.7 mm high.
+Insert the top nuts into the upright's side-access pockets before bolting the cradle on.
+Insert the upright into the keyed base socket and secure both cross bolts.
+Place the cradle on the upright and fit its two recessed top bolts.
+Lower the robot so the two keys enter the matching underside vent slots. Both shoulders should bear evenly.
+Use base fixing holes if bench retention is needed.
+
+PRINT / FIT
+Base and cradle print flat underneath; upright prints on its broad side.
+Inspect slicer treatment of horizontal screw holes and nut pockets.
+Verify the vent fit before forcing the printed keys into the existing tray.
+Current-pose leg clearance, tray fit and closed-manifold topology were checked in CAD. Full motion sweep and physical load testing were not performed.
+The robot can lift off if motion generates an upward force; this is a resting stand, not a restraint.
+
+Saved scene: Wireless, collection TRAINING | Compact vent stand.
+Project: Ainekio-Motion-Working.blend.
+Previous stand and pre-edit project preserved in Ainekio-Motion-Working-Modeling-Recovery.blend.
