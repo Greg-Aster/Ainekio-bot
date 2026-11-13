@@ -1,10 +1,10 @@
 {
   "version": "motion-targets-v1",
   "source": "Body Control editable motion library + V2 twelve-servo compositional Freestyle curriculum + linked recovery",
-  "training_rows": 1486,
-  "ordinary_rows": 742,
-  "recovery_rows": 744,
-  "evaluation_rows": 77,
+  "training_rows": 1767,
+  "ordinary_rows": 939,
+  "recovery_rows": 828,
+  "evaluation_rows": 86,
   "training_launched": false,
   "discarded_examples": [
     {
@@ -11549,59 +11549,21 @@
     }
   ],
   "encoding_sha256": "3d0806a3ef759f20786ab961f4bed3aaaaf731402953107c21c1299f73e14e67",
-  "library_recovery": {
-    "eligible_source_motions": 74,
-    "covered_source_motions": 74,
-    "added_training": 376,
-    "added_probes": 368,
-    "families": {
-      "library_jam_recovery": 38,
-      "library_error_feedback_recovery": 40,
-      "library_repeated_feedback_recovery": 38,
-      "library_fall_recovery": 40,
-      "library_feedback_recovery": 36,
-      "library_repeated_jam_recovery": 36,
-      "library_error_recovery": 34,
-      "library_movement_recovery": 34,
-      "standalone_jam_recovery": 12,
-      "standalone_feedback_recovery": 12,
-      "standalone_slip_recovery": 8,
-      "standalone_fall_recovery": 8,
-      "standalone_movement_recovery": 8,
-      "completed_jam_recovery": 8,
-      "completed_fall_recovery": 8,
-      "adaptive_wave_recovery": 16
-    },
-    "joint_coverage": {
-      "2": 12,
-      "1": 8,
-      "9": 3,
-      "0": 1,
-      "4": 1,
-      "10": 1,
-      "6": 2,
-      "5": 5,
-      "11": 1,
-      "7": 2,
-      "8": 2
-    },
-    "unresolved": [],
-    "slip_changes": false,
-    "physical_trials": 0,
-    "scope": "Current motion-bearing training rows; probe shares source goals but holds out feedback values. Native emotes absent from the source library are not claimed covered.",
-    "limitations": [
-      "No contact/dynamics simulation or physical success labels.",
-      "Fall examples require a preceding measured correction; initial arbitrary fallen-pose righting remains unqualified.",
-      "Geometric replay does not establish physical recovery."
-    ]
+  "splits": {
+    "train": 1767,
+    "evaluation": 86,
+    "regression-evaluation": 0,
+    "recovery-probe": 404
   },
   "files": {
-    "train.jsonl": "9b35381a7f7cb4cf019d48f72f429bd3a7cd889e7b81ae47eb557ccfd60de833",
-    "evaluation.jsonl": "29afdc192923632713145890ad8dba7ece54fe56571752454146c35784b0b4d6",
-    "recovery-probe.jsonl": "514c28ac40cdf341356c0b3b63e2131a3f6d5267145591929d860cef7f897997",
+    "evaluation.jsonl": "b6d6e329a74596a9357920f43ee3833b04da91eaf1042c6f6d1531b82ad4ee61",
+    "recovery-coverage.json": "b2428b77e64ef592591f33febe17e41cf1c20806dd4e617ccd3efaf7f5964e81",
+    "recovery-probe.jsonl": "67c81e0d91979c4c0e814a7dc3ae6695168aadf93058406d6d035311a28c0d9e",
+    "reference-checks.json": "8602af4dac44d4da52877d09b31f7d908de267e27c6cab08291cc9bdb683ff74",
     "regression-evaluation.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "system.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "tools.json": "7637e3598493d926490562704f0512c9ca0c19023160bedb4cad7ab54cfa274d",
+    "train.jsonl": "315d4492b362898df9055a1dfc3344f64c7edc8fab617d903ef020a25f85810d",
     "wire.json": "01b7e24457019da3075e9fbe52ed88c92bde5f246369e0bbad9fbd56a1b245e5"
   }
 }

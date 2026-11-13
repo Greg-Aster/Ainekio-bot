@@ -1,6 +1,6 @@
 [Unit]
 Description=Ainekio physical gateway
-Wants=network-online.target
+Wants=network-online.target ainekio-freestyle-api.service
 After=network-online.target
 
 [Service]

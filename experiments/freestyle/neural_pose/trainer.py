@@ -78,13 +78,15 @@ from . import mdp as pose_mdp
 
 _ensure_native_library()
 
-RECIPE = "ainekio-neural-pose-mjlab-v1"
+RECIPE = "ainekio-neural-pose-mjlab-v2-delay"
 DEFAULT_HIDDEN_DIMS = (512, 256, 128)
+MAX_CMD_DELAY_TICKS = 4
+MAX_OBS_DELAY_TICKS = 6
 
 
 @requires_model_fields("actuator_gainprm", "actuator_biasprm")
 def randomize_pose_actuators(env, env_ids):
-    """Randomize servo Kp/Kd, torque envelope, and 4th-wire ADC scale/offset per episode."""
+    """Randomize servo Kp/Kd (including stiff physical MG90S hold), torque envelope, and 4th-wire ADC."""
     ids = torch.arange(env.num_envs, device=env.device) if env_ids is None else env_ids
     n = len(ids)
     if n == 0:
@@ -93,9 +95,11 @@ def randomize_pose_actuators(env, env_ids):
     base_kp = float(pose_term.config.servo_kp)
     base_kd = float(pose_term.config.servo_kd)
 
-    kp_mult = 0.85 + 0.30 * torch.rand((n, 12), device=env.device)
-    kd_mult = 0.85 + 0.35 * torch.rand((n, 12), device=env.device)
-    effort_mult = 0.82 + 0.28 * torch.rand((n, 12), device=env.device)
+    # Physical Miuzei MG90S internal PID holds position stiffer than nominal 2.0 Nm/rad;
+    # spanning 0.85x..1.85x with proportional Kd keeps implicitfast integration unconditionally stable.
+    kp_mult = 0.85 + 1.00 * torch.rand((n, 12), device=env.device)
+    kd_mult = kp_mult * (0.85 + 0.35 * torch.rand((n, 12), device=env.device))
+    effort_mult = 0.82 + 0.30 * torch.rand((n, 12), device=env.device)
 
     kp = base_kp * kp_mult
     kd = base_kd * kd_mult
@@ -208,10 +212,26 @@ class PoseAction(ActionTerm):
         self._raw = torch.zeros((env.num_envs, 12), dtype=torch.float32, device=env.device)
         self.prev_raw_action = torch.zeros_like(self._raw)
         self.prev_action_delta = torch.zeros_like(self._raw)
+        self.applied_action = torch.zeros_like(self._raw)
+        self.prev_applied_action = torch.zeros_like(self._raw)
+        self.prev_applied_delta = torch.zeros_like(self._raw)
 
         self.logical = self.body.q0.reshape(1, 12).expand(env.num_envs, -1).clone()
         self.logical, self.targets = self.body.pwm(self.logical)
         self.targets = self.targets.to(torch.float32)
+        self.delayed_targets = self.targets.clone()
+
+        # Host<->Wi-Fi<->P4 transport delay ring buffers (50 Hz control ticks)
+        self.env_arange = torch.arange(env.num_envs, dtype=torch.long, device=env.device)
+        self.cmd_delay_ticks = torch.zeros(env.num_envs, dtype=torch.long, device=env.device)
+        self.obs_delay_ticks = torch.zeros(env.num_envs, dtype=torch.long, device=env.device)
+        self.pkt_hold_prob = torch.zeros(env.num_envs, dtype=torch.float32, device=env.device)
+        self.cmd_delay_buf = self.targets.unsqueeze(0).expand(MAX_CMD_DELAY_TICKS + 1, -1, -1).clone()
+        # P4 telemetry packet: [joint_rad(12), joint_vel(12), cmd_rad(12), gyro(3), accel_g(3), proj_grav(3)] = 45 floats
+        self.obs_delay_buf = torch.zeros(
+            (MAX_OBS_DELAY_TICKS + 1, env.num_envs, 45), dtype=torch.float32, device=env.device
+        )
+        self.held_p4_frame = torch.zeros((env.num_envs, 45), dtype=torch.float32, device=env.device)
 
         # Goal & oscillation buffers
         self.base_goal_rad = self.stand_q_rad.unsqueeze(0).expand(env.num_envs, -1).clone()
@@ -241,12 +261,34 @@ class PoseAction(ActionTerm):
         )
         self.suspended_target_pos = self._env.scene.env_origins[self.suspended_ids].clone()
         self.suspended_target_pos[:, 2] += 0.28
-        self.decode_command = self.body.command
         self.forward_fn = self.body.forward
 
+        body = self.body
+
+        def _step_pose_cmd(actions_t: torch.Tensor, previous_t: torch.Tensor, spd_t: torch.Tensor):
+            goal = body.decode(actions_t).reshape(-1, 4, 3)
+            prev = previous_t.to(body.O.dtype).reshape(-1, 4, 3)
+            lim = (body.max_travel * spd_t.to(body.O.dtype).clamp(0.25, 1.0)).unsqueeze(-1)
+            delta = goal - prev
+            leg_max = delta.abs().amax(dim=-1, keepdim=True).clamp_min(1e-12)
+            u = (lim / leg_max).clamp(max=1.0)
+            cand = prev + u * delta
+            q_b, closed = body.bounded(cand)
+            pulse = torch.floor(body.pulse_home + (torch.rad2deg(q_b) - body.home) * body.pulse_scale + 0.5)
+            pulse_ok = ((pulse[..., 1:] >= 300) & (pulse[..., 1:] <= 2950)).all(-1) & (
+                (pulse >= 1) & (pulse <= 65535)
+            ).all(-1)
+            ok = closed & pulse_ok
+            q_sel = torch.where(ok.unsqueeze(-1), q_b, prev)
+            q_log, q_phys = body.pwm(q_sel)
+            pts, _ = body.forward(q_log.reshape(-1, 4, 3))
+            applied = ((pts - body.origin) / body.scale).clamp(-1.0, 1.0).reshape(-1, 12).to(torch.float32)
+            return q_log, q_phys.to(torch.float32), applied
+
+        self.step_pose_cmd = _step_pose_cmd
         self.reset(None)
         if torch.device(env.device).type == "cuda" and env.num_envs >= 64:
-            self.decode_command = torch.compile(self.body.command, fullgraph=True, dynamic=False)
+            self.step_pose_cmd = torch.compile(_step_pose_cmd, fullgraph=True, dynamic=False)
             self.forward_fn = torch.compile(self.body.forward, fullgraph=True, dynamic=False)
 
     @property
@@ -353,29 +395,75 @@ class PoseAction(ActionTerm):
         self.current_goal_rad.copy_(q_next.reshape(-1, 12))
         self.current_goal_foot.copy_(foot_next.reshape(-1, 12))
 
+    def _snapshot_p4_packet(self, *, add_mux_spikes: bool = True) -> torch.Tensor:
+        joint_vel = self.sensors.joint_velocity
+        if add_mux_spikes:
+            # Simulate CD74HC4067 multiplexer channel-switch crosstalk spikes (e.g. 20..110 deg/s stationary)
+            spike_mask = torch.rand_like(joint_vel) < 0.04
+            spike_mag = (0.35 + 1.55 * torch.rand_like(joint_vel)) * torch.where(
+                torch.rand_like(joint_vel) < 0.5, 1.0, -1.0
+            )
+            joint_vel = joint_vel + torch.where(spike_mask, spike_mag, 0.0)
+        proj_grav = -gravity(self.sensors.quaternion)
+        pkt = torch.cat(
+            (
+                self.sensors.joint,
+                joint_vel,
+                self.delayed_targets,
+                self.sensors.gyro,
+                self.sensors.accel / 9.81,
+                proj_grav,
+            ),
+            dim=-1,
+        )
+        return torch.nan_to_num(pkt, nan=0.0, posinf=1.0, neginf=-1.0)
+
     def reset_from_joint_state(self, env_ids, q_proj_rad: torch.Tensor):
         ids = torch.arange(self._env.num_envs, device=self._env.device) if env_ids is None else env_ids
         if len(ids) == 0:
             return
-        q64 = q_proj_rad.to(dtype=torch.float64, device=self._env.device)
+        dev = self._env.device
+        q64 = q_proj_rad.to(dtype=torch.float64, device=dev)
         logical, physical = self.body.pwm(q64)
+        phys32 = physical.to(torch.float32)
         pts, _ = self.body.forward(logical.reshape(-1, 4, 3))
         init_act = ((pts - self.body.origin) / self.body.scale).clamp(-1.0, 1.0).reshape(-1, 12).to(torch.float32)
 
         self.logical[ids] = logical
-        self.targets[ids] = physical.to(torch.float32)
+        self.targets[ids] = phys32
+        self.delayed_targets[ids] = phys32
+        self.cmd_delay_buf[:, ids] = phys32.unsqueeze(0)
         self._raw[ids] = init_act
         self.prev_raw_action[ids] = init_act
         self.prev_action_delta[ids] = 0.0
+        self.applied_action[ids] = init_act
+        self.prev_applied_action[ids] = init_act
+        self.prev_applied_delta[ids] = 0.0
+
+        n = len(ids)
+        # 15% low-latency/on-chip worlds (40..80 ms total), 85% Wi-Fi host-streamed worlds (100..240 ms total)
+        wifi_world = torch.rand(n, device=dev) < 0.85
+        cmd_d = torch.where(
+            wifi_world,
+            torch.randint(1, MAX_CMD_DELAY_TICKS + 1, (n,), device=dev),
+            torch.randint(0, 2, (n,), device=dev),
+        )
+        obs_d = torch.where(
+            wifi_world,
+            torch.randint(2, MAX_OBS_DELAY_TICKS + 1, (n,), device=dev),
+            torch.randint(0, 2, (n,), device=dev),
+        )
+        self.cmd_delay_ticks[ids] = cmd_d
+        self.obs_delay_ticks[ids] = obs_d
+        self.pkt_hold_prob[ids] = torch.where(wifi_world, 0.20, 0.04)
 
         # Simulate 4th-wire usability faults on 35% of episodes (including rear carriers 1 & 4)
-        n = len(ids)
-        usable = torch.ones((n, 12), dtype=torch.bool, device=self._env.device)
-        fault_ep = torch.rand(n, device=self._env.device) < 0.35
-        random_drop = torch.rand((n, 12), device=self._env.device) < 0.18
-        rear_carrier_drop = torch.zeros((n, 12), dtype=torch.bool, device=self._env.device)
-        rear_carrier_drop[:, 1] = torch.rand(n, device=self._env.device) < 0.65
-        rear_carrier_drop[:, 4] = torch.rand(n, device=self._env.device) < 0.65
+        usable = torch.ones((n, 12), dtype=torch.bool, device=dev)
+        fault_ep = torch.rand(n, device=dev) < 0.35
+        random_drop = torch.rand((n, 12), device=dev) < 0.18
+        rear_carrier_drop = torch.zeros((n, 12), dtype=torch.bool, device=dev)
+        rear_carrier_drop[:, 1] = torch.rand(n, device=dev) < 0.65
+        rear_carrier_drop[:, 4] = torch.rand(n, device=dev) < 0.65
         drop_mask = fault_ep.unsqueeze(-1) & (random_drop | rear_carrier_drop)
         self.usable_mask[ids] = usable & (~drop_mask)
 
@@ -394,12 +482,18 @@ class PoseAction(ActionTerm):
     def process_actions(self, actions: torch.Tensor):
         self._advance_goals_50hz()
         clamped = actions.clamp(-1.0, 1.0)
-        new_delta = clamped - self._raw
-        self.prev_action_delta.copy_(new_delta)
+        self.prev_action_delta.copy_(self._raw - self.prev_raw_action)
         self.prev_raw_action.copy_(self._raw)
         self._raw.copy_(clamped)
-        self.logical, targets = self.decode_command(self._raw, self.logical)
+
+        self.prev_applied_delta.copy_(self.applied_action - self.prev_applied_action)
+        self.prev_applied_action.copy_(self.applied_action)
+        self.logical, targets, applied = self.step_pose_cmd(self._raw, self.logical, self.speed_scale)
         self.targets.copy_(targets)
+        self.applied_action.copy_(applied)
+        self.cmd_delay_buf = torch.roll(self.cmd_delay_buf, 1, dims=0)
+        self.cmd_delay_buf[0] = self.targets
+        self.delayed_targets.copy_(self.cmd_delay_buf[self.cmd_delay_ticks, self.env_arange])
         self._update_suspended_wrench()
 
     def apply_actions(self):
@@ -409,28 +503,33 @@ class PoseAction(ActionTerm):
             self._env.scene["robot/accel"].data,
             self._env.scene["robot/gyro"].data,
         )
-        self._entity.set_joint_position_target(self.targets, joint_ids=self.joint_ids)
+        self._entity.set_joint_position_target(self.delayed_targets, joint_ids=self.joint_ids)
 
-    def _build_features(self) -> torch.Tensor:
+    def _build_features_from_p4_frame(self, p4_frame: torch.Tensor) -> torch.Tensor:
         usable_f = self.usable_mask.to(torch.float32)
-        cmd_rad = self.logical.to(torch.float32)
-        joint_rad = torch.where(self.usable_mask, self.sensors.joint, cmd_rad)
-        joint_vel = torch.where(self.usable_mask, self.sensors.joint_velocity, torch.zeros_like(cmd_rad))
-        proj_grav = -gravity(self.sensors.quaternion)
+        meas_rad = p4_frame[:, 0:12]
+        meas_vel = p4_frame[:, 12:24]
+        p4_cmd_rad = p4_frame[:, 24:36]
+        gyro = p4_frame[:, 36:39]
+        accel_g = p4_frame[:, 39:42]
+        proj_grav = p4_frame[:, 42:45]
+
+        joint_rad = torch.where(self.usable_mask, meas_rad, p4_cmd_rad)
+        joint_vel = torch.where(self.usable_mask, meas_vel, torch.zeros_like(meas_vel))
 
         features = torch.cat(
             (
                 joint_rad,
                 joint_vel,
                 usable_f,
-                self.sensors.gyro,
-                self.sensors.accel / 9.81,
+                gyro,
+                accel_g,
                 proj_grav,
                 self.current_goal_rad,
                 self.current_goal_foot,
                 self.leg_support,
                 self.speed_scale,
-                self._raw,
+                self.applied_action,
             ),
             dim=-1,
         )
@@ -446,8 +545,21 @@ class PoseAction(ActionTerm):
                 ids=pending,
             )
             self.pending_reset = None
-        features = self._build_features()
+
         if self.history_step != self._env.common_step_counter:
+            p4_now = self._snapshot_p4_packet(add_mux_spikes=True)
+            self.obs_delay_buf = torch.roll(self.obs_delay_buf, 1, dims=0)
+            self.obs_delay_buf[0] = p4_now
+            if pending is not None:
+                p4_clean = self._snapshot_p4_packet(add_mux_spikes=False)[pending]
+                self.obs_delay_buf[:, pending] = p4_clean.unsqueeze(0)
+                self.held_p4_frame[pending] = p4_clean
+            arrived = self.obs_delay_buf[self.obs_delay_ticks, self.env_arange]
+            hold_mask = torch.rand(self._env.num_envs, device=self._env.device) < self.pkt_hold_prob
+            if pending is not None:
+                hold_mask[pending] = False
+            self.held_p4_frame = torch.where(hold_mask.unsqueeze(-1), self.held_p4_frame, arrived)
+            features = self._build_features_from_p4_frame(self.held_p4_frame)
             self.history = torch.roll(self.history, 1, 1)
             self.history[:, 0] = features
             if pending is not None:
@@ -455,16 +567,28 @@ class PoseAction(ActionTerm):
                 self.history[pending] = features[pending].unsqueeze(1)
             self.history_step = self._env.common_step_counter
         elif pending is not None:
+            p4_clean = self._snapshot_p4_packet(add_mux_spikes=False)[pending]
+            self.obs_delay_buf[:, pending] = p4_clean.unsqueeze(0)
+            self.held_p4_frame[pending] = p4_clean
+            features = self._build_features_from_p4_frame(self.held_p4_frame)
             self.history[pending] = features[pending].unsqueeze(1)
         return self.history.flatten(1)
 
     def privileged_observations(self) -> torch.Tensor:
         q_true = self._entity.data.joint_pos[:, self.joint_ids]
         v_true = self._entity.data.joint_vel[:, self.joint_ids]
+        q_cmd = self.logical.to(torch.float32)
         contacts = (self._env.scene["feet_ground_contact"].data.found > 0).to(torch.float32)
         lin_vel = torch.nan_to_num(env_mdp.base_lin_vel(self._env), nan=0.0, posinf=0.0, neginf=0.0)
         susp = self.is_suspended.to(torch.float32).unsqueeze(-1)
-        priv = torch.cat((q_true, v_true, contacts, lin_vel, susp), dim=-1)
+        delays = torch.stack(
+            (
+                self.cmd_delay_ticks.to(torch.float32) / float(MAX_CMD_DELAY_TICKS),
+                self.obs_delay_ticks.to(torch.float32) / float(MAX_OBS_DELAY_TICKS),
+            ),
+            dim=-1,
+        )
+        priv = torch.cat((q_true, v_true, q_cmd, contacts, lin_vel, susp, delays), dim=-1)
         return torch.nan_to_num(priv, nan=0.0, posinf=0.0, neginf=0.0)
 
     def close(self):
@@ -636,10 +760,10 @@ def make_pose_env_cfg(config: EnvironmentConfig, num_envs: int = 1024, *, includ
         cfg.events["randomize_actuators"] = EventTermCfg(func=randomize_pose_actuators, mode="reset")
 
     cfg.rewards = {
-        "pose_tracking": RewardTermCfg(func=pose_mdp.pose_tracking_reward, weight=4.5),
+        "pose_tracking": RewardTermCfg(func=pose_mdp.pose_tracking_reward, weight=4.8),
         "grounded_balance": RewardTermCfg(func=pose_mdp.grounded_balance_cost, weight=-1.6),
         "action_smoothness": RewardTermCfg(func=pose_mdp.action_smoothness_cost, weight=-0.035),
-        "settle_damping": RewardTermCfg(func=pose_mdp.settle_damping_cost, weight=-0.025),
+        "settle_damping": RewardTermCfg(func=pose_mdp.settle_damping_cost, weight=-0.040),
         "stance_slip": RewardTermCfg(func=pose_mdp.stance_slip_cost, weight=-0.30),
     }
     cfg.terminations = {
@@ -658,28 +782,141 @@ def make_pose_env_cfg(config: EnvironmentConfig, num_envs: int = 1024, *, includ
     return cfg, config
 
 
+def _calibrate_critic_on_actor(runner, wrapped, device: str, *, rollout_steps: int = 180, sweeps: int = 4):
+    """Fit critic normalizer + MLP via Bellman sweeps to the current actor under current env dynamics."""
+    actor = runner.alg.actor
+    critic = runner.alg.critic
+    mlp = actor.mlp
+    critic_mlp = critic.mlp
+    critic_opt = torch.optim.AdamW(critic_mlp.parameters(), lr=1.5e-3, weight_decay=1e-5)
+    gamma = float(getattr(runner.alg, "gamma", 0.99))
+
+    actor.obs_normalizer.eval()
+    critic.obs_normalizer.train(True)
+    wrapped.reset()
+    with torch.no_grad():
+        for _ in range(80):
+            obs_td = wrapped.get_observations()
+            a_norm = actor.obs_normalizer(obs_td["actor"])
+            _ = critic.obs_normalizer(obs_td["critic"])
+            act = mlp(a_norm).clamp(-8.0, 8.0).tanh()
+            wrapped.step(act)
+
+    critic.obs_normalizer.eval()
+    wrapped.reset()
+    c_obs_list, next_c_obs_list, rew_list, done_list, timeout_list = [], [], [], [], []
+    try:
+        with torch.no_grad():
+            for _ in range(rollout_steps):
+                obs_td = wrapped.get_observations()
+                a_norm = actor.obs_normalizer(obs_td["actor"])
+                c_norm = critic.obs_normalizer(obs_td["critic"])
+                act = mlp(a_norm).clamp(-8.0, 8.0).tanh()
+                next_obs_td, rew, dones, extras = wrapped.step(act)
+                next_c_norm = critic.obs_normalizer(next_obs_td["critic"])
+                timeouts = extras.get("time_outs", torch.zeros_like(dones, dtype=torch.bool))
+                c_obs_list.append(c_norm.detach())
+                next_c_obs_list.append(next_c_norm.detach())
+                rew_list.append(rew.to(torch.float32).detach())
+                done_list.append((dones > 0).to(torch.float32).detach())
+                timeout_list.append(timeouts.to(torch.float32).detach())
+
+        c_all = torch.cat(c_obs_list, dim=0)
+        n_c = c_all.shape[0]
+        for sweep in range(sweeps):
+            with torch.no_grad():
+                if sweep == 0:
+                    running_ret = torch.zeros_like(rew_list[-1])
+                else:
+                    running_ret = critic_mlp(next_c_obs_list[-1]).squeeze(-1)
+                returns = [None] * len(rew_list)
+                for t in range(len(rew_list) - 1, -1, -1):
+                    v_boot = critic_mlp(next_c_obs_list[t]).squeeze(-1) if sweep > 0 else torch.zeros_like(running_ret)
+                    cont = torch.where(done_list[t] > 0.5, timeout_list[t] * v_boot, running_ret)
+                    running_ret = rew_list[t] + gamma * cont
+                    returns[t] = running_ret
+            ret_all = torch.cat(returns, dim=0).unsqueeze(-1)
+            for _ in range(4):
+                perm = torch.randperm(n_c, device=device)
+                for start in range(0, n_c, 4096):
+                    idx = perm[start : start + 4096]
+                    v_pred = critic_mlp(c_all[idx])
+                    c_loss = (v_pred - ret_all[idx]).square().mean()
+                    critic_opt.zero_grad()
+                    c_loss.backward()
+                    torch.nn.utils.clip_grad_norm_(critic_mlp.parameters(), 2.0)
+                    critic_opt.step()
+        with torch.no_grad():
+            critic_mse = float((critic_mlp(c_all[:8192]) - ret_all[:8192]).square().mean().item())
+    finally:
+        actor.obs_normalizer.train(True)
+        critic.obs_normalizer.train(True)
+    wrapped.reset()
+    return critic_mse
+
+
+def _warm_transfer_checkpoint(runner, wrapped, ckpt_path: str, device: str) -> dict:
+    """Load pretrained actor (and matching critic weights) into a new MDP/delay regime and recalibrate critic."""
+    ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+    actor = runner.alg.actor
+    critic = runner.alg.critic
+    actor.load_state_dict(ckpt["actor_state_dict"], strict=True)
+
+    c_src = ckpt.get("critic_state_dict") or {}
+    c_dst = critic.state_dict()
+    copied = 0
+    with torch.no_grad():
+        for k, dst_t in c_dst.items():
+            if k not in c_src:
+                continue
+            src_t = c_src[k].to(device=dst_t.device, dtype=dst_t.dtype)
+            if src_t.shape == dst_t.shape:
+                dst_t.copy_(src_t)
+                copied += 1
+            elif src_t.ndim == dst_t.ndim == 2 and src_t.shape[0] == dst_t.shape[0]:
+                cols = min(src_t.shape[1], dst_t.shape[1], POSE_OBS_SIZE)
+                dst_t.zero_()
+                dst_t[:, :cols].copy_(src_t[:, :cols])
+                copied += 1
+            elif src_t.ndim == dst_t.ndim == 2 and src_t.shape[0] == 1:
+                cols = min(src_t.shape[1], dst_t.shape[1], POSE_OBS_SIZE)
+                dst_t[:, :cols].copy_(src_t[:, :cols])
+                copied += 1
+    critic.load_state_dict(c_dst, strict=True)
+
+    if hasattr(actor.distribution, "log_std_param"):
+        actor.distribution.log_std_param.data.clamp_(-2.35, -1.90)
+    critic_mse = _calibrate_critic_on_actor(runner, wrapped, device, rollout_steps=180, sweeps=4)
+    runner.alg.optimizer.state.clear()
+    runner.current_learning_iteration = 0
+    if torch.device(device).type == "cuda":
+        torch.cuda.empty_cache()
+    return {"transferred_from": ckpt_path, "copied_critic_tensors": copied, "warmstart_critic_mse": critic_mse}
 def _kinematic_warmstart(runner, wrapped, env, device: str):
-    """Warm-start the (512, 256, 128) MLP across the full 12-servo workspace before PPO."""
+    """Warm-start both actor and critic MLPs across the 12-servo workspace before PPO."""
     pose_term: PoseAction = env.action_manager.get_term("pose")
     actor = runner.alg.actor
+    critic = runner.alg.critic
     mlp = actor.mlp
     opt = torch.optim.AdamW(mlp.parameters(), lr=1.5e-3, weight_decay=1e-5)
 
-    # Pass 1: populate observation normalizer statistics with smooth kinematic rollouts
+    # Pass 1: populate actor & critic observation normalizer statistics with smooth kinematic rollouts
     wrapped.reset()
     actor.obs_normalizer.train(True)
+    critic.obs_normalizer.train(True)
     with torch.no_grad():
         for _ in range(120):
-            obs = wrapped.get_observations()["actor"]
-            _ = actor.obs_normalizer(obs)
-            pts, _ = pose_term.forward_fn(pose_term.logical.reshape(-1, 4, 3))
-            cur_norm = ((pts - pose_term.body.origin) / pose_term.body.scale).clamp(-1.0, 1.0).reshape(-1, 12).to(torch.float32)
-            step_lim = 0.14 * pose_term.speed_scale
+            obs_td = wrapped.get_observations()
+            _ = actor.obs_normalizer(obs_td["actor"])
+            _ = critic.obs_normalizer(obs_td["critic"])
+            cur_norm = pose_term.applied_action
+            step_lim = 0.12 * pose_term.speed_scale
             kin_act = (cur_norm + (pose_term.current_goal_foot - cur_norm).clamp(-step_lim, step_lim)).clamp(-0.98, 0.98)
             wrapped.step(kin_act)
 
-    # Pass 2: 2 DAgger rounds fitting MLP -> inverse_tanh(kin_act)
+    # Pass 2: 2 DAgger rounds fitting actor MLP -> inverse_tanh(kin_act)
     actor.obs_normalizer.eval()
+    critic.obs_normalizer.eval()
     warmstart_mae = 0.0
     try:
         for rollout_steps, epochs, policy_prob in ((140, 14, 0.0), (120, 14, 0.7)):
@@ -688,9 +925,8 @@ def _kinematic_warmstart(runner, wrapped, env, device: str):
                 for _ in range(rollout_steps):
                     obs = wrapped.get_observations()["actor"]
                     norm_obs = actor.obs_normalizer(obs)
-                    pts, _ = pose_term.forward_fn(pose_term.logical.reshape(-1, 4, 3))
-                    cur_norm = ((pts - pose_term.body.origin) / pose_term.body.scale).clamp(-1.0, 1.0).reshape(-1, 12).to(torch.float32)
-                    step_lim = 0.16 * pose_term.speed_scale
+                    cur_norm = pose_term.applied_action
+                    step_lim = 0.13 * pose_term.speed_scale
                     kin_act = (cur_norm + (pose_term.current_goal_foot - cur_norm).clamp(-step_lim, step_lim)).clamp(-0.97, 0.97)
                     # Add slight stance weight-shift toward lifted leg during grounded 3-leg gestures
                     sup = pose_term.leg_support
@@ -735,14 +971,16 @@ def _kinematic_warmstart(runner, wrapped, env, device: str):
                 warmstart_mae = float((mlp(x_all[:8192]).tanh() - y_tanh[:8192]).abs().mean().item())
     finally:
         actor.obs_normalizer.train(True)
+        critic.obs_normalizer.train(True)
 
+    critic_mse = _calibrate_critic_on_actor(runner, wrapped, device, rollout_steps=180, sweeps=4)
     if hasattr(actor.distribution, "log_std_param"):
-        actor.distribution.log_std_param.data.fill_(-1.35)
+        actor.distribution.log_std_param.data.fill_(-1.60)
     runner.alg.optimizer.state.clear()
     if torch.device(device).type == "cuda":
         torch.cuda.empty_cache()
     wrapped.reset()
-    return {"warmstart_action_mae": warmstart_mae}
+    return {"warmstart_action_mae": warmstart_mae, "warmstart_critic_mse": critic_mse}
 
 
 def train(
@@ -812,13 +1050,23 @@ def train(
         manifest["critic_parameters"] = int(critic_params)
 
         if resume:
-            ckpt_path = str(Path(resume) / "learner.pt")
-            has_opt = "optimizer_state_dict" in torch.load(ckpt_path, map_location="cpu", weights_only=False)
-            runner.load(
-                ckpt_path,
-                load_cfg={"actor": True, "critic": True, "optimizer": has_opt, "iteration": has_opt, "rnd": False},
-                map_location=device,
-            )
+            ckpt_p = Path(resume)
+            ckpt_path = str(ckpt_p if ckpt_p.is_file() else ckpt_p / "learner.pt")
+            raw_ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+            c_w = (raw_ckpt.get("critic_state_dict") or {}).get("mlp.0.weight")
+            expected_c_in = runner.alg.critic.mlp[0].in_features
+            if c_w is not None and c_w.shape[1] == expected_c_in and os.environ.get("AINEKIO_POSE_TRANSFER") != "1":
+                has_opt = "optimizer_state_dict" in raw_ckpt
+                runner.load(
+                    ckpt_path,
+                    load_cfg={"actor": True, "critic": True, "optimizer": has_opt, "iteration": has_opt, "rnd": False},
+                    map_location=device,
+                )
+            else:
+                save_json(directory / "progress.json", {"state": "warm_transfer", "iterations": iterations, "steps": 0})
+                ws_info = _warm_transfer_checkpoint(runner, wrapped, ckpt_path, device)
+                manifest["warmstart"] = ws_info
+                save_json(directory / "manifest.json", manifest)
         elif warmstart:
             save_json(directory / "progress.json", {"state": "warmstart", "iterations": iterations, "steps": 0})
             ws_info = _kinematic_warmstart(runner, wrapped, env, device)

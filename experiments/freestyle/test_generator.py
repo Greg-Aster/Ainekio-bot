@@ -399,3 +399,43 @@ class AsyncGeneratorTests(unittest.IsolatedAsyncioTestCase):
             generator=Generator('http://host/v1','shared',root)
             payload=generator._payload('Raise your right hand.')
             self.assertEqual(payload['messages'][-1]['content'],'{"request":"Raise your right hand."}')
+
+    async def test_async_remote_generate_autostarts_local_service_on_connection_refused(self):
+        from unittest.mock import patch
+        import experiments.freestyle.generator as gen_mod
+
+        async def handle(reader, writer):
+            header = await reader.readuntil(b'\r\n\r\n')
+            length = int(next(line.split(b':', 1)[1] for line in header.split(b'\r\n') if line.startswith(b'Content-Length:')))
+            await reader.readexactly(length)
+            body = b'{"program":[{"name":"stand","arguments":{}}]}'
+            writer.write(b'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n'
+                         + f'Content-Length: {len(body)}\r\nConnection: close\r\n\r\n'.encode() + body)
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+
+        server = await asyncio.start_server(handle, '127.0.0.1', 0)
+        async with server:
+            real_port = server.sockets[0].getsockname()[1]
+            real_open = asyncio.open_connection
+            attempts = []
+
+            async def fake_open(host, port, **kwargs):
+                attempts.append((host, port))
+                if len(attempts) == 1:
+                    raise ConnectionRefusedError(111, 'Connect call failed')
+                return await real_open(host, real_port, **kwargs)
+
+            started_urls = []
+
+            async def fake_ensure(url):
+                started_urls.append((url.hostname, url.port))
+                return True
+
+            with patch.object(gen_mod.asyncio, 'open_connection', side_effect=fake_open), \
+                 patch.object(gen_mod, '_ensure_local_service_async', side_effect=fake_ensure):
+                result = await async_remote_generate('http://127.0.0.1:8794', {'request': 'stand'})
+            self.assertEqual(started_urls, [('127.0.0.1', 8794)])
+            self.assertEqual(len(attempts), 2)
+            self.assertEqual(result['program'], [{'name': 'stand', 'arguments': {}}])

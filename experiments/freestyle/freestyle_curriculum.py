@@ -686,6 +686,143 @@ def prog_cross_reach(side: str = 'right', speed: int = 65):
     ]
 
 
+def prog_lift_leg(leg: str = 'front_right', height: str = 'normal', hold_s: float = 1.0, speed: int = 65):
+    """Balanced quadruped single-leg lift from standing (supports all 4 legs)."""
+    shift_in, shift_out = weight_shift_for(leg, speed)
+    sign = 1 if leg.endswith('_left') else -1
+    is_front = leg.startswith('front_')
+    dx = 16 if is_front else 14
+    dy = sign * (14 if height == 'high' else 12)
+    dz = (56 if height == 'high' else 44) if is_front else (44 if height == 'high' else 34)
+    return [
+        face('happy'),
+        shift_in,
+        op('feet', legs=[leg], offsets_mm=[[dx, dy, dz]], speed_pct=speed),
+        hold(hold_s),
+        op('feet', legs=[leg], offsets_mm=[[-dx, -dy, -dz]], speed_pct=speed),
+        shift_out,
+        face('stand'),
+    ]
+
+
+def prog_standing_hand(side: str = 'right', mode: str = 'lift', hold_s: float = 1.0, speed: int = 65):
+    """Standing three-leg balanced front hand/paw lift, forward reach, or air wiggle."""
+    leg = f'front_{side}'
+    sign = 1 if side == 'left' else -1
+    shift_in, shift_out = weight_shift_for(leg, speed)
+    if mode == 'reach':
+        dx, dy, dz = 32, sign * 10, 44
+        return [
+            face('happy'),
+            shift_in,
+            op('feet', legs=[leg], offsets_mm=[[dx, dy, dz]], speed_pct=speed),
+            hold(hold_s),
+            op('feet', legs=[leg], offsets_mm=[[-dx, -dy, -dz]], speed_pct=speed),
+            shift_out,
+            face('stand'),
+        ]
+    if mode == 'wiggle':
+        dx, dy, dz = 20, sign * 16, 54
+        return [
+            face('excited'),
+            shift_in,
+            op('feet', legs=[leg], offsets_mm=[[dx, dy, dz]], speed_pct=speed),
+            op('oscillate', joint=f'{leg}_crank', amplitude_deg=14, cycles=3, speed_pct=min(100, speed + 15)),
+            op('feet', legs=[leg], offsets_mm=[[-dx, -dy, -dz]], speed_pct=speed),
+            shift_out,
+            face('stand'),
+        ]
+    dx, dy, dz = 20, sign * 16, 56
+    return [
+        face('happy'),
+        shift_in,
+        op('feet', legs=[leg], offsets_mm=[[dx, dy, dz]], speed_pct=speed),
+        hold(hold_s),
+        op('feet', legs=[leg], offsets_mm=[[-dx, -dy, -dz]], speed_pct=speed),
+        shift_out,
+        face('stand'),
+    ]
+
+
+def prog_leg_stretch_shake(leg: str = 'front_right', kind: str = 'stretch', speed: int = 65):
+    """Single-leg forward/backward stretch or lifted leg shake."""
+    shift_in, shift_out = weight_shift_for(leg, speed)
+    sign = 1 if leg.endswith('_left') else -1
+    is_front = leg.startswith('front_')
+    if kind == 'shake':
+        dx = 16 if is_front else 14
+        dy = sign * 12
+        dz = 44 if is_front else 34
+        return [
+            face('excited'),
+            shift_in,
+            op('feet', legs=[leg], offsets_mm=[[dx, dy, dz]], speed_pct=speed),
+            op('oscillate', joint=f'{leg}_crank', amplitude_deg=14, cycles=3, speed_pct=min(100, speed + 15)),
+            op('feet', legs=[leg], offsets_mm=[[-dx, -dy, -dz]], speed_pct=speed),
+            shift_out,
+            face('stand'),
+        ]
+    if is_front:
+        return [
+            face('stretch'),
+            shift_in,
+            op('feet', legs=[leg], offsets_mm=[[32, sign * 8, 34]], speed_pct=speed),
+            hold(0.9),
+            op('feet', legs=[leg], offsets_mm=[[-32, -sign * 8, -34]], speed_pct=speed),
+            shift_out,
+            face('stand'),
+        ]
+    return [
+        face('stretch'),
+        shift_in,
+        op('pose', joints=leg_joints(leg), angles_deg=[-26.0, -12.0, -46.0], reference='absolute', speed_pct=speed),
+        hold(0.9),
+        op('pose', joints=leg_joints(leg), angles_deg=[0.0, 0.94, -21.25], reference='absolute', speed_pct=speed),
+        shift_out,
+        face('stand'),
+    ]
+
+
+def prog_both_hands_gesture(kind: str = 'reach', cycles: int = 3, speed: int = 70):
+    """Seated braced two-hand reach, wide spread, or jazz-hands wiggle."""
+    if kind == 'wide':
+        return [
+            face('excited'),
+            *sit_brace_enter(speed),
+            op('pose', joints=front_joints(), angles_deg=[-72.0, 42.0, 18.0, -72.0, 42.0, 18.0], reference='absolute', speed_pct=speed),
+            hold(0.9),
+            *sit_brace_exit(speed),
+            face('stand'),
+        ]
+    if kind == 'jazz':
+        return [
+            face('celebrate'),
+            *sit_brace_enter(speed),
+            op('pose', joints=front_joints(), angles_deg=[-54.0, 44.0, 14.0, -54.0, 44.0, 14.0], reference='absolute', speed_pct=speed),
+            op('oscillate', joint='front_left_shoulder', amplitude_deg=18, cycles=cycles, speed_pct=min(100, speed + 15)),
+            op('oscillate', joint='front_right_shoulder', amplitude_deg=18, cycles=cycles, speed_pct=min(100, speed + 15)),
+            *sit_brace_exit(speed),
+            face('stand'),
+        ]
+    return [
+        face('happy'),
+        *sit_brace_enter(speed),
+        op('pose', joints=front_joints(), angles_deg=[-16.0, 44.0, 22.0, -16.0, 44.0, 22.0], reference='absolute', speed_pct=speed),
+        hold(0.9),
+        *sit_brace_exit(speed),
+        face('stand'),
+    ]
+
+
+def prog_alternate_limbs(legs_seq: tuple[str, ...], hold_s: float = 0.4, speed: int = 70):
+    """Sequential single-limb lifts across a requested leg/hand ordering."""
+    seq = [face('happy')]
+    for leg in legs_seq:
+        seq.extend(prog_lift_leg(leg, height='normal', hold_s=hold_s, speed=speed)[1:-1])
+    seq.append(face('stand'))
+    return seq
+
+
 # ---------------------------------------------------------------------------
 # Pillar 2: Body Attitude, Gaze, Postures, and Emotional Reactions (12 families)
 # ---------------------------------------------------------------------------
@@ -2419,6 +2556,115 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     ], ('First salute with your right hand, pause half a second, then nod yes twice.',
         [*prog_salute('right', 1, 75)[:-1], hold(0.5), *prog_yes_no('yes', 2, 75)])))
 
+    # --- Pillar 6: Quadruped Leg & Hand Mastery (All 4 Legs + Standing/Seated Hands) ---
+    specs.append(('lift_front_right_leg', [
+        ('Lift the right front leg.', prog_lift_leg('front_right', 'normal', 1.0, 65)),
+        ('Lift your front right leg.', prog_lift_leg('front_right', 'normal', 1.0, 65)),
+        ('Please lift your right leg.', prog_lift_leg('front_right', 'normal', 1.0, 65)),
+        ('Raise your right front leg and set it back down.', prog_lift_leg('front_right', 'normal', 1.0, 65)),
+        ('Lift your right leg up and hold it for two seconds.', prog_lift_leg('front_right', 'normal', 2.0, 65)),
+        ('Pick up your front right foot, pause briefly, and lower it.', prog_lift_leg('front_right', 'normal', 0.8, 65)),
+        ('Slowly lift your right front leg and put it down gently.', prog_lift_leg('front_right', 'normal', 1.2, 35)),
+        ('Hold your right front leg high in the air!', prog_lift_leg('front_right', 'high', 1.2, 75)),
+    ], ('Lift your front right leg off the ground, hold briefly, and return to standing.',
+        prog_lift_leg('front_right', 'normal', 1.0, 65))))
+
+    specs.append(('lift_front_left_leg', [
+        ('Lift the left front leg.', prog_lift_leg('front_left', 'normal', 1.0, 65)),
+        ('Lift your front left leg.', prog_lift_leg('front_left', 'normal', 1.0, 65)),
+        ('Please lift your left leg.', prog_lift_leg('front_left', 'normal', 1.0, 65)),
+        ('Raise your left front leg and set it back down.', prog_lift_leg('front_left', 'normal', 1.0, 65)),
+        ('Lift your left leg up and hold it for two seconds.', prog_lift_leg('front_left', 'normal', 2.0, 65)),
+        ('Pick up your front left foot, pause briefly, and lower it.', prog_lift_leg('front_left', 'normal', 0.8, 65)),
+        ('Slowly lift your left front leg and put it down gently.', prog_lift_leg('front_left', 'normal', 1.2, 35)),
+        ('Hold your left front leg high in the air!', prog_lift_leg('front_left', 'high', 1.2, 75)),
+    ], ('Lift your front left leg off the ground, hold briefly, and return to standing.',
+        prog_lift_leg('front_left', 'normal', 1.0, 65))))
+
+    specs.append(('lift_rear_right_leg', [
+        ('Lift the right rear leg.', prog_lift_leg('rear_right', 'normal', 1.0, 65)),
+        ('Lift your back right leg.', prog_lift_leg('rear_right', 'normal', 1.0, 65)),
+        ('Lift your rear right leg for two seconds.', prog_lift_leg('rear_right', 'normal', 2.0, 65)),
+        ('Raise your right hind leg and put it back down.', prog_lift_leg('rear_right', 'normal', 1.0, 65)),
+        ('Pick up your back right foot, hold it up, and lower it.', prog_lift_leg('rear_right', 'normal', 1.0, 65)),
+        ('Please lift the right back leg.', prog_lift_leg('rear_right', 'normal', 1.0, 65)),
+        ('Slowly lift your rear right leg and set it down.', prog_lift_leg('rear_right', 'normal', 1.2, 35)),
+        ('Hold your back right leg up high!', prog_lift_leg('rear_right', 'high', 1.2, 75)),
+    ], ('Raise your back right leg off the floor, hold for a moment, and return to standing.',
+        prog_lift_leg('rear_right', 'normal', 1.0, 65))))
+
+    specs.append(('lift_rear_left_leg', [
+        ('Lift the left rear leg.', prog_lift_leg('rear_left', 'normal', 1.0, 65)),
+        ('Lift your back left leg.', prog_lift_leg('rear_left', 'normal', 1.0, 65)),
+        ('Lift your rear left leg for two seconds.', prog_lift_leg('rear_left', 'normal', 2.0, 65)),
+        ('Raise your left hind leg and put it back down.', prog_lift_leg('rear_left', 'normal', 1.0, 65)),
+        ('Pick up your back left foot, hold it up, and lower it.', prog_lift_leg('rear_left', 'normal', 1.0, 65)),
+        ('Please lift the left back leg.', prog_lift_leg('rear_left', 'normal', 1.0, 65)),
+        ('Slowly lift your rear left leg and set it down.', prog_lift_leg('rear_left', 'normal', 1.2, 35)),
+        ('Hold your back left leg up high!', prog_lift_leg('rear_left', 'high', 1.2, 75)),
+    ], ('Raise your back left leg off the floor, hold for a moment, and return to standing.',
+        prog_lift_leg('rear_left', 'normal', 1.0, 65))))
+
+    specs.append(('standing_right_hand', [
+        ('Lift your right hand.', prog_standing_hand('right', 'lift', 1.0, 65)),
+        ('Please lift your right hand.', prog_standing_hand('right', 'lift', 1.0, 65)),
+        ('Lift the right hand.', prog_standing_hand('right', 'lift', 1.0, 65)),
+        ('Hold up your right hand for two seconds.', prog_standing_hand('right', 'lift', 2.0, 65)),
+        ('Reach forward with your right hand.', prog_standing_hand('right', 'reach', 1.0, 65)),
+        ('Hold out your right hand.', prog_standing_hand('right', 'reach', 1.0, 65)),
+        ('Wiggle your right hand in the air!', prog_standing_hand('right', 'wiggle', 1.0, 75)),
+    ], ('While standing, lift your right hand up, pause, and set it back down.',
+        prog_standing_hand('right', 'lift', 1.0, 65))))
+
+    specs.append(('standing_left_hand', [
+        ('Lift your left hand.', prog_standing_hand('left', 'lift', 1.0, 65)),
+        ('Please lift your left hand.', prog_standing_hand('left', 'lift', 1.0, 65)),
+        ('Lift the left hand.', prog_standing_hand('left', 'lift', 1.0, 65)),
+        ('Hold up your left hand for two seconds.', prog_standing_hand('left', 'lift', 2.0, 65)),
+        ('Reach forward with your left hand.', prog_standing_hand('left', 'reach', 1.0, 65)),
+        ('Hold out your left hand.', prog_standing_hand('left', 'reach', 1.0, 65)),
+        ('Wiggle your left hand in the air!', prog_standing_hand('left', 'wiggle', 1.0, 75)),
+    ], ('While standing, lift your left hand up, pause, and set it back down.',
+        prog_standing_hand('left', 'lift', 1.0, 65))))
+
+    specs.append(('both_hands_reach_and_jazz', [
+        ('Lift both hands.', prog_raise_hand('both', 'seated', 70, 0.9)),
+        ('Please lift both of your hands.', prog_raise_hand('both', 'seated', 70, 1.0)),
+        ('Reach forward with both hands.', prog_both_hands_gesture('reach', 3, 65)),
+        ('Hold out both hands in front of you.', prog_both_hands_gesture('reach', 3, 65)),
+        ('Spread both hands wide apart.', prog_both_hands_gesture('wide', 3, 70)),
+        ('Jazz hands! Wiggle both hands in the air!', prog_both_hands_gesture('jazz', 3, 75)),
+    ], ('Sit back, reach both hands forward, pause, and return to standing.',
+        prog_both_hands_gesture('reach', 3, 65))))
+
+    specs.append(('leg_stretch_and_shake', [
+        ('Stretch your right front leg forward.', prog_leg_stretch_shake('front_right', 'stretch', 60)),
+        ('Stretch your left front leg forward.', prog_leg_stretch_shake('front_left', 'stretch', 60)),
+        ('Stretch your back right leg straight back.', prog_leg_stretch_shake('rear_right', 'stretch', 60)),
+        ('Stretch your back left leg straight back.', prog_leg_stretch_shake('rear_left', 'stretch', 60)),
+        ('Shake your right front leg!', prog_leg_stretch_shake('front_right', 'shake', 70)),
+        ('Shake your left front leg!', prog_leg_stretch_shake('front_left', 'shake', 70)),
+        ('Shake out your back right leg.', prog_leg_stretch_shake('rear_right', 'shake', 70)),
+        ('Shake out your back left leg.', prog_leg_stretch_shake('rear_left', 'shake', 70)),
+    ], ('Extend your right rear leg backward in a stretch, hold briefly, and return to stand.',
+        prog_leg_stretch_shake('rear_right', 'stretch', 60))))
+
+    specs.append(('alternate_legs_and_hands', [
+        ('Lift your right front leg, then lift your left front leg.',
+         prog_alternate_limbs(('front_right', 'front_left'), 0.45, 70)),
+        ('Lift your left front leg, then lift your right front leg.',
+         prog_alternate_limbs(('front_left', 'front_right'), 0.45, 70)),
+        ('Lift your right hand, then lift your left hand.',
+         prog_alternate_limbs(('front_right', 'front_left'), 0.45, 70)),
+        ('Lift your left hand, then lift your right hand.',
+         prog_alternate_limbs(('front_left', 'front_right'), 0.45, 70)),
+        ('Alternate lifting your back left leg and back right leg.',
+         prog_alternate_limbs(('rear_left', 'rear_right'), 0.45, 70)),
+        ('March in place by lifting each of your four legs one at a time.',
+         prog_alternate_limbs(('front_left', 'rear_right', 'front_right', 'rear_left'), 0.35, 75)),
+    ], ('Lift your front left leg, set it down, then lift your front right leg and finish standing.',
+        prog_alternate_limbs(('front_left', 'front_right'), 0.45, 70))))
+
     def casual_prompt(text: str) -> str:
         cleaned = text.strip().rstrip('.!?').replace('—', ' ').replace('-', ' ')
         return ' '.join(cleaned.lower().split())
@@ -2429,11 +2675,20 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     seen_ids = set(discarded_ids)
 
     obs_cycle = ('stand', 'sit', 'stand', 'crouch', 'stand', 'rest')
+    nonstand_cycle = ('sit', 'crouch', 'rest')
+    limb_posture_fams = {
+        'raise_right_hand', 'raise_left_hand', 'wave_right_hand', 'wave_left_hand',
+        'lift_front_right_leg', 'lift_front_left_leg', 'lift_rear_right_leg', 'lift_rear_left_leg',
+        'standing_right_hand', 'standing_left_hand', 'both_hands_reach_and_jazz',
+        'leg_stretch_and_shake', 'alternate_legs_and_hands',
+    }
     for fam_idx, (fam, train_items, eval_item) in enumerate(specs):
         for item_idx, (prompt, program) in enumerate(train_items):
             low = prompt.lower()
             if item_idx == 0 or 'left' in low or 'right' in low:
                 modes = [None, 'stand']
+                if fam in limb_posture_fams and item_idx % 2 == 0:
+                    modes.append(nonstand_cycle[(fam_idx + item_idx) % len(nonstand_cycle)])
             elif item_idx in (1, 2):
                 modes = [None, obs_cycle[(fam_idx + item_idx) % len(obs_cycle)]]
             else:
@@ -2448,6 +2703,8 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
                 req_variants.append((casual_prompt(prompt), 'stand', 2001 + fam_idx * 13))
                 if 'left' in fam or 'right' in fam:
                     req_variants.append((casual_prompt(prompt), None, 0))
+                    if fam in limb_posture_fams:
+                        req_variants.append((casual_prompt(prompt), nonstand_cycle[fam_idx % 3], 3001 + fam_idx * 11))
             for req_text, mode, seed_val in req_variants:
                 row = make_entry(req_text, program, fam, with_observation=mode, seed=seed_val, split='train')
                 if row['query'] in seen_queries or row['id'] in seen_ids:

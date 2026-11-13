@@ -260,6 +260,13 @@ if [[ -n "$CLOUDFLARE_RELAY_SERVICE" ]]; then
   echo "  Remote Ainekio OS: Cloudflare relay requested ($CLOUDFLARE_RELAY_SERVICE)"
 fi
 
+if command -v systemctl >/dev/null 2>&1 &&
+   systemctl --user cat ainekio-freestyle-api.service >/dev/null 2>&1; then
+  if systemctl --user --no-block start ainekio-freestyle-api.service >/dev/null 2>&1; then
+    echo "  Freestyle API:     ainekio-freestyle-api.service ensured"
+  fi
+fi
+
 if [[ "$LOCAL_DISCOVERY" == "1" ]]; then
   avahi-publish-service \
     --service \

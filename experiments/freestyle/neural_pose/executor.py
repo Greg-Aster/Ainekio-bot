@@ -13,6 +13,7 @@ import math
 import os
 from pathlib import Path
 from uuid import uuid4
+import torch
 
 from .actor import NeuralPoseActor
 from .contract import JOINTS, PoseObservationHistory, assemble_pose_features
@@ -96,6 +97,10 @@ async def execute_neural_pose_program(
     for seg in segments:
         seg["index"] += start_index
 
+    snap = await gateway.status_snapshot()
+    cal_joints = (((snap.get("robots") or {}).get(robot) or {}).get("calibration") or {}).get("joints")
+    live_body = manifold.body_for_calibration(cal_joints)
+
     tick_event = asyncio.Event()
 
     def _on_gateway_event(event: dict):
@@ -106,14 +111,31 @@ async def execute_neural_pose_program(
     walk_seq: int | None = None
     history = PoseObservationHistory()
     sample_idx = 0
-    consumed_sample = 0
-    sent_actions: dict[int, list[float]] = {}
-    _, prev_action = manifold.project_angles_deg(usable_joint_angles_deg(obs))
-    hold_goal_deg, hold_goal_foot = manifold.project_angles_deg(usable_joint_angles_deg(obs))
+    init_deg, prev_action = manifold.project_angles_deg(usable_joint_angles_deg(obs), body=live_body)
+    cmd_q_rad = torch.tensor(init_deg, dtype=torch.float64, device=live_body.device).reshape(1, 12) * (
+        math.pi / 180.0
+    )
+    hold_goal_deg, hold_goal_foot = list(init_deg), list(prev_action)
     hold_support = manifold.infer_leg_support(hold_goal_deg)
 
+    async def _wait_next_tick(tick_started_at: float) -> None:
+        target_next = tick_started_at + 0.020
+        wait_s = target_next - gateway.clock()
+        if wait_s <= 0.001:
+            await asyncio.sleep(0.001)
+            return
+        try:
+            await asyncio.wait_for(tick_event.wait(), timeout=wait_s)
+        except asyncio.TimeoutError:
+            return
+        rem = target_next - gateway.clock()
+        if rem > 0.002:
+            await asyncio.sleep(rem)
+        else:
+            await asyncio.sleep(0)
+
     async def _ensure_host_stream():
-        nonlocal walk_seq, sample_idx, consumed_sample, prev_action
+        nonlocal walk_seq, sample_idx, prev_action, cmd_q_rad
         connection = gateway._connection(robot)
         if walk_seq is not None and connection._owns_walk(walk_seq) and walk_seq in connection.pending:
             return connection
@@ -121,10 +143,12 @@ async def execute_neural_pose_program(
             raise ValueError(f"Robot {robot} does not advertise walk_nominal_v1 for 50 Hz neural pose control")
         history.reset()
         sample_idx = 0
-        consumed_sample = 0
-        sent_actions.clear()
         cur_obs = gateway.body_sensor_observation(robot)
-        _, prev_action = manifold.project_angles_deg(usable_joint_angles_deg(cur_obs))
+        cur_deg, prev_action = manifold.project_angles_deg(usable_joint_angles_deg(cur_obs), body=live_body)
+        cmd_q_rad = torch.tensor(cur_deg, dtype=torch.float64, device=live_body.device).reshape(1, 12) * (
+            math.pi / 180.0
+        )
+        cmd_q_rad, _ = live_body.pwm(cmd_q_rad)
         seq = await gateway.queue_intent(
             "walk",
             {
@@ -150,6 +174,21 @@ async def execute_neural_pose_program(
             if ack.get("t") != "ack":
                 raise RuntimeError("Body rejected host pose stream: " + str(ack))
         walk_seq = seq
+        # Immediately seed sample 1 at the robot's current projected posture so the P4 does not
+        # jump toward `reference_cd` (`feet_mm == 0`) before the first closed-loop tick arrives.
+        pts0, _ = live_body.forward(cmd_q_rad.reshape(1, 4, 3))
+        init_feet_mm = (pts0 - live_body.origin.unsqueeze(0)).reshape(12).cpu().tolist()
+        sample_idx = 1
+        await connection.send_command(
+            {
+                "t": "walk_target",
+                "walk": walk_seq,
+                "sample": sample_idx,
+                "geometry": manifold.geometry_id,
+                "feet_mm": init_feet_mm,
+            },
+            received_at=gateway.clock(),
+        )
         return connection
 
     async def _step_50hz(
@@ -158,27 +197,28 @@ async def execute_neural_pose_program(
         goal_foot_norm: list[float],
         leg_support: list[float],
         speed_scale: float,
+        *,
+        now: float,
     ) -> dict:
-        nonlocal sample_idx, consumed_sample, prev_action
+        nonlocal sample_idx, prev_action, cmd_q_rad
         if bridge.active.get(robot) != job["id"]:
             raise RuntimeError("Neural pose job was superseded")
         if walk_seq is None or not connection._owns_walk(walk_seq) or walk_seq not in connection.pending:
             raise RuntimeError("Host 50 Hz pose stream lost ownership")
 
         sensor = gateway.body_sensor_observation(robot)
-        motion = (sensor.get("imu") or {}).get("motion") or {}
-        if motion.get("sequence") == walk_seq:
-            dev_sample = int(motion.get("nominal_sample") or 0)
-            if dev_sample > consumed_sample and dev_sample in sent_actions:
-                prev_action = sent_actions[dev_sample]
-                consumed_sample = dev_sample
-                for k in [k for k in sent_actions if k <= dev_sample]:
-                    sent_actions.pop(k, None)
-
         joints_map = sensor["joints"]
         imu = sensor["imu"]
+        tracked_cmd_deg = (cmd_q_rad[0] * (180.0 / math.pi)).cpu().tolist()
         measured_deg = [joints_map[j].get("filtered_model_deg") for j in JOINTS]
-        commanded_deg = [joints_map[j].get("commanded_model_deg") for j in JOINTS]
+        commanded_deg = [
+            (
+                float(joints_map[j]["commanded_model_deg"])
+                if isinstance(joints_map[j].get("commanded_model_deg"), (int, float))
+                else tracked_cmd_deg[i]
+            )
+            for i, j in enumerate(JOINTS)
+        ]
         velocity_deg_s = [joints_map[j].get("velocity_deg_s") or 0.0 for j in JOINTS]
         usable_flags = [bool(joints_map[j].get("feedback_usable", False)) for j in JOINTS]
 
@@ -197,12 +237,14 @@ async def execute_neural_pose_program(
             previous_action=prev_action,
         )
         dev_us = (sensor.get("feedback") or {}).get("device_us")
-        t_obs = float(dev_us) / 1e6 if isinstance(dev_us, (int, float)) and dev_us > 0 else gateway.clock()
+        t_obs = float(dev_us) / 1e6 if isinstance(dev_us, (int, float)) and dev_us > 0 else now
         obs_vec = history.push_and_project(t_obs, feat)
-        act_list, feet_mm = actor.infer_feet_mm(obs_vec)
+        act_list, _ = actor.infer_feet_mm(obs_vec)
+        cmd_q_rad, prev_action, feet_mm = manifold.step_host_command(
+            act_list, cmd_q_rad, speed_scale=speed_scale, body=live_body
+        )
 
         sample_idx += 1
-        sent_actions[sample_idx] = act_list
         await connection.send_command(
             {
                 "t": "walk_target",
@@ -211,7 +253,7 @@ async def execute_neural_pose_program(
                 "geometry": manifold.geometry_id,
                 "feet_mm": feet_mm,
             },
-            received_at=gateway.clock(),
+            received_at=now,
         )
         return sensor
 
@@ -275,49 +317,65 @@ async def execute_neural_pose_program(
                     support = seg["leg_support"]
                     spd = seg["speed_scale"]
                     duration_s = seg["duration_s"]
+                    live_start_deg = usable_joint_angles_deg(before_sensor)
                     bridge.record(
                         job,
                         "motion_prepared",
                         {
                             "action_index": idx,
-                            "start": {j: seg["start_deg"][i] for i, j in enumerate(JOINTS)},
+                            "start": {j: live_start_deg[i] for i, j in enumerate(JOINTS)},
                             "target": {j: goal_deg[i] for i, j in enumerate(JOINTS)},
                             "control": "neural_pose_50hz",
                             "duration_s": duration_s,
                         },
                     )
                     settled_frames = 0
+                    partial_support = sum(support) < 3.5
                     while True:
-                        elapsed = gateway.clock() - t_start
+                        now = gateway.clock()
+                        elapsed = now - t_start
                         tick_event.clear()
-                        sensor_now = await _step_50hz(connection, goal_deg, goal_foot, support, spd)
+                        sensor_now = await _step_50hz(connection, goal_deg, goal_foot, support, spd, now=now)
                         if elapsed >= duration_s:
                             break
-                        if elapsed >= 0.26:
+                        if elapsed >= 0.30:
                             usable_errs = []
+                            free_errs = []
+                            stance_errs = []
                             usable_vels = []
                             for i, j in enumerate(JOINTS):
                                 jd = sensor_now["joints"][j]
                                 if jd.get("feedback_usable") and isinstance(jd.get("filtered_model_deg"), (int, float)):
-                                    usable_errs.append(abs(float(jd["filtered_model_deg"]) - goal_deg[i]))
+                                    err_i = abs(float(jd["filtered_model_deg"]) - goal_deg[i])
+                                    usable_errs.append(err_i)
+                                    if support[i // 3] < 0.5:
+                                        free_errs.append(err_i)
+                                    else:
+                                        stance_errs.append(err_i)
                                     usable_vels.append(abs(float(jd.get("velocity_deg_s") or 0.0)))
-                            if len(usable_errs) >= 6 and max(usable_errs) <= 4.5 and max(usable_vels) <= 22.0:
+                            full_ok = len(usable_errs) >= 6 and max(usable_errs) <= 4.5 and max(usable_vels) <= 22.0
+                            partial_ok = (
+                                partial_support
+                                and elapsed >= 0.55
+                                and len(usable_errs) >= 6
+                                and (not free_errs or max(free_errs) <= 4.8)
+                                and (not stance_errs or max(stance_errs) <= 10.5)
+                                and max(usable_vels) <= 20.0
+                            )
+                            if full_ok or partial_ok:
                                 settled_frames += 1
-                                if settled_frames >= 3:
+                                if settled_frames >= (3 if full_ok else 4):
                                     break
                             else:
                                 settled_frames = 0
-                        try:
-                            await asyncio.wait_for(tick_event.wait(), timeout=0.022)
-                        except asyncio.TimeoutError:
-                            pass
+                        await _wait_next_tick(now)
                     hold_goal_deg, hold_goal_foot, hold_support = goal_deg, goal_foot, support
 
                 elif kind == "oscillate_goal":
                     osc_dur = seg["cycles"] / seg["hz"]
                     total_dur = seg["duration_s"]
                     end_deg = seg["end_deg"]
-                    _, end_foot = manifold.project_angles_deg(end_deg)
+                    _, end_foot = manifold.project_angles_deg(end_deg, body=live_body)
                     support = seg["leg_support"]
                     spd = seg["speed_scale"]
                     bridge.record(
@@ -331,7 +389,8 @@ async def execute_neural_pose_program(
                         },
                     )
                     while True:
-                        elapsed = gateway.clock() - t_start
+                        now = gateway.clock()
+                        elapsed = now - t_start
                         tick_event.clear()
                         if elapsed < osc_dur:
                             cand = list(seg["base_deg"])
@@ -340,30 +399,25 @@ async def execute_neural_pose_program(
                                 seg["joint_indices"], seg["centers_deg"], seg["amplitudes_deg"]
                             ):
                                 cand[j_idx] = c_deg + a_deg * math.sin(phase)
-                            g_deg, g_foot = manifold.project_angles_deg(cand)
+                            g_deg, g_foot = manifold.project_angles_deg(cand, body=live_body)
                         else:
                             g_deg, g_foot = end_deg, end_foot
-                        await _step_50hz(connection, g_deg, g_foot, support, spd)
+                        await _step_50hz(connection, g_deg, g_foot, support, spd, now=now)
                         if elapsed >= total_dur:
                             break
-                        try:
-                            await asyncio.wait_for(tick_event.wait(), timeout=0.022)
-                        except asyncio.TimeoutError:
-                            pass
+                        await _wait_next_tick(now)
                     hold_goal_deg, hold_goal_foot, hold_support = end_deg, end_foot, support
 
                 elif kind == "hold":
                     hold_dur = max(0.02, float(seg["seconds"]))
                     while True:
-                        elapsed = gateway.clock() - t_start
+                        now = gateway.clock()
+                        elapsed = now - t_start
                         tick_event.clear()
-                        await _step_50hz(connection, hold_goal_deg, hold_goal_foot, hold_support, 0.5)
+                        await _step_50hz(connection, hold_goal_deg, hold_goal_foot, hold_support, 0.5, now=now)
                         if elapsed >= hold_dur:
                             break
-                        try:
-                            await asyncio.wait_for(tick_event.wait(), timeout=0.022)
-                        except asyncio.TimeoutError:
-                            pass
+                        await _wait_next_tick(now)
 
             elif kind == "gait":
                 from ..program import gait_intents
@@ -374,7 +428,7 @@ async def execute_neural_pose_program(
                     sequence_options.clear()
                     await bridge._receipt(job, seq, obs["epoch"])
                 hold_goal_deg, hold_goal_foot = manifold.project_angles_deg(
-                    usable_joint_angles_deg(gateway.body_sensor_observation(robot))
+                    usable_joint_angles_deg(gateway.body_sensor_observation(robot)), body=live_body
                 )
                 hold_support = manifold.infer_leg_support(hold_goal_deg)
 

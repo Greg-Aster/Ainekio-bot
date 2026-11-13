@@ -13,7 +13,7 @@ import numpy as np
 import torch
 
 ROOT = Path(__file__).resolve().parents[2]
-for p in (str(ROOT), str(ROOT / "Master"), str(ROOT / "Shared")):
+for p in (str(ROOT), str(ROOT / "Master"), str(ROOT / "Slave/software")):
     if p not in sys.path:
         sys.path.insert(0, p)
 
@@ -186,6 +186,205 @@ class NeuralPoseContractAndGoalsTests(unittest.TestCase):
                 self.assertEqual(len(seg["goal_foot_norm"]), 12)
                 self.assertTrue(all(math.isfinite(v) for v in seg["goal_deg"]))
                 self.assertTrue(all(-1.0 <= v <= 1.0 for v in seg["goal_foot_norm"]))
+
+    def test_continuous_host_step_eliminates_binary_halving_cliffs_and_matches_p4_roundtrip(self):
+        # Downward extension sweep crossing s ~= 0.500 (previously snapped 0.5 -> 0.25 by >20 deg)
+        z_sweep = np.linspace(-0.22, -0.32, 16)
+        legacy_degs = []
+        cont_degs = []
+        cmd_q = torch.tensor(STAND_ANGLES_DEG, dtype=torch.float64).reshape(1, 12) * (math.pi / 180.0)
+        cmd_q, _ = self.manifold.body.pwm(cmd_q)
+
+        for z_val in z_sweep:
+            act = [0.0, 0.0, float(z_val)] * 4
+            act_t = torch.tensor(act, dtype=torch.float64).reshape(1, 12)
+            q_leg = (self.manifold.body.decode(act_t)[0] * 180.0 / math.pi).tolist()
+            q_cnt = (self.manifold.continuous_decode_rad(act_t)[0] * 180.0 / math.pi).tolist()
+            legacy_degs.append(q_leg)
+            cont_degs.append(q_cnt)
+
+            prev_deg = (cmd_q[0] * 180.0 / math.pi).tolist()
+            cmd_q, applied_act, feet_mm = self.manifold.step_host_command(act, cmd_q, speed_scale=0.7)
+            next_deg = (cmd_q[0] * 180.0 / math.pi).tolist()
+            step_jump = max(abs(a - b) for a, b in zip(next_deg, prev_deg))
+            self.assertLessEqual(step_jump, 7.75)
+            self.assertEqual(len(applied_act), 12)
+            self.assertEqual(len(feet_mm), 12)
+
+            # Verify P4 `ainekio_v2_nominal_foot_pose` accepts `feet_mm` at fraction=1.0 with 0.0 deg error
+            sent_norm = torch.tensor(feet_mm, dtype=torch.float64).reshape(1, 12) / self.manifold.body.scale.repeat(4)
+            q_p4 = self.manifold.body.decode(sent_norm)
+            p4_err_deg = float((q_p4 - cmd_q).abs().max().item() * 180.0 / math.pi)
+            self.assertLess(p4_err_deg, 0.05)
+
+        max_legacy_cliff = max(
+            max(abs(a - b) for a, b in zip(legacy_degs[i], legacy_degs[i - 1]))
+            for i in range(1, len(legacy_degs))
+        )
+        max_cont_step = max(
+            max(abs(a - b) for a, b in zip(cont_degs[i], cont_degs[i - 1]))
+            for i in range(1, len(cont_degs))
+        )
+        self.assertGreater(max_legacy_cliff, 18.0)
+        self.assertLess(max_cont_step, 3.0)
+
+        # Upper hip dead-zone graze (step 4..6 from live telemetry) must stay smooth without 60+ deg shoulder flip
+        upper_vecs = ([0.134, 0.040, 0.553], [0.127, 0.027, 0.569], [0.152, -0.001, 0.626])
+        upper_q = [
+            (self.manifold.continuous_decode_rad(torch.tensor(v * 4, dtype=torch.float64).reshape(1, 12))[0] * 180.0 / math.pi).tolist()
+            for v in upper_vecs
+        ]
+        for i in range(1, len(upper_q)):
+            self.assertLess(max(abs(a - b) for a, b in zip(upper_q[i], upper_q[i - 1])), 15.0)
+
+    def test_spatial_body_pivot_matches_authoritative_four_bar_kinematics(self):
+        from experiments.freestyle.kinematics import reference, target_for_spatial
+
+        ref_mod = reference()
+        _, _, qs, _ = ref_mod.stand(ref_mod.load())
+        init_deg = np.rad2deg(qs[[2, 3, 0, 1]]).reshape(-1).tolist()
+        positions = {JOINTS[i]: init_deg[i] for i in range(12)}
+        body_op = {
+            "name": "body",
+            "arguments": {
+                "translation_mm": [6.0, -3.0, -5.0],
+                "rotation_deg": [2.0, -3.0, 2.0],
+                "legs": [],
+                "foot_offsets_mm": [],
+            },
+        }
+        ref_deg = [c / 100.0 for c in target_for_spatial(body_op, positions)]
+        ours_deg = self.manifold.resolve_spatial_deg(body_op, init_deg)
+        max_diff = max(abs(a - b) for a, b in zip(ref_deg, ours_deg))
+        self.assertLess(max_diff, 0.05)
+
+    def test_segment_durations_ignore_2000_deg_s_nvs_ramp_and_allow_full_servo_travel(self):
+        obs = _mock_folded_faulted_observation()
+        obs["joint_speed_limit_deg_s"] = 2000.0
+        segs = compile_goal_segments(
+            [
+                {"name": "stand", "arguments": {}},
+                {"name": "feet", "arguments": {"legs": ["front_right"], "offsets_mm": [[24.0, -14.0, 36.0]], "speed_pct": 75}},
+            ],
+            obs,
+            self.manifold,
+        )
+        self.assertGreaterEqual(segs[0]["duration_s"], 1.75)
+        self.assertGreaterEqual(segs[1]["duration_s"], 0.90)
+
+    def test_host_step_meets_50hz_realtime_budget_and_matches_tensor_body(self):
+        import time
+
+        from experiments.freestyle.neural_pose.goals import STAND_ANGLES_DEG, _fast_numpy_body
+
+        rng = np.random.default_rng(7)
+        acts = torch.tensor(rng.uniform(-1.0, 1.0, size=(16, 12)), dtype=torch.float64)
+        fb = _fast_numpy_body(self.manifold.body)
+        q_init = torch.deg2rad(torch.tensor(STAND_ANGLES_DEG, dtype=torch.float64)).reshape(1, 12)
+        # Warm up once
+        q = q_init
+        q, _, _ = self.manifold.step_host_command(acts[0], q, speed_scale=0.75)
+
+        t0 = time.perf_counter()
+        for i in range(16):
+            q, _, _ = self.manifold.step_host_command(acts[i], q, speed_scale=0.75)
+        mean_ms = (time.perf_counter() - t0) / 16.0 * 1000.0
+        # Must stay well below 20.0 ms (50 Hz period) so the gateway WebSocket heartbeat never starves
+        self.assertLess(mean_ms, 5.0)
+
+        # Verify exact four-bar inverse/bounded parity with TensorBody
+        target = self.manifold.body.origin.unsqueeze(0) + acts.reshape(16, 4, 3) * self.manifold.body.scale
+        qt, vt = self.manifold.body.inverse(target)
+        qn, vn = fb.inverse(target.numpy())
+        self.assertTrue(np.array_equal(vt.numpy(), vn))
+        self.assertLess(float(np.max(np.abs(qt.numpy()[vt.numpy()] - qn[vn]))), 1e-10)
+
+    def test_multistep_spatial_wave_from_sitting_posture_never_resets_mid_program(self):
+        from experiments.freestyle.kinematics import target_for_spatial
+        from experiments.freestyle.neural_pose.goals import STAND_ANGLES_DEG
+
+        # Exact sitting/folded start posture recorded in live job 85ed11be
+        sitting_angles = [
+            2.94516, -17.5064, 14.3611,
+            6.17927, -11.5939, 31.6920,
+            -27.6686, 14.6320, -13.9340,
+            11.2241, 39.6952, 37.3274,
+        ]
+        obs = {
+            "joint_speed_limit_deg_s": 1000.0,
+            "joints": {
+                j: {
+                    "home_deg": 0.0,
+                    "model_deg": sitting_angles[i],
+                    "filtered_model_deg": sitting_angles[i],
+                    "commanded_model_deg": sitting_angles[i],
+                    "feedback_usable": True,
+                }
+                for i, j in enumerate(JOINTS)
+            },
+        }
+        program = [
+            {"name": "body", "arguments": {"translation_mm": [-10, -10, 0], "rotation_deg": [0, 0, 0], "legs": [], "foot_offsets_mm": [], "speed_pct": 75}},
+            {"name": "feet", "arguments": {"legs": ["front_left"], "offsets_mm": [[26, 12, 34]], "speed_pct": 75}},
+            {"name": "feet", "arguments": {"legs": ["front_left"], "offsets_mm": [[-16, 0, 14]], "speed_pct": 75}},
+            {"name": "feet", "arguments": {"legs": ["front_left"], "offsets_mm": [[16, 0, -14]], "speed_pct": 75}},
+            {"name": "feet", "arguments": {"legs": ["front_left"], "offsets_mm": [[-16, 0, 14]], "speed_pct": 75}},
+            {"name": "feet", "arguments": {"legs": ["front_left"], "offsets_mm": [[-26, -12, -34]], "speed_pct": 75}},
+            {"name": "body", "arguments": {"translation_mm": [10, 10, 0], "rotation_deg": [0, 0, 0], "legs": [], "foot_offsets_mm": [], "speed_pct": 75}},
+        ]
+        segs = compile_goal_segments(program, obs, self.manifold)
+        self.assertEqual(len(segs), len(program))
+        # First segment must allow full travel time from sitting posture (`max_delta > 45 deg` -> >= 1.75 s)
+        self.assertGreaterEqual(segs[0]["duration_s"], 1.75)
+
+        ref_pos = dict(zip(JOINTS, STAND_ANGLES_DEG))
+        stance_ref = segs[0]["goal_deg"][:6] + segs[0]["goal_deg"][9:12]
+        for idx, (act, seg) in enumerate(zip(program, segs)):
+            ref_cd = target_for_spatial(act, ref_pos)
+            ref_pos = {j: v / 100.0 for j, v in zip(JOINTS, ref_cd)}
+            ref_list = [ref_pos[j] for j in JOINTS]
+            max_diff = max(abs(a - b) for a, b in zip(seg["goal_deg"], ref_list))
+            self.assertLess(max_diff, 0.08, f"step {idx} diverged from authoritative spatial IK by {max_diff:.4f} deg")
+            if act["name"] == "feet":
+                # Support legs must stay rock-steady at the shifted body stance without resetting to STAND_ANGLES_DEG
+                stance_now = seg["goal_deg"][:6] + seg["goal_deg"][9:12]
+                self.assertEqual(stance_now, stance_ref)
+
+    def test_canonical_single_joint_oscillate_and_quadruped_leg_lift_support(self):
+        from experiments.freestyle.freestyle_curriculum import prog_lift_leg, prog_standing_hand
+        from experiments.freestyle.neural_pose.goals import STAND_ANGLES_DEG
+
+        obs = {
+            "joint_speed_limit_deg_s": 1000.0,
+            "joints": {
+                j: {
+                    "home_deg": 0.0,
+                    "model_deg": STAND_ANGLES_DEG[i],
+                    "filtered_model_deg": STAND_ANGLES_DEG[i],
+                    "commanded_model_deg": STAND_ANGLES_DEG[i],
+                    "feedback_usable": True,
+                }
+                for i, j in enumerate(JOINTS)
+            },
+        }
+        # Verify quadruped leg lifts mark only the lifted leg as free (0.0) and the 3 stance legs as grounded (1.0)
+        expected_support = {
+            "rear_left": [0.0, 1.0, 1.0, 1.0],
+            "rear_right": [1.0, 0.0, 1.0, 1.0],
+            "front_left": [1.0, 1.0, 0.0, 1.0],
+            "front_right": [1.0, 1.0, 1.0, 0.0],
+        }
+        for leg, exp_sup in expected_support.items():
+            segs = compile_goal_segments(prog_lift_leg(leg, "normal", 1.0, 65), obs, self.manifold)
+            lift_seg = next(s for s in segs if s["action"]["name"] == "feet")
+            self.assertEqual(lift_seg["leg_support"], exp_sup, f"wrong support mask for {leg}")
+
+        # Verify canonical single-joint `oscillate` (`joint`, scalar `amplitude_deg`, `cycles`, `speed_pct`) compiles cleanly
+        wiggle_segs = compile_goal_segments(prog_standing_hand("right", "wiggle", 1.0, 75), obs, self.manifold)
+        osc_seg = next(s for s in wiggle_segs if s["kind"] == "oscillate_goal")
+        self.assertEqual(osc_seg["joint_indices"], [JOINTS.index("front_right_crank")])
+        self.assertEqual(osc_seg["amplitudes_deg"], [14.0])
+        self.assertEqual(osc_seg["leg_support"], [1.0, 1.0, 1.0, 0.0])
 
 
 class _DummyPending:
@@ -472,8 +671,21 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
         suspended: bool = False,
         faulted_joints: set[int] = frozenset(),
         push_at_s: float | None = None,
+        cmd_delay_ticks: int = 0,
+        obs_delay_ticks: int = 0,
+        servo_kp_scale: float = 1.0,
+        adc_vel_spikes: bool = False,
     ) -> dict:
+        from collections import deque
+
         sim.reset(seed=42)
+        rng = np.random.default_rng(1234)
+        base_kp = float(cfg.servo_kp) * float(servo_kp_scale)
+        base_kd = float(cfg.servo_kd)
+        for act_id in act_ids:
+            sim.model.actuator_gainprm[act_id, 0] = base_kp
+            sim.model.actuator_biasprm[act_id, 1] = -base_kp
+            sim.model.actuator_biasprm[act_id, 2] = -base_kd
         init_proj_deg, init_foot = manifold.project_angles_deg(init_deg)
         q20 = full_four_bar_qpos20(
             manifold.body,
@@ -527,7 +739,30 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
         pushed = False
         min_up_cos = 1.0
         seg_errors_deg = []
+        hold_cmd_p2p_list = []
+        hold_joint_p2p_list = []
         infer_ms = []
+
+        init_q_rad = torch.tensor(init_proj_deg, dtype=torch.float64).reshape(1, 12) * (math.pi / 180.0)
+        _, init_phys_rad = manifold.body.pwm(init_q_rad)
+        init_ctrl = init_phys_rad[0].numpy().copy()
+        cmd_queue = deque([init_ctrl.copy() for _ in range(cmd_delay_ticks + 1)], maxlen=cmd_delay_ticks + 1)
+
+        filt_q_deg = np.asarray(init_proj_deg, dtype=np.float64).copy()
+        init_pkt = (
+            list(init_proj_deg),
+            [0.0] * 12,
+            list(init_proj_deg),
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 9.81],
+        )
+        obs_queue = deque([init_pkt for _ in range(obs_delay_ticks + 1)], maxlen=obs_delay_ticks + 1)
+        held_pkt = init_pkt
+
+        hold_goal_deg = list(init_proj_deg)
+        hold_goal_foot = list(init_foot)
+        hold_support = manifold.infer_leg_support(hold_goal_deg)
 
         import time
 
@@ -536,6 +771,8 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
                 continue
             dur = seg["seconds"] if seg["kind"] == "hold" else seg["duration_s"]
             steps = max(1, int(round(dur * 50)))
+            seg_cmd_trace = []
+            seg_joint_trace = []
             for s_i in range(steps):
                 t_seg = s_i * 0.02
                 if seg["kind"] == "pose_goal":
@@ -560,27 +797,53 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
                         _, g_foot = manifold.project_angles_deg(g_deg)
                     sup, spd = seg["leg_support"], seg["speed_scale"]
                 else:
-                    g_deg, g_foot = init_proj_deg, init_foot
-                    sup, spd = [1.0] * 4, 0.5
+                    g_deg, g_foot = hold_goal_deg, hold_goal_foot
+                    sup, spd = hold_support, 0.5
 
-                # Read sensors from GaitEnvironment
+                # Read sensors from GaitEnvironment (with optional One-Euro filter + Wi-Fi/ADC transport delay)
                 true_q_deg = [float(sim.data.qpos[a] * 180.0 / math.pi) for a in joint_qpos_adrs]
                 true_v_deg = [
                     float(sim.data.qvel[sim.model.jnt_dofadr[sim.model.joint(j).id]] * 180.0 / math.pi)
                     for j in JOINTS
                 ]
-                usable = [i not in faulted_joints for i in range(12)]
-                meas = [999.0 if not usable[i] else true_q_deg[i] for i in range(12)]
-                cmd_deg = sim.commanded_deg.tolist()
+                if obs_delay_ticks > 0:
+                    prev_filt = filt_q_deg.copy()
+                    filt_q_deg = prev_filt + 0.24 * (np.asarray(true_q_deg) - prev_filt)
+                    vel_est = ((filt_q_deg - prev_filt) / 0.02).tolist()
+                    if adc_vel_spikes:
+                        for j_i in range(12):
+                            if rng.random() < 0.05:
+                                vel_est[j_i] += float(rng.choice([-1.0, 1.0]) * rng.uniform(25.0, 110.0))
+                    p4_cmd_now = (cmd_queue[0] * (180.0 / math.pi)).tolist()
+                    obs_queue.append(
+                        (
+                            filt_q_deg.tolist(),
+                            vel_est,
+                            p4_cmd_now,
+                            sim.data.qpos[3:7].tolist(),
+                            sim.data.sensor("gyro").data.tolist(),
+                            sim.data.sensor("accel").data.tolist(),
+                        )
+                    )
+                    arrived = obs_queue[0]
+                    if rng.random() >= 0.20:
+                        held_pkt = arrived
+                    q_obs, v_obs, cmd_deg, quat, gyro, accel = held_pkt
+                else:
+                    q_obs = true_q_deg
+                    v_obs = true_v_deg
+                    cmd_deg = sim.commanded_deg.tolist()
+                    quat = sim.data.qpos[3:7].tolist()
+                    gyro = sim.data.sensor("gyro").data.tolist()
+                    accel = sim.data.sensor("accel").data.tolist()
 
-                quat = sim.data.qpos[3:7].tolist()
-                gyro = sim.data.sensor("gyro").data.tolist()
-                accel = sim.data.sensor("accel").data.tolist()
+                usable = [i not in faulted_joints for i in range(12)]
+                meas = [999.0 if not usable[i] else q_obs[i] for i in range(12)]
 
                 feat = assemble_pose_features(
                     measured_deg=meas,
                     commanded_deg=cmd_deg,
-                    velocity_deg_s=true_v_deg,
+                    velocity_deg_s=v_obs,
                     usable_flags=usable,
                     orientation_wxyz=quat,
                     angular_rate_rad_s=gyro,
@@ -595,14 +858,15 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
                 t0 = time.perf_counter()
                 act, _ = actor.infer_feet_mm(obs_1290)
                 infer_ms.append((time.perf_counter() - t0) * 1000.0)
-                prev_action = act
 
-                # Decode via TensorBody.command (identical to P4 nominal_foot_pose + speed ramp)
                 q_log_prev = torch.tensor(sim.commanded_deg, dtype=torch.float64).reshape(1, 12) * (math.pi / 180.0)
-                act_t = torch.tensor(act, dtype=torch.float32).reshape(1, 12)
-                q_log_next, q_phys_next = manifold.body.command(act_t, q_log_prev)
+                q_log_next, prev_action, _ = manifold.step_host_command(act, q_log_prev, speed_scale=spd)
+                _, q_phys_next = manifold.body.pwm(q_log_next)
                 sim.commanded_deg = (q_log_next[0] * (180.0 / math.pi)).numpy()
-                ctrl_rad = q_phys_next[0].numpy()
+                cmd_queue.append(q_phys_next[0].numpy().copy())
+                ctrl_rad = cmd_queue[0]
+                seg_cmd_trace.append(sim.commanded_deg.copy())
+                seg_joint_trace.append(np.asarray(true_q_deg, dtype=np.float64))
 
                 if push_at_s is not None and not pushed and t_sim >= push_at_s:
                     sim.data.qvel[0] += 0.16
@@ -649,11 +913,26 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
                 min_up_cos = min(min_up_cos, -pg[2])
 
             end_q_deg = [float(sim.data.qpos[a] * 180.0 / math.pi) for a in joint_qpos_adrs]
-            target_deg = seg["goal_deg"] if seg["kind"] == "pose_goal" else seg.get("end_deg", init_proj_deg)
+            if seg["kind"] == "pose_goal":
+                target_deg = seg["goal_deg"]
+                hold_goal_deg, hold_goal_foot, hold_support = (
+                    seg["goal_deg"],
+                    seg["goal_foot_norm"],
+                    seg["leg_support"],
+                )
+            elif seg["kind"] == "oscillate_goal":
+                target_deg = seg["end_deg"]
+                _, end_foot = manifold.project_angles_deg(target_deg)
+                hold_goal_deg, hold_goal_foot, hold_support = target_deg, end_foot, seg["leg_support"]
+            else:
+                target_deg = hold_goal_deg
             mae = sum(abs(a - b) for a, b in zip(end_q_deg, target_deg)) / 12.0
             seg_errors_deg.append(round(mae, 2))
-            init_proj_deg = end_q_deg
-            _, init_foot = manifold.project_angles_deg(init_proj_deg)
+            if seg["kind"] == "hold" and len(seg_cmd_trace) >= 20:
+                tail_cmd = np.stack(seg_cmd_trace[-25:], axis=0)
+                tail_jnt = np.stack(seg_joint_trace[-25:], axis=0)
+                hold_cmd_p2p_list.append(float(np.max(np.ptp(tail_cmd, axis=0))))
+                hold_joint_p2p_list.append(float(np.max(np.ptp(tail_jnt, axis=0))))
 
         return {
             "scenario": name,
@@ -662,6 +941,8 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
             "fell_over": (not suspended) and (min_up_cos < 0.45),
             "segment_end_mae_deg": seg_errors_deg,
             "mean_end_mae_deg": round(sum(seg_errors_deg) / max(1, len(seg_errors_deg)), 2),
+            "hold_cmd_p2p_deg": round(max(hold_cmd_p2p_list), 2) if hold_cmd_p2p_list else None,
+            "hold_joint_p2p_deg": round(max(hold_joint_p2p_list), 2) if hold_joint_p2p_list else None,
             "mean_infer_ms": round(sum(infer_ms) / max(1, len(infer_ms)), 3),
         }
 
@@ -776,6 +1057,43 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
                 suspended=False,
                 push_at_s=1.0,
             ),
+            _run_scenario(
+                "wifi_180ms_delayed_stand_hold",
+                [9.1, -25.4, -30.9, 0.8, -23.4, -17.4, 27.3, -25.6, -16.6, 2.3, 18.8, -6.9],
+                [
+                    {"name": "stand", "arguments": {}},
+                    {"name": "hold", "arguments": {"seconds": 1.4}},
+                ],
+                suspended=False,
+                cmd_delay_ticks=3,
+                obs_delay_ticks=5,
+                servo_kp_scale=1.8,
+                adc_vel_spikes=True,
+            ),
+            _run_scenario(
+                "wifi_180ms_delayed_lift_right_front_leg",
+                list(STAND_ANGLES_DEG),
+                [
+                    {
+                        "name": "body",
+                        "arguments": {
+                            "translation_mm": [-4.0, 8.0, 0.0],
+                            "rotation_deg": [-2.0, -2.0, 0.0],
+                            "legs": ["front_right"],
+                            "foot_offsets_mm": [[16.0, -12.0, 44.0]],
+                            "speed_pct": 75,
+                        },
+                    },
+                    {"name": "hold", "arguments": {"seconds": 1.2}},
+                    {"name": "stand", "arguments": {}},
+                    {"name": "hold", "arguments": {"seconds": 1.0}},
+                ],
+                suspended=False,
+                cmd_delay_ticks=3,
+                obs_delay_ticks=5,
+                servo_kp_scale=1.8,
+                adc_vel_spikes=True,
+            ),
         ]
         return {"policy": str(policy_path), "scenarios": results}
     finally:
@@ -817,6 +1135,17 @@ class ClosedLoopPolicyQualificationTests(unittest.TestCase):
             self.assertFalse(item["fell_over"], f"Scenario {item['scenario']} tipped over: {item}")
             self.assertLess(item["mean_end_mae_deg"], 14.0, f"Scenario {item['scenario']} poor tracking: {item}")
             self.assertLess(item["mean_infer_ms"], 5.0)
+            if item.get("hold_cmd_p2p_deg") is not None and "wifi_180ms_delayed" in item["scenario"]:
+                self.assertLess(
+                    item["hold_cmd_p2p_deg"],
+                    6.0,
+                    f"Scenario {item['scenario']} oscillated commands under 180 ms Wi-Fi lag: {item}",
+                )
+                self.assertLess(
+                    item["hold_joint_p2p_deg"],
+                    6.0,
+                    f"Scenario {item['scenario']} oscillated joints under 180 ms Wi-Fi lag: {item}",
+                )
 
 
 if __name__ == "__main__":

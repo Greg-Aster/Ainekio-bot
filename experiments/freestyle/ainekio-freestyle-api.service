@@ -6,6 +6,8 @@ Wants=llama-cpp.service
 WorkingDirectory=%h/Ainekio
 EnvironmentFile=%h/.config/ainekio/freestyle.env
 ExecStart=/usr/bin/env ${FREESTYLE_PYTHON} -m experiments.freestyle.generator --endpoint ${FREESTYLE_ENDPOINT} --model ${FREESTYLE_MODEL} --contract ${FREESTYLE_CONTRACT} --model-file ${FREESTYLE_MODEL_FILE} --adapter-file ${FREESTYLE_ADAPTER_FILE} --recordings ${FREESTYLE_RECORDINGS}
+Restart=on-failure
+RestartSec=3
 
 [Install]
 WantedBy=default.target

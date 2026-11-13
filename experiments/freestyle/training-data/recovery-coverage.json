@@ -1,17 +1,17 @@
 {
-  "eligible_source_motions": 74,
-  "covered_source_motions": 74,
-  "added_training": 376,
-  "added_probes": 368,
+  "eligible_source_motions": 83,
+  "covered_source_motions": 83,
+  "added_training": 412,
+  "added_probes": 404,
   "families": {
-    "library_jam_recovery": 38,
-    "library_error_feedback_recovery": 40,
-    "library_repeated_feedback_recovery": 38,
-    "library_fall_recovery": 40,
-    "library_feedback_recovery": 36,
-    "library_repeated_jam_recovery": 36,
-    "library_error_recovery": 34,
-    "library_movement_recovery": 34,
+    "library_jam_recovery": 43,
+    "library_error_feedback_recovery": 45,
+    "library_repeated_feedback_recovery": 43,
+    "library_fall_recovery": 45,
+    "library_feedback_recovery": 40,
+    "library_repeated_jam_recovery": 40,
+    "library_error_recovery": 38,
+    "library_movement_recovery": 38,
     "standalone_jam_recovery": 12,
     "standalone_feedback_recovery": 12,
     "standalone_slip_recovery": 8,
@@ -23,13 +23,13 @@
   },
   "joint_coverage": {
     "2": 12,
-    "1": 8,
+    "1": 10,
     "9": 3,
-    "0": 1,
-    "4": 1,
+    "0": 2,
+    "4": 2,
     "10": 1,
     "6": 2,
-    "5": 5,
+    "5": 6,
     "11": 1,
     "7": 2,
     "8": 2
@@ -1276,6 +1276,150 @@
         "30f320fc58c9d7e8",
         "8b565ab5225b3886",
         "510740a2909a0a72"
+      ]
+    },
+    {
+      "source_id": "dd0655f3026c3960",
+      "source_hash": "dd0655f3026c3960c412bba6dff85058d38e066a07dec5c2334c35d0295b84b2",
+      "train_ids": [
+        "45cf618af6dd88fb",
+        "d5f93e8300f499d8",
+        "4a65ff7bf90651e9",
+        "959d201a5eaa9e20"
+      ],
+      "probe_ids": [
+        "970857a501155ae1",
+        "92324f8a1aa0aa46",
+        "9b84a0542b0890a5",
+        "ab75251dabc19b65"
+      ]
+    },
+    {
+      "source_id": "84bda1126a81835c",
+      "source_hash": "84bda1126a81835cd2d5d50a3566649de7344c30a160aebc018b8af75010d21f",
+      "train_ids": [
+        "6a7b883c582a006d",
+        "96284b9761da9030",
+        "765815751f9a2377",
+        "c5af4310bfaabeec"
+      ],
+      "probe_ids": [
+        "886e588f85331292",
+        "fc54e6c2f25b90fd",
+        "c1c6d77a038c29cb",
+        "da0888d9bf62349c"
+      ]
+    },
+    {
+      "source_id": "f1ce00407c79855c",
+      "source_hash": "f1ce00407c79855cf9dc81a6f2d27329ffad71dee3ab8875e7392bc9b6713bb8",
+      "train_ids": [
+        "e9bc3808cb7c7ea1",
+        "5e3a59a17b4a2d6d",
+        "40e47375b4b238ec",
+        "baf45acb9d012fb5"
+      ],
+      "probe_ids": [
+        "9618d1415ce015d4",
+        "ca715c91dc214d57",
+        "82b38f06fbe5c47e",
+        "1e585e8d7fa179ec"
+      ]
+    },
+    {
+      "source_id": "df1016cc9926853f",
+      "source_hash": "df1016cc9926853f2154ec89ab07a4bfcf555b581d5fc3a88c2ff3106b5d16a5",
+      "train_ids": [
+        "2b619de109c6eb33",
+        "5f0ae20edaee3801",
+        "d5abd39fcfdfee49",
+        "140ef7df90fedddb"
+      ],
+      "probe_ids": [
+        "3a8405ad0319b604",
+        "333c40a13459edda",
+        "5223ee8d6173e676",
+        "cebbc0e2babd7102"
+      ]
+    },
+    {
+      "source_id": "d9de5da9d768bb2d",
+      "source_hash": "d9de5da9d768bb2d697a30a172937ab4e6b18b708d56852ee94759cc09865202",
+      "train_ids": [
+        "0bc2ddea834f3081",
+        "6ad8d697d36e4492",
+        "59039c93d0060a7d",
+        "6826ff2b731f4a7e"
+      ],
+      "probe_ids": [
+        "ec6012b5c57cb060",
+        "e8484af813b27a22",
+        "3652e3ae1e869128",
+        "e672782509d78c23"
+      ]
+    },
+    {
+      "source_id": "317e4ad93df86ee4",
+      "source_hash": "317e4ad93df86ee45fa652c43addc29ae58c51778c36036cd02c609ddf414695",
+      "train_ids": [
+        "8b6250fda5d0ea5f",
+        "861c8b6a4d132669",
+        "417a90c87379af26",
+        "8a7e090424017d5c"
+      ],
+      "probe_ids": [
+        "fe1a0d199f453e72",
+        "ce7f9e021faaa143",
+        "b5721a94951a85d8",
+        "c56451b0dacc9136"
+      ]
+    },
+    {
+      "source_id": "f76ca26f08dd6e79",
+      "source_hash": "f76ca26f08dd6e79f05f863c2dd3783fd6b0c330b7220e59a82da24d213e25e3",
+      "train_ids": [
+        "8848550bd94afd68",
+        "2a5896f93d899a14",
+        "e5c77533d68b6e3a",
+        "b3940f25021dced8"
+      ],
+      "probe_ids": [
+        "b1bf2ff149ba2e59",
+        "6d6a5feb2286502d",
+        "c0a50526e5155e38",
+        "2778160664aaf8db"
+      ]
+    },
+    {
+      "source_id": "0e3d2a6d49a2794c",
+      "source_hash": "0e3d2a6d49a2794cb7d1d23cea50556a609678a8daeb614726827389e66895ed",
+      "train_ids": [
+        "0e4bfd96c4bba625",
+        "c5662b98885a0184",
+        "c84c2a69ecc5e970",
+        "ca79233fbd9c145b"
+      ],
+      "probe_ids": [
+        "49f844f309d9da7d",
+        "eb9550259c32a5cc",
+        "f76d6e6292469121",
+        "4c91fd418380ece1"
+      ]
+    },
+    {
+      "source_id": "300de7da5bd5a1ba",
+      "source_hash": "300de7da5bd5a1baa55c1e5632f6370ce1133edc89a7e3e058a98aa916128997",
+      "train_ids": [
+        "4aa79da833bd2590",
+        "8d5d73fae45014c7",
+        "2996eafeb7e09a58",
+        "14bf9fbdcbe6dadc"
+      ],
+      "probe_ids": [
+        "2223050855d4c07a",
+        "17483894a9d11199",
+        "af3e35ecd1144545",
+        "a8a5292f9ecd45de"
       ]
     }
   ],

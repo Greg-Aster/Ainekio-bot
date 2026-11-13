@@ -4,11 +4,18 @@ import asyncio
 import copy
 import json
 import hashlib
+import shutil
+import socket
+import subprocess
 import time
+import urllib.error
 import urllib.request
 from uuid import uuid4
 from urllib.parse import urlsplit, quote
 from pathlib import Path
+
+FREESTYLE_API_UNIT = 'ainekio-freestyle-api.service'
+FREESTYLE_LOCAL_HOSTS = frozenset({'127.0.0.1', 'localhost', '::1'})
 
 from .runtime import compact, JOINTS
 from .observations import enrich
@@ -162,14 +169,70 @@ class Generator:
                 'generator':identity}
 
 
+def _is_local_freestyle_url(url) -> bool:
+    return url.scheme == 'http' and url.hostname in FREESTYLE_LOCAL_HOSTS and (url.port or 80) == 8794
+
+
+def _start_local_freestyle_unit() -> bool:
+    systemctl = shutil.which('systemctl')
+    if not systemctl:
+        return False
+    check = subprocess.run([systemctl, '--user', 'cat', FREESTYLE_API_UNIT],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if check.returncode != 0:
+        return False
+    started = subprocess.run([systemctl, '--user', 'start', FREESTYLE_API_UNIT],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return started.returncode == 0
+
+
+def _ensure_local_service_sync(endpoint: str) -> bool:
+    url = urlsplit(endpoint)
+    if not _is_local_freestyle_url(url) or not _start_local_freestyle_unit():
+        return False
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection((url.hostname, 8794), timeout=0.25):
+                return True
+        except OSError:
+            time.sleep(0.05)
+    return False
+
+
+async def _ensure_local_service_async(url) -> bool:
+    if not _is_local_freestyle_url(url):
+        return False
+    if not await asyncio.to_thread(_start_local_freestyle_unit):
+        return False
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        try:
+            reader, writer = await asyncio.open_connection(url.hostname, 8794)
+            writer.close()
+            await writer.wait_closed()
+            return True
+        except OSError:
+            await asyncio.sleep(0.05)
+    return False
+
+
 def remote_generate(endpoint, request, *, job_id=None):
     headers = {'Content-Type':'application/json'}
     if job_id:
         headers['X-Freestyle-Job-Id'] = str(job_id)
-    req = urllib.request.Request(endpoint.rstrip('/')+'/generate',data=compact(request).encode(),
-                                 headers=headers)
-    with urllib.request.urlopen(req) as response:
-        return json.load(response)
+    target_url = endpoint.rstrip('/')+'/generate'
+    body = compact(request).encode()
+    try:
+        req = urllib.request.Request(target_url, data=body, headers=headers)
+        with urllib.request.urlopen(req) as response:
+            return json.load(response)
+    except urllib.error.URLError as error:
+        if not isinstance(error.reason, ConnectionRefusedError) or not _ensure_local_service_sync(target_url):
+            raise
+        req = urllib.request.Request(target_url, data=body, headers=headers)
+        with urllib.request.urlopen(req) as response:
+            return json.load(response)
 
 
 async def async_remote_generate(endpoint, request, *, job_id=None):
@@ -180,8 +243,13 @@ async def async_remote_generate(endpoint, request, *, job_id=None):
 
 async def _async_json(endpoint, request=None, method='POST', extra_headers=None):
     url=urlsplit(endpoint)
-    reader,writer=await asyncio.open_connection(url.hostname,url.port or (443 if url.scheme=='https' else 80),
-                                                 ssl=url.scheme=='https')
+    port = url.port or (443 if url.scheme=='https' else 80)
+    try:
+        reader,writer=await asyncio.open_connection(url.hostname,port,ssl=url.scheme=='https')
+    except ConnectionRefusedError:
+        if not await _ensure_local_service_async(url):
+            raise
+        reader,writer=await asyncio.open_connection(url.hostname,port,ssl=url.scheme=='https')
     try:
         body=compact(request).encode() if method=='POST' else b''
         target=(url.path or '/')+('?' + url.query if url.query else '')
