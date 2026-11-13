@@ -6,12 +6,15 @@ Ainekio is a compact 650 g quadruped robot companion built from custom 3D-printe
 
 This repository owns the physical chassis, microcontroller firmware, `protocol-v1` transport, local perception, and motion execution. Higher-level cognition, persistent memory, speech synthesis, and autonomous decision-making run in [Ainekio OS](https://github.com/Greg-Aster/ainekio-os) across an authenticated Environment Bridge.
 
+
+> **Note:** Printable 3D CAD/STL files, mechanical digital-twin mesh archives, and trained policy/LoRA weights are omitted from this public repository.
+
 ![Ainekio Body Control interface](docs/images/body-control-ui.png)
 
 ## Hardware Generations
 
-- **V2 (Active — 12-servo quadruped)**: Custom 3-DOF-per-leg chassis (`Slave/hardware/v2-12servo/`) running ESP-IDF firmware on an ESP32-P4-WIFI6 with an ESP32-C6 companion radio (`Slave/firmware/esp32p4-wifi6/`). Drives 12 joints via PCA9685 PWM with 16-channel muxed 4th-wire analog position feedback, LSM6DS3 IMU attitude estimation and balance trim, onboard camera streaming and correlated stills, microphone/local wake-word and speaker audio, and an animated LCD face.
-- **V1 (Paused — 8-servo quadruped)**: Retained Freenove ESP32-S3 body with direct MCPWM servo drive (`Slave/firmware/esp32s3/`, `Slave/hardware/v1-8servo/`).
+- **V2 (Active — 12-servo quadruped)**: Custom 3-DOF-per-leg chassis running ESP-IDF firmware on an ESP32-P4-WIFI6 with an ESP32-C6 companion radio (`Slave/firmware/esp32p4-wifi6/`). Drives 12 joints via PCA9685 PWM with 16-channel muxed 4th-wire analog position feedback, LSM6DS3 IMU attitude estimation and balance trim, onboard camera streaming and correlated stills, microphone/local wake-word and speaker audio, and an animated LCD face.
+- **V1 (Paused — 8-servo quadruped)**: Retained Freenove ESP32-S3 body with direct MCPWM servo drive (`Slave/firmware/esp32s3/`).
 
 Both generations connect through the same `protocol-v1` link and Body Control interface. See [Robot Models](docs/ROBOT_MODELS.md) and [V2 Specifications](docs/v2-12servo/SPECIFICATIONS.md) for hardware contracts; source capabilities and per-device physical qualification are tracked separately.
 
@@ -23,7 +26,7 @@ Both generations connect through the same `protocol-v1` link and Body Control in
 | `Slave/firmware/esp32p4-wifi6/` | Active V2 ESP-IDF firmware (`main/app_main.c`), servo/ADC feedback loop, IMU, camera, audio, and LCD face ([firmware README](Slave/firmware/esp32p4-wifi6/README.md)) |
 | `Slave/firmware/esp32s3/` | Retained V1 ESP32-S3 firmware (`main/app_main.c`) |
 | `Slave/software/` | Portable `protocol-v1` implementation, kinematics/motion models, and tests ([protocol README](Slave/software/protocol/README.md), [V2 motion model](Slave/software/models/v2-12servo/README.md)) |
-| `Slave/hardware/` | Printable STLs, CAD assemblies, and mechanical layouts for `v2-12servo/` and `v1-8servo/` |
+| `Slave/hardware/` | Hardware documentation pointers (printable CAD/STLs, mesh twins, and trained weights are kept private/local) |
 | `experiments/freestyle/` | Model-backed Freestyle motion generation and host trajectory execution loaded by Body Control ([Freestyle README](experiments/freestyle/README.md)) |
 | `tests/` | Host, gateway, dashboard, V2 firmware policy, perception, and neural-gait test suites |
 | `tools/` | Mechanical design utilities, including the 4-bar leg geometry calculator (`tools/leg-geometry-calculator/`) |
