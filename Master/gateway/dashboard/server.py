@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import http.client
 import importlib.util
 import json
@@ -128,6 +129,28 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self._camera_snapshots: dict[str, tuple[int, bytes, dict]] = {}
         gateway.subscribe_frames(self._record_camera_frame)
         self.freestyle_recorder = None
+        self.presence = None
+
+    def start_presence(self):
+        if self.presence is not None:
+            return
+        from gateway.presence import PresenceController
+        self.presence = PresenceController(
+            self.gateway,
+            initial_settings=self.control_settings.get("presence", {}),
+            freestyle_active_fn=lambda rid: bool(
+                self.freestyle is not None and self.freestyle.active.get(rid) in (self.freestyle.tasks or {})
+            ),
+            camera_analysis_fn=lambda rid: (
+                self.camera_recognition.current_analysis(rid) if self.camera_recognition is not None else None
+            ),
+        )
+        threading.Thread(target=self.presence.runtime.load, name="presence-warmup", daemon=True).start()
+
+    async def close_presence(self):
+        if self.presence is not None:
+            await self.presence.close()
+            self.presence = None
 
     def start_freestyle(self):
         if (FREESTYLE_ROOT / "bridge.py").is_file():
@@ -210,6 +233,45 @@ class DashboardHttpServer(ThreadingHTTPServer):
         _atomic_secure_json(self.control_settings_path, saved)
         self.control_settings = saved
         self.gateway.body_events.configure(robot_id, settings)
+        return {"robot_id": robot_id, "settings": settings}
+
+    async def presence_status(self):
+        if self.presence is not None:
+            return self.presence.status()
+        from gateway.presence import DEFAULTS as PRESENCE_DEFAULTS, presence_model_footprint, validate_presence_settings
+        saved = self.control_settings.get("presence", {})
+        return {
+            "defaults": dict(PRESENCE_DEFAULTS),
+            "policy_loaded": False,
+            "model_footprint": presence_model_footprint(),
+            "robots": {
+                rid: {"settings": validate_presence_settings(cfg), "mode": "standby"}
+                for rid, cfg in saved.items()
+            },
+        }
+
+    async def handle_presence(self, payload):
+        from gateway.presence import validate_presence_settings
+        robot_id = _required_string(payload, "robot_id")
+        op = _optional_string(payload, "op") or "configure"
+        if op == "resume":
+            self.stop_latched = False
+            if self.presence is None:
+                self.start_presence()
+            state = await self.presence.clear_passive(robot_id, stand_up=bool(payload.get("stand", True)))
+            self.audit_log.record("presence_resumed", robot_id=robot_id)
+            return {"robot_id": robot_id, "presence": state}
+        if op != "configure":
+            raise ValueError("op must be configure or resume")
+        raw_settings = payload.get("settings")
+        if self.presence is not None:
+            settings = self.presence.configure(robot_id, raw_settings)
+        else:
+            settings = validate_presence_settings(raw_settings)
+        saved = {**self.control_settings, "presence": {
+            **self.control_settings.get("presence", {}), robot_id: settings}}
+        _atomic_secure_json(self.control_settings_path, saved)
+        self.control_settings = saved
         return {"robot_id": robot_id, "settings": settings}
 
     async def request_body_wake(self, robot_id):
@@ -530,6 +592,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "motion_systems": self.server.control_settings.get("motion_systems", {}),
                     "depth_settings": self.server.control_settings.get("depth_motion", {}),
                     "body_events": self.server.call_gateway(self.server.body_event_status()),
+                    "presence": self.server.call_gateway(self.server.presence_status()),
                     "person_recognition": self.server.call_gateway(self.server.person_status()),
                     "recognition": self.server.call_gateway(self.server.recognition_status()),
                 }
@@ -782,6 +845,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             except OSError as error:
                 raise GatewayError(str(error)) from error
         if path == "/api/request-motion":
+            if self.server.stop_latched:
+                self.server.stop_latched = False
+                self.server.audit_log.record("stop_cleared", robot_id=robot_id)
             return self.server.call_gateway(self.server.gateway.request_motion(
                 _required_string(payload, "description"), robot_id=robot_id))
         if path == "/api/motion-system":
@@ -855,6 +921,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if path == "/api/body-events":
             return self.server.call_gateway(self.server.set_body_events(
                 _required_string(payload, "robot_id"), payload.get("settings")))
+        if path == "/api/presence":
+            return self.server.call_gateway(self.server.handle_presence(payload))
         if path == "/api/body-events/good-morning":
             return self.server.call_gateway(self.server.request_body_wake(_required_string(payload, "robot_id")))
         if path == "/api/recognition":
@@ -893,6 +961,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             sequence = self.server.call_gateway(self.server.gateway.queue_motion_plan(
                 frames, end=_required_string(payload, "end"), control=payload.get("control"), robot_id=robot_id))
             self.server.audit_log.record("motion_plan_issued", robot_id=robot_id, sequence=sequence)
+            if self.server.stop_latched:
+                self.server.stop_latched = False
+                self.server.audit_log.record("stop_cleared", robot_id=robot_id)
             return {"ok": True, "seq": sequence}
         if path == "/api/intent":
             name = _required_string(payload, "name")
@@ -1230,9 +1301,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _send_static(self, filename: str, content_type: str) -> None:
         body = (STATIC_ROOT / filename).read_bytes()
         if filename == "dashboard.html":
+            def _ver(p: Path) -> str:
+                return hashlib.sha256(p.read_bytes()).hexdigest()[:10] if p.is_file() else "1"
+            css_v = _ver(STATIC_ROOT / "dashboard.css")
+            js_v = _ver(STATIC_ROOT / "dashboard.js")
+            body = body.replace(
+                b'href="/assets/dashboard.css"',
+                f'href="/assets/dashboard.css?v={css_v}"'.encode("ascii"),
+            )
             if (FREESTYLE_ROOT / "body_control.js").is_file():
-                body = body.replace(b'<script src="/assets/dashboard.js" defer></script>',
-                    b'<script src="/assets/freestyle.js" defer></script><script src="/assets/motion-library.js" defer></script><script src="/assets/dashboard.js" defer></script>')
+                fs_v = _ver(FREESTYLE_ROOT / "body_control.js")
+                ml_v = _ver(FREESTYLE_ROOT / "motion_library.js")
+                scripts = (
+                    f'<script src="/assets/freestyle.js?v={fs_v}" defer></script>'
+                    f'<script src="/assets/motion-library.js?v={ml_v}" defer></script>'
+                    f'<script src="/assets/dashboard.js?v={js_v}" defer></script>'
+                ).encode("ascii")
+            else:
+                scripts = f'<script src="/assets/dashboard.js?v={js_v}" defer></script>'.encode("ascii")
+            body = body.replace(b'<script src="/assets/dashboard.js" defer></script>', scripts)
         self._send_bytes(body, content_type)
 
     def _send_bytes(

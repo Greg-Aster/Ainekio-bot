@@ -2039,6 +2039,53 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(ProtocolValidationError):
                     validate_control_message(packet)
 
+    async def test_normal_motion_commands_exit_latched_calibrate_mode_on_ack(self):
+        service = GatewayService(GatewayServiceConfig(tokens={"p4": "test"}), clock=lambda: 100.0)
+        sent: list[dict[str, object]] = []
+        connection_ref: list[GatewayConnection] = []
+
+        class AckingSocket:
+            closed = False
+
+            async def send(self, raw: str) -> None:
+                msg = json.loads(raw)
+                sent.append(msg)
+                asyncio.get_running_loop().call_soon(
+                    lambda seq=msg["seq"]: asyncio.create_task(
+                        connection_ref[0]._handle_control({"t": "ack", "seq": seq})
+                    )
+                )
+
+        conn = GatewayConnection(service, AckingSocket(), "p4", 1, ("body_calibration_v2",))
+        connection_ref.append(conn)
+        service._connections["p4"] = conn
+
+        # 1. Queueing Stand while latched in `calibrate` exits calibrate mode on ACK before sending Stand
+        conn.mode = "calibrate"
+        stand_seq = await service.queue_intent("stand", robot_id="p4")
+        self.assertEqual(conn.mode, "normal")
+        self.assertEqual([m["t"] for m in sent], ["mode", "intent"])
+        self.assertEqual(sent[0]["name"], "normal")
+        self.assertEqual(sent[1]["name"], "stand")
+        self.assertEqual(stand_seq, sent[1]["seq"])
+
+        # 2. Freestyle `request_motion` also exits `calibrate` mode before executing
+        sent.clear()
+        conn.mode = "calibrate"
+        ran_in_mode: list[str] = []
+
+        async def fake_freestyle(robot_id: str, name: str, *, execute: bool = True, **_kw):
+            ran_in_mode.append(conn.mode)
+            return {"job_id": "job-1"}
+
+        service.freestyle_motion = fake_freestyle
+        res = await service.request_motion("wave", robot_id="p4")
+        self.assertEqual(res["jobId"], "job-1")
+        self.assertEqual(conn.mode, "normal")
+        self.assertEqual(ran_in_mode, ["normal"])
+        self.assertEqual([m["t"] for m in sent], ["mode"])
+        conn.cancel_pending()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -216,43 +216,38 @@ def grounded_balance_cost(env) -> torch.Tensor:
 
 
 def action_smoothness_cost(env) -> torch.Tensor:
-    """Penalize 50 Hz chattering and host command velocity/reversals."""
+    """Penalize 50 Hz residual chattering, reversals, and unnecessary residual offset."""
     pose_term = env.action_manager.get_term("pose")
-    dq = pose_term.raw_action - pose_term.prev_raw_action
+    u = pose_term.raw_action
+    du = u - pose_term.prev_raw_action
+    ddu = du - pose_term.prev_action_delta
     d_app = pose_term.applied_action - pose_term.prev_applied_action
-    dd_app = d_app - pose_term.prev_applied_delta
     return (
-        0.20 * dq.square().sum(dim=-1)
-        + 1.8 * d_app.square().sum(dim=-1)
-        + 2.0 * dd_app.square().sum(dim=-1)
+        0.55 * du.square().sum(dim=-1)
+        + 0.40 * ddu.square().sum(dim=-1)
+        + 1.50 * d_app.square().sum(dim=-1)
+        + 0.06 * u.square().sum(dim=-1)
     ).clamp(0.0, 6.0)
 
 
 def settle_damping_cost(env) -> torch.Tensor:
-    """Penalize physical joint ringing, command oscillation, and steady-state overdrive once near a static goal."""
+    """Penalize physical joint ringing and residual/command ripple once near a static goal."""
     pose_term = env.action_manager.get_term("pose")
     q_true = pose_term._entity.data.joint_pos[:, pose_term.joint_ids]
     v_true = pose_term._entity.data.joint_vel[:, pose_term.joint_ids]
-    q_cmd = pose_term.logical.to(torch.float32)
-    q_goal = pose_term.current_goal_rad
+    du = pose_term.raw_action - pose_term.prev_raw_action
     d_app = pose_term.applied_action - pose_term.prev_applied_action
     dd_app = d_app - pose_term.prev_applied_delta
 
-    near = (q_true - q_goal).abs() < 0.18
+    near = (q_true - pose_term.current_goal_rad).abs() < 0.18
     osc_active = pose_term.osc_active
-    static_near = near & (~osc_active.unsqueeze(-1))
-    static_f = static_near.float()
-
-    support = pose_term.leg_support
-    partial_stance = (support >= 0.5) & ((support.sum(dim=-1) < 3.5) & (~pose_term.is_suspended)).unsqueeze(-1)
-    hold_slack = torch.where(partial_stance, 0.30, 0.20).repeat_interleave(3, dim=-1)
-    steady_over = ((q_cmd - q_goal).abs() - hold_slack).clamp_min(0.0) * static_f
-    env.extras["log"]["Pose/steady_overdrive_deg"] = steady_over.amax(dim=-1).mean() * (180.0 / math.pi)
+    static_f = (near & (~osc_active.unsqueeze(-1))).float()
 
     vel_ring = (v_true.square() * static_f).mean(dim=-1)
-    cmd_ring = ((d_app.square() + dd_app.square()) * static_f).sum(dim=-1) * 2.5
-    over_ring = (steady_over / 0.15).square().mean(dim=-1) * 1.5
-    return (vel_ring + cmd_ring + over_ring).clamp(0.0, 6.0)
+    res_ring = (du.square() * static_f).sum(dim=-1) * 2.0
+    cmd_ring = ((d_app.square() + dd_app.square()) * static_f).sum(dim=-1) * 3.0
+    env.extras["log"]["Pose/residual_rms"] = pose_term.raw_action.square().mean().sqrt()
+    return (vel_ring + res_ring + cmd_ring).clamp(0.0, 6.0)
 
 
 def stance_slip_cost(env, sensor_name: str = "feet_ground_contact", asset_cfg=None) -> torch.Tensor:

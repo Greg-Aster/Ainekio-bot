@@ -25,6 +25,9 @@
   let bodyEventsRobot = null;
   let bodyEventsEdited = false;
   let bodyEventsSaving = false;
+  let presenceRobot = null;
+  let presenceEdited = false;
+  let presenceSaving = false;
   let preferredRobotId = readLocal("ainekio-selected-robot", null);
   let statusRequest = null;
   let statusGeneration = 0;
@@ -3178,6 +3181,217 @@
     });
   }
 
+  function renderPresence(payload, entry) {
+    const form = byId("presence-form");
+    if (!form || !form.elements) return;
+    if (presenceRobot !== selectedRobotId) {
+      presenceRobot = selectedRobotId;
+      presenceEdited = false;
+    }
+    const presence = payload.presence || {};
+    const robotState = (selectedRobotId && presence.robots?.[selectedRobotId]) || null;
+    const settings = robotState?.settings || presence.defaults;
+    if (settings && !presenceEdited && !presenceSaving) {
+      for (const [key, value] of Object.entries(settings)) {
+        const input = form.elements.namedItem ? form.elements.namedItem(key) : form.elements[key];
+        if (!input) continue;
+        if (input.type === "checkbox") input.checked = value === true;
+        else input.value = String(value);
+      }
+    }
+    for (const input of form.elements) {
+      input.disabled = !selectedRobotId || presenceSaving;
+    }
+    if (byId("presence-resume-button")) {
+      byId("presence-resume-button").disabled = !entry || entry.connection_state !== "online" || presenceSaving;
+    }
+    const inCalibrateMode = entry?.mode === "calibrate";
+    const effectiveMode = inCalibrateMode ? "paused · calibration" : (robotState?.mode || "standby");
+    if (byId("cockpit-presence-toggle")) {
+      byId("cockpit-presence-toggle").disabled = !selectedRobotId || presenceSaving;
+      if (settings && !presenceSaving) {
+        byId("cockpit-presence-toggle").checked = settings.enabled === true;
+        text("cockpit-presence-state", settings.enabled === true
+          ? `On · mode: ${effectiveMode}`
+          : "Off · statue hold between motions");
+      }
+    }
+    if (byId("cockpit-self-right-toggle")) {
+      byId("cockpit-self-right-toggle").disabled = !selectedRobotId || presenceSaving;
+      if (settings && !presenceSaving) {
+        byId("cockpit-self-right-toggle").checked = settings.self_right_enabled === true;
+        text("cockpit-self-right-state", settings.self_right_enabled === true
+          ? "On · gyro fed to System 3 & auto self-right"
+          : "Off · gyro masked from System 3");
+      }
+    }
+    if (byId("presence-quick-enabled")) {
+      byId("presence-quick-enabled").disabled = !selectedRobotId || presenceSaving;
+      if (settings && !presenceSaving) {
+        byId("presence-quick-enabled").checked = settings.enabled === true;
+      }
+    }
+    if (byId("presence-quick-self-right")) {
+      byId("presence-quick-self-right").disabled = !selectedRobotId || presenceSaving;
+      if (settings && !presenceSaving) {
+        byId("presence-quick-self-right").checked = settings.self_right_enabled === true;
+      }
+    }
+    if (byId("presence-quick-badge")) {
+      const modeLabel = !selectedRobotId
+        ? "No robot"
+        : settings?.enabled === false
+          ? "Off"
+          : inCalibrateMode
+            ? effectiveMode
+            : `${effectiveMode}${robotState?.active_expression ? ` · ${robotState.active_expression}` : ""}`;
+      text("presence-quick-badge", modeLabel);
+    }
+    if (byId("summary-system1-mode")) {
+      const walkSrc = (selectedRobotId && payload.walking_sources?.[selectedRobotId]?.source) || entry?.walking_source || "native";
+      text("summary-system1-mode", selectedRobotId ? (walkSrc === "neural" ? "Host neural gait" : "On-chip MicroDuck (50 Hz)") : "--");
+    }
+    if (byId("summary-system2-mode")) {
+      const motionSys = (selectedRobotId && payload.motion_systems?.[selectedRobotId]) || "freestyle";
+      text("summary-system2-mode", selectedRobotId ? (motionSys === "freestyle" ? "Freestyle neural actor" : "Legacy library") : "--");
+    }
+    if (byId("summary-system3-mode")) {
+      text("summary-system3-mode", !selectedRobotId
+        ? "--"
+        : settings?.enabled === false
+          ? "Disabled"
+          : `On · ${effectiveMode}${settings?.self_right_enabled ? " · gyro+righting" : " · gyro masked"}`);
+    }
+    if (byId("presence-live-status")) {
+      const footprint = presence.model_footprint || {};
+      const statusSummary = robotState ? {
+        policyLoaded: Boolean(presence.policy_loaded),
+        mode: robotState.mode,
+        passiveReason: robotState.passive_reason,
+        imuFedToSystem3: robotState.imu_fed_to_policy,
+        activeExpression: robotState.active_expression,
+        boredomLevel: robotState.boredom_level,
+        idleSeconds: robotState.idle_seconds,
+        releaseIdleSeconds: robotState.release_idle_seconds,
+        sympatheticImuScore: robotState.sympathy_score,
+        servoChatterMaxDeg: robotState.chatter_max_deg,
+        trackingErrorMaxDeg: robotState.tracking_error_max_deg,
+        complianceTrimMaxMm: robotState.compliance_trim_max_mm,
+        yoloePersonConfidence: robotState.person_confidence,
+        speechRms: robotState.speech_rms,
+        p4ModelFootprint: footprint.parameter_count ? {
+          parameters: footprint.parameter_count,
+          int8Bytes: footprint.int8_bytes,
+          fp32Bytes: footprint.fp32_bytes,
+          fitsP4InternalSram: footprint.p4_internal_sram_fit,
+        } : undefined,
+        lastError: robotState.last_error,
+      } : { policyLoaded: Boolean(presence.policy_loaded), status: "Select an online robot" };
+      text("presence-live-status", JSON.stringify(statusSummary, null, 2));
+    }
+  }
+
+  function collectPresenceFormSettings(overrides = {}) {
+    const form = byId("presence-form");
+    const settings = {};
+    if (form?.elements) {
+      for (const input of form.elements) {
+        if (!input.name) continue;
+        if (input.type === "checkbox") settings[input.name] = input.checked;
+        else if (input.type === "number") settings[input.name] = Number(input.value);
+        else settings[input.name] = input.value;
+      }
+    }
+    return { ...settings, ...overrides };
+  }
+
+  async function savePresenceSettings(overrides = {}, toastMessage = null) {
+    if (!selectedRobotId || presenceSaving) return;
+    const robotId = selectedRobotId;
+    const settings = collectPresenceFormSettings(overrides);
+    presenceSaving = true;
+    try {
+      await request("/api/presence", {
+        method: "POST",
+        body: JSON.stringify({ op: "configure", robot_id: robotId, settings }),
+      });
+      if (robotId === selectedRobotId) {
+        presenceEdited = false;
+        text("presence-result", "Living presence settings saved and applied.");
+        if (toastMessage) showResult(toastMessage);
+      }
+    } catch (error) {
+      text("presence-result", error.message);
+      showResult(error.message, true);
+    } finally {
+      presenceSaving = false;
+      void refreshStatus();
+    }
+  }
+
+  function setupPresenceControls() {
+    const form = byId("presence-form");
+    if (!form) return;
+    form.addEventListener("input", () => {
+      presenceEdited = true;
+      text("presence-result", "Unsaved living presence settings.");
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await savePresenceSettings({}, "Living presence settings saved");
+    });
+    if (byId("presence-resume-button")) {
+      byId("presence-resume-button").addEventListener("click", async () => {
+        if (!selectedRobotId || presenceSaving) return;
+        presenceSaving = true;
+        try {
+          await request("/api/presence", {
+            method: "POST",
+            body: JSON.stringify({ op: "resume", robot_id: selectedRobotId, stand: true }),
+          });
+          text("presence-result", "Passive state cleared; requested Stand.");
+          showResult("Resumed from passive state");
+        } catch (error) {
+          text("presence-result", error.message);
+          showResult(error.message, true);
+        } finally {
+          presenceSaving = false;
+          void refreshStatus();
+        }
+      });
+    }
+    if (byId("cockpit-presence-toggle")) {
+      byId("cockpit-presence-toggle").addEventListener("change", () => {
+        const enabled = byId("cockpit-presence-toggle").checked;
+        return savePresenceSettings({ enabled }, enabled ? "Living presence enabled" : "Living presence disabled");
+      });
+    }
+    if (byId("cockpit-self-right-toggle")) {
+      byId("cockpit-self-right-toggle").addEventListener("change", () => {
+        const self_right_enabled = byId("cockpit-self-right-toggle").checked;
+        return savePresenceSettings(
+          { self_right_enabled },
+          self_right_enabled ? "Auto self-right & gyro enabled" : "Gyro stopped for System 3 (self-right off)"
+        );
+      });
+    }
+    if (byId("presence-quick-enabled")) {
+      byId("presence-quick-enabled").addEventListener("change", () => {
+        const enabled = byId("presence-quick-enabled").checked;
+        return savePresenceSettings({ enabled }, enabled ? "System 3 living presence enabled" : "System 3 living presence disabled");
+      });
+    }
+    if (byId("presence-quick-self-right")) {
+      byId("presence-quick-self-right").addEventListener("change", () => {
+        const self_right_enabled = byId("presence-quick-self-right").checked;
+        return savePresenceSettings(
+          { self_right_enabled },
+          self_right_enabled ? "Auto self-right & gyro enabled" : "Gyro stopped for System 3 (self-right off)"
+        );
+      });
+    }
+  }
+
   function renderBodyEvents(payload, entry) {
     const form = byId("body-events-form");
     if (bodyEventsRobot !== selectedRobotId) {
@@ -3251,6 +3465,7 @@
     updateRobotSelect(robotIds);
     const entry = selectedRobotId ? robots[selectedRobotId] : null;
     renderBodyEvents(payload, entry);
+    renderPresence(payload, entry);
     renderPeople(payload.person_recognition, recognition?.observation);
     if (cameraSettingsRobotId !== selectedRobotId) {
       text("depth-sample-status", "");
@@ -4438,6 +4653,7 @@
     const session = await request("/api/session");
     csrfToken = session.csrf;
     setupSensingControls();
+    setupPresenceControls();
     byId("robot-select").addEventListener("change", (event) => {
       availableBodyCommands = [];
       selectedRobotId = event.target.value || null;

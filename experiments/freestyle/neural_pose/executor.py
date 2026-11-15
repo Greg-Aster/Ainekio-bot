@@ -134,6 +134,13 @@ async def execute_neural_pose_program(
         else:
             await asyncio.sleep(0)
 
+    async def _arm_via_stand(connection) -> None:
+        stand_seq = await gateway.queue_intent("stand", {}, robot_id=robot, **sequence_options)
+        sequence_options.clear()
+        stand_res = await gateway.wait_terminal(stand_seq, robot_id=robot, epoch=connection.epoch, timeout=6.0)
+        job["receipts"].append(stand_res)
+        bridge.record(job, "command_receipt", stand_res, sequence=stand_seq)
+
     async def _ensure_host_stream():
         nonlocal walk_seq, sample_idx, prev_action, cmd_q_rad
         connection = gateway._connection(robot)
@@ -141,39 +148,50 @@ async def execute_neural_pose_program(
             return connection
         if "walk_nominal_v1" not in connection.features:
             raise ValueError(f"Robot {robot} does not advertise walk_nominal_v1 for 50 Hz neural pose control")
+        status_dict = getattr(connection, "last_status", None) or {}
+        if status_dict.get("output_armed") is False or bool(status_dict.get("output_fault")):
+            await _arm_via_stand(connection)
+            connection = gateway._connection(robot)
         history.reset()
         sample_idx = 0
-        cur_obs = gateway.body_sensor_observation(robot)
-        cur_deg, prev_action = manifold.project_angles_deg(usable_joint_angles_deg(cur_obs), body=live_body)
-        cmd_q_rad = torch.tensor(cur_deg, dtype=torch.float64, device=live_body.device).reshape(1, 12) * (
-            math.pi / 180.0
-        )
-        cmd_q_rad, _ = live_body.pwm(cmd_q_rad)
-        seq = await gateway.queue_intent(
-            "walk",
-            {
-                "dir": "fwd",
-                "gait": "walk",
-                "steps": 0,
-                "speed": 100,
-                "source": "host",
-                "twist": [0.0, 0.0, 0.0],
-                "geometry": manifold.geometry_id,
-                "reference_cd": [round(v * 100) for v in manifold.reference_joint_deg],
-            },
-            robot_id=robot,
-            **sequence_options,
-        )
-        # Recovery admission runs at first body motion command; clear sequence_options thereafter
-        sequence_options.clear()
-        pending = connection.pending.get(seq)
-        if pending is not None:
-            ack = await asyncio.shield(pending.acknowledgement)
-            job["receipts"].append(ack)
-            bridge.record(job, "command_receipt", ack, sequence=seq)
-            if ack.get("t") != "ack":
-                raise RuntimeError("Body rejected host pose stream: " + str(ack))
-        walk_seq = seq
+
+        for attempt in range(2):
+            cur_obs = gateway.body_sensor_observation(robot)
+            cur_deg, prev_action = manifold.project_angles_deg(usable_joint_angles_deg(cur_obs), body=live_body)
+            cmd_q_rad = torch.tensor(cur_deg, dtype=torch.float64, device=live_body.device).reshape(1, 12) * (
+                math.pi / 180.0
+            )
+            cmd_q_rad, _ = live_body.pwm(cmd_q_rad)
+            seq = await gateway.queue_intent(
+                "walk",
+                {
+                    "dir": "fwd",
+                    "gait": "walk",
+                    "steps": 0,
+                    "speed": 100,
+                    "source": "host",
+                    "twist": [0.0, 0.0, 0.0],
+                    "geometry": manifold.geometry_id,
+                    "reference_cd": [round(v * 100) for v in manifold.reference_joint_deg],
+                },
+                robot_id=robot,
+                **sequence_options,
+            )
+            # Recovery admission runs at first body motion command; clear sequence_options thereafter
+            sequence_options.clear()
+            pending = connection.pending.get(seq)
+            if pending is not None:
+                ack = await asyncio.shield(pending.acknowledgement)
+                job["receipts"].append(ack)
+                bridge.record(job, "command_receipt", ack, sequence=seq)
+                if ack.get("t") != "ack":
+                    if attempt == 0 and ack.get("code") in ("limit", "busy"):
+                        await _arm_via_stand(connection)
+                        connection = gateway._connection(robot)
+                        continue
+                    raise RuntimeError("Body rejected host pose stream: " + str(ack))
+            walk_seq = seq
+            break
         # Immediately seed sample 1 at the robot's current projected posture so the P4 does not
         # jump toward `reference_cd` (`feet_mm == 0`) before the first closed-loop tick arrives.
         pts0, _ = live_body.forward(cmd_q_rad.reshape(1, 4, 3))
@@ -330,7 +348,20 @@ async def execute_neural_pose_program(
                         },
                     )
                     settled_frames = 0
-                    partial_support = sum(support) < 3.5
+                    prev_usable_deg: dict[int, float] = {}
+                    is_stand_op = action.get("name") == "stand"
+                    active_set = {i for i in range(12) if abs(goal_deg[i] - live_start_deg[i]) > 2.0}
+                    max_live_delta = max((abs(goal_deg[i] - live_start_deg[i]) for i in range(12)), default=0.0)
+                    host_slew_deg_s = 545.4545454545455 * max(0.25, min(1.0, float(spd)))
+                    min_settle_s = max(
+                        (0.85 if is_stand_op else 0.45)
+                        if seg.get("from_nonstanding")
+                        else (0.35 if is_stand_op else 0.18),
+                        max_live_delta / host_slew_deg_s + 0.08,
+                    )
+                    max_stance_tol = 6.0 if is_stand_op else 13.0
+                    mean_tol = 3.5 if is_stand_op else 7.0
+                    req_settled_frames = 3 if is_stand_op else 2
                     while True:
                         now = gateway.clock()
                         elapsed = now - t_start
@@ -338,36 +369,55 @@ async def execute_neural_pose_program(
                         sensor_now = await _step_50hz(connection, goal_deg, goal_foot, support, spd, now=now)
                         if elapsed >= duration_s:
                             break
-                        if elapsed >= 0.30:
-                            usable_errs = []
-                            free_errs = []
-                            stance_errs = []
-                            usable_vels = []
-                            for i, j in enumerate(JOINTS):
-                                jd = sensor_now["joints"][j]
-                                if jd.get("feedback_usable") and isinstance(jd.get("filtered_model_deg"), (int, float)):
-                                    err_i = abs(float(jd["filtered_model_deg"]) - goal_deg[i])
-                                    usable_errs.append(err_i)
-                                    if support[i // 3] < 0.5:
-                                        free_errs.append(err_i)
-                                    else:
-                                        stance_errs.append(err_i)
-                                    usable_vels.append(abs(float(jd.get("velocity_deg_s") or 0.0)))
-                            full_ok = len(usable_errs) >= 6 and max(usable_errs) <= 4.5 and max(usable_vels) <= 22.0
-                            partial_ok = (
-                                partial_support
-                                and elapsed >= 0.55
-                                and len(usable_errs) >= 6
-                                and (not free_errs or max(free_errs) <= 4.8)
-                                and (not stance_errs or max(stance_errs) <= 10.5)
-                                and max(usable_vels) <= 20.0
+                        curr_usable_deg: dict[int, float] = {}
+                        usable_errs: list[float] = []
+                        free_errs: list[float] = []
+                        stance_errs: list[float] = []
+                        active_errs: list[float] = []
+                        active_steps: list[float] = []
+                        for i, j in enumerate(JOINTS):
+                            jd = sensor_now["joints"][j]
+                            if jd.get("feedback_usable") and isinstance(jd.get("filtered_model_deg"), (int, float)):
+                                val = float(jd["filtered_model_deg"])
+                                curr_usable_deg[i] = val
+                                err_i = abs(val - goal_deg[i])
+                                usable_errs.append(err_i)
+                                if support[i // 3] < 0.5:
+                                    free_errs.append(err_i)
+                                else:
+                                    stance_errs.append(err_i)
+                                if not active_set or i in active_set:
+                                    active_errs.append(err_i)
+                                    if i in prev_usable_deg:
+                                        active_steps.append(abs(val - prev_usable_deg[i]))
+                        had_prev = bool(prev_usable_deg)
+                        prev_usable_deg = curr_usable_deg
+                        if elapsed >= min_settle_s and had_prev and len(usable_errs) >= 6:
+                            ang_rate = (sensor_now.get("imu") or {}).get("angular_rate_rad_s")
+                            gyro_ok = True
+                            if (
+                                isinstance(ang_rate, (list, tuple))
+                                and len(ang_rate) == 3
+                                and all(isinstance(v, (int, float)) for v in ang_rate)
+                            ):
+                                gyro_ok = math.sqrt(sum(float(v) * float(v) for v in ang_rate)) <= 0.44
+                            tracked_errs = active_errs if active_errs else usable_errs
+                            mean_err = sum(tracked_errs) / len(tracked_errs)
+                            settled_now = (
+                                (not free_errs or max(free_errs) <= 5.5)
+                                and (not stance_errs or max(stance_errs) <= max_stance_tol)
+                                and mean_err <= mean_tol
+                                and (not active_steps or max(active_steps) <= 1.2)
+                                and gyro_ok
                             )
-                            if full_ok or partial_ok:
+                            if settled_now:
                                 settled_frames += 1
-                                if settled_frames >= (3 if full_ok else 4):
+                                if settled_frames >= req_settled_frames:
                                     break
                             else:
                                 settled_frames = 0
+                        else:
+                            settled_frames = 0
                         await _wait_next_tick(now)
                     hold_goal_deg, hold_goal_foot, hold_support = goal_deg, goal_foot, support
 

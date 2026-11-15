@@ -55,6 +55,7 @@
 <li><button type="button" data-workspace="motion">Movement</button></li>
 <li><button type="button" data-workspace="neural-gait">Neural gait</button></li>
 <li><button type="button" data-workspace="poses">Poses and emotes</button></li>
+<li><button type="button" data-workspace="presence">3rd neural · Presence</button></li>
 <li><button type="button" data-workspace="faces">Faces and assets</button></li>
 <li><button type="button" data-workspace="balance">Self-leveling</button></li>
 <li><button type="button" data-workspace="mode">Mode and power</button></li>
@@ -187,6 +188,20 @@
             <span id="cockpit-recovery-state" class="muted">Respond to body events</span>
           </div>
           <input id="cockpit-recovery-toggle" type="checkbox" role="switch">
+        </label>
+        <label class="cockpit-setting-row">
+          <div>
+            <strong>Living presence (System 3)</strong>
+            <span id="cockpit-presence-state" class="muted">Idle compliance, gaze, talking &amp; boredom</span>
+          </div>
+          <input id="cockpit-presence-toggle" type="checkbox" role="switch">
+        </label>
+        <label class="cockpit-setting-row">
+          <div>
+            <strong>Auto self-right &amp; gyro reflex</strong>
+            <span id="cockpit-self-right-state" class="muted">Send gyro to System 3 &amp; stand when tipped</span>
+          </div>
+          <input id="cockpit-self-right-toggle" type="checkbox" role="switch">
         </label>
         <label class="cockpit-setting-row">
           <div>
@@ -561,6 +576,42 @@
 
 
       </section>
+
+<section id="presence-section" class="control-section workspace-section" data-workspace-panel="presence" aria-labelledby="presence-title" hidden>
+  <div class="section-heading">
+    <div>
+      <p class="section-kicker">System 3 · Autonomic behavior</p>
+      <h2 id="presence-title">Living presence</h2>
+    </div>
+    <div class="command-row compact">
+      <button id="presence-resume-button" type="button">Resume / Stand from passive</button>
+    </div>
+  </div>
+  <div>
+    <p class="muted">Runs a compact 20 Hz closed-loop neural policy when the robot is between Walking (System 1) and Freestyle/Emotes (System 2). Any manual, voice, Walking, Freestyle, or Stop command preempts System 3 immediately. Relaxes stalled or chattering servos onto ground equilibrium, tracks people via YOLOE, moves expressively while listening and speaking, shifts restlessly when bored, self-rights when tipped, and enters a calm passive state when picked up or wedged in an unrecoverable tip.</p>
+    <form id="presence-form">
+      <label class="switch-row"><span>Living presence on</span><input type="checkbox" name="enabled"></label>
+      <label class="switch-row"><span>Auto self-right &amp; send gyro to System 3</span><input type="checkbox" name="self_right_enabled"></label>
+      <p class="field-help">Off stops sending IMU gyro/tilt data to System 3 and disables automatic self-righting and pickup passive transitions.</p>
+      <label class="switch-row"><span>Servo chatter &amp; stall load compliance</span><input type="checkbox" name="chatter_relief_enabled"></label>
+      <label class="switch-row"><span>Visual gaze, listening &amp; talking body motion</span><input type="checkbox" name="social_gaze_enabled"></label>
+      <label class="switch-row"><span>Automatic background face expressions</span><input type="checkbox" name="expressions_enabled"></label>
+      <label class="switch-row"><span>Keep servos awake while YOLOE sees a person</span><input type="checkbox" name="presence_defers_release"></label>
+      <label>Restless boredom starts after idle (seconds; 0 = off)<input type="number" name="boredom_interval_s" min="0" max="86400" step="1" required></label>
+      <label>Lay down &amp; release servos after quiet inactivity (seconds; 0 = off)<input type="number" name="servo_release_s" min="0" max="86400" step="1" required></label>
+      <label>When picked up or stuck in an unrecoverable tip
+        <select name="passive_mode">
+          <option value="calm_then_release">Move to calm pose, then release servos</option>
+          <option value="release">Release servos immediately</option>
+          <option value="calm_hold">Hold calm neutral pose</option>
+        </select>
+      </label>
+      <button type="submit">Save presence settings</button>
+    </form>
+    <p id="presence-result" class="field-help" role="status">Select a robot to configure living presence.</p>
+    <pre id="presence-live-status" class="controller-logs">Waiting for System 3 status…</pre>
+  </div>
+</section>
 
 <section id="gait-history-panel" class="control-section workspace-section" data-workspace-panel="neural-gait" aria-labelledby="gait-history-title" hidden>
   <div class="section-heading">
@@ -1391,6 +1442,28 @@
         </section>
       </div>
     </section>
+<section id="neural-systems-summary" class="control-section" data-workspace-panel="overview motion neural-gait" aria-labelledby="neural-systems-title">
+  <div class="section-heading">
+    <div>
+      <p class="section-kicker">3-Policy Motion Architecture</p>
+      <h2 id="neural-systems-title">3rd neural system · Living presence</h2>
+    </div>
+    <div class="command-row compact">
+      <span id="presence-quick-badge" class="state-chip">Standby</span>
+      <button type="button" data-open-workspace="presence">Configure System 3</button>
+    </div>
+  </div>
+  <p class="muted">Autonomic 20 Hz closed-loop neural posture &amp; expression policy (55 KB INT8, P4-ready) active between <strong>System 1 · Walking</strong> and <strong>System 2 · Poses/Freestyle</strong>: conversational listening &amp; speaking body language, curious YOLOE gaze, boredom shifts, servo chatter relief, automatic self-righting, and sympathetic IMU pickup calm.</p>
+  <dl class="telemetry-grid">
+    <div><dt>System 1 · Walking</dt><dd id="summary-system1-mode">--</dd></div>
+    <div><dt>System 2 · Poses / Emotes</dt><dd id="summary-system2-mode">--</dd></div>
+    <div><dt>System 3 · Living Presence</dt><dd id="summary-system3-mode">--</dd></div>
+  </dl>
+  <div class="field-group">
+    <label class="switch-row"><span>Enable 3rd neural system (Living presence)</span><input id="presence-quick-enabled" type="checkbox"></label>
+    <label class="switch-row"><span>Auto self-right when tipped &amp; send gyro to System 3</span><input id="presence-quick-self-right" type="checkbox"></label>
+  </div>
+</section>
 </div>
 </main>
 </div>
@@ -1406,6 +1479,10 @@
       <button type="button" data-open-workspace="poses">
         <span class="mobile-nav-icon" aria-hidden="true">&#x2728;</span>
         <span>Poses</span>
+      </button>
+      <button type="button" data-open-workspace="presence">
+        <span class="mobile-nav-icon" aria-hidden="true">&#x2726;</span>
+        <span>Presence</span>
       </button>
       <button type="button" data-open-workspace="faces">
         <span class="mobile-nav-icon" aria-hidden="true">&#x25c9;</span>

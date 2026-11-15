@@ -42,6 +42,7 @@ from mjlab_microduck.tasks.microduck_velocity_env_cfg import (
     MicroduckRlCfg,
     make_microduck_velocity_env_cfg,
 )
+from rsl_rl.models.mlp_model import MLPModel, _OnnxMLPModel, _TorchMLPModel
 
 from gateway.neural_gait.artifacts import save_json
 from gateway.neural_gait.environment import (
@@ -80,8 +81,43 @@ _ensure_native_library()
 
 RECIPE = "ainekio-neural-pose-mjlab-v2-delay"
 DEFAULT_HIDDEN_DIMS = (512, 256, 128)
+POSE_RESIDUAL_SCALE = 0.16
+POSE_GOAL_FOOT_SLICE = slice(57, 69)
 MAX_CMD_DELAY_TICKS = 4
 MAX_OBS_DELAY_TICKS = 6
+
+
+class _ResidualTorchMLPModel(_TorchMLPModel):
+    def __init__(self, model: MLPModel, residual_scale: float = POSE_RESIDUAL_SCALE) -> None:
+        super().__init__(model)
+        self.residual_scale = float(residual_scale)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        goal_foot = x[:, POSE_GOAL_FOOT_SLICE]
+        u = super().forward(x)
+        return torch.clamp(goal_foot + self.residual_scale * u, -1.0, 1.0)
+
+
+class _ResidualOnnxMLPModel(_OnnxMLPModel):
+    def __init__(self, model: MLPModel, verbose: bool, residual_scale: float = POSE_RESIDUAL_SCALE) -> None:
+        super().__init__(model, verbose)
+        self.residual_scale = float(residual_scale)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        goal_foot = x[:, POSE_GOAL_FOOT_SLICE]
+        u = super().forward(x)
+        return torch.clamp(goal_foot + self.residual_scale * u, -1.0, 1.0)
+
+
+class ResidualPoseMLPModel(MLPModel):
+    """Goal-anchored residual MLP: outputs bounded residual u in [-1, 1]^12 during PPO
+    and exports clamp(goal_foot + POSE_RESIDUAL_SCALE * u, -1, 1) directly into policy.onnx."""
+
+    def as_jit(self) -> torch.nn.Module:
+        return _ResidualTorchMLPModel(self, residual_scale=POSE_RESIDUAL_SCALE)
+
+    def as_onnx(self, verbose: bool) -> torch.nn.Module:
+        return _ResidualOnnxMLPModel(self, verbose, residual_scale=POSE_RESIDUAL_SCALE)
 
 
 @requires_model_fields("actuator_gainprm", "actuator_biasprm")
@@ -235,8 +271,9 @@ class PoseAction(ActionTerm):
 
         # Goal & oscillation buffers
         self.base_goal_rad = self.stand_q_rad.unsqueeze(0).expand(env.num_envs, -1).clone()
+        self.base_goal_foot = self.stand_foot_norm.unsqueeze(0).expand(env.num_envs, -1).clone()
         self.current_goal_rad = self.base_goal_rad.clone()
-        self.current_goal_foot = self.stand_foot_norm.unsqueeze(0).expand(env.num_envs, -1).clone()
+        self.current_goal_foot = self.base_goal_foot.clone()
         self.leg_support = torch.ones((env.num_envs, 4), dtype=torch.float32, device=env.device)
         self.speed_scale = torch.full((env.num_envs, 1), 0.75, dtype=torch.float32, device=env.device)
 
@@ -264,11 +301,13 @@ class PoseAction(ActionTerm):
         self.forward_fn = self.body.forward
 
         body = self.body
+        # Match goals.py:step_host_command physical MG90S no-load slew rate (545.45 deg/s @ 50 Hz = 10.91 deg/tick)
+        motor_max_travel = math.radians(float(self.config.motor_no_load_speed_deg_s)) / float(self.config.control_hz)
 
         def _step_pose_cmd(actions_t: torch.Tensor, previous_t: torch.Tensor, spd_t: torch.Tensor):
             goal = body.decode(actions_t).reshape(-1, 4, 3)
             prev = previous_t.to(body.O.dtype).reshape(-1, 4, 3)
-            lim = (body.max_travel * spd_t.to(body.O.dtype).clamp(0.25, 1.0)).unsqueeze(-1)
+            lim = (motor_max_travel * spd_t.to(body.O.dtype).clamp(0.25, 1.0)).unsqueeze(-1)
             delta = goal - prev
             leg_max = delta.abs().amax(dim=-1, keepdim=True).clamp_min(1e-12)
             u = (lim / leg_max).clamp(max=1.0)
@@ -318,6 +357,7 @@ class PoseAction(ActionTerm):
         sup_base = self.goal_bank_support[bank_idx]
 
         self.base_goal_rad[ids] = q_base
+        self.base_goal_foot[ids] = foot_base
         self.current_goal_rad[ids] = q_base
         self.current_goal_foot[ids] = foot_base
         self.leg_support[ids] = sup_base
@@ -370,14 +410,20 @@ class PoseAction(ActionTerm):
             f_w.unsqueeze(1), tau_w.unsqueeze(1), env_ids=s_ids, body_ids=[0]
         )
 
-    def _advance_goals_50hz(self):
-        self.goal_timer -= 1
-        if bool((self.goal_timer <= 0).any()):
-            expired = torch.nonzero(self.goal_timer <= 0, as_tuple=False).squeeze(-1)
+    def _advance_goals_50hz(self, exclude_ids: torch.Tensor | None = None):
+        active_env = torch.ones(self._env.num_envs, dtype=torch.bool, device=self._env.device)
+        if exclude_ids is not None and len(exclude_ids) > 0:
+            active_env[exclude_ids] = False
+        self.goal_timer = torch.where(active_env, self.goal_timer - 1, self.goal_timer)
+        expired_mask = active_env & (self.goal_timer <= 0)
+        if bool(expired_mask.any()):
+            expired = torch.nonzero(expired_mask, as_tuple=False).squeeze(-1)
             self._sample_goals(expired)
+            active_env[expired] = False
 
         # Static-shape vectorized oscillation update across all N envs (compiled forward_fn, zero dynamic shapes)
-        self.osc_step = torch.where(self.osc_active, self.osc_step + 1, self.osc_step)
+        osc_run = self.osc_active & active_env
+        self.osc_step = torch.where(osc_run, self.osc_step + 1, self.osc_step)
         t = self.osc_step.to(torch.float32).unsqueeze(-1) * 0.02
         phase = 2.0 * math.pi * self.osc_hz * t
         delta = torch.where(self.osc_active.unsqueeze(-1), self.osc_amp_rad * torch.sin(phase), 0.0)
@@ -387,7 +433,7 @@ class PoseAction(ActionTerm):
         q43 = torch.maximum(torch.minimum(q43, self.target_lims_rad[..., 1]), self.target_lims_rad[..., 0])
         pts, fvalid = self.forward_fn(q43)
         base43 = self.base_goal_rad.to(torch.float64).reshape(-1, 4, 3)
-        base_foot43 = self.current_goal_foot.reshape(-1, 4, 3)
+        base_foot43 = self.base_goal_foot.reshape(-1, 4, 3)
         foot_cand = ((pts - self.body.origin) / self.body.scale).clamp(-1.0, 1.0).to(torch.float32)
         use_cand = self.osc_active.unsqueeze(-1) & fvalid
         q_next = torch.where(use_cand.unsqueeze(-1), q43.to(torch.float32), base43.to(torch.float32))
@@ -433,8 +479,8 @@ class PoseAction(ActionTerm):
         self.targets[ids] = phys32
         self.delayed_targets[ids] = phys32
         self.cmd_delay_buf[:, ids] = phys32.unsqueeze(0)
-        self._raw[ids] = init_act
-        self.prev_raw_action[ids] = init_act
+        self._raw[ids] = 0.0
+        self.prev_raw_action[ids] = 0.0
         self.prev_action_delta[ids] = 0.0
         self.applied_action[ids] = init_act
         self.prev_applied_action[ids] = init_act
@@ -480,15 +526,15 @@ class PoseAction(ActionTerm):
         self.reset_from_joint_state(ids, positions)
 
     def process_actions(self, actions: torch.Tensor):
-        self._advance_goals_50hz()
         clamped = actions.clamp(-1.0, 1.0)
         self.prev_action_delta.copy_(self._raw - self.prev_raw_action)
         self.prev_raw_action.copy_(self._raw)
         self._raw.copy_(clamped)
 
+        eff_foot = (self.current_goal_foot + POSE_RESIDUAL_SCALE * self._raw).clamp(-1.0, 1.0)
         self.prev_applied_delta.copy_(self.applied_action - self.prev_applied_action)
         self.prev_applied_action.copy_(self.applied_action)
-        self.logical, targets, applied = self.step_pose_cmd(self._raw, self.logical, self.speed_scale)
+        self.logical, targets, applied = self.step_pose_cmd(eff_foot, self.logical, self.speed_scale)
         self.targets.copy_(targets)
         self.applied_action.copy_(applied)
         self.cmd_delay_buf = torch.roll(self.cmd_delay_buf, 1, dims=0)
@@ -547,6 +593,8 @@ class PoseAction(ActionTerm):
             self.pending_reset = None
 
         if self.history_step != self._env.common_step_counter:
+            if self.history_step is not None:
+                self._advance_goals_50hz(exclude_ids=pending)
             p4_now = self._snapshot_p4_packet(add_mux_spikes=True)
             self.obs_delay_buf = torch.roll(self.obs_delay_buf, 1, dims=0)
             self.obs_delay_buf[0] = p4_now
@@ -760,10 +808,10 @@ def make_pose_env_cfg(config: EnvironmentConfig, num_envs: int = 1024, *, includ
         cfg.events["randomize_actuators"] = EventTermCfg(func=randomize_pose_actuators, mode="reset")
 
     cfg.rewards = {
-        "pose_tracking": RewardTermCfg(func=pose_mdp.pose_tracking_reward, weight=4.8),
+        "pose_tracking": RewardTermCfg(func=pose_mdp.pose_tracking_reward, weight=5.0),
         "grounded_balance": RewardTermCfg(func=pose_mdp.grounded_balance_cost, weight=-1.6),
-        "action_smoothness": RewardTermCfg(func=pose_mdp.action_smoothness_cost, weight=-0.035),
-        "settle_damping": RewardTermCfg(func=pose_mdp.settle_damping_cost, weight=-0.040),
+        "action_smoothness": RewardTermCfg(func=pose_mdp.action_smoothness_cost, weight=-0.16),
+        "settle_damping": RewardTermCfg(func=pose_mdp.settle_damping_cost, weight=-0.10),
         "stance_slip": RewardTermCfg(func=pose_mdp.stance_slip_cost, weight=-0.30),
     }
     cfg.terminations = {
@@ -797,8 +845,8 @@ def _calibrate_critic_on_actor(runner, wrapped, device: str, *, rollout_steps: i
     with torch.no_grad():
         for _ in range(80):
             obs_td = wrapped.get_observations()
+            critic.update_normalization(obs_td)
             a_norm = actor.obs_normalizer(obs_td["actor"])
-            _ = critic.obs_normalizer(obs_td["critic"])
             act = mlp(a_norm).clamp(-8.0, 8.0).tanh()
             wrapped.step(act)
 
@@ -855,99 +903,58 @@ def _calibrate_critic_on_actor(runner, wrapped, device: str, *, rollout_steps: i
     return critic_mse
 
 
-def _warm_transfer_checkpoint(runner, wrapped, ckpt_path: str, device: str) -> dict:
-    """Load pretrained actor (and matching critic weights) into a new MDP/delay regime and recalibrate critic."""
-    ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
-    actor = runner.alg.actor
-    critic = runner.alg.critic
-    actor.load_state_dict(ckpt["actor_state_dict"], strict=True)
-
-    c_src = ckpt.get("critic_state_dict") or {}
-    c_dst = critic.state_dict()
-    copied = 0
-    with torch.no_grad():
-        for k, dst_t in c_dst.items():
-            if k not in c_src:
-                continue
-            src_t = c_src[k].to(device=dst_t.device, dtype=dst_t.dtype)
-            if src_t.shape == dst_t.shape:
-                dst_t.copy_(src_t)
-                copied += 1
-            elif src_t.ndim == dst_t.ndim == 2 and src_t.shape[0] == dst_t.shape[0]:
-                cols = min(src_t.shape[1], dst_t.shape[1], POSE_OBS_SIZE)
-                dst_t.zero_()
-                dst_t[:, :cols].copy_(src_t[:, :cols])
-                copied += 1
-            elif src_t.ndim == dst_t.ndim == 2 and src_t.shape[0] == 1:
-                cols = min(src_t.shape[1], dst_t.shape[1], POSE_OBS_SIZE)
-                dst_t[:, :cols].copy_(src_t[:, :cols])
-                copied += 1
-    critic.load_state_dict(c_dst, strict=True)
-
-    if hasattr(actor.distribution, "log_std_param"):
-        actor.distribution.log_std_param.data.clamp_(-2.35, -1.90)
-    critic_mse = _calibrate_critic_on_actor(runner, wrapped, device, rollout_steps=180, sweeps=4)
-    runner.alg.optimizer.state.clear()
-    runner.current_learning_iteration = 0
-    if torch.device(device).type == "cuda":
-        torch.cuda.empty_cache()
-    return {"transferred_from": ckpt_path, "copied_critic_tensors": copied, "warmstart_critic_mse": critic_mse}
 def _kinematic_warmstart(runner, wrapped, env, device: str):
-    """Warm-start both actor and critic MLPs across the 12-servo workspace before PPO."""
+    """Warm-start residual actor (u ~ 0 + CoM stance shift) and critic normalizer/MLP before PPO."""
     pose_term: PoseAction = env.action_manager.get_term("pose")
     actor = runner.alg.actor
     critic = runner.alg.critic
     mlp = actor.mlp
     opt = torch.optim.AdamW(mlp.parameters(), lr=1.5e-3, weight_decay=1e-5)
 
-    # Pass 1: populate actor & critic observation normalizer statistics with smooth kinematic rollouts
+    # Pass 1: populate actor & critic observation normalizer statistics with zero-residual goal-slew rollouts
     wrapped.reset()
     actor.obs_normalizer.train(True)
     critic.obs_normalizer.train(True)
+    u_zero = torch.zeros_like(pose_term.applied_action)
     with torch.no_grad():
-        for _ in range(120):
+        for _ in range(160):
             obs_td = wrapped.get_observations()
-            _ = actor.obs_normalizer(obs_td["actor"])
-            _ = critic.obs_normalizer(obs_td["critic"])
-            cur_norm = pose_term.applied_action
-            step_lim = 0.12 * pose_term.speed_scale
-            kin_act = (cur_norm + (pose_term.current_goal_foot - cur_norm).clamp(-step_lim, step_lim)).clamp(-0.98, 0.98)
-            wrapped.step(kin_act)
+            actor.update_normalization(obs_td)
+            critic.update_normalization(obs_td)
+            wrapped.step(u_zero)
 
-    # Pass 2: 2 DAgger rounds fitting actor MLP -> inverse_tanh(kin_act)
+    # Pass 2: 2 DAgger rounds fitting residual actor MLP -> 0 everywhere + lateral CoM shift on 3-leg/2-paw stances
     actor.obs_normalizer.eval()
     critic.obs_normalizer.eval()
     warmstart_mae = 0.0
+    stance_shift_u = 0.048 / POSE_RESIDUAL_SCALE
     try:
-        for rollout_steps, epochs, policy_prob in ((140, 14, 0.0), (120, 14, 0.7)):
+        for rollout_steps, epochs, policy_prob in ((120, 12, 0.0), (100, 12, 0.7)):
             xs, ys = [], []
             with torch.no_grad():
                 for _ in range(rollout_steps):
                     obs = wrapped.get_observations()["actor"]
                     norm_obs = actor.obs_normalizer(obs)
-                    cur_norm = pose_term.applied_action
-                    step_lim = 0.13 * pose_term.speed_scale
-                    kin_act = (cur_norm + (pose_term.current_goal_foot - cur_norm).clamp(-step_lim, step_lim)).clamp(-0.97, 0.97)
-                    # Add slight stance weight-shift toward lifted leg during grounded 3-leg gestures
+                    u_kin = torch.zeros_like(pose_term.applied_action)
                     sup = pose_term.leg_support
                     partial = (sup.sum(dim=-1) < 3.5) & (~pose_term.is_suspended)
                     if bool(partial.any()):
                         # Leg y signs in body frame: RL(+1), RR(-1), FL(+1), FR(-1)
                         free_left = ((sup[:, 0] < 0.5) | (sup[:, 2] < 0.5)) & partial
                         free_right = ((sup[:, 1] < 0.5) | (sup[:, 3] < 0.5)) & partial
-                        shift_y = torch.where(free_left, -0.055, torch.where(free_right, 0.055, 0.0))
+                        shift_u_y = torch.where(free_left, -stance_shift_u, torch.where(free_right, stance_shift_u, 0.0))
                         for leg_i in range(4):
                             stance_i = (sup[:, leg_i] > 0.5) & partial
-                            kin_act[:, leg_i * 3 + 1] = torch.where(
-                                stance_i, (kin_act[:, leg_i * 3 + 1] + shift_y).clamp(-0.97, 0.97), kin_act[:, leg_i * 3 + 1]
+                            u_kin[:, leg_i * 3 + 1] = torch.where(
+                                stance_i, shift_u_y.clamp(-0.90, 0.90), u_kin[:, leg_i * 3 + 1]
                             )
-                    target_logits = torch.atanh(kin_act)
+                    target_logits = torch.atanh(u_kin)
                     xs.append(norm_obs.detach())
                     ys.append(target_logits.detach())
                     if policy_prob > 0.0 and torch.rand((), device=device).item() < policy_prob:
                         act = mlp(norm_obs).clamp(-8.0, 8.0).tanh()
                     else:
-                        act = kin_act
+                        act = u_kin
                     wrapped.step(act)
 
             x_all = torch.cat(xs, dim=0)
@@ -960,7 +967,7 @@ def _kinematic_warmstart(runner, wrapped, env, device: str):
                 for start in range(0, n_samples, batch_size):
                     idx = perm[start : start + batch_size]
                     pred = mlp(x_all[idx])
-                    loss = 0.20 * (pred - y_all[idx]).square().mean() + 2.0 * (pred.tanh() - y_tanh[idx]).square().mean()
+                    loss = 0.25 * (pred - y_all[idx]).square().mean() + 2.0 * (pred.tanh() - y_tanh[idx]).square().mean()
                     opt.zero_grad()
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(mlp.parameters(), 2.0)
@@ -975,7 +982,7 @@ def _kinematic_warmstart(runner, wrapped, env, device: str):
 
     critic_mse = _calibrate_critic_on_actor(runner, wrapped, device, rollout_steps=180, sweeps=4)
     if hasattr(actor.distribution, "log_std_param"):
-        actor.distribution.log_std_param.data.fill_(-1.60)
+        actor.distribution.log_std_param.data.fill_(math.log(0.14))
     runner.alg.optimizer.state.clear()
     if torch.device(device).type == "cuda":
         torch.cuda.empty_cache()
@@ -1009,11 +1016,13 @@ def train(
         agent.logger = "tensorboard"
         agent.experiment_name = "ainekio_neural_pose"
         agent.upload_model = False
+        agent.actor.class_name = "experiments.freestyle.neural_pose.trainer:ResidualPoseMLPModel"
         agent.actor.hidden_dims = tuple(int(d) for d in actor_hidden_dims)
         agent.critic.hidden_dims = tuple(int(d) for d in critic_hidden_dims)
+        agent.algorithm.entropy_coef = 0.0005
         agent.actor.distribution_cfg = {
             "class_name": "gateway.neural_gait.microduck_policy:FootGaussianDistribution",
-            "init_std": 0.35,
+            "init_std": 0.14,
             "std_type": "log",
         }
         agent.save_interval = max(1, math.ceil(1_000_000 / (num_envs * agent.num_steps_per_env)))
@@ -1027,6 +1036,7 @@ def train(
             "actor_hidden_dims": list(agent.actor.hidden_dims),
             "critic_hidden_dims": list(agent.critic.hidden_dims),
             "foot_action_scale_mm": list(POSE_FOOT_SCALE_MM),
+            "pose_residual_scale": POSE_RESIDUAL_SCALE,
             "rewards": {name: term.weight for name, term in cfg.rewards.items()},
             "environment": asdict(config),
             "environment_version": ENVIRONMENT_VERSION,
@@ -1053,20 +1063,12 @@ def train(
             ckpt_p = Path(resume)
             ckpt_path = str(ckpt_p if ckpt_p.is_file() else ckpt_p / "learner.pt")
             raw_ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-            c_w = (raw_ckpt.get("critic_state_dict") or {}).get("mlp.0.weight")
-            expected_c_in = runner.alg.critic.mlp[0].in_features
-            if c_w is not None and c_w.shape[1] == expected_c_in and os.environ.get("AINEKIO_POSE_TRANSFER") != "1":
-                has_opt = "optimizer_state_dict" in raw_ckpt
-                runner.load(
-                    ckpt_path,
-                    load_cfg={"actor": True, "critic": True, "optimizer": has_opt, "iteration": has_opt, "rnd": False},
-                    map_location=device,
-                )
-            else:
-                save_json(directory / "progress.json", {"state": "warm_transfer", "iterations": iterations, "steps": 0})
-                ws_info = _warm_transfer_checkpoint(runner, wrapped, ckpt_path, device)
-                manifest["warmstart"] = ws_info
-                save_json(directory / "manifest.json", manifest)
+            has_opt = "optimizer_state_dict" in raw_ckpt
+            runner.load(
+                ckpt_path,
+                load_cfg={"actor": True, "critic": True, "optimizer": has_opt, "iteration": has_opt, "rnd": False},
+                map_location=device,
+            )
         elif warmstart:
             save_json(directory / "progress.json", {"state": "warmstart", "iterations": iterations, "steps": 0})
             ws_info = _kinematic_warmstart(runner, wrapped, env, device)
@@ -1114,6 +1116,7 @@ def train(
                 "ainekio_schema": POSE_SCHEMA,
                 "ainekio_action": "normalized-pose-foot-offsets-v1",
                 "ainekio_foot_scale_mm": ",".join(str(x) for x in POSE_FOOT_SCALE_MM),
+                "ainekio_residual_scale": str(POSE_RESIDUAL_SCALE),
                 "checkpoint_sha256": hashlib.sha256((directory / "learner.pt").read_bytes()).hexdigest(),
             },
         )

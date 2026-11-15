@@ -270,7 +270,8 @@ class NeuralPoseContractAndGoalsTests(unittest.TestCase):
             self.manifold,
         )
         self.assertGreaterEqual(segs[0]["duration_s"], 1.75)
-        self.assertGreaterEqual(segs[1]["duration_s"], 0.90)
+        self.assertGreaterEqual(segs[1]["duration_s"], 0.32)
+        self.assertLess(segs[1]["duration_s"], 0.90)
 
     def test_host_step_meets_50hz_realtime_budget_and_matches_tensor_body(self):
         import time
@@ -635,6 +636,119 @@ class BridgeNeuralPoseLifecycleTests(unittest.IsolatedAsyncioTestCase):
             # Must have stopped the open-ended host walk so the P4 does not stay armed at reference_cd
             self.assertIsNotNone(gw.conn.body_command)
             self.assertEqual(gw.conn.body_command["t"], "stop")
+        finally:
+            await bridge.close()
+
+    async def test_early_settle_tolerates_stance_balance_residual_and_adc_velocity_noise(self):
+        gw = _MockGateway()
+        runtime = _DummyRuntime()
+        manifold = runtime._m
+        stand_proj, _ = manifold.project_angles_deg(STAND_ANGLES_DEG)
+        lift_op = {
+            "name": "feet",
+            "arguments": {"legs": ["front_right"], "offsets_mm": [[20.0, -22.0, 56.0]], "speed_pct": 35},
+        }
+        goal_deg, _ = manifold.project_angles_deg(manifold.resolve_spatial_deg(lift_op, stand_proj))
+
+        # Standing start with usable feedback across all 12 joints
+        for i, j in enumerate(JOINTS):
+            gw.obs["joints"][j] = {
+                "home_deg": STAND_ANGLES_DEG[i],
+                "model_deg": stand_proj[i],
+                "filtered_model_deg": stand_proj[i],
+                "commanded_model_deg": stand_proj[i],
+                "velocity_deg_s": 0.0,
+                "feedback_usable": True,
+            }
+        gw.obs["imu"]["angular_rate_rad_s"] = [0.02, -0.01, 0.01]
+
+        tick_counter = {"n": 0}
+        orig_obs = gw.body_sensor_observation
+
+        def live_obs(robot_id: str) -> dict:
+            obs = orig_obs(robot_id)
+            tick_counter["n"] += 1
+            # Converge lifted FR leg within 2.5 deg and hold 9.5 deg active balance residual on stance legs,
+            # plus a synthetic 38 deg/s ADC mux velocity spike that previously blocked early-settle.
+            frac = min(1.0, tick_counter["n"] / 8.0)
+            for i, j in enumerate(JOINTS):
+                leg_is_fr = (i // 3) == 1
+                settled_target = goal_deg[i] + (2.2 if leg_is_fr else (9.5 if i % 3 == 2 else -4.0))
+                val = stand_proj[i] + frac * (settled_target - stand_proj[i])
+                obs["joints"][j]["filtered_model_deg"] = val
+                obs["joints"][j]["model_deg"] = val
+                obs["joints"][j]["velocity_deg_s"] = 38.0 if i == 0 else 4.0
+            return obs
+
+        gw.body_sensor_observation = live_obs
+
+        async def fake_gen(endpoint, req, **kw):
+            return {"program": [lift_op]}
+
+        bridge = Bridge(gw, _MockTransport(), generate=fake_gen, neural_pose_runtime=runtime)
+        try:
+            sub = await bridge.submit(gw.conn.robot_id, "lift right paw slowly", execute=True)
+            res = await bridge.result(sub["job_id"])
+            self.assertEqual(res["state"], "completed")
+            walk_targets = [c for c in gw.conn.sent if c.get("t") == "walk_target"]
+            # Without early-settle, speed_pct=35 on ~57 deg crank travel waits ~0.90s (~45+ ticks);
+            # with early-settle once converged (~0.38s), it finishes well under 30 ticks.
+            self.assertLess(len(walk_targets), 30)
+            self.assertGreaterEqual(len(walk_targets), 12)
+        finally:
+            await bridge.close()
+
+    async def test_stand_arms_disarmed_faulted_body_and_waits_for_tight_symmetric_settle(self):
+        gw = _MockGateway()
+        gw.conn.last_status = {"output_armed": False, "output_fault": 1, "output_ready": False}
+        runtime = _DummyRuntime()
+        manifold = runtime._m
+        stand_proj, _ = manifold.project_angles_deg(STAND_ANGLES_DEG)
+
+        # Start asymmetric (`front_left_crank = -31.5` vs `front_right_crank = -13.9`, ~10.3 deg max error)
+        asym_start = [11.2, -3.8, -27.7, -5.9, 0.8, -19.5, -8.0, -2.2, -31.5, -1.2, 5.0, -13.9]
+        for i, j in enumerate(JOINTS):
+            gw.obs["joints"][j] = {
+                "home_deg": STAND_ANGLES_DEG[i],
+                "model_deg": asym_start[i],
+                "filtered_model_deg": asym_start[i],
+                "commanded_model_deg": asym_start[i],
+                "velocity_deg_s": 0.0,
+                "feedback_usable": True,
+            }
+        gw.obs["imu"]["angular_rate_rad_s"] = [0.02, -0.01, 0.01]
+
+        tick_counter = {"n": 0}
+        orig_obs = gw.body_sensor_observation
+
+        def live_obs(robot_id: str) -> dict:
+            obs = orig_obs(robot_id)
+            tick_counter["n"] += 1
+            # Stay at ~10.2 deg error (which prematurely passed the old <= 13 deg check) until call 14,
+            # then settle symmetrically within 1.5 deg of STAND_ANGLES_DEG.
+            for i, j in enumerate(JOINTS):
+                val = asym_start[i] if tick_counter["n"] < 14 else stand_proj[i] + (1.5 if i % 2 == 0 else -1.5)
+                obs["joints"][j]["filtered_model_deg"] = val
+                obs["joints"][j]["model_deg"] = val
+            return obs
+
+        gw.body_sensor_observation = live_obs
+
+        async def fake_gen(endpoint, req, **kw):
+            return {"program": [{"name": "stand", "arguments": {}}]}
+
+        bridge = Bridge(gw, _MockTransport(), generate=fake_gen, neural_pose_runtime=runtime)
+        try:
+            sub = await bridge.submit(gw.conn.robot_id, "stand", execute=True)
+            res = await bridge.result(sub["job_id"])
+            self.assertEqual(res["state"], "completed")
+            intents = [c["name"] for c in gw.conn.sent if c.get("t") == "intent"]
+            self.assertEqual(intents[:2], ["stand", "walk"], "Disarmed/faulted body must arm via stand before walk stream")
+            final_errs = [
+                abs(gw.obs["joints"][j]["filtered_model_deg"] - stand_proj[i])
+                for i, j in enumerate(JOINTS)
+            ]
+            self.assertLessEqual(max(final_errs), 6.0, "Stand must not exit prematurely while asymmetric error > 6 deg")
         finally:
             await bridge.close()
 

@@ -25,6 +25,7 @@ from gateway.security import _atomic_secure_json, _read_json
 from gateway.perception import RecognitionResult
 from gateway.server.service import CONTROL_STALE_SECONDS, ActionExpiredError, GatewayError, GatewayService
 from gateway.body_capabilities import body_commands, expression_library
+from gateway.spatial_curiosity import SpatialCuriosityTracker
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE, MIC_PCM_FRAME_TYPE
 from protocol.control_v1 import COMMAND_DEADLINE_FEATURE, LOCOMOTION_FEATURE, WALK_STEERING_FEATURE, WALK_LATERAL_FEATURE, MAX_SEQUENCE, ProtocolValidationError, validate_walk_controls
 from websockets.exceptions import ConnectionClosed
@@ -115,6 +116,7 @@ class EnvironmentAdapter:
             if self._speech_settings_path and self._speech_settings_path.exists() else '')
         self._computer_speech: dict[str, asyncio.Task[None]] = {}
         self._locomotion_yaw: dict[str, dict[str, object]] = {}
+        self._spatial_curiosity = SpatialCuriosityTracker()
         self._ground_range_selection: dict[str, object] | None = None
         self._ground_range_measurement: dict[str, object] | None = None
         self.locomotion_measurement: Callable[..., dict[str, object]] | None = None
@@ -615,7 +617,9 @@ class EnvironmentAdapter:
                     pass
                 try:
                     if robot_id:
-                        self.gateway.set_external_speech(robot_id, owner, True, duration_ms=(len(speech.pcm) + 31) // 32)
+                        self.gateway.set_external_speech(
+                            robot_id, owner, True, duration_ms=(len(speech.pcm) + 31) // 32, pcm=speech.pcm
+                        )
                     if self._computer_device:
                         await play_computer_speech(speech.pcm, device=self._computer_device)
                     else:
@@ -789,6 +793,14 @@ class EnvironmentAdapter:
                     check_interpretation_owner, body_command=(translated.kind == "stop"
                         or translated.kind == "intent" and translated.name not in {"face", "say"}))
 
+        if translated.kind == "request_motion" or (
+            translated.kind == "intent" and translated.name not in {"face", "say"}
+        ):
+            self._spatial_curiosity.record_motion(
+                robot_id,
+                robot_epoch if type(robot_epoch) is int else None,
+                self.clock(),
+            )
         if translated.kind == "request_motion":
             try:
                 def remember_job(job_id):
@@ -1139,17 +1151,38 @@ class EnvironmentAdapter:
             robot_id = event.get("robot_id")
             epoch = event.get("epoch")
             if isinstance(robot_id, str):
-                self._clear_robot_correlations(
-                    robot_id,
+                next_epoch = (
                     epoch
                     if event.get("status") == "connected" and type(epoch) is int
-                    else None,
+                    else None
+                )
+                self._clear_robot_correlations(robot_id, next_epoch)
+                self._spatial_curiosity.reset_placement(robot_id, next_epoch, self.clock())
+        if event.get("t") == "event" and event.get("name") == "body_event":
+            event_data = event.get("data")
+            event_robot_id = event.get("robot_id")
+            if (
+                isinstance(event_data, Mapping)
+                and event_data.get("kind") in {"tipped", "rapid_movement"}
+                and isinstance(event_robot_id, str)
+            ):
+                event_epoch = event.get("epoch")
+                self._spatial_curiosity.reset_placement(
+                    event_robot_id,
+                    event_epoch if type(event_epoch) is int else None,
+                    self.clock(),
                 )
         if event.get("t") == "event" and event.get("name") in {
             "vad_open",
             "vad_close",
             "wake_word",
         }:
+            if event.get("name") == "wake_word":
+                wake_robot = event.get("robot_id")
+                self._spatial_curiosity.record_human_activity(
+                    wake_robot if isinstance(wake_robot, str) else None,
+                    self.clock(),
+                )
             if event.get("name") == "vad_close":
                 await self._send_telemetry(
                     "audio.level",
@@ -1206,6 +1239,7 @@ class EnvironmentAdapter:
     async def _handle_gateway_utterance(self, utterance: AudioUtterance) -> None:
         if self.config.robot_id is not None and utterance.robot_id != self.config.robot_id:
             return
+        self._spatial_curiosity.record_human_activity(utterance.robot_id, self.clock())
         websocket = self._websocket
         self._last_audio_result = {
             "utteranceId": utterance.utterance_id,
@@ -1230,6 +1264,7 @@ class EnvironmentAdapter:
         text = transcript.get("text")
         if not isinstance(text, str) or not text.strip():
             return
+        self._spatial_curiosity.record_human_activity(self._selected_robot()[0], self.clock())
         text_event = {
             "id": f"ainekio-text-{uuid4()}",
             "source": "environment",
@@ -1426,6 +1461,14 @@ class EnvironmentAdapter:
                         self._ground_range_selection = selected
                         self._ground_range_measurement = {**measurement, **{key: selected[key] for key in ("trackId", "queryId") if key in selected}}
                         response["vision"] = {"locomotionMeasurement": {"target": self._observation()["state"]["locomotionMeasurement"]["target"]}}
+                elif message.get("operation") == "markInspected":
+                    raw_ids = message.get("trackIds")
+                    if not isinstance(raw_ids, list) or not all(isinstance(item, str) for item in raw_ids):
+                        raise ValueError("markInspected requires trackIds list of strings")
+                    marked = self._spatial_curiosity.mark_inspected(
+                        self._selected_robot()[0], list(raw_ids)
+                    )
+                    response["vision"] = {"operation": "markInspected", "markedTrackIds": marked}
                 else:
                     if self.vision_operation is None:
                         raise ValueError("Vision target configuration is not available")
@@ -1529,6 +1572,20 @@ class EnvironmentAdapter:
         now = self.utcnow()
         perception = {**self._camera_recognition(analysis),
             "expiresAt": (now + timedelta(seconds=max_frame_age_s - age)).isoformat()}
+        now_clock = self.clock()
+        self._spatial_curiosity.snapshot(
+            robot_id,
+            robot,
+            now=now_clock,
+            yaw_measurement=self._yaw_measurement(robot_id, robot),
+        )
+        self._spatial_curiosity.record_camera_observation(
+            robot_id,
+            analysis.epoch,
+            max(0.0, now_clock - age),
+            recognition=perception,
+            close_capture=False,
+        )
         await self._send_telemetry("vision.recognition", {"perception": perception,
             **({"processing": analysis.processing} if analysis.processing is not None else {})})
 
@@ -1714,6 +1771,35 @@ class EnvironmentAdapter:
             target.update({"sourceRobotId": target.get("robotId"), "sourceEpoch": target.get("epoch"),
                 "robotId": robot_id, "epoch": robot.get("epoch") if robot else None, "gatewayInstance": self.gateway.instance_id})
             state["locomotionMeasurement"]["target"] = target
+        now_clock = self.clock()
+        self._spatial_curiosity.snapshot(
+            robot_id,
+            robot,
+            now=now_clock,
+            yaw_measurement=state["locomotionMeasurement"]["yaw"],
+            locomotion_measurement=state["locomotionMeasurement"],
+            freestyle_status=state["freestyleMovement"],
+        )
+        if visual is not None and robot_id is not None:
+            vis_meta = visual.get("metadata") if isinstance(visual.get("metadata"), Mapping) else {}
+            vis_rec = vis_meta.get("recognition") if isinstance(vis_meta, Mapping) else None
+            self._spatial_curiosity.record_camera_observation(
+                robot_id,
+                robot.get("epoch") if robot and type(robot.get("epoch")) is int else None,
+                now_clock,
+                recognition=vis_rec if isinstance(vis_rec, Mapping) else None,
+                close_capture=True,
+            )
+        spatial_curiosity = self._spatial_curiosity.snapshot(
+            robot_id,
+            robot,
+            now=now_clock,
+            yaw_measurement=state["locomotionMeasurement"]["yaw"],
+            locomotion_measurement=state["locomotionMeasurement"],
+            freestyle_status=state["freestyleMovement"],
+        )
+        if spatial_curiosity is not None:
+            state["spatialCuriosity"] = spatial_curiosity
         if camera_ready:
             actions.append("captureImage")
         observation: dict[str, object] = {

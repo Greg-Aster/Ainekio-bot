@@ -19,6 +19,7 @@ set_property(TARGET ${AINEKIO_HOSTED_LIB} PROPERTY SOURCES ${AINEKIO_HOSTED_SOUR
 
 include(cmake/idf_dw_gdma.cmake)
 include(cmake/idf_panic_log.cmake)
+include(cmake/idf_pie_coproc.cmake)
 include(cmake/idf_websocket_write.cmake)
 include(cmake/idf_video_timestamp.cmake)
 

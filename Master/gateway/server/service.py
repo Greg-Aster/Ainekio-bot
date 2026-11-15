@@ -230,6 +230,8 @@ class GatewayConnection:
         self.speech_command_sequence: int | None = None
         self.profile = service.config.profile
         self.microphone_level = 0.0
+        self.speaker_level = 0.0
+        self.speaker_frame_at = 0.0
         self.audio_input: dict[str, object] | None = None
         self.audio_input_received_at = 0.0
         self.connected_at = service.clock()
@@ -860,6 +862,14 @@ class GatewayConnection:
     async def _send_speaker_frame(self, counter: int, payload: bytes, *, start_sequence: int) -> None:
         self._check_speaker_session(start_sequence)
         frame = encode_binary_frame(SPEAKER_PCM_FRAME_TYPE, counter, payload)
+        if len(payload) >= 2:
+            n_samp = len(payload) // 2
+            samples = struct.unpack(f"<{n_samp}h", payload[: n_samp * 2])
+            self.speaker_level = min(
+                1.0,
+                (math.sqrt(sum(s * s for s in samples) / n_samp) / 32768.0) * 4.5,
+            )
+            self.speaker_frame_at = self.service.clock()
         async with self._send_lock:
             self._check_speaker_session(start_sequence)
             await self.websocket.send(frame)
@@ -1205,6 +1215,7 @@ class GatewayService:
         self.token_store = token_store
         self._connections: dict[str, GatewayConnection] = {}
         self._external_speech: dict[str, dict[str, float]] = {}
+        self._external_speech_envelopes: dict[str, dict[str, tuple[float, tuple[float, ...]]]] = {}
         self._external_speech_callbacks: list[Callable[[str, int, bool], None]] = []
         self._epochs: dict[str, int] = {}
         self._lock = asyncio.Lock()
@@ -1354,6 +1365,22 @@ class GatewayService:
         await asyncio.gather(*(connection.close(1001, "gateway stopped", cancel_code="disconnect")
                                for connection in connections))
 
+    async def ensure_normal_mode(
+        self,
+        *,
+        robot_id: str | None = None,
+        received_at: float | None = None,
+    ) -> None:
+        """Exit joint calibration mode before executing normal body motion."""
+        connection = self._connection(robot_id)
+        if connection.mode != "calibrate":
+            return
+        sequence = await connection.send_command(
+            {"t": "mode", "name": "normal"},
+            received_at=self.clock() if received_at is None else received_at,
+        )
+        await connection.wait_acknowledged(sequence, timeout=2.0)
+
     async def request_motion(self, name: str, *, robot_id: str | None = None,
                              job_id: str | None = None, on_job=None) -> dict[str, object]:
         """Submit a motion request to Freestyle; native commands are manual/primitives.
@@ -1361,9 +1388,11 @@ class GatewayService:
         The Body Control library selector affects its explicit manual controls,
         never autonomous requests, startup behavior or MetaHuman dispatch.
         """
-        robot_id = self._connection(robot_id).robot_id
+        connection = self._connection(robot_id)
+        robot_id = connection.robot_id
         if self.freestyle_motion is None:
             raise GatewayError("Freestyle motion is not loaded")
+        await self.ensure_normal_mode(robot_id=robot_id)
         options = {"job_id": job_id, "on_start": on_job} if job_id is not None or on_job is not None else {}
         result = await self.freestyle_motion(robot_id, name, execute=True, **options)
         return {"system": "freestyle", "jobId": result["job_id"], "state": "submitted"}
@@ -1378,6 +1407,8 @@ class GatewayService:
         on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
         valid_for_ms: int | None = None,
     ) -> int:
+        if name in {"stand", "walk", "emote"} and "update" not in (params or {}):
+            await self.ensure_normal_mode(robot_id=robot_id, received_at=received_at)
         command: dict[str, object] = {"t": "intent", "name": name}
         if params:
             command.update(params)
@@ -1533,6 +1564,33 @@ class GatewayService:
     def external_speech_active(self, robot_id: str) -> bool:
         return bool(self._external_speech.get(robot_id))
 
+    def speech_activity(self, robot_id: str) -> tuple[bool, float]:
+        """Return (speaking_active, live_speech_rms_0_to_1) across robot and host speakers."""
+        now = self.clock()
+        rms = 0.0
+        active = False
+        connection = self._connections.get(robot_id)
+        if connection is not None:
+            if connection._speaker_task is not None and not connection._speaker_task.done():
+                active = True
+                if now - connection.speaker_frame_at <= 0.15:
+                    rms = max(rms, float(connection.speaker_level))
+        owners = self._external_speech.get(robot_id)
+        if owners:
+            active = True
+            envelopes = self._external_speech_envelopes.get(robot_id) or {}
+            for owner, end_at in list(owners.items()):
+                if now <= end_at + 0.15:
+                    env = envelopes.get(owner)
+                    if env is not None:
+                        started_at, bins = env
+                        idx = int(max(0.0, now - started_at) / 0.05)
+                        if 0 <= idx < len(bins):
+                            rms = max(rms, float(bins[idx]))
+                    else:
+                        rms = max(rms, 0.45)
+        return active, rms
+
     def external_speech_remaining_ms(self, robot_id: str) -> int:
         owners = self._external_speech.get(robot_id)
         if not owners:
@@ -1546,16 +1604,41 @@ class GatewayService:
     def subscribe_external_speech(self, callback: Callable[[str, int, bool], None]) -> None:
         self._external_speech_callbacks.append(callback)
 
-    def set_external_speech(self, robot_id: str, owner: str, active: bool, *, duration_ms: int = 0) -> None:
+    def set_external_speech(
+        self,
+        robot_id: str,
+        owner: str,
+        active: bool,
+        *,
+        duration_ms: int = 0,
+        pcm: bytes | None = None,
+    ) -> None:
         """Audio-only state notification. Never await transport or a body reply."""
         owners = self._external_speech.setdefault(robot_id, {})
+        envelopes = self._external_speech_envelopes.setdefault(robot_id, {})
         before = bool(owners)
+        now = self.clock()
         if active:
-            owners[owner] = self.clock() + duration_ms / 1000
+            owners[owner] = now + duration_ms / 1000
+            if pcm and len(pcm) >= 2:
+                # 16 kHz 16-bit mono PCM -> 50 ms bins (800 samples = 1600 bytes per bin)
+                bin_bytes = 1600
+                bins: list[float] = []
+                for offset in range(0, len(pcm) - 1, bin_bytes):
+                    chunk = pcm[offset : offset + bin_bytes]
+                    cnt = len(chunk) // 2
+                    if cnt > 0:
+                        vals = struct.unpack(f"<{cnt}h", chunk[: cnt * 2])
+                        rms = min(1.0, (math.sqrt(sum(v * v for v in vals) / cnt) / 32768.0) * 4.5)
+                        bins.append(rms)
+                if bins:
+                    envelopes[owner] = (now, tuple(bins))
         else:
             owners.pop(owner, None)
+            envelopes.pop(owner, None)
         if not owners:
             self._external_speech.pop(robot_id, None)
+            self._external_speech_envelopes.pop(robot_id, None)
         if not before and not owners:
             return
         connection = self._connections.get(robot_id)

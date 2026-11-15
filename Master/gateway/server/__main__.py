@@ -309,6 +309,7 @@ async def _run_production(args: argparse.Namespace) -> None:
                 adapter.locomotion_measurement = camera.locomotion_measurement
                 adapter.selected_ground_range = camera.selected_ground_range
                 adapter.depth_demand = camera.depth_demand
+        dashboard.start_presence()
         service.subscribe_events(dashboard.restore_camera)
 
         async def route(websocket: object, path: str) -> None:
@@ -410,14 +411,18 @@ async def _run_production(args: argparse.Namespace) -> None:
                 finally:
                     try:
                         if dashboard is not None:
-                            await dashboard.close_freestyle()
+                            await dashboard.close_presence()
                     finally:
                         try:
-                            if camera is not None:
-                                await camera.aclose()
-                        finally:
                             if dashboard is not None:
-                                await dashboard.host_audio.close()
+                                await dashboard.close_freestyle()
+                        finally:
+                            try:
+                                if camera is not None:
+                                    await camera.aclose()
+                            finally:
+                                if dashboard is not None:
+                                    await dashboard.host_audio.close()
 
 
 def _seed_environment_token(token_store: RobotTokenStore) -> None:

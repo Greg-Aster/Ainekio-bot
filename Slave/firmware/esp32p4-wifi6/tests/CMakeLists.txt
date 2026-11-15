@@ -117,6 +117,8 @@ add_test(NAME camera_profiles_and_snapshots COMMAND test_camera)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_test(NAME camera_automatic_pipeline
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_camera_ipa.py)
+add_test(NAME pie_coproc_context_and_kernels
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_pie_coproc.py)
 
 add_executable(test_calibration_store test_calibration_store.c ../main/joint_calibration.c ../main/robot_settings.c)
 target_include_directories(test_calibration_store PRIVATE config_shim body_shim ../components/ainekio_pca9685/include)

@@ -689,10 +689,13 @@ def _pose_segment_duration_s(
     from_nonstanding: bool = False,
 ) -> float:
     """Compute realistic closed-loop servo + policy settling budget (independent of 2000 deg/s NVS ramp)."""
-    servo_travel_deg_s = max(40.0, 115.0 * speed_scale)
-    base = max_delta_deg / servo_travel_deg_s + (0.65 if (is_stand or from_nonstanding) else 0.55)
-    floor = 1.75 if (max_delta_deg > 45.0 or from_nonstanding) else (1.05 if is_stand else 0.90)
-    return max(floor, min(4.0, base))
+    if from_nonstanding or (is_stand and max_delta_deg > 45.0):
+        servo_travel_deg_s = max(55.0, 140.0 * speed_scale)
+        return max(1.75, min(3.8, max_delta_deg / servo_travel_deg_s + 0.55))
+    servo_travel_deg_s = max(65.0, 240.0 * speed_scale)
+    margin = 0.35 if is_stand else 0.22
+    floor = 0.70 if is_stand else 0.32
+    return max(floor, min(3.5, max_delta_deg / servo_travel_deg_s + margin))
 
 
 def compile_goal_segments(program: list[dict], observation: dict, manifold: PoseManifold) -> list[dict]:
@@ -743,6 +746,7 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
                     "leg_support": [1.0, 1.0, 1.0, 1.0],
                     "speed_scale": speed_scale,
                     "duration_s": duration_s,
+                    "from_nonstanding": bool(from_nonstanding or max_delta > 45.0),
                 }
             )
             cursor_deg = list(goal_deg)
@@ -751,6 +755,7 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
 
         if name in ("move", "pose"):
             physical_start_deg = list(raw_initial_deg) if not posture_initialized else list(cursor_deg)
+            from_nonstanding = (not posture_initialized) and _is_nonstanding_posture(raw_initial_deg)
             moving = [args["joint"]] if name == "move" else list(args["joints"])
             raw_targets = [args["angle_deg"]] if name == "move" else list(args["angles_deg"])
             ref = args.get("reference", "absolute")
@@ -766,7 +771,7 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
             goal_deg, goal_foot_norm = manifold.project_angles_deg(candidate)
             support = manifold.infer_leg_support(goal_deg)
             max_delta = max(abs(a - b) for a, b in zip(goal_deg, physical_start_deg))
-            duration_s = _pose_segment_duration_s(max_delta, speed_scale)
+            duration_s = _pose_segment_duration_s(max_delta, speed_scale, from_nonstanding=from_nonstanding)
             segments.append(
                 {
                     "kind": "pose_goal",
@@ -778,6 +783,7 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
                     "leg_support": support,
                     "speed_scale": speed_scale,
                     "duration_s": duration_s,
+                    "from_nonstanding": bool(from_nonstanding),
                 }
             )
             cursor_deg = list(goal_deg)
@@ -808,6 +814,7 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
                     "leg_support": support,
                     "speed_scale": speed_scale,
                     "duration_s": duration_s,
+                    "from_nonstanding": bool(from_nonstanding),
                 }
             )
             cursor_deg = list(goal_deg)
@@ -834,7 +841,7 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
                 raw_amp = args["amplitude_deg"]
                 amps = [float(a) for a in raw_amp] if isinstance(raw_amp, (list, tuple)) else [float(raw_amp)] * len(j_indices)
             max_amp = max((abs(a) for a in amps), default=15.0)
-            default_hz = max(0.45, min(2.2, (115.0 * speed_scale) / max(12.0, 4.0 * max_amp)))
+            default_hz = max(0.65, min(2.6, (235.0 * speed_scale) / max(12.0, 4.0 * max_amp)))
             hz = max(0.2, min(4.0, float(args.get("hz", default_hz))))
             cycles = max(0.5, float(args["cycles"]))
             osc_duration = cycles / hz

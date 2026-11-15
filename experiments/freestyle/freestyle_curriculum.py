@@ -376,48 +376,53 @@ def make_entry(request: str, program: list[dict], curriculum_family: str, *,
 # Pillar 1: Limb, Side, and Joint Mastery (16 families)
 # ---------------------------------------------------------------------------
 
-def prog_raise_hand(side: str = 'right', mode: str = 'standing', speed: int = 65, hold_s: float = 0.8):
+def prog_raise_hand(side: str = 'right', mode: str = 'standing', speed: int = 70, hold_s: float = 0.8):
     if side == 'both':
+        brace_spd = max(speed, 75)
         return [
             face('excited'),
-            *sit_brace_enter(speed),
+            *sit_brace_enter(brace_spd),
             op('pose', joints=front_joints(),
-               angles_deg=[-52.0, 40.0, 14.0, -52.0, 40.0, 14.0],
-               reference='absolute', speed_pct=speed),
+               angles_deg=[-52.0, 42.0, 16.0, -52.0, 42.0, 16.0],
+               reference='absolute', speed_pct=max(speed, 70)),
             hold(hold_s),
-            *sit_brace_exit(speed),
+            *sit_brace_exit(brace_spd),
             face('stand'),
         ]
+    if mode != 'seated':
+        return prog_standing_hand(side, 'lift', hold_s, speed)
     leg = f'front_{side}'
-    target_angles = [-56.0, 48.0, 18.0] if mode == 'seated' else [-52.0, 44.0, 14.0]
+    brace_spd = max(speed, 75)
     return [
         face('happy'),
-        *sit_brace_enter(speed),
+        *sit_brace_enter(brace_spd),
         op('pose', joints=leg_joints(leg),
-           angles_deg=target_angles, reference='absolute', speed_pct=speed),
+           angles_deg=[-56.0, 48.0, 18.0], reference='absolute', speed_pct=speed),
         hold(hold_s),
         op('pose', joints=leg_joints(leg),
            angles_deg=[-26.0, 12.0, -34.0], reference='absolute', speed_pct=speed),
-        *sit_brace_exit(speed),
+        *sit_brace_exit(brace_spd),
         face('stand'),
     ]
 
 
-def prog_wave_hand(side: str = 'right', cycles: int = 3, speed: int = 65, quick: bool = False):
+def prog_wave_hand(side: str = 'right', cycles: int = 3, speed: int = 75, quick: bool = True):
     if side == 'both':
+        brace_spd = max(speed, 75)
+        wave_spd = max(speed, 80)
         return [
             face('wave'),
-            *sit_brace_enter(speed),
+            *sit_brace_enter(brace_spd),
             op('pose', joints=front_joints(),
-               angles_deg=[-48.0, 38.0, 10.0, -48.0, 38.0, 10.0],
-               reference='absolute', speed_pct=speed),
+               angles_deg=[-48.0, 44.0, 18.0, -48.0, 44.0, 18.0],
+               reference='absolute', speed_pct=brace_spd),
             *[a for _ in range(cycles) for a in (
                 op('pose', joints=['front_left_shoulder', 'front_right_shoulder'],
-                   angles_deg=[-72.0, -24.0], reference='absolute', speed_pct=speed),
+                   angles_deg=[-68.0, -28.0], reference='absolute', speed_pct=wave_spd),
                 op('pose', joints=['front_left_shoulder', 'front_right_shoulder'],
-                   angles_deg=[-24.0, -72.0], reference='absolute', speed_pct=speed),
+                   angles_deg=[-28.0, -68.0], reference='absolute', speed_pct=wave_spd),
             )],
-            *sit_brace_exit(speed),
+            *sit_brace_exit(brace_spd),
             face('stand'),
         ]
     leg = f'front_{side}'
@@ -428,19 +433,20 @@ def prog_wave_hand(side: str = 'right', cycles: int = 3, speed: int = 65, quick:
             face('wave'),
             shift_in,
             op('feet', legs=[leg], offsets_mm=[[20, sign * 22, 58]], speed_pct=speed),
-            op('oscillate', joint=f'{leg}_shoulder', amplitude_deg=22, cycles=cycles, speed_pct=speed),
+            op('oscillate', joint=f'{leg}_shoulder', amplitude_deg=24, cycles=cycles, speed_pct=speed),
             op('feet', legs=[leg], offsets_mm=[[-20, -sign * 22, -58]], speed_pct=speed),
             shift_out,
             face('stand'),
         ]
+    brace_spd = max(speed, 75)
     return [
         face('wave'),
-        *sit_brace_enter(speed),
-        op('pose', joints=leg_joints(leg), angles_deg=[-54.0, -16.0, -38.0], reference='absolute', speed_pct=speed),
-        op('pose', joints=leg_joints(leg), angles_deg=[-55.0, 46.0, 11.0], reference='absolute', speed_pct=speed),
-        op('oscillate', joint=f'{leg}_shoulder', amplitude_deg=36, cycles=cycles, speed_pct=speed),
-        op('pose', joints=leg_joints(leg), angles_deg=[-54.0, -16.0, -38.0], reference='absolute', speed_pct=speed),
-        *sit_brace_exit(speed),
+        *sit_brace_enter(brace_spd),
+        op('pose', joints=leg_joints(leg), angles_deg=[-54.0, -16.0, -38.0], reference='absolute', speed_pct=brace_spd),
+        op('pose', joints=leg_joints(leg), angles_deg=[-55.0, 46.0, 14.0], reference='absolute', speed_pct=speed),
+        op('oscillate', joint=f'{leg}_shoulder', amplitude_deg=32, cycles=cycles, speed_pct=speed),
+        op('pose', joints=leg_joints(leg), angles_deg=[-54.0, -16.0, -38.0], reference='absolute', speed_pct=brace_spd),
+        *sit_brace_exit(brace_spd),
         face('stand'),
     ]
 
@@ -1971,53 +1977,64 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
 
     # --- Pillar 1: Limb, Side & Joint Mastery (16 families) ---
     specs.append(('raise_right_hand', [
-        ('Raise your right hand.', prog_raise_hand('right', 'standing', 65)),
-        ('Lift your right front paw up and put it back down.', prog_raise_hand('right', 'standing', 65)),
-        ('Put your right arm up high.', prog_raise_hand('right', 'seated', 65)),
-        ('Can you raise your right hand for a moment, then stand?', prog_raise_hand('right', 'seated', 65, 1.0)),
-        ('Slowly raise your right hand and lower it gently.', prog_raise_hand('right', 'standing', 30, 1.0)),
+        ('Raise your right hand.', prog_raise_hand('right', 'standing', 70)),
+        ('Raise your right paw.', prog_raise_hand('right', 'standing', 70)),
+        ('Please raise your right paw.', prog_raise_hand('right', 'standing', 70)),
+        ('Lift your right front paw up and put it back down.', prog_raise_hand('right', 'standing', 70)),
+        ('Can you raise your right hand for a moment, then stand?', prog_raise_hand('right', 'standing', 70, 1.0)),
+        ('Sit back and put your right arm up high.', prog_raise_hand('right', 'seated', 75)),
+        ('Slowly raise your right hand and lower it gently.', prog_raise_hand('right', 'standing', 35, 1.0)),
         ('Quickly shoot your right hand up!', prog_raise_hand('right', 'standing', 95, 0.5)),
-    ], ('Hold up your right hand and then return to standing.', prog_raise_hand('right', 'standing', 65))))
+    ], ('Hold up your right hand and then return to standing.', prog_raise_hand('right', 'standing', 70))))
 
     specs.append(('raise_left_hand', [
-        ('Raise your left hand.', prog_raise_hand('left', 'standing', 65)),
-        ('Lift your left front paw.', prog_raise_hand('left', 'standing', 65)),
-        ('Put your left arm up high.', prog_raise_hand('left', 'seated', 65)),
-        ('Raise your left hand, hold it briefly, and put it back down.', prog_raise_hand('left', 'standing', 65, 1.0)),
-        ('Gently lift your left hand slowly.', prog_raise_hand('left', 'standing', 30, 0.9)),
+        ('Raise your left hand.', prog_raise_hand('left', 'standing', 70)),
+        ('Raise your left paw.', prog_raise_hand('left', 'standing', 70)),
+        ('Please raise your left paw.', prog_raise_hand('left', 'standing', 70)),
+        ('Lift your left front paw.', prog_raise_hand('left', 'standing', 70)),
+        ('Raise your left hand, hold it briefly, and put it back down.', prog_raise_hand('left', 'standing', 70, 1.0)),
+        ('Sit back and put your left arm up high.', prog_raise_hand('left', 'seated', 75)),
+        ('Gently lift your left hand slowly.', prog_raise_hand('left', 'standing', 35, 0.9)),
         ('Snap your left hand up fast!', prog_raise_hand('left', 'standing', 95, 0.5)),
-    ], ('Lift up your left arm and finish standing.', prog_raise_hand('left', 'standing', 65))))
+    ], ('Lift up your left arm and finish standing.', prog_raise_hand('left', 'standing', 70))))
 
     specs.append(('raise_both_hands', [
-        ('Raise both hands in the air!', prog_raise_hand('both', 'seated', 70)),
+        ('Raise both hands in the air!', prog_raise_hand('both', 'seated', 75)),
+        ('Raise both front paws in the air!', prog_raise_hand('both', 'seated', 75)),
         ('Put your hands up!', prog_raise_hand('both', 'seated', 75, 1.0)),
         ('Stick em up! Lift both front paws.', prog_raise_hand('both', 'seated', 80, 0.9)),
-        ('Sit back and reach both arms up toward the ceiling.', prog_raise_hand('both', 'seated', 65, 1.1)),
+        ('Sit back and reach both arms up toward the ceiling.', prog_raise_hand('both', 'seated', 75, 1.1)),
         ('Throw both hands up in victory and finish standing.', prog_raise_hand('both', 'seated', 85, 0.8)),
-    ], ('Lift both of your front hands up high, then stand.', prog_raise_hand('both', 'seated', 70))))
+    ], ('Lift both of your front hands up high, then stand.', prog_raise_hand('both', 'seated', 75))))
 
     specs.append(('wave_right_hand', [
-        ('Wave with your right hand.', prog_wave_hand('right', 3, 65)),
-        ('Wave hello using your right paw.', prog_wave_hand('right', 3, 65, quick=True)),
-        ('Give a quick wave with your right arm.', prog_wave_hand('right', 2, 80, quick=True)),
-        ('Sit and wave your right hand five times.', prog_wave_hand('right', 5, 70)),
+        ('Please wave.', prog_wave_hand('right', 3, 75, quick=True)),
+        ('Wave hello!', prog_wave_hand('right', 3, 75, quick=True)),
+        ('Give me a wave.', prog_wave_hand('right', 3, 75, quick=True)),
+        ('Wave!', prog_wave_hand('right', 3, 75, quick=True)),
+        ('Say hi and wave.', prog_wave_hand('right', 3, 75, quick=True)),
+        ('Wave goodbye!', prog_wave_hand('right', 3, 75, quick=True)),
+        ('Wave with your right hand.', prog_wave_hand('right', 3, 75, quick=True)),
+        ('Wave hello using your right paw.', prog_wave_hand('right', 3, 75, quick=True)),
+        ('Give a quick wave with your right arm.', prog_wave_hand('right', 2, 85, quick=True)),
+        ('Sit and wave your right hand five times.', prog_wave_hand('right', 5, 75, quick=False)),
         ('Wave goodbye slowly with your right hand.', prog_wave_hand('right', 3, 35, quick=True)),
-    ], ('Say hi by waving your right hand.', prog_wave_hand('right', 3, 65, quick=True))))
+    ], ('Say hi by waving your right hand.', prog_wave_hand('right', 3, 75, quick=True))))
 
     specs.append(('wave_left_hand', [
-        ('Wave with your left hand.', prog_wave_hand('left', 3, 65)),
-        ('Wave hello using your left paw.', prog_wave_hand('left', 3, 65, quick=True)),
-        ('Wave your left paw at me twice.', prog_wave_hand('left', 2, 70, quick=True)),
-        ('Sit and wave your left hand five times.', prog_wave_hand('left', 5, 70)),
+        ('Wave with your left hand.', prog_wave_hand('left', 3, 75, quick=True)),
+        ('Wave hello using your left paw.', prog_wave_hand('left', 3, 75, quick=True)),
+        ('Wave your left paw at me twice.', prog_wave_hand('left', 2, 75, quick=True)),
+        ('Sit and wave your left hand five times.', prog_wave_hand('left', 5, 75, quick=False)),
         ('Gently wave your left arm slowly.', prog_wave_hand('left', 3, 35, quick=True)),
-    ], ('Say hi by waving your left hand.', prog_wave_hand('left', 3, 65, quick=True))))
+    ], ('Say hi by waving your left hand.', prog_wave_hand('left', 3, 75, quick=True))))
 
     specs.append(('wave_both_hands', [
-        ('Wave hello with both hands!', prog_wave_hand('both', 3, 75)),
-        ('Do a big two-handed wave to the crowd.', prog_wave_hand('both', 4, 80)),
-        ('Sit back and wave both arms together.', prog_wave_hand('both', 3, 70)),
-        ('Wave goodbye with both front paws.', prog_wave_hand('both', 2, 65)),
-    ], ('Wave both of your hands enthusiastically.', prog_wave_hand('both', 3, 75))))
+        ('Wave hello with both hands!', prog_wave_hand('both', 3, 80)),
+        ('Do a big two-handed wave to the crowd.', prog_wave_hand('both', 4, 85)),
+        ('Sit back and wave both arms together.', prog_wave_hand('both', 3, 75)),
+        ('Wave goodbye with both front paws.', prog_wave_hand('both', 2, 75)),
+    ], ('Wave both of your hands enthusiastically.', prog_wave_hand('both', 3, 80))))
 
     specs.append(('point_right', [
         ('Point forward with your right hand.', prog_point('right', 'forward', 65)),
@@ -2685,7 +2702,7 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     for fam_idx, (fam, train_items, eval_item) in enumerate(specs):
         for item_idx, (prompt, program) in enumerate(train_items):
             low = prompt.lower()
-            if item_idx == 0 or 'left' in low or 'right' in low:
+            if item_idx == 0 or 'left' in low or 'right' in low or 'wave' in low or 'paw' in low:
                 modes = [None, 'stand']
                 if fam in limb_posture_fams and item_idx % 2 == 0:
                     modes.append(nonstand_cycle[(fam_idx + item_idx) % len(nonstand_cycle)])
@@ -2699,12 +2716,12 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
                 req_text = casual_prompt(prompt) if use_casual else prompt
                 seed_val = 1 + fam_idx * 17 + item_idx * 3 + m_idx
                 req_variants.append((req_text, mode, seed_val))
-            if item_idx == 0:
-                req_variants.append((casual_prompt(prompt), 'stand', 2001 + fam_idx * 13))
+            if item_idx == 0 or (fam == 'wave_right_hand' and item_idx < 7):
+                req_variants.append((casual_prompt(prompt), 'stand', 2001 + fam_idx * 13 + item_idx))
                 if 'left' in fam or 'right' in fam:
                     req_variants.append((casual_prompt(prompt), None, 0))
                     if fam in limb_posture_fams:
-                        req_variants.append((casual_prompt(prompt), nonstand_cycle[fam_idx % 3], 3001 + fam_idx * 11))
+                        req_variants.append((casual_prompt(prompt), nonstand_cycle[(fam_idx + item_idx) % 3], 3001 + fam_idx * 11 + item_idx))
             for req_text, mode, seed_val in req_variants:
                 row = make_entry(req_text, program, fam, with_observation=mode, seed=seed_val, split='train')
                 if row['query'] in seen_queries or row['id'] in seen_ids:
