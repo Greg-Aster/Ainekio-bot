@@ -97,3 +97,19 @@ bool ainekio_feedback_position(const ainekio_feedback_joint_t *j,double raw,
         raw<=fmax(j->point[0].raw,j->point[2].raw);
     return isfinite(*pulse);
 }
+float ainekio_feedback_thermal_update(float load,bool energized,
+    bool measured_valid,float err_deg,float vel_toward_deg_s,float dt_s)
+{
+    if(!isfinite(load) || load<0.0f)load=0.0f;
+    if(!isfinite(dt_s) || dt_s<=0.0f)return load;
+    if(energized && measured_valid && isfinite(err_deg) && isfinite(vel_toward_deg_s) &&
+       err_deg>AINEKIO_FEEDBACK_THERMAL_DEADBAND_DEG &&
+       vel_toward_deg_s<AINEKIO_FEEDBACK_THERMAL_SLEW_DEG_S) {
+        const float heat_dt=fminf(dt_s,0.1f);
+        const float duty=fminf(AINEKIO_FEEDBACK_THERMAL_MAX_DUTY,
+            (err_deg-AINEKIO_FEEDBACK_THERMAL_DEADBAND_DEG)/AINEKIO_FEEDBACK_THERMAL_FULL_SPAN_DEG);
+        const float heat_rate=(duty*duty)/AINEKIO_FEEDBACK_THERMAL_TRIP_SECONDS;
+        return fminf(1.0f,load+heat_rate*heat_dt);
+    }
+    return fmaxf(0.0f,load-dt_s/AINEKIO_FEEDBACK_THERMAL_COOL_SECONDS);
+}

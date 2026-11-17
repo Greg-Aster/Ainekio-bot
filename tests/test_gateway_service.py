@@ -2086,6 +2086,276 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([m["t"] for m in sent], ["mode"])
         conn.cancel_pending()
 
+    async def test_neural_walk_reverse_unsnags_after_1800ms_lag_and_respects_2500ms_cooldown(self):
+        from protocol.control_v1 import (
+            BODY_CAPABILITIES_FEATURE,
+            BODY_COMMANDS_FEATURE,
+            LOCOMOTION_FEATURE,
+            WALK_CONTROLS_FEATURE,
+            WALK_NOMINAL_FEATURE,
+            WALK_STEERING_FEATURE,
+        )
+
+        t_now = [10.0]
+        service = GatewayService(GatewayServiceConfig(tokens={"p4": "test"}), clock=lambda: t_now[0])
+        sent: list[dict[str, object]] = []
+        connection_ref: list[GatewayConnection] = []
+
+        class AckingSocket:
+            closed = False
+
+            async def send(self, raw: str) -> None:
+                msg = json.loads(raw)
+                sent.append(msg)
+                asyncio.get_running_loop().call_soon(
+                    lambda seq=msg["seq"]: asyncio.create_task(
+                        connection_ref[0]._handle_control({"t": "ack", "seq": seq})
+                    )
+                )
+
+        conn = GatewayConnection(
+            service,
+            AckingSocket(),
+            "p4",
+            1,
+            (
+                BODY_CAPABILITIES_FEATURE,
+                BODY_COMMANDS_FEATURE,
+                LOCOMOTION_FEATURE,
+                WALK_CONTROLS_FEATURE,
+                WALK_STEERING_FEATURE,
+                WALK_NOMINAL_FEATURE,
+            ),
+            model="v2-12servo",
+            capabilities={
+                "motion": True,
+                "commands": ["stand", "walk", "backward", "left", "right"],
+                "camera": False,
+                "microphone": False,
+                "speaker": False,
+            },
+        )
+        connection_ref.append(conn)
+        service._connections["p4"] = conn
+        service.walking_sources["p4"] = {
+            "source": "neural",
+            "forward_m_s": 0.40,
+            "lateral_m_s": 0.20,
+            "yaw_rad_s": 1.00,
+        }
+
+        inferred_commands: list[tuple[float, list[float]]] = []
+
+        async def fake_neural_call(path: str, payload=None):
+            if path.startswith("/status"):
+                return {
+                    "model_id": "pupper-test",
+                    "checkpoint_id": "ckpt-1",
+                    "kind": "pupper-mjx",
+                    "environment": {
+                        "observation_schema": "ainekio-neural-gait-v3",
+                        "reference_joint_deg": [0.0, 0.94, -21.25] * 4,
+                        "target_limits_deg": [[-90.0, 90.0]] * 12,
+                        "foot_action_scale_mm": [30.0, 20.0, 25.0],
+                    },
+                }
+            assert path == "/infer"
+            inferred_commands.append((round(t_now[0], 3), list(payload["observation"]["command"])))
+            return {"model_id": "pupper-test", "checkpoint_id": "ckpt-1", "action": [0.0] * 12}
+
+        service.neural_gait.call = fake_neural_call
+
+        def make_imu_packet(scan: int, *, jammed: bool, sample: int = 0) -> dict:
+            pkt = self.packet(scan)
+            fb = pkt["data"]["joint_feedback"]
+            fb["usable_mask"] = 0xFFF
+            fb["clipped_mask"] = 0
+            fb["above_calibration_mask"] = 0
+            fb["below_calibration_mask"] = 0
+            fb["unavailable_mask"] = 0
+            fb["filtered_model_deg"] = [0.0] * 12
+            fb["commanded_model_deg"] = ([18.0] + [0.0] * 11) if jammed else [0.0] * 12
+            fb["velocity_deg_s"] = ([2.0] + [0.0] * 11) if jammed else [25.0] * 12
+            pkt["data"]["motion"] = {
+                "sequence": walk_seq,
+                "phase": "motion",
+                "started_us": 1000,
+                "sampled_us": 1000 + scan * 20_000,
+                "walk_source": "host",
+                "nominal_sample": sample,
+            }
+            pkt["data"]["timestamp_us"] = 1000 + scan * 20_000
+            fb["device_us"] = pkt["data"]["timestamp_us"]
+            fb["sampled_us"] = [fb["device_us"]] * 12
+            return pkt
+
+        walk_seq = await service.queue_intent("walk", {"dir": "fwd", "speed": 50, "steps": 0}, robot_id="p4")
+        await asyncio.sleep(0)
+
+        # Feed jammed samples from t=10.0 to t=11.6 (< 1.8 s): still forward [0.2, 0.0, 0.0]
+        scan_id = 1
+        for dt in (0.0, 0.6, 1.2, 1.6):
+            t_now[0] = 10.0 + dt
+            await conn._handle_control(make_imu_packet(scan_id, jammed=True, sample=conn.neural_walk.sample))
+            scan_id += 1
+            await asyncio.sleep(0.005)
+        self.assertTrue(all(cmd == [0.2, 0.0, 0.0] for _, cmd in inferred_commands))
+
+        # At t=11.8 (1.8 s sustained lag): switches to reverse unsnag [-0.45, 0.0, 0.0] for 1.8 s (until t=13.6)
+        inferred_commands.clear()
+        for dt in (1.8, 2.5, 3.5):
+            t_now[0] = 10.0 + dt
+            await conn._handle_control(make_imu_packet(scan_id, jammed=True, sample=conn.neural_walk.sample))
+            scan_id += 1
+            await asyncio.sleep(0.005)
+        self.assertEqual([cmd for _, cmd in inferred_commands], [[-0.45, 0.0, 0.0]] * 3)
+
+        # At t=13.7 (past 1.8 s backup, inside 2.5 s cooldown until t=16.1): resumes forward twist [0.2, 0.0, 0.0]
+        # and does NOT re-trigger even after 2.0 s inside cooldown (t=15.7)
+        inferred_commands.clear()
+        for dt in (3.7, 4.7, 5.7):
+            t_now[0] = 10.0 + dt
+            await conn._handle_control(make_imu_packet(scan_id, jammed=True, sample=conn.neural_walk.sample))
+            scan_id += 1
+            await asyncio.sleep(0.005)
+        self.assertEqual([cmd for _, cmd in inferred_commands], [[0.2, 0.0, 0.0]] * 3)
+
+        conn.cancel_pending()
+
+    async def test_released_servo_stall_forwards_body_event_and_fails_active_move_and_request_motion(self):
+        from gateway.environment_adapter.server import EnvironmentAdapter, EnvironmentAdapterConfig
+        from protocol.control_v1 import (
+            BODY_CAPABILITIES_FEATURE,
+            BODY_COMMANDS_FEATURE,
+            LOCOMOTION_FEATURE,
+            MOTION_TARGETS_FEATURE,
+            WALK_CONTROLS_FEATURE,
+        )
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as tmp:
+            service = GatewayService(GatewayServiceConfig(tokens={"p4": "test"}), clock=lambda: 50.0)
+
+            class AckingSocket:
+                closed = False
+
+                async def send(self, raw: str) -> None:
+                    msg = json.loads(raw)
+                    asyncio.get_running_loop().call_soon(
+                        lambda seq=msg["seq"]: asyncio.create_task(
+                            conn._handle_control({"t": "ack", "seq": seq})
+                        )
+                    )
+
+            conn = GatewayConnection(
+                service,
+                AckingSocket(),
+                "p4",
+                1,
+                (
+                    BODY_CAPABILITIES_FEATURE,
+                    BODY_COMMANDS_FEATURE,
+                    LOCOMOTION_FEATURE,
+                    WALK_CONTROLS_FEATURE,
+                    MOTION_TARGETS_FEATURE,
+                ),
+                model="v2-12servo",
+                capabilities={
+                    "motion": True,
+                    "commands": ["stand", "walk", "backward", "left", "right"],
+                    "camera": False,
+                    "microphone": False,
+                    "speaker": False,
+                },
+            )
+            service._connections["p4"] = conn
+            adapter = EnvironmentAdapter(
+                service,
+                EnvironmentAdapterConfig(token="secret", receipt_path=f"{tmp}/receipts.db", robot_id="p4"),
+                clock=service.clock,
+            )
+            forwarded_events: list[dict] = []
+            orig_send_obs = adapter._send_observation
+
+            async def spy_send_obs(**kwargs):
+                if kwargs.get("body_event"):
+                    forwarded_events.append(kwargs["body_event"])
+                return await orig_send_obs(**kwargs)
+
+            adapter._send_observation = spy_send_obs
+
+            # 1. Active `move` action terminates with `failed` when P4 thermal fuse releases outputs
+            move_task = asyncio.create_task(
+                adapter.handle_action(
+                    {
+                        "id": "move-stall-1",
+                        "type": "move",
+                        "command": "walk",
+                        "direction": "forward",
+                        "speed": 60,
+                        "continuous": True,
+                        "locomotionGoal": {"kind": "distance", "direction": "forward", "metres": 1.0, "tolerance": 0.1},
+                    }
+                )
+            )
+            await asyncio.sleep(0.02)
+            self.assertFalse(move_task.done())
+
+            await conn._handle_control(
+                {
+                    "t": "event",
+                    "name": "servo_stall",
+                    "event_id": "1:5000000",
+                    "clock_us": 5_000_000,
+                    "seq": conn.body_command_sequence,
+                    "joint_mask": 1 << 4,
+                    "outputs_released": True,
+                }
+            )
+            move_feedback = await asyncio.wait_for(move_task, timeout=1.0)
+            self.assertEqual(move_feedback["type"], "failed")
+            self.assertIn("servo_stall", move_feedback["message"])
+            self.assertEqual(len(forwarded_events), 1)
+            self.assertTrue(forwarded_events[0]["data"]["outputs_released"])
+
+            # 2. Active `requestMotion` action also terminates with `failed` when outputs are released
+            freestyle_wait = asyncio.get_running_loop().create_future()
+            service.freestyle_motion = lambda robot_id, desc, **kw: asyncio.sleep(0, result={"job_id": "fs-job-1"})
+            service.freestyle_result = lambda job_id: freestyle_wait
+            cancelled_jobs: list[str] = []
+
+            async def fake_cancel(job_id: str):
+                cancelled_jobs.append(job_id)
+                return {"id": job_id, "state": "superseded"}
+
+            service.freestyle_cancel = fake_cancel
+
+            motion_task = asyncio.create_task(
+                adapter.handle_action(
+                    {"id": "req-motion-1", "type": "requestMotion", "description": "stretch forward"}
+                )
+            )
+            await asyncio.sleep(0.02)
+            self.assertFalse(motion_task.done())
+
+            await conn._handle_control(
+                {
+                    "t": "event",
+                    "name": "servo_stall",
+                    "event_id": "1:6000000",
+                    "clock_us": 6_000_000,
+                    "seq": 0,
+                    "joint_mask": 1 << 10,
+                    "outputs_released": True,
+                }
+            )
+            motion_feedback = await asyncio.wait_for(motion_task, timeout=1.0)
+            self.assertEqual(motion_feedback["type"], "failed")
+            self.assertIn("servo_stall", motion_feedback["message"])
+            self.assertEqual(cancelled_jobs, ["fs-job-1"])
+            self.assertEqual(len(forwarded_events), 2)
+            conn.cancel_pending()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -52,8 +52,9 @@ from .native import motor_force_range
 
 RECIPE = "microduck-mjlab-v1"
 UPSTREAM = Path(__file__).with_name("vendor") / "microduck_rl" / "UPSTREAM.json"
-TASK_REVISION = 18
+TASK_REVISION = 19
 DEFAULT_ACTOR_HIDDEN_DIMS = (128, 64, 32)
+DEFAULT_SNAG_PROB = 0.28
 
 
 @dataclass(kw_only=True)
@@ -159,13 +160,14 @@ class MG90SActuatorCfg(BuiltinPositionActuatorCfg):
 @dataclass(kw_only=True)
 class FootActionCfg(ActionTermCfg):
     environment: dict
+    snag_prob: float = DEFAULT_SNAG_PROB
 
     def build(self, env):
         return FootAction(self, env)
 
 
 class FootAction(ActionTerm):
-    """GPU foot decoding and sensor acquisition; no host state copies."""
+    """GPU foot decoding, 4th-wire/IMU sensor acquisition, and transient swing-foot snag obstacle plant."""
     def __init__(self,cfg,env):
         super().__init__(cfg,env)
         from .tensor_body import TensorBody
@@ -188,6 +190,36 @@ class FootAction(ActionTerm):
         self.mean_amp_z_m=torch.zeros((env.num_envs,4),dtype=torch.float32,device=env.device)
         self.history_step=None
         self.coverage=torch.zeros(2,device=env.device)
+        self.snag_prob=float(getattr(cfg,"snag_prob",0.0))
+        self._snag_enabled=(
+            self.snag_prob>0.0
+            and hasattr(self._entity,"find_bodies")
+            and hasattr(self._entity,"find_sites")
+            and hasattr(self._entity,"write_external_wrench_to_sim")
+        )
+        if self._snag_enabled:
+            self.foot_body_ids,_=self._entity.find_bodies(
+                tuple(f"{leg}_pickup_body" for leg in LEGS),preserve_order=True)
+            self.foot_site_ids,_=self._entity.find_sites(
+                tuple(f"{leg}_reference" for leg in LEGS),preserve_order=True)
+            self.snag_env_mask=torch.zeros(env.num_envs,dtype=torch.bool,device=env.device)
+            self.snag_active=torch.zeros((env.num_envs,4),dtype=torch.bool,device=env.device)
+            self.snag_just_cleared=torch.zeros((env.num_envs,4),dtype=torch.bool,device=env.device)
+            self.snag_cleared_high=torch.zeros((env.num_envs,4),dtype=torch.bool,device=env.device)
+            self.snag_anchor_xy_w=torch.zeros((env.num_envs,4,2),dtype=torch.float32,device=env.device)
+            self.snag_ground_z_w=torch.zeros((env.num_envs,4),dtype=torch.float32,device=env.device)
+            self.snag_dir_xy_w=torch.zeros((env.num_envs,4,2),dtype=torch.float32,device=env.device)
+            self.snag_lip_z_m=torch.full((env.num_envs,4),0.025,dtype=torch.float32,device=env.device)
+            self.snag_peak_h_m=torch.zeros((env.num_envs,4),dtype=torch.float32,device=env.device)
+            self.snag_delta_h_m=torch.zeros((env.num_envs,4),dtype=torch.float32,device=env.device)
+            self.snag_age_steps=torch.zeros((env.num_envs,4),dtype=torch.long,device=env.device)
+            self.snag_cooldown_steps=torch.zeros((env.num_envs,4),dtype=torch.long,device=env.device)
+            self.snag_recent_steps=torch.zeros(env.num_envs,dtype=torch.long,device=env.device)
+            self.snag_force_mag=torch.zeros((env.num_envs,4),dtype=torch.float32,device=env.device)
+            self._snag_substep_count=0
+            self._zero_foot_torques=torch.zeros((env.num_envs,4,3),dtype=torch.float32,device=env.device)
+            self.snag_events_triggered=torch.zeros(env.num_envs,dtype=torch.long,device=env.device)
+            self.snag_events_cleared=torch.zeros(env.num_envs,dtype=torch.long,device=env.device)
         self.reset(None)
         self.decode_command=self.body.command
         if torch.device(env.device).type == "cuda" and env.num_envs >= 64:
@@ -209,18 +241,55 @@ class FootAction(ActionTerm):
         self.mean_amp_q[ids]=0;self.mean_amp_z_m[ids]=0
         positions=self._entity.data.joint_pos[:,self.joint_ids]
         self.sensors.reset(ids,positions[ids])
+        if self._snag_enabled:
+            dev=self._env.device
+            n=self._env.num_envs if env_ids is None else len(env_ids)
+            if n>0:
+                self.snag_env_mask[ids]=torch.rand(n,device=dev)<self.snag_prob
+                self.snag_active[ids]=False
+                self.snag_just_cleared[ids]=False
+                self.snag_cleared_high[ids]=False
+                self.snag_peak_h_m[ids]=0.0
+                self.snag_delta_h_m[ids]=0.0
+                self.snag_age_steps[ids]=0
+                self.snag_cooldown_steps[ids]=20
+                self.snag_recent_steps[ids]=0
+                self.snag_force_mag[ids]=0.0
+                self.snag_lip_z_m[ids]=0.023+0.006*torch.rand((n,4),device=dev)
+                zero_w=torch.zeros((n,4,3),dtype=torch.float32,device=dev)
+                self._entity.write_external_wrench_to_sim(
+                    zero_w,zero_w,env_ids=env_ids,body_ids=self.foot_body_ids)
         self.pending_reset=ids
+
+    def _step_snag_state_50hz(self):
+        from . import microduck_mdp as ainekio_mdp
+        ainekio_mdp.update_swing_snag_50hz(self._env,self)
+        self.snag_force_mag.zero_()
+        self._snag_substep_count=0
+
+    def _apply_snag_wrench_500hz(self):
+        from . import microduck_mdp as ainekio_mdp
+        f_mag,forces_w=ainekio_mdp.compute_swing_snag_wrench_500hz(self._env,self)
+        self._snag_substep_count+=1
+        alpha=1.0/float(self._snag_substep_count)
+        self.snag_force_mag.lerp_(f_mag,alpha)
+        self._entity.write_external_wrench_to_sim(
+            forces_w,self._zero_foot_torques,body_ids=self.foot_body_ids)
 
     def process_actions(self,actions):
         self._raw.copy_(actions.clamp(-1,1))
         self.logical,targets=self.decode_command(self._raw,self.logical)
         self.targets.copy_(targets)
+        if self._snag_enabled:
+            self._step_snag_state_50hz()
 
     def apply_actions(self):
         robot=self._entity.data
         self.sensors.sample(robot.joint_pos[:,self.joint_ids],
             self._env.scene["robot/accel"].data,self._env.scene["robot/gyro"].data)
         self._entity.set_joint_position_target(self.targets,joint_ids=self.joint_ids)
+        if self._snag_enabled:
+            self._apply_snag_wrench_500hz()
 
     def observations(self):
         pending=self.pending_reset
@@ -247,10 +316,12 @@ def sensor_observations(env):
     return env.action_manager.get_term("feet").observations()
 
 
-def make_config(config, num_envs=64, *, play=False, include_assembly=True):
+def make_config(config, num_envs=64, *, play=False, include_assembly=True, snag_prob=None):
     """Adapt the upstream task to Ainekio's physics, sensors and objective."""
     if config.observation_schema != PROPRIO_SCHEMA:
         raise ValueError("Expected the proprioceptive observation schema")
+    if snag_prob is None:
+        snag_prob = 0.0 if play else DEFAULT_SNAG_PROB
     action_scale = list(config.foot_action_scale_mm) if config.foot_action_scale_mm else [45.0, 25.0, 30.0]
     config=replace(config,collision_profile="locomotion",balance_enabled=False,heading_feedback_enabled=False,control_hz=50,physics_hz=500,foot_action_scale_mm=action_scale)
     cfg = make_microduck_velocity_env_cfg(play=play, rough=False)
@@ -315,7 +386,7 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
             "waves":LearningWaveCfg(proportion=.15,
                 amplitude_range=(.004,.014),num_waves=3,horizontal_scale=.10,vertical_scale=.001)})
     cfg.viewer.body_name = "torso"
-    cfg.actions = {"feet": FootActionCfg(entity_name="robot", environment=asdict(config))}
+    cfg.actions = {"feet": FootActionCfg(entity_name="robot", environment=asdict(config), snag_prob=float(snag_prob))}
     cfg.observations = {name: ObservationGroupCfg(
         terms={"sensors": ObservationTermCfg(func=sensor_observations)},
         concatenate_terms=True, enable_corruption=False) for name in ("actor", "critic")}
@@ -371,6 +442,7 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True):
         "upright_cost":RewardTermCfg(func=ainekio_mdp.upright_cost,weight=-1.5),
         "tracked_air_time":RewardTermCfg(func=ainekio_mdp.tracked_air_time,weight=1.5),
         "alternating_stride":RewardTermCfg(func=ainekio_mdp.alternating_stride,weight=2.0),
+        "snag_clearance":RewardTermCfg(func=ainekio_mdp.snag_clearance,weight=1.4),
         "action_change":RewardTermCfg(func=ainekio_mdp.action_change,weight=-.01),
         "action_size":RewardTermCfg(func=ainekio_mdp.action_size,weight=-.005),
         "standing_pose":RewardTermCfg(func=ainekio_mdp.standing_pose,weight=-.5)})
@@ -556,9 +628,55 @@ def train(directory, config, *, iterations, num_envs=1024, device="cuda:0", seed
         if resume:
             ckpt_path=str(Path(resume)/"learner.pt")
             has_opt="optimizer_state_dict" in torch.load(ckpt_path,map_location="cpu",weights_only=False)
-            runner.load(ckpt_path,load_cfg={"actor":True,"critic":True,"optimizer":has_opt,"iteration":has_opt,"rnd":False},map_location=device)
+            runner.load(ckpt_path,load_cfg={"actor":True,"critic":True,"optimizer":False,"iteration":has_opt,"rnd":False},map_location=device)
+            if hasattr(runner.alg.actor,"distribution") and hasattr(runner.alg.actor.distribution,"log_std_param"):
+                runner.alg.actor.distribution.log_std_param.data.clamp_(max=-1.45)
+            # Calibrate critic on resumed actor under current snag curriculum before PPO updates
+            actor=runner.alg.actor;critic=runner.alg.critic
+            actor.obs_normalizer.eval();critic.obs_normalizer.eval()
+            c_opt=torch.optim.AdamW(critic.mlp.parameters(),lr=1.2e-3,weight_decay=1e-5)
+            gamma=float(getattr(runner.alg,"gamma",0.99))
+            wrapped.reset()
+            c_obs_l,nc_obs_l,rew_l,done_l,to_l=[],[],[],[],[]
+            try:
+                with torch.no_grad():
+                    for _ in range(140):
+                        otd=wrapped.get_observations()
+                        an=actor.obs_normalizer(otd["actor"])
+                        cn=critic.obs_normalizer(otd["critic"])
+                        act=actor.mlp(an).clamp(-8.,8.).tanh()
+                        notd,rw,dn,ext=wrapped.step(act)
+                        ncn=critic.obs_normalizer(notd["critic"])
+                        tos=ext.get("time_outs",torch.zeros_like(dn,dtype=torch.bool))
+                        c_obs_l.append(cn.detach());nc_obs_l.append(ncn.detach())
+                        rew_l.append(rw.to(torch.float32).detach())
+                        done_l.append((dn>0).to(torch.float32).detach())
+                        to_l.append(tos.to(torch.float32).detach())
+                c_all=torch.cat(c_obs_l,dim=0);n_c=c_all.shape[0]
+                for sw in range(4):
+                    with torch.no_grad():
+                        r_ret=critic.mlp(nc_obs_l[-1]).squeeze(-1) if sw>0 else torch.zeros_like(rew_l[-1])
+                        rets=[None]*len(rew_l)
+                        for t in range(len(rew_l)-1,-1,-1):
+                            vb=critic.mlp(nc_obs_l[t]).squeeze(-1) if sw>0 else torch.zeros_like(r_ret)
+                            cont=torch.where(done_l[t]>0.5,to_l[t]*vb,r_ret)
+                            r_ret=rew_l[t]+gamma*cont
+                            rets[t]=r_ret
+                    ret_all=torch.cat(rets,dim=0).unsqueeze(-1)
+                    for _ in range(4):
+                        perm=torch.randperm(n_c,device=device)
+                        for st in range(0,n_c,4096):
+                            idx=perm[st:st+4096]
+                            loss=(critic.mlp(c_all[idx])-ret_all[idx]).square().mean()
+                            c_opt.zero_grad();loss.backward()
+                            torch.nn.utils.clip_grad_norm_(critic.mlp.parameters(),2.0)
+                            c_opt.step()
+            finally:
+                actor.obs_normalizer.train(True);critic.obs_normalizer.train(True)
+            wrapped.reset()
+            runner.alg.optimizer.state.clear()
             if hasattr(runner,"alg") and hasattr(runner.alg,"learning_rate"):
-                runner.alg.learning_rate=min(float(runner.alg.learning_rate),1.5e-4)
+                runner.alg.learning_rate=8.0e-5
                 for group in runner.alg.optimizer.param_groups:
                     group["lr"]=runner.alg.learning_rate
         elif distill_from:

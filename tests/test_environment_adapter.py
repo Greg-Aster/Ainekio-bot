@@ -439,7 +439,7 @@ class EnvironmentAdapterTests(unittest.IsolatedAsyncioTestCase):
                 adapter.receipts.acknowledge(item["observation"]["id"])
             self.assertEqual(adapter.receipts.pending(), [])
             self.assertEqual([call[0] for call in adapter.gateway.calls], ["request_motion", "snap", "wait"] * 3)
-            self.assertEqual(adapter.gateway.calls[0][1][0], "Stand up, stretch, and finish standing.")
+            self.assertEqual(adapter.gateway.calls[0][1][0], "Perform a whole-body stretch.")
         finally:
             adapter.receipts.close()
 
@@ -2292,3 +2292,72 @@ class VoiceConnectionStatusTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("detach", stop_calls[0])
         self.assertIs(stop_calls[1].get("detach"), True)
         self.assertIs(stop_calls[2].get("detach"), True)
+
+    async def test_text_stream_voice_transcript_and_send_text_history(self):
+        class FrameSocket(FakeWebSocket):
+            def __init__(self, frames):
+                super().__init__()
+                self._frames = list(frames)
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                if not self._frames:
+                    raise StopAsyncIteration
+                return self._frames.pop(0)
+
+        adapter = self.adapter()
+        frames = [
+            json.dumps({
+                "type": "audio.utterance.result",
+                "utteranceId": "audio:test-body:1:9",
+                "status": "completed",
+                "transcript": "How are your servos holding up?",
+                "timestamp": "2026-11-16T18:01:00Z",
+            }),
+            json.dumps({
+                "type": "environment.text_stream",
+                "version": 1,
+                "sessionId": adapter.config.session_id,
+                "message": {
+                    "id": "effect-stream-1",
+                    "text": "All 12 servos are cool and balanced.",
+                    "role": "assistant",
+                    "source": "voice-turn",
+                    "timestamp": "2026-11-16T18:01:02Z",
+                },
+            }),
+            # Duplicate delivery of the same effect ID must be deduplicated.
+            json.dumps({
+                "type": "environment.text_stream",
+                "version": 1,
+                "sessionId": adapter.config.session_id,
+                "message": {
+                    "id": "effect-stream-1",
+                    "text": "All 12 servos are cool and balanced.",
+                    "role": "assistant",
+                    "source": "voice-turn",
+                    "timestamp": "2026-11-16T18:01:02Z",
+                },
+            }),
+        ]
+        socket = FrameSocket(frames)
+        adapter._websocket, adapter._bridge_ready = socket, True
+        await adapter._receive_messages(socket)
+
+        feedback = await adapter.handle_action({"id": "send-text-1", "type": "sendText", "text": "Ready for your next command."})
+        self.assertEqual(feedback["type"], "completed")
+
+        messages = adapter.connection_status()["messages"]
+        self.assertEqual(len(messages), 3)
+        self.assertEqual(messages[0]["role"], "user")
+        self.assertEqual(messages[0]["source"], "voice")
+        self.assertEqual(messages[0]["text"], "How are your servos holding up?")
+        self.assertEqual(messages[1]["role"], "assistant")
+        self.assertEqual(messages[1]["source"], "voice-turn")
+        self.assertEqual(messages[1]["text"], "All 12 servos are cool and balanced.")
+        self.assertEqual(messages[2]["text"], "Ready for your next command.")
+
+        adapter.clear_text_stream()
+        self.assertEqual(adapter.connection_status()["messages"], [])

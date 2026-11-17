@@ -681,6 +681,11 @@ def _is_nonstanding_posture(deg: list[float]) -> bool:
     return False
 
 
+def _is_stand_goal(deg: list[float], stand_ref_deg: list[float]) -> bool:
+    """Return True when a 12-joint goal matches nominal standing within 1.5 deg."""
+    return max(abs(a - b) for a, b in zip(deg, stand_ref_deg)) <= 1.5
+
+
 def _pose_segment_duration_s(
     max_delta_deg: float,
     speed_scale: float,
@@ -704,6 +709,7 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
     home_deg = [float((joints_obs.get(j) or {}).get("home_deg", STAND_ANGLES_DEG[i])) for i, j in enumerate(JOINTS)]
     raw_initial_deg = usable_joint_angles_deg(observation)
     cursor_deg, _ = manifold.project_angles_deg(raw_initial_deg)
+    stand_ref_deg, _ = manifold.project_angles_deg(STAND_ANGLES_DEG)
     posture_initialized = False
 
     segments: list[dict] = []
@@ -746,6 +752,7 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
                     "leg_support": [1.0, 1.0, 1.0, 1.0],
                     "speed_scale": speed_scale,
                     "duration_s": duration_s,
+                    "is_stand": True,
                     "from_nonstanding": bool(from_nonstanding or max_delta > 45.0),
                 }
             )
@@ -769,9 +776,14 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
                 else:
                     candidate[j_idx] = float(val)
             goal_deg, goal_foot_norm = manifold.project_angles_deg(candidate)
-            support = manifold.infer_leg_support(goal_deg)
+            is_stand_goal = _is_stand_goal(goal_deg, stand_ref_deg)
+            support = [1.0, 1.0, 1.0, 1.0] if is_stand_goal else manifold.infer_leg_support(goal_deg)
             max_delta = max(abs(a - b) for a, b in zip(goal_deg, physical_start_deg))
-            duration_s = _pose_segment_duration_s(max_delta, speed_scale, from_nonstanding=from_nonstanding)
+            if is_stand_goal:
+                from_nonstanding = bool(from_nonstanding or _is_nonstanding_posture(physical_start_deg) or max_delta > 45.0)
+            duration_s = _pose_segment_duration_s(
+                max_delta, speed_scale, is_stand=is_stand_goal, from_nonstanding=from_nonstanding
+            )
             segments.append(
                 {
                     "kind": "pose_goal",
@@ -783,6 +795,7 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
                     "leg_support": support,
                     "speed_scale": speed_scale,
                     "duration_s": duration_s,
+                    "is_stand": is_stand_goal,
                     "from_nonstanding": bool(from_nonstanding),
                 }
             )
@@ -800,9 +813,14 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
                 posture_initialized = True
             resolved = manifold.resolve_spatial_deg(action, cursor_deg)
             goal_deg, goal_foot_norm = manifold.project_angles_deg(resolved)
-            support = manifold.infer_leg_support(goal_deg)
+            is_stand_goal = _is_stand_goal(goal_deg, stand_ref_deg)
+            support = [1.0, 1.0, 1.0, 1.0] if is_stand_goal else manifold.infer_leg_support(goal_deg)
             max_delta = max(abs(a - b) for a, b in zip(goal_deg, physical_start_deg))
-            duration_s = _pose_segment_duration_s(max_delta, speed_scale, from_nonstanding=from_nonstanding)
+            if is_stand_goal:
+                from_nonstanding = bool(from_nonstanding or _is_nonstanding_posture(physical_start_deg) or max_delta > 45.0)
+            duration_s = _pose_segment_duration_s(
+                max_delta, speed_scale, is_stand=is_stand_goal, from_nonstanding=from_nonstanding
+            )
             segments.append(
                 {
                     "kind": "pose_goal",
@@ -814,6 +832,7 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
                     "leg_support": support,
                     "speed_scale": speed_scale,
                     "duration_s": duration_s,
+                    "is_stand": is_stand_goal,
                     "from_nonstanding": bool(from_nonstanding),
                 }
             )

@@ -33,7 +33,7 @@ class RecoveryContextTests(unittest.TestCase):
         effect={'delta_deg':[[0,0]],'before':{'available':True},
                 'after':{'available':True},'receipts':[receipt]}
         for event in ('rapid_movement','tipped','servo_stall','servo_feedback_fault','slip'):
-            query={'request':'Stand up, stretch, and finish standing.',
+            query={'request':'Perform a whole-body stretch.',
                 'event':{'type':event},'observation':{},
                 'history':[{'program_state':'completed','completed_action':pose,
                     'remaining_program':[],'last_correction':effect}]}

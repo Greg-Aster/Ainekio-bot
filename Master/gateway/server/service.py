@@ -81,6 +81,16 @@ BODY_CLOCK_GAP_LOG_SECONDS = 1.0
 TTS_START_ACK_TIMEOUT_SECONDS = 2.0
 SPEAKER_FRAME_SECONDS = 0.020
 SPEAKER_PREBUFFER_FRAMES = 5
+NEURAL_WALK_UNSNAG_VX_MIN_M_S = 0.05
+NEURAL_WALK_UNSNAG_LAG_DEG = 14.0
+NEURAL_WALK_UNSNAG_VELOCITY_DEG_S = 10.0
+NEURAL_WALK_UNSNAG_ODOM_LAG_DEG = 10.0
+NEURAL_WALK_UNSNAG_ODOM_EPS_M = 0.025
+NEURAL_WALK_UNSNAG_TRIGGER_S = 1.8
+NEURAL_WALK_UNSNAG_DURATION_S = 1.8
+NEURAL_WALK_UNSNAG_COOLDOWN_S = 2.5
+NEURAL_WALK_UNSNAG_CLEAR_HYSTERESIS_S = 0.35
+NEURAL_WALK_UNSNAG_TWIST = (-0.45, 0.0, 0.0)
 
 GatewayCallback = Callable[[dict[str, object]], Awaitable[None] | None]
 
@@ -178,6 +188,11 @@ class NeuralWalk:
     latest: dict | None = None
     changed: asyncio.Event = field(default_factory=asyncio.Event)
     task: asyncio.Task | None = None
+    snag_started_at: float | None = None
+    last_snag_at: float | None = None
+    odom_anchor_xy: tuple[float, float] | None = None
+    unsnag_until: float = 0.0
+    unsnag_cooldown_until: float = 0.0
 
 
 class GatewayConnection:
@@ -262,7 +277,100 @@ class GatewayConnection:
         if state and state.task and state.task is not asyncio.current_task():
             state.task.cancel()
 
-    def _neural_observation(self, state, source, *, history=None):
+    def _neural_walk_command_twist(self, state: NeuralWalk, source: Mapping[str, Any], now: float) -> list[float]:
+        requested = list(state.controls["twist"])
+        if len(requested) < 3 or float(requested[0]) <= NEURAL_WALK_UNSNAG_VX_MIN_M_S:
+            state.snag_started_at = None
+            state.last_snag_at = None
+            state.odom_anchor_xy = None
+            state.unsnag_until = 0.0
+            return requested
+        if now < state.unsnag_until:
+            return list(NEURAL_WALK_UNSNAG_TWIST)
+        if now < state.unsnag_cooldown_until:
+            state.snag_started_at = None
+            state.last_snag_at = None
+            state.odom_anchor_xy = None
+            return requested
+
+        joint_snagged = False
+        joint_lagging = bool((source.get("feedback") or {}).get("stalled_joints"))
+        for joint in (source.get("joints") or {}).values():
+            if (
+                joint.get("feedback_usable")
+                and isinstance(joint.get("filtered_model_deg"), (int, float))
+                and isinstance(joint.get("commanded_model_deg"), (int, float))
+            ):
+                lag = abs(float(joint["commanded_model_deg"]) - float(joint["filtered_model_deg"]))
+                vel = abs(float(joint.get("velocity_deg_s") or 0.0))
+                if lag >= NEURAL_WALK_UNSNAG_LAG_DEG and vel < NEURAL_WALK_UNSNAG_VELOCITY_DEG_S:
+                    joint_snagged = True
+                if lag >= NEURAL_WALK_UNSNAG_ODOM_LAG_DEG:
+                    joint_lagging = True
+
+        odom_xy: tuple[float, float] | None = None
+        if self.service.locomotion_measurement is not None:
+            meas = self.service.locomotion_measurement(self.robot_id)
+            pos = (
+                meas.get("position")
+                if isinstance(meas, Mapping) and isinstance(meas.get("position"), Mapping)
+                else meas
+            )
+            if (
+                isinstance(pos, Mapping)
+                and pos.get("available") is True
+                and isinstance(pos.get("xMetres"), (int, float))
+                and isinstance(pos.get("yMetres"), (int, float))
+            ):
+                x_m, y_m = float(pos["xMetres"]), float(pos["yMetres"])
+                if math.isfinite(x_m) and math.isfinite(y_m):
+                    odom_xy = (x_m, y_m)
+
+        odom_zero_progress = False
+        if odom_xy is not None:
+            if state.odom_anchor_xy is None:
+                state.odom_anchor_xy = odom_xy
+                odom_zero_progress = True
+            else:
+                disp = math.hypot(odom_xy[0] - state.odom_anchor_xy[0], odom_xy[1] - state.odom_anchor_xy[1])
+                if disp >= NEURAL_WALK_UNSNAG_ODOM_EPS_M:
+                    state.odom_anchor_xy = odom_xy
+                    state.snag_started_at = None
+                    state.last_snag_at = None
+                    return requested
+                odom_zero_progress = True
+        else:
+            state.odom_anchor_xy = None
+
+        if joint_snagged or (odom_zero_progress and joint_lagging):
+            if state.snag_started_at is None:
+                state.snag_started_at = now
+            state.last_snag_at = now
+            if now - state.snag_started_at >= NEURAL_WALK_UNSNAG_TRIGGER_S - 1e-6:
+                state.unsnag_until = now + NEURAL_WALK_UNSNAG_DURATION_S
+                state.unsnag_cooldown_until = state.unsnag_until + NEURAL_WALK_UNSNAG_COOLDOWN_S
+                state.snag_started_at = None
+                state.last_snag_at = None
+                state.odom_anchor_xy = None
+                self.service._record_diagnostic(
+                    {
+                        "event": "neural_gait_unsnag",
+                        "robot_id": self.robot_id,
+                        "epoch": self.epoch,
+                        "walk": state.sequence,
+                        "twist": list(NEURAL_WALK_UNSNAG_TWIST),
+                        "duration_s": NEURAL_WALK_UNSNAG_DURATION_S,
+                        "cooldown_s": NEURAL_WALK_UNSNAG_COOLDOWN_S,
+                    }
+                )
+                return list(NEURAL_WALK_UNSNAG_TWIST)
+        elif state.last_snag_at is not None and (now - state.last_snag_at) > NEURAL_WALK_UNSNAG_CLEAR_HYSTERESIS_S:
+            state.snag_started_at = None
+            state.last_snag_at = None
+            state.odom_anchor_xy = None
+        return requested
+
+    def _neural_observation(self, state, source, *, history=None, command_override=None):
         from gateway.neural_gait.client import observation, walking_orientation_reference
         from gateway.neural_gait.contract import DEPTH_SCHEMAS
         if state.orientation_reference is None:
@@ -272,7 +380,8 @@ class GatewayConnection:
             from gateway.neural_gait.depth import project_depth
             vision = project_depth(self.service.locomotion_measurement(self.robot_id),
                 self.service.clock(), self.robot_id, self.epoch)
-        return observation(source, state.environment, state.controls["twist"], vision=vision,
+        twist = state.controls["twist"] if command_override is None else command_override
+        return observation(source, state.environment, twist, vision=vision,
             previous_action=state.previous_action, orientation_reference=state.orientation_reference,
             history=state.observation_history if history is None else history)
 
@@ -305,6 +414,47 @@ class GatewayConnection:
         if data.get("kind") in {"tipped", "servo_stall"} and sequence == state.sequence:
             self._record_neural_outcome(state, "failure", {
                 "kind": data["kind"], "event_id": event.get("event_id"), "sequence": sequence})
+
+    def _abort_pending_motion_on_stall(self, event: Mapping[str, object]) -> None:
+        pending_map = getattr(self, "pending", None)
+        if not pending_map:
+            return
+        data = event.get("data") if isinstance(event.get("data"), Mapping) else {}
+        seq = data.get("command_sequence")
+        joints = [
+            str(item.get("name") or item.get("id"))
+            for item in (data.get("joints") or [])
+            if isinstance(item, Mapping)
+        ]
+        detail = f" ({', '.join(joints)})" if joints else ""
+        error_msg = f"servo_stall: body released servo outputs{detail}"
+        for cand_seq, pending in tuple(pending_map.items()):
+            if pending.future.done():
+                continue
+            cmd = pending.command
+            is_motion = cmd.get("t") in {"motion_plan", "servo", "walk_target"} or (
+                cmd.get("t") == "intent" and cmd.get("name") in {"walk", "stand", "emote"}
+            )
+            if not is_motion:
+                continue
+            if (
+                type(seq) is int
+                and seq > 0
+                and cand_seq != seq
+                and cmd.get("walk") != seq
+                and cmd.get("update") != seq
+            ):
+                continue
+            self._finish_pending(
+                cand_seq,
+                {
+                    "t": "cancelled",
+                    "seq": cand_seq,
+                    "code": "servo_stall",
+                    "outputs_released": True,
+                    "execution_error": error_msg,
+                },
+            )
 
     def _neural_current(self, state):
         return (self.neural_walk is state and self._owns_walk(state.sequence)
@@ -389,8 +539,9 @@ class GatewayConnection:
                 if source is None:
                     continue
                 revision, consumed = state.revision, state.consumed
-                data = self._neural_observation(state, source)
                 started = self.service.clock()
+                cmd_twist = self._neural_walk_command_twist(state, source, started)
+                data = self._neural_observation(state, source, command_override=cmd_twist)
                 inference = {"observation": data, "walk_context": {
                     "gateway_instance": self.service.instance_id, "robot_id": self.robot_id,
                     "epoch": self.epoch, "walk": state.sequence, "revision": revision}}
@@ -1029,6 +1180,8 @@ class GatewayConnection:
         if message_type == "event" and message.get("name") == "servo_stall":
             event = self.service.body_events.servo_stall(self.robot_id, self.epoch, message)
             self._record_neural_body_event(event)
+            if message.get("outputs_released") is True:
+                self._abort_pending_motion_on_stall(event)
             await self.service._publish_event(event)
             return
         if message_type == "event" and message.get("name") in {"boot", "wake"}:

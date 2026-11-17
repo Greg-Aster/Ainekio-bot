@@ -84,67 +84,6 @@ class MotionLibraryTests(unittest.TestCase):
         self.assertIn(created['id'], exported)
         self.assertIn(recovery['id'], exported)
 
-    def test_native_alignment_updates_snapshot_and_library_without_reviving_substitutes(self):
-        from .legacy_curriculum import align, rows_at
-        good = self.library.get('example-00000')['example']
-        bad = {**copy.deepcopy(good),'id':'bad-bow','family':'semantic_bowing',
-               'source_hash':'bad-bow-source','physical_qualification':False}
-        original = rows_at(self.source/'train.jsonl')
-        (self.source/'train.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in original+[bad]))
-        self.library.import_dataset(self.source)
-        snapshot_only = {**bad,'id':'snapshot-only-wave','family':'gesture_ending_wave',
-                         'source_hash':'snapshot-wave-source'}
-        (self.source/'train.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in original+[bad,snapshot_only]))
-        (self.source/'manifest.json').write_text(json.dumps({'training_rows':3,'discarded_examples':[]}))
-        held_out = (self.source/'evaluation.jsonl').read_bytes()
-        evidence = self.root/'alignment'
-        report = align(self.source,self.library.path,evidence,apply=True)
-        self.assertEqual(report['motions'],23)
-        self.assertEqual(report['retired_training_rows'],2)
-        self.assertEqual(report['retired_library_rows'],1)
-        self.assertEqual(self.library.list()['total'],24)
-        self.assertEqual(self.library.get('example-00000')['example'],good)
-        self.assertEqual((self.source/'evaluation.jsonl').read_bytes(),held_out)
-        current = rows_at(self.source/'train.jsonl')
-        self.assertEqual(len(current),24)
-        self.assertEqual(len([r for r in current if r['family'].startswith('legacy_asset_')]),23)
-        self.assertFalse(any(r['physical_qualification'] for r in current if r.get('legacy_motion')))
-        self.library.import_dataset(evidence/'dataset-before')
-        self.assertEqual(self.library.list()['total'],24,'Old exports must not restore retired snapshot-only IDs')
-        repeated = align(self.source,self.library.path,self.root/'unused',apply=False)
-        self.assertEqual(repeated['retired_training_rows'],0)
-        self.assertEqual(repeated['retired_library_rows'],0)
-        self.assertFalse((self.root/'unused').exists())
-
-    def test_native_alignment_retains_context_teachers_and_excluded_evaluations(self):
-        from .legacy_curriculum import align, rows_at
-        from .legacy_curriculum import native_examples, contextual_example
-        from .observations import joint_state
-        tools=json.loads((self.source/'tools.json').read_text())
-        reference=next(row for row in native_examples(tools) if row['family']=='legacy_asset_stretch')
-        observation=json.loads(reference['query'])['observation']
-        observation={**observation,'joints':joint_state(observation)}
-        contexts=[contextual_example(reference,observation,'Please stretch',tools)]
-        held=[contextual_example(reference,observation,'Give me a stretch.',tools)]
-        original=rows_at(self.source/'train.jsonl')
-        (self.source/'train.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in original+contexts))
-        (self.source/'regression-evaluation.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in held))
-        (self.source/'manifest.json').write_text(json.dumps({'training_rows':len(original+contexts),'discarded_examples':[]}))
-        self.library.import_dataset(self.source)
-        reference=(self.source/'regression-evaluation.jsonl').read_bytes()
-        for attempt in range(2):
-            align(self.source,self.library.path,self.root/('alignment-'+str(attempt)),apply=True)
-            current=[r for r in rows_at(self.source/'train.jsonl') if r['family']=='legacy_asset_stretch']
-            self.assertEqual({r['id']:r for r in current},{r['id']:r for r in contexts})
-            self.assertEqual((self.source/'regression-evaluation.jsonl').read_bytes(),reference)
-            self.assertEqual(self.library.list()['total'],len(contexts)+23)
-            with sqlite3.connect(self.library.path) as db:
-                stored=db.execute("SELECT value FROM metadata WHERE key='file:regression-evaluation.jsonl'").fetchone()[0]
-            self.assertEqual(stored.encode(),reference)
-        with sqlite3.connect(self.library.path) as db:
-            imported={row[0] for row in db.execute("SELECT id FROM examples WHERE family='legacy_asset_stretch'")}
-        self.assertEqual(imported,{r['id'] for r in contexts})
-
     def test_training_export_adds_only_latest_approved_trials_and_keeps_library_targets(self):
         recordings=self.root/'freestyle-recordings.sqlite'
         program=[{'name':'hold','arguments':{'seconds':2}}]

@@ -14,13 +14,14 @@ class WakeStartupTests(unittest.IsolatedAsyncioTestCase):
         gateway, adapter = self.adapter()
         from gateway.server.service import GatewayService
         from types import SimpleNamespace
-        gateway._connection = lambda robot: SimpleNamespace(robot_id="test-body")
+        gateway._connection = lambda robot: SimpleNamespace(robot_id="test-body", mode="normal")
         gateway.motion_systems = {"test-body": "library"}
         gateway.freestyle_motion = AsyncMock(return_value={"job_id": "stretch-job"})
+        gateway.ensure_normal_mode = GatewayService.ensure_normal_mode.__get__(gateway)
         gateway.request_motion = GatewayService.request_motion.__get__(gateway)
         await adapter._handle_gateway_event(self.event())
         observations = await self.finish(adapter)
-        gateway.freestyle_motion.assert_awaited_once_with("test-body", "Stand up, stretch, and finish standing.", execute=True)
+        gateway.freestyle_motion.assert_awaited_once_with("test-body", "Perform a whole-body stretch.", execute=True)
         self.assertEqual(gateway.motion_systems["test-body"], "library")
         self.assertEqual([call[0] for call in gateway.calls], ["snap", "wait"])
         stretch = observations[0]["state"]["bodyEvent"]["data"]["startup"]["stretch"]
@@ -75,7 +76,7 @@ class WakeStartupTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(observations[0]["visual"]["timestamp"])
                 self.assertEqual(observations[0]["state"]["gateway"]["robots"]["test-body"]["status"]["camera_ready"], True)
                 self.assertEqual([call[0] for call in gateway.calls], ["request_motion", "snap", "wait"])
-                self.assertEqual(gateway.calls[0][1], ("Stand up, stretch, and finish standing.", "test-body"))
+                self.assertEqual(gateway.calls[0][1], ("Perform a whole-body stretch.", "test-body"))
                 self.assertEqual([call[1][0] for call in gateway.calls if call[0] == "wait"], [9],
                                  "Only capture completion is consumed; stretch never blocks greeting")
                 self.assertEqual(adapter._pending_action_visuals, {})
@@ -174,7 +175,7 @@ class WakeStartupTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(observations), 1)
         self.assertEqual(observations[0]["state"]["bodyEvent"]["event_id"], "boot-wire")
         self.assertEqual(observations[0]["visual"]["metadata"]["counter"], 17)
-        gateway.freestyle_motion.assert_awaited_once_with("test-body", "Stand up, stretch, and finish standing.", execute=True)
+        gateway.freestyle_motion.assert_awaited_once_with("test-body", "Perform a whole-body stretch.", execute=True)
         gateway.freestyle_result.assert_not_awaited()
         startup = observations[0]["state"]["bodyEvent"]["data"]["startup"]["stretch"]
         self.assertEqual((startup["system"], startup["jobId"], startup["state"]),

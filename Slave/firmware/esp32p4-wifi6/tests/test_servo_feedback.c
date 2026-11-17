@@ -30,9 +30,46 @@ static void measurement_filter(void)
     printf("Feedback filter: stationary noise RMS ratio %.3f; 1000-count step >90%% within 80ms; ramp lag <90 counts at 3000 counts/s.\n",sqrt(filtered_energy/raw_energy));
 }
 
+static void thermal_fuse_model(void)
+{
+    float load=0.0f;
+    /* 6.5 deg static gravity sag for 60 simulated seconds produces zero heating. */
+    for(unsigned n=0;n<3000;n++) {
+        load=ainekio_feedback_thermal_update(load,true,true,6.5f,0.0f,0.02f);
+        assert(load==0.0f);
+    }
+    /* Large error while slewing freely (>= 12 deg/s) produces zero heating. */
+    for(unsigned n=0;n<500;n++) {
+        load=ainekio_feedback_thermal_update(load,true,true,35.0f,140.0f,0.02f);
+        assert(load==0.0f);
+    }
+    /* Full locked-rotor stall at 18 deg reaches 1.0 in ~9.0 seconds (450-451 ticks). */
+    unsigned trip_ticks=0;
+    for(unsigned n=1;n<=500;n++) {
+        load=ainekio_feedback_thermal_update(load,true,true,18.0f,0.0f,0.02f);
+        if(load>=1.0f){trip_ticks=n;break;}
+    }
+    assert(trip_ticks>=449 && trip_ticks<=451);
+    /* Disarmed / cut-off channel cools below 0.35 in ~7.8 s and to 0 in ~12 s. */
+    for(unsigned n=0;n<400;n++)
+        load=ainekio_feedback_thermal_update(load,false,true,25.0f,0.0f,0.02f);
+    assert(load>0.30f && load<AINEKIO_FEEDBACK_THERMAL_REARM_LOAD);
+    for(unsigned n=0;n<220;n++)
+        load=ainekio_feedback_thermal_update(load,false,true,25.0f,0.0f,0.02f);
+    assert(load==0.0f);
+    /* Severe >22 deg jam reaches 1.0 in ~5.76 seconds. */
+    trip_ticks=0;
+    for(unsigned n=1;n<=400;n++) {
+        load=ainekio_feedback_thermal_update(load,true,true,24.0f,0.0f,0.02f);
+        if(load>=1.0f){trip_ticks=n;break;}
+    }
+    assert(trip_ticks>=286 && trip_ticks<=290);
+}
+
 int main(void)
 {
     measurement_filter();
+    thermal_fuse_model();
     ainekio_feedback_config_t c;ainekio_feedback_defaults(&c);
     assert(ainekio_feedback_config_valid(&c));
     assert(!c.enabled&&!c.stand_enabled&&!c.jam_enabled);

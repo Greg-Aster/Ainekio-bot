@@ -342,7 +342,17 @@ def make_entry(request: str, program: list[dict], curriculum_family: str, *,
     full_program = list(program)
     if start_pose in ('sit', 'crouch', 'rest'):
         first_motion = next((a for a in full_program if a['name'] not in ('face', 'hold')), None)
-        if first_motion and first_motion['name'] not in ('stand', 'stop'):
+        already_stands = (
+            first_motion is not None and (
+                first_motion['name'] in ('stand', 'stop')
+                or (
+                    first_motion['name'] == 'pose'
+                    and first_motion['arguments'].get('joints') == list(JOINTS)
+                    and first_motion['arguments'].get('angles_deg') == list(STAND_ANGLES)
+                )
+            )
+        )
+        if first_motion and not already_stands:
             insert_at = 1 if full_program and full_program[0]['name'] == 'face' else 0
             full_program.insert(insert_at, stand_pose(speed_pct=65))
     obs = synthetic_observation(with_observation, seed=max(1, seed)) if with_observation else None
@@ -952,16 +962,27 @@ def prog_sneak_prowl(speed: int = 35):
     ]
 
 
-def prog_cat_cow_stretch(cycles: int = 2, speed: int = 45):
+def prog_full_body_stretch(speed: int = 50, hold_s: float = 1.5):
+    """Minimal 3-motion two-stage front-arm stretch along the desk plane, hold, and glide back to stand."""
     return [
         face('stretch'),
-        *[a for _ in range(cycles) for a in (
-            op('body', translation_mm=[-4, 0, 10], rotation_deg=[0, 8, 0], legs=[], foot_offsets_mm=[], speed_pct=speed, taper_deg=3),
-            hold(0.6),
-            op('body', translation_mm=[8, 0, -16], rotation_deg=[0, -12, 0], legs=[], foot_offsets_mm=[], speed_pct=speed, taper_deg=3),
-            hold(0.6),
-            op('body', translation_mm=[-4, 0, 6], rotation_deg=[0, 4, 0], legs=[], foot_offsets_mm=[], speed_pct=speed, taper_deg=2),
-        )],
+        op(
+            'pose',
+            joints=list(JOINTS),
+            angles_deg=[0.0, -16.0, -22.0, 0.0, -16.0, -22.0, 0.0, 40.0, 46.0, 0.0, 40.0, 46.0],
+            reference='absolute',
+            speed_pct=speed,
+        ),
+        hold(hold_s),
+        op(
+            'pose',
+            joints=front_joints(),
+            angles_deg=[0.0, 115.0, 56.0, 0.0, 115.0, 56.0],
+            reference='absolute',
+            speed_pct=max(20, speed - 5),
+        ),
+        hold(hold_s),
+        stand_pose(speed_pct=speed),
         face('stand'),
     ]
 
@@ -2198,12 +2219,15 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
         ('Get into a stealthy prowl and look left and right.', prog_sneak_prowl(40)),
     ], ('Stretch up tall on all four legs, hold for a second, and settle.', prog_tiptoe_tall(55))))
 
-    specs.append(('cat_cow_yoga', [
-        ('Do a cat-cow yoga stretch.', prog_cat_cow_stretch(2, 45)),
-        ('Arch your back up and dip your belly down slowly.', prog_cat_cow_stretch(2, 35)),
-        ('Do a morning yoga flow from downward dog into upward dog.', prog_cat_cow_stretch(1, 45)),
-        ('Stretch your spine gently three times.', prog_cat_cow_stretch(3, 40)),
-    ], ('Flow through two slow cat-cow stretches and finish standing.', prog_cat_cow_stretch(2, 40))))
+    specs.append(('full_body_stretch', [
+        ('Perform a whole-body stretch.', prog_full_body_stretch(50, 1.5)),
+        ('Show me your stretch.', prog_full_body_stretch(50, 1.5)),
+        ('Please stretch.', prog_full_body_stretch(50, 1.5)),
+        ('Stand up, stretch, and finish standing.', prog_full_body_stretch(50, 1.5)),
+        ('Extend your front arms, hold, stretch all the way out, and return to stand.', prog_full_body_stretch(50, 1.5)),
+        ('Do a big morning stretch!', prog_full_body_stretch(50, 1.5)),
+    ], ('Extend both front arms forward, stretch them to full reach, and finish standing.',
+        prog_full_body_stretch(50, 1.5))))
 
     specs.append(('yes_and_no_gestures', [
         ('Say yes without speaking.', prog_yes_no('yes', 3, 75)),

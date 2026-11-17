@@ -23,8 +23,9 @@ size_t ainekio_p4_body_notice(const ainekio_p4_body_event_t *event,
     if (!event->stalled_joints) return 0;
     const int length=snprintf(text,capacity,
         "{\"t\":\"event\",\"name\":\"servo_stall\",\"event_id\":\"%" PRIu32 ":%" PRIu64 "\","
-        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 ",\"joint_mask\":%u,\"outputs_released\":false}",
-        boot_id,event->clock_us,event->clock_us,event->sequence,(unsigned)event->stalled_joints);
+        "\"clock_us\":%" PRIu64 ",\"seq\":%" PRIu32 ",\"joint_mask\":%u,\"outputs_released\":%s}",
+        boot_id,event->clock_us,event->clock_us,event->sequence,(unsigned)event->stalled_joints,
+        event->outputs_released?"true":"false");
     return length>0 && (size_t)length<capacity ? (size_t)length : 0;
 }
 

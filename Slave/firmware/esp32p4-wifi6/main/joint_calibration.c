@@ -110,7 +110,7 @@ bool ainekio_p4_joint_map_frame(const ainekio_p4_joint_config_t *joints,
 }
 
 /* Inverse of the operator mapping. A pulse is a commanded reference, not
- * shaft feedback. All enabled channels must already have a known command. */
+ * shaft feedback. Unpowered channels seed from the CAD assembly reference. */
 bool ainekio_p4_joint_unmap_frame(const ainekio_p4_joint_config_t *joints,
                                 const uint16_t *pulses,ainekio_v2_frame_t *frame)
 {
@@ -118,10 +118,13 @@ bool ainekio_p4_joint_unmap_frame(const ainekio_p4_joint_config_t *joints,
     ainekio_v2_frame_t candidate={.geometry_id=ainekio_v2_walk_geometry_id};
     for(unsigned i=0;i<AINEKIO_BODY_JOINT_COUNT;i++) {
         const ainekio_p4_joint_config_t *joint=&joints[i];
-        candidate.position[i]=joint->home_cd;
-        if(joint->channel<0)continue;
+        candidate.position[i]=(float)(100.*ainekio_v2_center_degrees(i));
+        if(joint->channel<0) {
+            candidate.position[i]=joint->home_cd;
+            continue;
+        }
         unsigned pulse=pulses[joint->channel];
-        if(!pulse)return false;
+        if(!pulse)continue;
         candidate.position[i]=(float)ainekio_p4_joint_pulse_to_cd(joint,(double)pulse);
     }
     *frame=candidate;return true;

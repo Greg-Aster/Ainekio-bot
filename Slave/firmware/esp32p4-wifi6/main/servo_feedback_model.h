@@ -40,3 +40,14 @@ typedef struct {
 } ainekio_feedback_filter_t;
 void ainekio_feedback_filter_update(ainekio_feedback_filter_t *filter,
     double raw,int64_t sampled_us);
+
+#define AINEKIO_FEEDBACK_THERMAL_DEADBAND_DEG 7.0f
+#define AINEKIO_FEEDBACK_THERMAL_SLEW_DEG_S 12.0f
+#define AINEKIO_FEEDBACK_THERMAL_FULL_SPAN_DEG 11.0f
+#define AINEKIO_FEEDBACK_THERMAL_MAX_DUTY 1.25f
+#define AINEKIO_FEEDBACK_THERMAL_TRIP_SECONDS 9.0f
+#define AINEKIO_FEEDBACK_THERMAL_COOL_SECONDS 12.0f
+#define AINEKIO_FEEDBACK_THERMAL_REARM_LOAD 0.35f
+
+float ainekio_feedback_thermal_update(float load,bool energized,
+    bool measured_valid,float err_deg,float vel_toward_deg_s,float dt_s);

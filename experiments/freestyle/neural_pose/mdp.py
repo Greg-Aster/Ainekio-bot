@@ -62,17 +62,19 @@ def build_pose_goal_bank(manifold, count: int = 2048, seed: int = 7) -> tuple[to
         [-22.0, 28.0, 10.0, 0.0, 0.94, -21.25, 0.0, 0.94, -21.25, 0.0, 0.94, -21.25],
         [0.0, 0.94, -21.25, 22.0, 28.0, 10.0, 0.0, 0.94, -21.25, 0.0, 0.94, -21.25],
         [0.0, 0.94, -21.25, -22.0, 28.0, 10.0, 0.0, 0.94, -21.25, 0.0, 0.94, -21.25],
-        # Bow, stretch, frog crouch, pushup low/high
+        # Bow, two-stage forward stretch, frog crouch, pushup low/high
         [0.0, 14.0, -18.0, 0.0, 14.0, -18.0, 0.0, -22.0, 18.0, 0.0, -22.0, 18.0],
-        [-16.0, -20.0, 22.0, 16.0, -20.0, 22.0, -16.0, -12.0, -35.0, 16.0, -12.0, -35.0],
+        [0.0, -16.0, -22.0, 0.0, -16.0, -22.0, 0.0, 40.0, 46.0, 0.0, 40.0, 46.0],
+        [0.0, -16.0, -22.0, 0.0, -16.0, -22.0, 0.0, 115.0, 56.0, 0.0, 115.0, 56.0],
+        [-16.0, -20.0, 22.0, -16.0, -20.0, 22.0, -16.0, -12.0, -35.0, -16.0, -12.0, -35.0],
     ]
 
     # Harvest poses from all 60+ curriculum families as well
     fams = [getattr(fc, k) for k in sorted(dir(fc)) if k.startswith("prog_") and callable(getattr(fc, k))]
     for fn in fams:
         try:
-            rec = fn(0)
-            prog = rec["program"] if isinstance(rec, dict) and "program" in rec else []
+            rec = fn()
+            prog = rec if isinstance(rec, list) else (rec.get("program", []) if isinstance(rec, dict) else [])
             cursor = list(fc.STAND_ANGLES)
             for op in prog:
                 if op["name"] in ("pose", "move"):
@@ -99,10 +101,10 @@ def build_pose_goal_bank(manifold, count: int = 2048, seed: int = 7) -> tuple[to
     u_sh = (torch.rand((n_stance, 4), generator=gen) * 2 - 1) * 20.0
     u_ca = -22.0 + torch.rand((n_stance, 4), generator=gen) * 44.0
     u_cr = -55.0 + torch.rand((n_stance, 4), generator=gen) * 80.0
-    # Make half of stance poses left-right symmetric for clean squats/bows/leans
+    # Make half of stance poses left-right symmetric (`body.sign` already mirrors roll sign: RL_sh == RR_sh)
     half = n_stance // 2
-    u_sh[:half, 1] = -u_sh[:half, 0]
-    u_sh[:half, 3] = -u_sh[:half, 2]
+    u_sh[:half, 1] = u_sh[:half, 0]
+    u_sh[:half, 3] = u_sh[:half, 2]
     u_ca[:half, 1] = u_ca[:half, 0]
     u_ca[:half, 3] = u_ca[:half, 2]
     u_cr[:half, 1] = u_cr[:half, 0]
@@ -155,14 +157,21 @@ def build_pose_goal_bank(manifold, count: int = 2048, seed: int = 7) -> tuple[to
 
 
 def pose_tracking_reward(env) -> torch.Tensor:
-    """Dense multi-scale joint tracking reward with stance balance slack on 3-leg gestures."""
+    """Dense multi-scale joint tracking reward with stance balance slack and obstructed-stop target adaptation."""
     pose_term = env.action_manager.get_term("pose")
     q_true = pose_term._entity.data.joint_pos[:, pose_term.joint_ids]
     q_goal = pose_term.current_goal_rad
     support = pose_term.leg_support  # (N, 4)
     suspended = pose_term.is_suspended  # (N,)
 
-    err = (q_true - q_goal).reshape(-1, 4, 3)
+    jam_contacted = getattr(pose_term, "jam_contacted", None)
+    if jam_contacted is not None:
+        jam_3 = jam_contacted.repeat_interleave(3, dim=-1)
+        eff_goal = torch.where(jam_3, pose_term.jam_mid_rad, q_goal)
+    else:
+        eff_goal = q_goal
+
+    err = (q_true - eff_goal).reshape(-1, 4, 3)
     abs_err = err.abs()
 
     # Stance legs during multi-leg lifts (sum(support) < 3.5) get 0.10 rad (~5.7 deg) CoM-balancing slack
@@ -194,6 +203,36 @@ def pose_tracking_reward(env) -> torch.Tensor:
     return score * upright_gate
 
 
+def jam_compliance_cost(env) -> torch.Tensor:
+    """Penalize servo stall torque against obstructed limbs and reward compliant recoil onto q_true."""
+    pose_term = env.action_manager.get_term("pose")
+    if not hasattr(pose_term, "jam_contacted"):
+        return torch.zeros(env.num_envs, device=env.device)
+
+    q_true = pose_term._entity.data.joint_pos[:, pose_term.joint_ids]
+    q_cmd = pose_term.logical.to(torch.float32)
+
+    # Wait until observation delay + 2 ticks after physical stop contact so host telemetry reflects the jam
+    delay_gate = pose_term.obs_delay_ticks.unsqueeze(-1) + 2
+    ready_leg = pose_term.jam_leg_mask & pose_term.jam_contacted & (pose_term.jam_contact_age >= delay_gate)
+    ready_j = ready_leg.repeat_interleave(3, dim=-1)
+    blocked_j = ready_j & pose_term.jam_joint_mask
+
+    # Gentle ~3.15 deg (0.055 rad) feeler preload keeps the jam observable across arbitrary hold lengths
+    # while eliminating >85% of stall error |q_cmd - q_true| and allowing instant resume if unblocked.
+    cmd_ideal = torch.where(blocked_j, q_true + 0.055 * pose_term.jam_dir, q_true)
+    err = (q_cmd - cmd_ideal) * ready_j.to(torch.float32)
+    abs_s = err.abs() / 0.085
+    # Smooth L1 + bounded L2 so large 20..45 deg jams have strong non-zero recoil gradient everywhere
+    per_j = 1.6 * abs_s + 0.55 * abs_s.square().clamp(max=16.0)
+    cost = per_j.sum(dim=-1).clamp(0.0, 24.0)
+
+    blk_f = blocked_j.to(torch.float32)
+    stall_deg = ((q_cmd - q_true).abs() * blk_f).sum() * (180.0 / math.pi) / blk_f.sum().clamp_min(1.0)
+    env.extras["log"]["Pose/jam_stall_deg"] = stall_deg
+    return cost
+
+
 def grounded_balance_cost(env) -> torch.Tensor:
     """Penalize unplanned tipping and torso ground-slam in grounded worlds."""
     pose_term = env.action_manager.get_term("pose")
@@ -216,22 +255,27 @@ def grounded_balance_cost(env) -> torch.Tensor:
 
 
 def action_smoothness_cost(env) -> torch.Tensor:
-    """Penalize 50 Hz residual chattering, reversals, and unnecessary residual offset."""
+    """Penalize 50 Hz residual chattering, reversals, and unnecessary residual offset on unobstructed legs."""
     pose_term = env.action_manager.get_term("pose")
     u = pose_term.raw_action
     du = u - pose_term.prev_raw_action
     ddu = du - pose_term.prev_action_delta
     d_app = pose_term.applied_action - pose_term.prev_applied_action
+    jam_contacted = getattr(pose_term, "jam_contacted", None)
+    if jam_contacted is not None:
+        unobstructed_f = (~jam_contacted.repeat_interleave(3, dim=-1)).to(u.dtype)
+    else:
+        unobstructed_f = torch.ones_like(u)
     return (
         0.55 * du.square().sum(dim=-1)
         + 0.40 * ddu.square().sum(dim=-1)
         + 1.50 * d_app.square().sum(dim=-1)
-        + 0.06 * u.square().sum(dim=-1)
+        + 0.06 * (u.square() * unobstructed_f).sum(dim=-1)
     ).clamp(0.0, 6.0)
 
 
 def settle_damping_cost(env) -> torch.Tensor:
-    """Penalize physical joint ringing and residual/command ripple once near a static goal."""
+    """Penalize physical joint ringing and residual/command ripple once near a static goal or compliant stop."""
     pose_term = env.action_manager.get_term("pose")
     q_true = pose_term._entity.data.joint_pos[:, pose_term.joint_ids]
     v_true = pose_term._entity.data.joint_vel[:, pose_term.joint_ids]
@@ -239,7 +283,17 @@ def settle_damping_cost(env) -> torch.Tensor:
     d_app = pose_term.applied_action - pose_term.prev_applied_action
     dd_app = d_app - pose_term.prev_applied_delta
 
-    near = (q_true - pose_term.current_goal_rad).abs() < 0.18
+    near_goal = (q_true - pose_term.current_goal_rad).abs() < 0.18
+    jam_contacted = getattr(pose_term, "jam_contacted", None)
+    if jam_contacted is not None:
+        jam_3 = jam_contacted.repeat_interleave(3, dim=-1)
+        q_cmd = pose_term.logical.to(torch.float32)
+        cmd_ideal = torch.where(jam_3 & pose_term.jam_joint_mask, q_true + 0.060 * pose_term.jam_dir, q_true)
+        near_jam = (q_cmd - cmd_ideal).abs() < 0.12
+        near = torch.where(jam_3, near_jam, near_goal)
+    else:
+        near = near_goal
+
     osc_active = pose_term.osc_active
     static_f = (near & (~osc_active.unsqueeze(-1))).float()
 

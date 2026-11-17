@@ -45,6 +45,7 @@ typedef struct {
     bool completed;
     /* Nonterminal no-progress evidence; execution and powered hold continue. */
     bool jam_observation;
+    bool outputs_released;
     /* 0: authored completion; 1: original target not verified; 2: measured. */
     uint8_t position_verification;
     uint16_t target_adjusted_joints; /* Existing pose fitting changed these goals. */
@@ -85,6 +86,8 @@ typedef struct {
     bool stand_replanning;
     uint32_t stand_replans;
     uint16_t stalled_joints;
+    uint16_t thermal_cutoff_mask;
+    float thermal_load[12];
     uint64_t stall_clock_us;
     float body_roll_rad, body_pitch_rad, balance_roll_rad, balance_pitch_rad;
     /* Commanded differences from the nominal motion, not servo feedback.

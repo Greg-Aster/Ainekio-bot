@@ -105,7 +105,7 @@ Body Control routes synthesized speech received over `/environment` (`sendText` 
 `body_events.py` evaluates calibrated 20 ms P4 IMU telemetry (`body_nominal` vs `sensor_unverified`), active `data.motion` execution context (`expected_up`, `activity`, `phase`), foreground `data.face_token`, and 4th-wire servo telemetry:
 
 - **Event routing**: Emits attributed `body_event` notifications over `/environment` for `tipped`, `rapid_movement` (suppressed during commanded locomotion or active `be_*` reaction-face tokens and bounded by configurable cooldowns, default 10 s), `servo_stall` (`outputs_released: false`), `servo_feedback_fault` / `servo_feedback_restored`, and single-shot boot/manual `wake` (**Good morning**).
-- **Wake vs inactivity**: Boot/wake dispatches `"Stand up, stretch, and finish standing"` through Freestyle alongside a correlated camera snapshot without blocking greeting speech. Inactivity rest (`idle_rest_v1`, default 3 minutes) runs locally on the P4 (`lay_down` followed by `OE` release) without LLM calls.
+- **Wake vs inactivity**: Boot/wake dispatches `"Perform a whole-body stretch."` through Freestyle alongside a correlated camera snapshot without blocking greeting speech. Inactivity rest (`idle_rest_v1`, default 3 minutes) runs locally on the P4 (`lay_down` followed by `OE` release) without LLM calls.
 
 ## Neural walking simulation and policy service
 

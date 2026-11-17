@@ -97,7 +97,7 @@ target_include_directories(test_connection_screen PRIVATE ../main)
 target_link_libraries(test_connection_screen PRIVATE ainekio_faces)
 target_compile_options(test_connection_screen PRIVATE -Wall -Wextra -Werror -Wpedantic)
 add_test(NAME lcd_connection_guidance COMMAND test_connection_screen)
-add_executable(test_body test_body.c ../main/joint_calibration.c ../main/controller_motion.c)
+add_executable(test_body test_body.c ../main/joint_calibration.c ../main/controller_motion.c ../main/servo_feedback_model.c)
 target_sources(test_body PRIVATE ../main/trajectory_program.c "${CJSON_DIR}/cJSON.c")
 target_include_directories(test_body PRIVATE "${CJSON_DIR}")
 target_include_directories(test_body PRIVATE body_shim

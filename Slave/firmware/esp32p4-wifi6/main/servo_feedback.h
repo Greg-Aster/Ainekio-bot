@@ -58,9 +58,22 @@ bool ainekio_p4_feedback_check(const ainekio_p4_joint_config_t *mapping,
 /* Jam observations only; sequence verification does not use this timer.
  * Each joint reports once until measured progress/arrival starts a new episode. */
 typedef struct {
-    struct { double best; int direction; int64_t sampled_us, progress_at; bool reported; } joint[12];
+    struct {
+        double best;
+        int direction;
+        int64_t sampled_us, progress_at;
+        uint16_t last_target_us;
+        bool reported;
+    } joint[12];
 } ainekio_p4_feedback_progress_t;
 uint16_t ainekio_p4_feedback_stalled(ainekio_p4_feedback_progress_t *progress,
     const ainekio_p4_joint_config_t *mapping,const uint16_t *targets);
+typedef struct {
+    float thermal_load[12];
+    uint64_t updated_us;
+} ainekio_p4_feedback_thermal_t;
+uint16_t ainekio_p4_feedback_thermal_step(ainekio_p4_feedback_thermal_t *thermal,
+    const ainekio_p4_joint_config_t *mapping,const uint16_t *targets,
+    bool armed,uint64_t now_us);
 /* Handler is called only after existing maintenance authentication. */
 esp_err_t ainekio_p4_feedback_http(struct httpd_req *request);

@@ -250,7 +250,9 @@ def alternating_stride(env):
         rew=rew-0.12*(anchor_xy_gate*xy_offset_cost+z_offset_cost)-0.40*rear_crouch_dz
         if hasattr(feet,"mean_amp_q") and hasattr(feet,"mean_amp_z_m"):
             difficulty=getattr(state(env),"difficulty",torch.zeros_like(upright))
-            flat_terrain=(difficulty==0).to(rew.dtype)
+            snag_recent=getattr(feet,"snag_recent_steps",None)
+            unobstructed=(torch.ones_like(upright) if snag_recent is None else (snag_recent==0).to(rew.dtype))
+            flat_terrain=(difficulty==0).to(rew.dtype)*unobstructed
             flat_level=flat_terrain*(upright>0.970).to(rew.dtype)
             straight_cmd=(command[:,2].abs()<0.15).to(rew.dtype)*(command[:,1].abs()<0.02).to(rew.dtype)
             pure_turn_cmd=(command[:,2].abs()>=0.15).to(rew.dtype)*(lin_cmd_sq<1e-4).to(rew.dtype)
@@ -377,6 +379,159 @@ def foot_slip(env, sensor_name="feet_ground_contact", command_name="twist", comm
     num_in_contact=torch.sum(in_contact)
     env.extras["log"]["Metrics/slip_velocity_mean"]=torch.sum(slip_speed.clamp_min(0.)*in_contact)/torch.clamp(num_in_contact,min=1)
     return cost
+
+
+def update_swing_snag_50hz(env, feet):
+    """Latch and release transient carpet-lip / cord swing-foot snags on ~28% of walking worlds."""
+    feet.snag_just_cleared.zero_()
+    feet.snag_cleared_high.zero_()
+    feet.snag_delta_h_m.zero_()
+    feet.snag_cooldown_steps.sub_(1).clamp_min_(0)
+    feet.snag_recent_steps.sub_(1).clamp_min_(0)
+
+    robot=env.scene["robot"].data
+    foot_h=env.scene["foot_height_scan"].data.heights
+    in_air=env.scene["feet_ground_contact"].data.found==0
+    foot_pos_w=robot.site_pos_w[:,feet.foot_site_ids,:]
+    foot_vel_w=robot.site_lin_vel_w[:,feet.foot_site_ids,:]
+    cmd=env.command_manager.get_command("twist")
+
+    was_active=feet.snag_active.clone()
+    feet.snag_age_steps=torch.where(was_active,feet.snag_age_steps+1,torch.zeros_like(feet.snag_age_steps))
+    inst_h=torch.maximum(foot_h,foot_pos_w[...,2]-feet.snag_ground_z_w)
+
+    # Track monotonic peak height gained during this snag attempt (telescopic potential, impossible to farm).
+    new_peak=torch.maximum(feet.snag_peak_h_m,inst_h.clamp(0.0,0.040))
+    feet.snag_delta_h_m=torch.where(was_active,(new_peak-feet.snag_peak_h_m).clamp_min(0.0),torch.zeros_like(inst_h))
+    feet.snag_peak_h_m=torch.where(was_active,new_peak,feet.snag_peak_h_m)
+
+    # Release once the snagged swing foot lifts above lip height (22..27 mm) or retracts slightly + lifts (>= 18 mm).
+    rel_d=((foot_pos_w[...,:2]-feet.snag_anchor_xy_w)*feet.snag_dir_xy_w).sum(dim=-1)
+    cleared_high=was_active&(inst_h>=feet.snag_lip_z_m)
+    cleared_retract=was_active&(feet.snag_age_steps>=2)&(rel_d<=-0.006)&(inst_h>=0.018)
+    cleared=cleared_high|cleared_retract
+    timed_out=was_active&(feet.snag_age_steps>=45)
+    ended=cleared|timed_out
+    ended_env=ended.any(dim=-1)
+
+    feet.snag_just_cleared.copy_(cleared)
+    feet.snag_cleared_high.copy_(cleared_high)
+    feet.snag_active=was_active&(~ended)
+    feet.snag_cooldown_steps=torch.where(
+        ended_env.unsqueeze(-1),
+        torch.full_like(feet.snag_cooldown_steps,35),
+        feet.snag_cooldown_steps,
+    )
+    feet.snag_events_cleared+=cleared.any(dim=-1).long()
+
+    # Expected horizontal protraction direction per foot in world frame for any linear + yaw command.
+    quat=robot.root_link_quat_w
+    yaw=torch.atan2(
+        2.0*(quat[:,0]*quat[:,3]+quat[:,1]*quat[:,2]),
+        1.0-2.0*(quat[:,2].square()+quat[:,3].square()),
+    )
+    cy,sy=torch.cos(yaw).unsqueeze(-1),torch.sin(yaw).unsqueeze(-1)
+    px=feet.foot_home_pos_m[:,0].unsqueeze(0)
+    py=feet.foot_home_pos_m[:,1].unsqueeze(0)
+    des_vx_b=cmd[:,0:1]-cmd[:,2:3]*py
+    des_vy_b=cmd[:,1:2]+cmd[:,2:3]*px
+    des_vx_w=cy*des_vx_b-sy*des_vy_b
+    des_vy_w=sy*des_vx_b+cy*des_vy_b
+    des_speed=torch.sqrt(des_vx_w.square()+des_vy_w.square()+1e-8)
+    des_dir_w=torch.stack((des_vx_w/des_speed,des_vy_w/des_speed),dim=-1)
+
+    # Trigger in mid-to-forward protraction (where the 4-bar linkage has full +30 mm Z lift authority,
+    # avoiding rear-stance liftoff singularity at x < -15 mm where rear_right max dz is only 19 mm).
+    q_cur=feet.sensors.joint.to(feet.body.O.dtype).reshape(-1,4,3)
+    foot_rel_mm=(feet.body.forward(q_cur)[0]-feet.body.origin).to(foot_h.dtype)
+    protract_zone=(foot_rel_mm[...,0]*cmd[:,0:1].sign().where(cmd[:,0:1].abs()>0.03,torch.ones_like(cmd[:,0:1])))>-6.0
+
+    v_protract=(foot_vel_w[...,:2]*des_dir_w).sum(dim=-1)
+    horiz_speed=torch.sqrt(foot_vel_w[...,:2].square().sum(dim=-1)+1e-8)
+    cmd_mag=cmd[:,:2].norm(dim=-1)+0.12*cmd[:,2].abs()
+    env_ready=feet.snag_env_mask&(~feet.snag_active.any(dim=-1))&(cmd_mag>0.04)
+    leg_eligible=(
+        env_ready.unsqueeze(-1)
+        &(feet.snag_cooldown_steps==0)
+        &in_air
+        &protract_zone
+        &(des_speed>0.04)
+        &(v_protract>0.10)
+        &(foot_h<0.022)
+        &(foot_h>0.001)
+    )
+    cand=leg_eligible&(torch.rand_like(foot_h)<0.35)
+    any_cand=cand.any(dim=-1)
+    if bool(any_cand.any()):
+        pick_scores=torch.where(cand,1.0+torch.rand_like(foot_h),torch.zeros_like(foot_h))
+        picked_leg=pick_scores.argmax(dim=-1)
+        one_hot=torch.nn.functional.one_hot(picked_leg,num_classes=4).to(torch.bool)&any_cand.unsqueeze(-1)
+        unit_vel=foot_vel_w[...,:2]/horiz_speed.unsqueeze(-1)
+        lip_dir=torch.nn.functional.normalize(0.6*des_dir_w+0.4*unit_vel,dim=-1,eps=1e-6)
+        ground_z=foot_pos_w[...,2]-foot_h.clamp_min(0.0)
+        new_lip_z=0.022+0.005*torch.rand_like(foot_h)
+        init_peak=foot_h.clamp(0.0,0.022)
+        feet.snag_active=feet.snag_active|one_hot
+        feet.snag_age_steps=torch.where(one_hot,torch.zeros_like(feet.snag_age_steps),feet.snag_age_steps)
+        feet.snag_anchor_xy_w=torch.where(one_hot.unsqueeze(-1),foot_pos_w[...,:2],feet.snag_anchor_xy_w)
+        feet.snag_ground_z_w=torch.where(one_hot,ground_z,feet.snag_ground_z_w)
+        feet.snag_dir_xy_w=torch.where(one_hot.unsqueeze(-1),lip_dir,feet.snag_dir_xy_w)
+        feet.snag_lip_z_m=torch.where(one_hot,new_lip_z,feet.snag_lip_z_m)
+        feet.snag_peak_h_m=torch.where(one_hot,init_peak,feet.snag_peak_h_m)
+        feet.snag_events_triggered+=any_cand.long()
+
+    feet.snag_recent_steps=torch.where(
+        feet.snag_active.any(dim=-1),
+        torch.full_like(feet.snag_recent_steps,15),
+        feet.snag_recent_steps,
+    )
+
+
+def compute_swing_snag_wrench_500hz(env, feet):
+    """Compute unilateral 500 Hz horizontal carpet-lip / cord blocking forces below lip_z."""
+    robot=env.scene["robot"].data
+    foot_pos_w=robot.site_pos_w[:,feet.foot_site_ids,:]
+    foot_vel_xy=robot.site_lin_vel_w[:,feet.foot_site_ids,:2]
+    inst_h=foot_pos_w[...,2]-feet.snag_ground_z_w
+    below_lip=feet.snag_active&(inst_h<feet.snag_lip_z_m)
+    pen=((foot_pos_w[...,:2]-feet.snag_anchor_xy_w)*feet.snag_dir_xy_w).sum(dim=-1)
+    v_along=(foot_vel_xy*feet.snag_dir_xy_w).sum(dim=-1)
+    engaged=below_lip&(pen>0.0)
+    f_normal=(950.0*pen.clamp_min(0.0)+14.0*v_along.clamp_min(0.0)).clamp(0.0,5.5)
+    f_normal=torch.where(engaged,f_normal,torch.zeros_like(f_normal))
+    f_xy=-f_normal.unsqueeze(-1)*feet.snag_dir_xy_w
+    forces_w=torch.cat((f_xy,torch.zeros_like(f_normal).unsqueeze(-1)),dim=-1)
+    return f_normal,forces_w
+
+
+def snag_clearance(env):
+    """Telescopic +Z lift potential, anti-stall urgency cost, and step-over bonus on snagged swing feet."""
+    if not hasattr(env,"action_manager"):
+        return torch.zeros(env.num_envs,device=env.device)
+    feet=env.action_manager.get_term("feet")
+    if not getattr(feet,"_snag_enabled",False):
+        return torch.zeros(env.num_envs,device=env.device)
+    active=feet.snag_active
+    cleared=feet.snag_just_cleared
+    has_event=active.any(dim=-1)|cleared.any(dim=-1)
+
+    robot=env.scene["robot"].data
+    grav=robot.projected_gravity_b
+    upright=(-grav[:,2]).clamp(0.0,1.0)*torch.exp(-3.5*grav[:,:2].square().sum(-1))
+
+    act_f=active.to(upright.dtype)
+    # Telescopic peak-height progress: bounded total sum <= (lip_z - h0)/0.018 (~1.2), cannot be farmed by hovering!
+    lift_potential=(feet.snag_delta_h_m/0.018)*1.8*act_f
+    # Per-step snagged urgency + horizontal servo stall penalty incentivize escaping above lip_z immediately
+    stuck_cost=(0.35+0.55*(feet.snag_force_mag/2.0).square().clamp(0.0,2.0))*act_f
+
+    clr_f=cleared.to(upright.dtype)
+    clear_bonus=1.80*clr_f
+
+    total=(lift_potential.sum(dim=-1)+clear_bonus.sum(dim=-1))*upright-stuck_cost.sum(dim=-1)
+    env.extras["log"]["Snag/active_fraction"]=act_f.sum(dim=-1).clamp_max(1.0).mean()
+    env.extras["log"]["Snag/mean_stall_force_n"]=(feet.snag_force_mag*act_f).sum()/act_f.sum().clamp_min(1.0)
+    return torch.where(has_event,total,torch.zeros_like(total))
 
 
 @requires_model_fields("geom_friction")

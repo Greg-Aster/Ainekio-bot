@@ -299,8 +299,14 @@ class Bridge:
 
     def _cancelled_before_start(self, job, task):
         if task.cancelled():
-            job['state'] = 'superseded'
-            self.record(job, 'job_finished', {'state':job['state'], 'execute':job['execute']})
+            if job.get('abort_error'):
+                job.update(state='error', error=job['abort_error'])
+                if job.get('abort_evidence') is not None:
+                    job['error_evidence'] = copy.deepcopy(job['abort_evidence'])
+                self.record(job, 'job_error', {'error':job['abort_error'], 'evidence':job.get('abort_evidence')})
+            else:
+                job['state'] = 'superseded'
+            self.record(job, 'job_finished', {'state':job['state'], 'error':job.get('error'), 'execute':job['execute']})
             self.tasks.pop(job['id'], None)
 
     async def result(self, job_id):
@@ -313,7 +319,7 @@ class Bridge:
                 if not task.cancelled():
                     raise
         return copy.deepcopy({key: job[key] for key in
-            ('id', 'robot_id', 'epoch', 'request', 'state', 'receipts', 'observation', 'error', 'last_sequence',
+            ('id', 'robot_id', 'epoch', 'request', 'state', 'receipts', 'observation', 'error', 'error_evidence', 'last_sequence',
              'operation_index','completed_operation_index','pause_state','pause_cursor','start_index') if key in job})
 
     async def cancel(self, job_id):
@@ -665,7 +671,12 @@ class Bridge:
                             'action_index':index, 'before':initial, 'after':after})
             job['state']='completed_section' if job.get('start_index',0) else 'completed'
         except asyncio.CancelledError:
-            if job.get('cancellation_requested') and job['state'] == 'executing' and self.active.get(robot) == job['id']:
+            if job.get('abort_error'):
+                job.update(state='error', error=job['abort_error'])
+                if job.get('abort_evidence') is not None:
+                    job['error_evidence'] = copy.deepcopy(job['abort_evidence'])
+                self.record(job, 'job_error', {'error':job['abort_error'], 'evidence':job.get('abort_evidence')})
+            elif job.get('cancellation_requested') and job['state'] == 'executing' and self.active.get(robot) == job['id']:
                 try:
                     if job.get('pause_requested'):job['pause_stop_attempted'] = True
                     await self._stop_job(job,job.get('pause_detach',False))
@@ -681,29 +692,6 @@ class Bridge:
             if getattr(error,'evidence',None) is not None:
                 job['error_evidence'] = copy.deepcopy(error.evidence)
             self.record(job, 'job_error', {'error':message, 'evidence':getattr(error,'evidence',None)})
-            if (job['execute'] and setting.get('recover_events')
-                    and self.active.get(robot)==job['id']
-                    and isinstance(getattr(error,'evidence',None),dict)
-                    and error.evidence.get('position_verified') is False):
-                mask = ((error.evidence.get('unverified_joints') or 0)
-                        | (error.evidence.get('target_adjusted_joints') or 0))
-                obs_joints = (job.get('observation') or {}).get('joints') or {}
-                affected = [
-                    {'id': i, 'name': JOINTS[i],
-                     **({'reasons': list(obs_joints[JOINTS[i]]['feedback_faults'])}
-                        if obs_joints.get(JOINTS[i], {}).get('feedback_faults') else {})}
-                    for i in range(len(JOINTS)) if mask & (1 << i)
-                ]
-                fault = any(obs_joints.get(item['name'], {}).get('feedback_usable') is False for item in affected)
-                data = {
-                    'kind': 'servo_feedback_fault' if fault else 'servo_stall',
-                    'outputs_released': False,
-                    **({'joints': affected} if affected else {}),
-                    **({} if fault else {'reason': 'position_unverified'}),
-                }
-                await self.submit(robot,job['request'],True,{
-                    'robot_id':robot,'epoch':job['epoch'],'name':'body_event',
-                    'data':data})
         finally:
             if prepared is not None:
                 prepared[1].cancel()
@@ -731,40 +719,53 @@ class Bridge:
         # execution still requires done; accepting its admission is not arrival.
         if receipt.get('t')!='done' and not (acknowledgement and receipt.get('t')=='ack'):
             raise RuntimeError('Body reported '+str(receipt))
-        if receipt.get('position_verified') is False:
-            error = RuntimeError('Body did not verify the requested motion target: '+str(receipt))
-            error.evidence = copy.deepcopy(receipt)
-            raise error
 
     async def event(self,event):
-        robot=event.get('robot_id'); setting=self.settings.get(robot,{})
+        robot=event.get('robot_id')
         if event.get('t')=='connection':
             changed = self.connection_changes.pop(robot, None)
             if changed is not None:
                 changed.set()
             return
-        if not setting.get('recover_events') or event.get('name')!='body_event':
+        if event.get('name')!='body_event':
             return
-        data=event.get('data',{})
-        if data.get('outputs_released') or data.get('motion_policy')=='continue_authored_motion':
-            return
-        if data.get('kind') not in ('servo_stall','servo_feedback_fault','tipped','rapid_movement','slip'):
+        data=event.get('data') or {}
+        if data.get('kind')!='servo_stall' or not data.get('outputs_released'):
             return
         snapshot=(await self.gateway.status_snapshot())['robots'].get(robot)
-        if snapshot is None or event.get('epoch',snapshot['epoch'])!=snapshot['epoch']:
+        if snapshot is not None and event.get('epoch',snapshot['epoch'])!=snapshot['epoch']:
             return
-        active_job=self.jobs.get(self.active.get(robot))
-        if not recovery_has_motion_owner(snapshot, active_job):
+        active_id=self.active.get(robot)
+        active_job=self.jobs.get(active_id) if active_id else None
+        if active_job is None:
+            return
+        if event.get('epoch') is not None and active_job.get('epoch')!=event.get('epoch'):
             return
         sequence=data.get('command_sequence')
-        if sequence and sequence!=snapshot.get('body_command_sequence'):
-            # A delayed receipt for a replaced command cannot supersede its
-            # replacement (particularly an operator's Stop).
+        if (
+            sequence
+            and active_job.get('last_sequence') is not None
+            and sequence!=active_job.get('last_sequence')
+            and (snapshot is None or sequence!=snapshot.get('body_command_sequence'))
+        ):
             return
-        previous=self.jobs.get(self.active.get(robot),{})
-        request=previous.get('request') or 'Recover from the reported body event using the available observations.'
-        await self.submit(robot,request,True,{**event,'data':{**data,
-            'command_sequence':data.get('command_sequence',snapshot.get('body_command_sequence'))}})
+        active_task=self.tasks.get(active_id)
+        self.active.pop(robot,None)
+        if active_task is None or active_task.done():
+            return
+        joints=[item.get('name') or str(item.get('id')) for item in (data.get('joints') or []) if isinstance(item,dict)]
+        detail=f" ({', '.join(joints)})" if joints else ""
+        active_job['abort_error']=f"servo_stall: body released servo outputs{detail}"
+        active_job['abort_evidence']=copy.deepcopy(data)
+        last_seq=active_job.get('last_sequence')
+        if type(last_seq) is int and not any(r.get('seq')==last_seq for r in active_job.get('receipts',[])):
+            active_job['receipts'].append({
+                't':'cancelled',
+                'seq':last_seq,
+                'code':'servo_stall',
+                'outputs_released':True,
+            })
+        active_task.cancel()
 
     async def command(self,command):
         robot=command.get('robot_id'); previous=self.active.get(robot)

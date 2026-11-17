@@ -938,6 +938,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 raise GatewayError("MetaHuman Environment Bridge is not configured")
             enabled = _required_bool(payload, "enabled") if "enabled" in payload else None
             return self.server.call_gateway(adapter.behavior_settings(enabled))
+        if path == "/api/metahuman-stream":
+            adapter = self.server.environment_adapter
+            if adapter is None:
+                return {"ok": True, "messages": []}
+            op = _optional_string(payload, "op") or "clear"
+            if op != "clear":
+                raise ValueError("op must be clear")
+            self.server.call_gateway(asyncio.sleep(0))
+            adapter.clear_text_stream()
+            return {"ok": True, "messages": []}
         if path == "/api/speech-output":
             target = _required_string(payload, "playbackTarget")
             if target not in {"computer", "robot"}:

@@ -24,7 +24,8 @@ LEGS = ("rear_left", "rear_right", "front_left", "front_right")
 JOINTS = tuple(f"{leg}_{axis}" for leg in LEGS for axis in ("shoulder", "carrier", "crank"))
 
 STAND_ANGLES_DEG = (0.0, 0.94, -21.25) * 4
-REST_ANGLES_DEG = (0.0, -30.87, -117.68) * 4
+# Canonical reviewed V2 crouch/rest posture (matches rise.crouch; 0.000 deg linkage error and >18 deg PWM margin).
+REST_ANGLES_DEG = (0.0, -23.22, -22.03) * 4
 CALM_PASSIVE_DEG = (0.0, 10.0, -44.0) * 4
 
 EXPRESSION_MODES = (
@@ -44,7 +45,6 @@ DEFAULTS: dict[str, Any] = {
     "chatter_relief_enabled": True,
     "social_gaze_enabled": True,
     "expressions_enabled": True,
-    "boredom_interval_s": 25.0,
     "servo_release_s": 180.0,
     "presence_defers_release": True,
     "passive_mode": "calm_then_release",
@@ -96,15 +96,14 @@ def validate_presence_settings(raw: Mapping[str, Any] | None) -> dict[str, Any]:
             if type(raw[key]) is not bool:
                 raise ValueError(f"{key} must be true or false")
             out[key] = raw[key]
-    for key, upper in (("boredom_interval_s", 86400.0), ("servo_release_s", 86400.0)):
-        if key in raw:
-            val = raw[key]
-            if isinstance(val, bool) or not isinstance(val, (int, float)) or not math.isfinite(val):
-                raise ValueError(f"{key} must be a finite number")
-            fval = float(val)
-            if fval < 0.0 or fval > upper:
-                raise ValueError(f"{key} must be between 0 and {int(upper)}")
-            out[key] = round(fval, 3)
+    if "servo_release_s" in raw:
+        val = raw["servo_release_s"]
+        if isinstance(val, bool) or not isinstance(val, (int, float)) or not math.isfinite(val):
+            raise ValueError("servo_release_s must be a finite number")
+        fval = float(val)
+        if fval < 0.0 or fval > 86400.0:
+            raise ValueError("servo_release_s must be between 0 and 86400")
+        out["servo_release_s"] = round(fval, 3)
     if "passive_mode" in raw:
         mode = raw["passive_mode"]
         if not isinstance(mode, str) or mode not in PASSIVE_MODES:

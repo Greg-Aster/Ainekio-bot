@@ -99,6 +99,47 @@ def assemble_pose_features(
     return row
 
 
+def pose_mirror_tables() -> tuple[list[int], list[float], list[int], list[float]]:
+    """Sagittal left-right reflection tables `(obs_perm_1290, obs_sign_1290, act_perm_12, act_sign_12)`.
+
+    Swaps RL<->RR and FL<->FR. In Ainekio's v2-12servo joint convention (`body.sign`), joint angles
+    `(shoulder, carrier, crank)` already mirror roll symmetrically (`+1`), while body-frame Cartesian
+    foot offsets `(dx, dy, dz)` negate lateral `dy` (`[+1, -1, +1]`), gyro negates roll/yaw
+    (`[-1, +1, -1]`), and body acceleration / projected gravity negate lateral `y` (`[+1, -1, +1]`).
+    """
+    leg_perm = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
+    foot_sign = [1.0, -1.0, 1.0] * 4
+    perm_86 = (
+        leg_perm
+        + [12 + i for i in leg_perm]
+        + [24 + i for i in leg_perm]
+        + [36, 37, 38]
+        + [39, 40, 41]
+        + [42, 43, 44]
+        + [45 + i for i in leg_perm]
+        + [57 + i for i in leg_perm]
+        + [70, 69, 72, 71]
+        + [73]
+        + [74 + i for i in leg_perm]
+    )
+    sign_86 = (
+        [1.0] * 12
+        + [1.0] * 12
+        + [1.0] * 12
+        + [-1.0, 1.0, -1.0]
+        + [1.0, -1.0, 1.0]
+        + [1.0, -1.0, 1.0]
+        + [1.0] * 12
+        + foot_sign
+        + [1.0] * 4
+        + [1.0]
+        + foot_sign
+    )
+    obs_perm = [f * POSE_FEATURES + idx for f in range(POSE_SAMPLES) for idx in perm_86]
+    obs_sign = sign_86 * POSE_SAMPLES
+    return obs_perm, obs_sign, leg_perm, foot_sign
+
+
 class PoseObservationHistory:
     """Causal 15-frame (300 ms @ 20 ms) ring buffer matching GPU history roll."""
 

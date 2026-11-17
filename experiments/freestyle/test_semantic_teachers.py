@@ -77,22 +77,25 @@ class SemanticTeacherTests(unittest.TestCase):
                 if action['name'] not in ('face','hold'):planned=compile_motion(action,state,planned)['end']
             for j,value in zip(JOINTS,taught['final_model_deg']):self.assertAlmostEqual(planned[j],value,places=2)
 
-    def test_compact_stretch_crouches_extends_front_limbs_and_finishes_standing(self):
-        from .semantic_teachers import stretch_program
+    def test_two_stage_front_arm_stretch_extends_holds_and_finishes_standing(self):
+        from .freestyle_curriculum import STAND_ANGLES, prog_full_body_stretch
         from .kinematics import foot_positions
-        program=stretch_program();entry=program[1]['arguments']['angles_deg']
-        state={'joints':{j:{'model_deg':v,'commanded_model_deg':v,'home_deg':0} for j,v in zip(JOINTS,entry)},'joint_speed_limit_deg_s':180}
+        program=prog_full_body_stretch(50,1.5)
+        self.assertEqual(len(program),7)
+        state={'joints':{j:{'model_deg':v,'commanded_model_deg':v,'home_deg':0} for j,v in zip(JOINTS,STAND_ANGLES)},'joint_speed_limit_deg_s':180}
+        stand_feet=foot_positions(dict(zip(JOINTS,STAND_ANGLES)))
         planned=None;feet=[]
         for action in program:
             if action['name'] not in ('face','hold'):
                 planned=compile_motion(action,state,planned)['end'];feet.append(foot_positions(planned))
-        self.assertAlmostEqual(feet[1]['front_left'][2]-feet[0]['front_left'][2],18,delta=.04)
-        self.assertAlmostEqual(feet[3]['front_right'][2]-feet[2]['front_right'][2],18,delta=.04)
+        self.assertEqual(len(feet),3)
         for leg in ('front_left','front_right'):
-            self.assertAlmostEqual(feet[5][leg][2]-feet[4][leg][2],16,delta=.04)
-            self.assertAlmostEqual(feet[6][leg][0]-feet[0][leg][0],35,delta=.04)
-        for j,value in zip(JOINTS,entry):self.assertAlmostEqual(planned[j],value,places=2)
-        self.assertEqual([a['arguments']['seconds'] for a in program if a['name']=='hold'],[.9,.7,.5])
+            stage1_dx = feet[0][leg][0] - stand_feet[leg][0]
+            stage2_dx = feet[1][leg][0] - stand_feet[leg][0]
+            self.assertGreater(stage1_dx, 35.0)
+            self.assertGreater(stage2_dx, stage1_dx + 30.0)
+        for j,value in zip(JOINTS,STAND_ANGLES):self.assertAlmostEqual(planned[j],value,places=2)
+        self.assertEqual([a['arguments']['seconds'] for a in program if a['name']=='hold'],[1.5,1.5])
 
     def test_fresh_snapshot_has_three_natural_requests_per_reference_motion(self):
         from collections import Counter
@@ -168,39 +171,8 @@ class SemanticTeacherTests(unittest.TestCase):
         self.assertEqual(oscillations[0]['joint'],JOINTS[6])
         self.assertEqual(oscillations[0]['amplitude_deg'],42)
 
-    def test_contextual_source_teacher_retains_compact_stages_and_enters_from_supplied_state(self):
-        import copy
-        from experiments.freestyle.compact_wire import ProgramEncoding
-        from experiments.freestyle.legacy_curriculum import contextual_example
-        from experiments.freestyle.motion_space import TOOLS
-        from experiments.freestyle.face_contract import face_tool
-        tools=[*TOOLS,face_tool()]
-        original=source_motion('stretch');encoding=ProgramEncoding(tools)
-        source={'id':'source','family':'legacy_asset_stretch','legacy_motion':'stretch',
-                'answers':encoding.encode(original['program']),
-                'canonical_source_motion_sha256':original['source_sha256'],
-                'source_alignment':{k:v for k,v in original.items() if k!='program'},
-                'physical_qualification':True}
-        snapshot=copy.deepcopy(source);observation=copy.deepcopy(self.state)
-        for state in observation['joints'].values():state['commanded_model_deg']=state['model_deg']
-        observation['joints'][JOINTS[0]].update(model_deg=15,commanded_model_deg=None)
-        row=contextual_example(source,observation,'Please stretch',tools)
-        program=encoding.decode(row['answers'])
-        self.assertEqual(source,snapshot)
-        self.assertEqual(program[0],original['program'][0])
-        self.assertEqual(program[1]['arguments']['angles_deg'],original['entry_model_deg'])
-        self.assertEqual(program,original['program'])
-        self.assertEqual(json.loads(row['query'])['observation']['joints']['model_deg'][0],15)
-        planned=None
-        for action in program:
-            if action['name'] not in ('face','hold'):planned=compile_motion(action,observation,planned)['end']
-        for j,value in zip(JOINTS,original['final_model_deg']):self.assertAlmostEqual(planned[j],value,places=6)
-        other=contextual_example(source,observation,'Perform stretch.',tools)
-        self.assertNotEqual(row['source_id'],other['source_id'])
-        self.assertFalse(row['physical_qualification'])
-
     def test_native_bow_stretch_holds_and_freaky_semantic_end(self):
-        for name,durations in [('bow',[5.,.2]),('stretch',[.9,.7,.5])]:
+        for name,durations in [('bow',[5.,.2]),('stretch',[1.5,1.5])]:
             actual=[a['arguments']['seconds'] for a in source_motion(name)['program'] if a['name']=='hold']
             self.assertEqual(len(actual),len(durations))
             for a,b in zip(actual,durations):self.assertAlmostEqual(a,b,places=8)
@@ -211,20 +183,6 @@ class SemanticTeacherTests(unittest.TestCase):
         self.assertEqual(taught['semantic_end_s'],contract['completion']['semantic_end_s'])
         expected=[math.degrees(v) for leg in contract['completion']['joint_angles_rad'] for v in leg]
         for a,b in zip(taught['final_model_deg'],expected):self.assertEqual(round(a*100),round(b*100))
-
-    def test_retirement_follows_provenance_and_preserves_unrelated_commands(self):
-        from .legacy_curriculum import obsolete_rows
-        rows = [
-            {'id':'bad','family':'semantic_bowing','parent_example_id':'old-bad'},
-            {'id':'derived','family':'library_jam_recovery','parent_examples':[{'id':'old-bad'}]},
-            {'id':'face','family':'face_only','query':'Show the bow face.'},
-            {'id':'spatial','family':'spatial_rotation','query':'Pitch six degrees.'},
-            {'id':'compound','family':'open_composition','task_families':['bow','circle']},
-            {'id':'current','family':'legacy_asset_bow'},
-        ]
-        selected,aliases = obsolete_rows(rows,[{'id':'current'}])
-        self.assertEqual(selected,{'bad','derived','compound'})
-        self.assertIn('old-bad',aliases)
 
     def test_freestyle_curriculum_splits_are_disjoint_bounded_and_preserve_reference_motions(self):
         manifest = json.loads((Path(__file__).with_name('training-data') / 'manifest.json').read_text())

@@ -28,6 +28,10 @@
   let presenceRobot = null;
   let presenceEdited = false;
   let presenceSaving = false;
+  let cockpitStreamOpen = readLocal("ainekio-cockpit-stream-open", true) !== false;
+  const cockpitStreamClearedIds = new Set();
+  let cockpitStreamLastSignature = "";
+  let latestMetahumanBridge = null;
   let preferredRobotId = readLocal("ainekio-selected-robot", null);
   let statusRequest = null;
   let statusGeneration = 0;
@@ -3270,7 +3274,6 @@
         passiveReason: robotState.passive_reason,
         imuFedToSystem3: robotState.imu_fed_to_policy,
         activeExpression: robotState.active_expression,
-        boredomLevel: robotState.boredom_level,
         idleSeconds: robotState.idle_seconds,
         releaseIdleSeconds: robotState.release_idle_seconds,
         sympatheticImuScore: robotState.sympathy_score,
@@ -3426,6 +3429,97 @@
       })), null, 2));
   }
 
+  function formatCockpitStreamTime(timestamp) {
+    if (!timestamp) return "";
+    const parsed = new Date(timestamp);
+    if (Number.isNaN(parsed.getTime())) return "";
+    const hh = String(parsed.getHours()).padStart(2, "0");
+    const mm = String(parsed.getMinutes()).padStart(2, "0");
+    const ss = String(parsed.getSeconds()).padStart(2, "0");
+    return `${hh}:${mm}:${ss}`;
+  }
+
+  function renderCockpitStream(bridge, force = false) {
+    latestMetahumanBridge = bridge || null;
+    const panel = byId("cockpit-stream-panel");
+    const list = byId("cockpit-stream-messages");
+    const dot = byId("cockpit-stream-dot");
+    const state = byId("cockpit-stream-state");
+    const toggleBtn = byId("cockpit-stream-toggle");
+    if (panel) panel.hidden = !cockpitStreamOpen;
+    if (toggleBtn) {
+      toggleBtn.setAttribute?.("aria-expanded", String(cockpitStreamOpen));
+      toggleBtn.classList?.toggle?.("is-active", cockpitStreamOpen);
+    }
+    const connected = Boolean(bridge?.connected);
+    dot?.classList?.toggle?.("is-online", connected);
+    if (state) state.textContent = connected ? "Live" : "Offline";
+
+    const rawMessages = Array.isArray(bridge?.messages) ? bridge.messages : [];
+    const visibleMessages = rawMessages.filter((item) =>
+      item && typeof item.text === "string" && item.text.trim() &&
+      (!item.id || !cockpitStreamClearedIds.has(String(item.id)))
+    );
+    const signature = `${connected}|` + visibleMessages
+      .map((item) => `${item.id || ""}:${item.timestamp || ""}:${item.role || ""}:${item.source || ""}:${item.text}`)
+      .join("\n");
+    if (!force && signature === cockpitStreamLastSignature) return;
+    cockpitStreamLastSignature = signature;
+
+    if (!list || typeof document.createElement !== "function" || typeof list.replaceChildren !== "function") {
+      if (list) list.items = visibleMessages;
+      return;
+    }
+
+    const nearBottom = (list.scrollHeight || 0) - (list.scrollTop || 0) - (list.clientHeight || 0) <= 28;
+    if (!visibleMessages.length) {
+      const empty = document.createElement("p");
+      empty.id = "cockpit-stream-empty";
+      empty.className = "cockpit-stream-empty";
+      empty.textContent = connected
+        ? "Connected to MetaHuman OS — waiting for workflow output."
+        : "Workflow replies from MetaHuman OS appear here when Environment Bridge is active.";
+      list.replaceChildren(empty);
+      return;
+    }
+
+    const nodes = visibleMessages.map((item) => {
+      const role = item.role === "user" ? "user" : item.role === "system" ? "system" : "assistant";
+      const article = document.createElement("article");
+      article.className = `cockpit-stream-item is-${role}`;
+      if (item.id) article.dataset.messageId = String(item.id);
+
+      const meta = document.createElement("div");
+      meta.className = "cockpit-stream-meta";
+
+      const roleSpan = document.createElement("span");
+      roleSpan.className = "cockpit-stream-role";
+      const baseLabel = role === "user" ? "You" : role === "system" ? "System" : "MetaHuman";
+      const source = typeof item.source === "string" ? item.source.trim() : "";
+      roleSpan.textContent = source && source !== "workflow" && source !== role
+        ? `${baseLabel} · ${source}`
+        : baseLabel;
+
+      const timeEl = document.createElement("time");
+      timeEl.className = "cockpit-stream-time";
+      timeEl.textContent = formatCockpitStreamTime(item.timestamp);
+
+      meta.append(roleSpan, timeEl);
+
+      const body = document.createElement("p");
+      body.className = "cockpit-stream-text";
+      body.textContent = item.text;
+
+      article.append(meta, body);
+      return article;
+    });
+
+    list.replaceChildren(...nodes);
+    if (nearBottom) {
+      list.scrollTop = list.scrollHeight;
+    }
+  }
+
   function renderStatus(payload) {
     const bridge = payload.metahuman;
     const voiceResult = bridge?.lastAudioResult;
@@ -3436,6 +3530,7 @@
       ? "MetaHuman disconnected — robot voice commands are not being delivered."
       : voiceResult?.status === "failed" ? `Voice delivery failed: ${voiceResult.message}`
       : "MetaHuman bridge connected" + (voiceResult?.timestamp ? ` · Last voice result: ${voiceResult.status} at ${voiceResult.timestamp}` : " · No voice delivery confirmed yet");
+    renderCockpitStream(bridge);
     const recognition = payload.recognition;
     visionOperations = new Set(recognition?.visionOperations || []);
     byId("vision-target-search").disabled = !visionOperations.has("search") || visionTargetBusy;
@@ -4318,6 +4413,36 @@
     const settingsDrawer = byId("cockpit-settings-drawer");
     const emotesBtn = byId("cockpit-emotes-toggle");
     const emotesDrawer = byId("cockpit-emotes-drawer");
+    const streamPanel = byId("cockpit-stream-panel");
+    const streamToggleBtn = byId("cockpit-stream-toggle");
+
+    const setStreamOpen = (open) => {
+      cockpitStreamOpen = Boolean(open);
+      writeLocal("ainekio-cockpit-stream-open", cockpitStreamOpen);
+      if (streamPanel) streamPanel.hidden = !cockpitStreamOpen;
+      streamToggleBtn?.setAttribute?.("aria-expanded", String(cockpitStreamOpen));
+      streamToggleBtn?.classList?.toggle?.("is-active", cockpitStreamOpen);
+    };
+    setStreamOpen(cockpitStreamOpen);
+
+    if (streamToggleBtn) {
+      streamToggleBtn.addEventListener("click", () => setStreamOpen(!cockpitStreamOpen));
+    }
+    if (byId("cockpit-stream-hide")) {
+      byId("cockpit-stream-hide").addEventListener("click", () => setStreamOpen(false));
+    }
+    if (byId("cockpit-stream-clear")) {
+      byId("cockpit-stream-clear").addEventListener("click", () => {
+        for (const item of latestMetahumanBridge?.messages || []) {
+          if (item?.id) cockpitStreamClearedIds.add(String(item.id));
+        }
+        renderCockpitStream(latestMetahumanBridge, true);
+        void request("/api/metahuman-stream", {
+          method: "POST",
+          body: JSON.stringify({ op: "clear" }),
+        }).catch((error) => showResult(error.message, true));
+      });
+    }
 
     const setSettingsOpen = (open) => {
       if (!settingsDrawer) return;

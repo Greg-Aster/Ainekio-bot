@@ -148,6 +148,7 @@
         </button>
         <progress id="cockpit-mic-level" class="cockpit-mic-meter" max="100" value="0" aria-label="Cockpit microphone input level"></progress>
       </div>
+      <button id="cockpit-stream-toggle" type="button" class="cockpit-hud-btn is-active" aria-expanded="true" aria-controls="cockpit-stream-panel" title="Toggle MetaHuman message stream">Stream</button>
       <button id="cockpit-settings-toggle" type="button" class="cockpit-hud-btn cockpit-settings-button" aria-expanded="false" aria-controls="cockpit-settings-drawer">&#x2699; Settings</button>
       <button id="cockpit-stop-button" type="button" class="stop-button cockpit-stop-btn">
         <span class="stop-symbol" aria-hidden="true"></span>
@@ -158,6 +159,23 @@
 
   <div class="cockpit-hud-center">
     <p id="cockpit-talk-status" class="cockpit-voice-banner" role="status" hidden>Listening — speak now, then tap Done to send to MetaHuman.</p>
+
+    <aside id="cockpit-stream-panel" class="cockpit-stream-panel" aria-label="MetaHuman message stream">
+      <div class="cockpit-stream-header">
+        <div class="cockpit-stream-title-group">
+          <span id="cockpit-stream-dot" class="cockpit-stream-dot" aria-hidden="true"></span>
+          <strong>MetaHuman</strong>
+          <span id="cockpit-stream-state" class="cockpit-stream-state">Offline</span>
+        </div>
+        <div class="cockpit-stream-actions">
+          <button id="cockpit-stream-clear" type="button" class="cockpit-stream-btn" title="Clear visible messages">Clear</button>
+          <button id="cockpit-stream-hide" type="button" class="cockpit-stream-btn" title="Hide message stream">&#x2715;</button>
+        </div>
+      </div>
+      <div id="cockpit-stream-messages" class="cockpit-stream-messages" role="log" aria-live="polite" aria-relevant="additions text">
+        <p id="cockpit-stream-empty" class="cockpit-stream-empty">Workflow replies from MetaHuman OS appear here when Environment Bridge is active.</p>
+      </div>
+    </aside>
 
     <div id="cockpit-settings-drawer" class="cockpit-modal-card cockpit-settings-drawer" role="dialog" aria-label="Cockpit Quick Settings" hidden>
       <div class="cockpit-settings-header">
@@ -192,7 +210,7 @@
         <label class="cockpit-setting-row">
           <div>
             <strong>Living presence (System 3)</strong>
-            <span id="cockpit-presence-state" class="muted">Idle compliance, gaze, talking &amp; boredom</span>
+            <span id="cockpit-presence-state" class="muted">Conversational body motion &amp; idle rest</span>
           </div>
           <input id="cockpit-presence-toggle" type="checkbox" role="switch">
         </label>
@@ -588,16 +606,15 @@
     </div>
   </div>
   <div>
-    <p class="muted">Runs a compact 20 Hz closed-loop neural policy when the robot is between Walking (System 1) and Freestyle/Emotes (System 2). Any manual, voice, Walking, Freestyle, or Stop command preempts System 3 immediately. Relaxes stalled or chattering servos onto ground equilibrium, tracks people via YOLOE, moves expressively while listening and speaking, shifts restlessly when bored, self-rights when tipped, and enters a calm passive state when picked up or wedged in an unrecoverable tip.</p>
+    <p class="muted">Runs a compact 20 Hz closed-loop neural policy while the robot is speaking, staying quiet during microphone listening (so servo noise never holds VAD open) and completely dormant in standby when idle. Any manual, voice, Walking, Freestyle, or Stop command preempts System 3 immediately. Optionally lays down and releases servos after quiet inactivity, self-rights when tipped, and enters a calm passive state when picked up or wedged in an unrecoverable tip.</p>
     <form id="presence-form">
       <label class="switch-row"><span>Living presence on</span><input type="checkbox" name="enabled"></label>
       <label class="switch-row"><span>Auto self-right &amp; send gyro to System 3</span><input type="checkbox" name="self_right_enabled"></label>
       <p class="field-help">Off stops sending IMU gyro/tilt data to System 3 and disables automatic self-righting and pickup passive transitions.</p>
-      <label class="switch-row"><span>Servo chatter &amp; stall load compliance</span><input type="checkbox" name="chatter_relief_enabled"></label>
-      <label class="switch-row"><span>Visual gaze, listening &amp; talking body motion</span><input type="checkbox" name="social_gaze_enabled"></label>
-      <label class="switch-row"><span>Automatic background face expressions</span><input type="checkbox" name="expressions_enabled"></label>
+      <label class="switch-row"><span>Servo chatter &amp; stall load compliance (during speech)</span><input type="checkbox" name="chatter_relief_enabled"></label>
+      <label class="switch-row"><span>Expressive speaking body motion &amp; speaker gaze</span><input type="checkbox" name="social_gaze_enabled"></label>
+      <label class="switch-row"><span>Automatic conversational &amp; rest face expressions</span><input type="checkbox" name="expressions_enabled"></label>
       <label class="switch-row"><span>Keep servos awake while YOLOE sees a person</span><input type="checkbox" name="presence_defers_release"></label>
-      <label>Restless boredom starts after idle (seconds; 0 = off)<input type="number" name="boredom_interval_s" min="0" max="86400" step="1" required></label>
       <label>Lay down &amp; release servos after quiet inactivity (seconds; 0 = off)<input type="number" name="servo_release_s" min="0" max="86400" step="1" required></label>
       <label>When picked up or stuck in an unrecoverable tip
         <select name="passive_mode">

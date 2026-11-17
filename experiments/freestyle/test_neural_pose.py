@@ -28,6 +28,7 @@ from experiments.freestyle.neural_pose.contract import (
     PoseObservationHistory,
     assemble_pose_features,
     pose_foot_offsets,
+    pose_mirror_tables,
     projected_gravity_from_wxyz,
 )
 from experiments.freestyle.neural_pose.executor import NeuralPoseRuntime, resolve_active_policy_path
@@ -125,6 +126,27 @@ class NeuralPoseContractAndGoalsTests(unittest.TestCase):
         vec1 = hist.push_and_project(1.02, row2)
         self.assertEqual(vec1[:POSE_FEATURES], row2)
         self.assertEqual(vec1[POSE_FEATURES : 2 * POSE_FEATURES], row)
+
+    def test_pose_mirror_tables_match_four_bar_sagittal_reflection(self):
+        obs_p, obs_s, act_p, act_s = pose_mirror_tables()
+        self.assertEqual(len(obs_p), POSE_OBS_SIZE)
+        self.assertEqual(len(obs_s), POSE_OBS_SIZE)
+        self.assertEqual(len(act_p), 12)
+        self.assertEqual(len(act_s), 12)
+        # Involution: mirroring twice returns the exact original observation and action
+        rng = np.random.default_rng(17)
+        x = rng.standard_normal(POSE_OBS_SIZE)
+        x_m = x[obs_p] * np.asarray(obs_s)
+        np.testing.assert_allclose(x_m[obs_p] * np.asarray(obs_s), x, atol=1e-7)
+
+        # Asymmetric 4-leg pose mirrors RL<->RR and FL<->FR with dy negated in foot_norm
+        asym_deg = [12.0, 20.0, -10.0, -5.0, -8.0, -25.0, 18.0, 50.0, 30.0, -7.0, 10.0, -15.0]
+        q_a, f_a = self.manifold.project_angles_deg(asym_deg)
+        mir_deg = q_a[3:6] + q_a[0:3] + q_a[9:12] + q_a[6:9]
+        _, f_b = self.manifold.project_angles_deg(mir_deg)
+        f_a_mir = (np.asarray(f_a)[act_p] * np.asarray(act_s)).tolist()
+        for a, b in zip(f_b, f_a_mir):
+            self.assertAlmostEqual(a, b, places=4)
 
     def test_goals_compile_from_folded_faulted_posture_without_blocking(self):
         obs = _mock_folded_faulted_observation()
@@ -748,7 +770,299 @@ class BridgeNeuralPoseLifecycleTests(unittest.IsolatedAsyncioTestCase):
                 abs(gw.obs["joints"][j]["filtered_model_deg"] - stand_proj[i])
                 for i, j in enumerate(JOINTS)
             ]
-            self.assertLessEqual(max(final_errs), 6.0, "Stand must not exit prematurely while asymmetric error > 6 deg")
+            self.assertLessEqual(max(final_errs), 5.0, "Stand must not exit prematurely while asymmetric error > 5 deg")
+        finally:
+            await bridge.close()
+
+    async def test_stand_pose_after_stretch_waits_for_command_and_shoulder_convergence_before_stop(self):
+        gw = _MockGateway()
+        runtime = _DummyRuntime()
+        manifold = runtime._m
+        stand_proj, stand_foot = manifold.project_angles_deg(STAND_ANGLES_DEG)
+        skewed_cmd = [7.65, -1.35, -21.11, -1.89, 3.42, -22.19, 0.90, 1.35, -21.20, -3.78, 6.75, -19.40]
+        _, skewed_foot = manifold.project_angles_deg(skewed_cmd)
+        stretched_start = [4.57, -12.17, -21.09, -9.33, -7.35, -20.28, -5.06, 93.55, 56.34, 2.38, 96.97, 56.19]
+
+        class _TransientShoulderSkewActor(_DummyActor):
+            def __init__(self):
+                self.calls = 0
+
+            def infer_feet_mm(self, obs_vec):
+                assert len(obs_vec) == POSE_OBS_SIZE
+                self.calls += 1
+                # Reproduce 18:31 telemetry: policy holds +7.65 deg RL_shoulder command through 0.56 s (28 ticks)
+                # before converging cleanly to stand_foot.
+                act = list(skewed_foot if self.calls <= 28 else stand_foot)
+                return act, pose_foot_offsets(act, self.foot_scale_mm)
+
+        runtime._a = _TransientShoulderSkewActor()
+        for i, j in enumerate(JOINTS):
+            gw.obs["joints"][j] = {
+                "home_deg": STAND_ANGLES_DEG[i],
+                "model_deg": stretched_start[i],
+                "filtered_model_deg": stretched_start[i],
+                "commanded_model_deg": stretched_start[i],
+                "velocity_deg_s": 0.0,
+                "feedback_usable": True,
+            }
+        gw.obs["imu"]["angular_rate_rad_s"] = [0.01, -0.01, 0.01]
+        gw.clock = lambda: gw._t
+        orig_send = gw.conn.send_command
+        phys_deg = list(stretched_start)
+
+        async def sim_send_command(command: dict, *, received_at: float, on_sequence=None, **kwargs) -> int:
+            seq = await orig_send(command, received_at=received_at, on_sequence=on_sequence, **kwargs)
+            if command.get("t") == "walk_target":
+                gw._t += 0.020
+                gw.obs["feedback"]["device_us"] += 20_000
+                sent_norm = (
+                    torch.tensor(command["feet_mm"], dtype=torch.float64).reshape(1, 12)
+                    / manifold.body.scale.repeat(4)
+                )
+                cmd_deg = (manifold.body.decode(sent_norm)[0] * 180.0 / math.pi).tolist()
+                for idx_j, name_j in enumerate(JOINTS):
+                    prev_v = phys_deg[idx_j]
+                    step = max(-8.0, min(8.0, cmd_deg[idx_j] - prev_v))
+                    new_v = prev_v + step
+                    phys_deg[idx_j] = new_v
+                    gw.obs["joints"][name_j]["filtered_model_deg"] = new_v
+                    gw.obs["joints"][name_j]["model_deg"] = new_v
+                    gw.obs["joints"][name_j]["commanded_model_deg"] = cmd_deg[idx_j]
+                    gw.obs["joints"][name_j]["velocity_deg_s"] = (new_v - prev_v) / 0.020
+            return seq
+
+        gw.conn.send_command = sim_send_command
+        gw.body_sensor_observation = lambda robot_id: gw.obs
+
+        async def fake_gen(endpoint, req, **kw):
+            return {
+                "program": [
+                    {
+                        "name": "pose",
+                        "arguments": {
+                            "joints": list(JOINTS),
+                            "reference": "absolute",
+                            "angles_deg": list(STAND_ANGLES_DEG),
+                            "speed_pct": 50,
+                        },
+                    },
+                    {"name": "face", "arguments": {"expr": "stand"}},
+                ]
+            }
+
+        bridge = Bridge(gw, _MockTransport(), generate=fake_gen, neural_pose_runtime=runtime)
+        try:
+            sub = await bridge.submit(gw.conn.robot_id, "return to stand pose", execute=True)
+            res = await bridge.result(sub["job_id"])
+            self.assertEqual(res["state"], "completed")
+            # Must NOT freeze via `stop` while RL_shoulder command is still +7.65 deg at 0.52 s
+            self.assertGreater(runtime._a.calls, 30)
+            self.assertLessEqual(abs(gw.obs["joints"]["rear_left_shoulder"]["commanded_model_deg"]), 3.5)
+            self.assertLessEqual(abs(gw.obs["joints"]["rear_left_shoulder"]["filtered_model_deg"]), 3.5)
+            final_errs = [abs(phys_deg[i] - stand_proj[i]) for i in range(12)]
+            self.assertLessEqual(max(final_errs), 5.0)
+        finally:
+            await bridge.close()
+
+    async def test_blocked_joint_recoils_in_280ms_finishes_sequence_and_returns_to_ready_without_llm_retry(self):
+        gw = _MockGateway()
+        runtime = _DummyRuntime()
+        manifold = runtime._m
+        stand_proj, _ = manifold.project_angles_deg(STAND_ANGLES_DEG)
+
+        class _GoalTrackingActor(_DummyActor):
+            def infer_feet_mm(self, obs_vec):
+                assert len(obs_vec) == POSE_OBS_SIZE
+                act = list(obs_vec[57:69])
+                return act, pose_foot_offsets(act, self.foot_scale_mm)
+
+        runtime._a = _GoalTrackingActor()
+
+        # Seed standing posture with usable 4th-wire feedback on all 12 joints
+        phys_deg = list(stand_proj)
+        for i, j in enumerate(JOINTS):
+            gw.obs["joints"][j] = {
+                "home_deg": STAND_ANGLES_DEG[i],
+                "model_deg": phys_deg[i],
+                "filtered_model_deg": phys_deg[i],
+                "commanded_model_deg": phys_deg[i],
+                "velocity_deg_s": 0.0,
+                "feedback_usable": True,
+            }
+        gw.obs["imu"]["angular_rate_rad_s"] = [0.01, -0.01, 0.01]
+
+        # Pace clock strictly at 20 ms per 50 Hz host sample and simulate servo tracking + obstacles:
+        # - front_right_carrier (idx 10) physically blocked at <= 15.0 deg (jams mid-program segment 0)
+        # - front_left_carrier (idx 7) physically blocked at <= 12.0 deg (jams final segment 2)
+        obstacles_max_deg = {10: 15.0, 7: 12.0}
+        fr_carrier_trace: list[float] = []
+        fl_carrier_trace: list[float] = []
+        rl_shoulder_trace: list[float] = []
+
+        gw.clock = lambda: gw._t
+        orig_send = gw.conn.send_command
+
+        async def sim_send_command(command: dict, *, received_at: float, on_sequence=None, **kwargs) -> int:
+            seq = await orig_send(command, received_at=received_at, on_sequence=on_sequence, **kwargs)
+            if command.get("t") == "walk_target":
+                gw._t += 0.020
+                gw.obs["feedback"]["device_us"] += 20_000
+                sent_norm = (
+                    torch.tensor(command["feet_mm"], dtype=torch.float64).reshape(1, 12)
+                    / manifold.body.scale.repeat(4)
+                )
+                cmd_deg = (manifold.body.decode(sent_norm)[0] * 180.0 / math.pi).tolist()
+                for idx_j, name_j in enumerate(JOINTS):
+                    prev_v = phys_deg[idx_j]
+                    desired_v = cmd_deg[idx_j]
+                    if idx_j in obstacles_max_deg:
+                        desired_v = min(desired_v, obstacles_max_deg[idx_j])
+                    # Servo slews toward desired_v up to 8 deg/tick
+                    step = max(-8.0, min(8.0, desired_v - prev_v))
+                    new_v = prev_v + step
+                    phys_deg[idx_j] = new_v
+                    gw.obs["joints"][name_j]["filtered_model_deg"] = new_v
+                    gw.obs["joints"][name_j]["model_deg"] = new_v
+                    gw.obs["joints"][name_j]["commanded_model_deg"] = cmd_deg[idx_j]
+                    gw.obs["joints"][name_j]["velocity_deg_s"] = (new_v - prev_v) / 0.020
+                fr_carrier_trace.append(phys_deg[10])
+                fl_carrier_trace.append(phys_deg[7])
+                rl_shoulder_trace.append(phys_deg[0])
+            return seq
+
+        gw.conn.send_command = sim_send_command
+        gw.body_sensor_observation = lambda robot_id: gw.obs
+
+        gen_calls: list[dict] = []
+
+        async def fake_gen(endpoint, req, **kw):
+            gen_calls.append(req)
+            return {
+                "program": [
+                    {
+                        "name": "move",
+                        "arguments": {
+                            "joint": "front_right_carrier",
+                            "reference": "absolute",
+                            "angle_deg": 35.0,
+                            "speed_pct": 60,
+                        },
+                    },
+                    {
+                        "name": "move",
+                        "arguments": {
+                            "joint": "rear_left_shoulder",
+                            "reference": "absolute",
+                            "angle_deg": 12.0,
+                            "speed_pct": 75,
+                        },
+                    },
+                    {
+                        "name": "pose",
+                        "arguments": {
+                            "joints": ["rear_left_shoulder", "front_left_carrier"],
+                            "reference": "absolute",
+                            "angles_deg": [0.0, 32.0],
+                            "speed_pct": 60,
+                        },
+                    },
+                ]
+            }
+
+        class _ListRecorder:
+            def __init__(self):
+                self.events = []
+
+            def status(self):
+                return {"enabled": True}
+
+            def record(self, kind, payload, **meta):
+                self.events.append((kind, payload))
+
+        rec = _ListRecorder()
+        bridge = Bridge(gw, _MockTransport(), generate=fake_gen, recorder=rec, neural_pose_runtime=runtime)
+        try:
+            await bridge.configure(gw.conn.robot_id, "http://127.0.0.1:8794", True)
+            sub = await bridge.submit(gw.conn.robot_id, "lift right paw, sway, lift left paw", execute=True)
+            # Even if P4 emits a non-releasing servo_stall notice, Bridge must NOT invoke LLM recovery
+            await bridge.event(
+                {
+                    "robot_id": gw.conn.robot_id,
+                    "epoch": 1,
+                    "name": "body_event",
+                    "data": {"kind": "servo_stall", "outputs_released": False, "joints": [{"id": 10}]},
+                }
+            )
+            res = await bridge.result(sub["job_id"])
+            self.assertEqual(res["state"], "completed")
+            self.assertEqual(len(gen_calls), 1, "Must never call freestyle-0.8b LLM for stall recovery")
+
+            recoils = [payload for kind, payload in rec.events if kind == "joint_recoil"]
+            self.assertEqual(len(recoils), 2, "Both mid-program and final-pose stalls must trigger compliant recoil")
+            self.assertAlmostEqual(recoils[0]["joints"]["front_right_carrier"], 13.0, places=2)
+            self.assertAlmostEqual(recoils[1]["joints"]["front_left_carrier"], 10.0, places=2)
+
+            # Verify mid-program recoil backed off from 15.0 -> ~13.0 deg within ~0.28s (14 stalled ticks)
+            first_hit_15 = next(i for i, v in enumerate(fr_carrier_trace) if abs(v - 15.0) < 0.05)
+            backed_off_idx = next(
+                i for i in range(first_hit_15 + 1, len(fr_carrier_trace)) if fr_carrier_trace[i] <= 13.5
+            )
+            stalled_window_ticks = backed_off_idx - first_hit_15
+            self.assertGreaterEqual(stalled_window_ticks, 14)
+            self.assertLessEqual(stalled_window_ticks, 17)
+
+            # Verify middle unblocked segment (rear_left_shoulder -> 12 deg) still executed cleanly
+            self.assertGreater(max(rl_shoulder_trace), 10.5)
+
+            # Verify final-pose stall triggered smooth 0.85s return-to-Ready (STAND_ANGLES_DEG) before estop hold
+            ready_events = [kind for kind, _ in rec.events if kind in ("return_to_ready_started", "return_to_ready_completed")]
+            self.assertEqual(ready_events, ["return_to_ready_started", "return_to_ready_completed"])
+            for i in range(12):
+                self.assertAlmostEqual(phys_deg[i], stand_proj[i], delta=3.5)
+            stops = [c for c in gw.conn.sent if c.get("t") == "stop"]
+            self.assertEqual(len(stops), 1)
+            self.assertNotIn("detach", stops[0])
+        finally:
+            await bridge.close()
+
+    async def test_released_servo_stall_aborts_active_neural_pose_job_with_failed_error(self):
+        gw = _MockGateway()
+        runtime = _DummyRuntime()
+        entered = asyncio.Event()
+        orig_obs = gw.body_sensor_observation
+
+        def slow_obs(robot_id: str) -> dict:
+            obs = orig_obs(robot_id)
+            if gw.conn.latest_sample >= 2:
+                entered.set()
+            return obs
+
+        gw.body_sensor_observation = slow_obs
+
+        async def fake_gen(endpoint, req, **kw):
+            return {"program": [{"name": "hold", "arguments": {"seconds": 5.0}}]}
+
+        bridge = Bridge(gw, _MockTransport(), generate=fake_gen, neural_pose_runtime=runtime)
+        try:
+            sub = await bridge.submit(gw.conn.robot_id, "long hold", execute=True)
+            await asyncio.wait_for(entered.wait(), timeout=2.0)
+            await bridge.event(
+                {
+                    "robot_id": gw.conn.robot_id,
+                    "epoch": 1,
+                    "name": "body_event",
+                    "data": {
+                        "kind": "servo_stall",
+                        "outputs_released": True,
+                        "command_sequence": gw.conn.body_command_sequence,
+                        "joints": [{"id": 10, "name": "front_right_carrier"}],
+                    },
+                }
+            )
+            res = await bridge.result(sub["job_id"])
+            self.assertEqual(res["state"], "error")
+            self.assertIn("servo_stall", res["error"])
+            self.assertTrue(res["error_evidence"]["outputs_released"])
         finally:
             await bridge.close()
 

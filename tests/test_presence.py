@@ -358,32 +358,50 @@ class PresenceSystemTests(unittest.IsolatedAsyncioTestCase):
             await gw.emit_external_command({"t": "stop", "detach": False, "robot_id": "p4", "seq": 10})
             self.assertEqual(ctrl.robot_status("p4")["mode"], "yielded")
 
-            # 2. After 1.0s settle, `vad_open` + `wake_word` immediately triggers active listening body motion!
+            # 2. After 1.0s settle, `vad_open` keeps servos completely quiet (no `walk_target` stream)
+            #    so mechanical servo noise never holds P4's microphone VAD gate open!
             gw.now = 101.2
             await gw.emit_event({"t": "event", "robot_id": "p4", "name": "vad_open"})
+            await gw.emit_event({"t": "imu", "robot_id": "p4"})
             await asyncio.sleep(0.08)
             st_listen = ctrl.robot_status("p4")
-            self.assertEqual(st_listen["mode"], "active")
-            self.assertEqual(st_listen["active_expression"], "listening")
+            self.assertEqual(st_listen["mode"], "standby")
+            self.assertIsNone(st_listen["streaming_walk_seq"])
             conn = gw._connections["p4"]
-            walk_targets = [c for c in conn.sent_commands if c.get("t") == "walk_target"]
-            self.assertGreaterEqual(len(walk_targets), 1)
+            self.assertEqual([c for c in conn.sent_commands if c.get("t") == "walk_target"], [])
 
-            # 3. `vad_close` + `thinking` face keeps contemplative motion alive, then `talk_happy` animates speech!
-            gw.now = 103.0
-            await gw.emit_event({"t": "event", "robot_id": "p4", "name": "vad_close"})
-            await gw.emit_external_command({"t": "intent", "name": "face", "expr": "thinking", "robot_id": "p4", "seq": 11})
-            await asyncio.sleep(0.08)
-            self.assertEqual(ctrl.robot_status("p4")["mode"], "active")
-
-            gw.now = 104.5
+            # 3. Live TTS speech immediately wakes conversational presence with foreground `talk_happy`!
+            gw.now = 103.5
             gw.speaking = (True, 0.72)
             await gw.emit_event({"t": "imu", "robot_id": "p4"})
             await asyncio.sleep(0.08)
             self.assertEqual(ctrl.robot_status("p4")["mode"], "active")
             self.assertEqual(ctrl.robot_status("p4")["active_expression"], "talk_happy")
+            walk_targets = [c for c in conn.sent_commands if c.get("t") == "walk_target"]
+            self.assertGreaterEqual(len(walk_targets), 1)
+            talk_faces = [
+                c for c in gw.issued
+                if c.get("name") == "face" and (c.get("params") or {}).get("expr") == "talk_happy"
+            ]
+            self.assertTrue(talk_faces and talk_faces[-1]["params"].get("background") is False)
 
-            # 4. Deliberate servo Detach (`detach=True`) latches System 3 into `"stopped"`
+            # 4. If `vad_open` opens right after speech stops, any active `walk_target` stream closes immediately
+            #    and releases its foreground face token so the microphone hears cleanly!
+            gw.now = 104.0
+            gw.speaking = (False, 0.0)
+            await gw.emit_event({"t": "event", "robot_id": "p4", "name": "vad_open"})
+            await asyncio.sleep(0.08)
+            self.assertEqual(ctrl.robot_status("p4")["mode"], "standby")
+            self.assertIsNone(ctrl.robot_status("p4")["streaming_walk_seq"])
+            self.assertTrue(
+                any(
+                    c.get("name") == "face" and (c.get("params") or {}).get("release") is True
+                    for c in gw.issued
+                ),
+                "Closing conversational walk stream on VAD open must release its foreground face token",
+            )
+
+            # 5. Deliberate servo Detach (`detach=True`) latches System 3 into `"stopped"`
             await gw.emit_external_command({"t": "stop", "detach": True, "robot_id": "p4", "seq": 12})
             self.assertEqual(ctrl.robot_status("p4")["mode"], "stopped")
         finally:
@@ -457,7 +475,8 @@ class PresenceSystemTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len([c for c in gw.issued if c.get("name") == "stand"]), stands_after_passive + 1)
             conn.last_status["output_armed"] = True
 
-            # 5. Grounded on the floor: nose-up leg extension produces matching negative IMU pitch -> stays active, NEVER cycles!
+            # 5. Grounded on the floor during speech: nose-up leg extension produces matching negative IMU pitch -> stays active, NEVER cycles!
+            gw.speaking = (True, 0.65)
             for step in range(14):
                 gw.now = 125.6 + step * 0.06
                 pz_mm = 14.0 * math.sin(step * 0.25)
@@ -695,6 +714,167 @@ class PresenceSystemTests(unittest.IsolatedAsyncioTestCase):
             await gw.emit_event({"t": "imu", "robot_id": "p4"})
             await asyncio.sleep(0.04)
             self.assertTrue(st.anchor_is_standing, "Asymmetric twisted posture must re-anchor to symmetric stand")
+        finally:
+            await ctrl.close()
+
+    async def test_idle_robot_stays_completely_dormant_under_static_load_mic_noise_and_person_movement(self):
+        person_box = {"x": 0.25, "t": 100.0}
+
+        def fake_camera(_rid: str):
+            return SimpleNamespace(
+                received_at=person_box["t"],
+                recognition=SimpleNamespace(
+                    objects=[
+                        {
+                            "label": "person",
+                            "confidence": 0.94,
+                            "x": person_box["x"],
+                            "y": 0.2,
+                            "width": 0.35,
+                            "height": 0.5,
+                            "identity": {"state": "face_match", "personId": "owner-greg"},
+                        }
+                    ]
+                ),
+            )
+
+        gw = FakePresenceGateway()
+        conn = gw._connections["p4"]
+        # Reproduce physical P4 standing gravity sag (~8.2 deg static error) and ambient room mic RMS
+        gw.measured_deg = [
+            STAND_ANGLES_DEG[0] - 6.2,
+            STAND_ANGLES_DEG[1] + 8.2,
+            STAND_ANGLES_DEG[2] + 3.5,
+            *STAND_ANGLES_DEG[3:],
+        ]
+        conn.microphone_level = 0.09  # ambient noise while utterance_open is False
+        ctrl = PresenceController(gw, camera_analysis_fn=fake_camera)
+        try:
+            ctrl.configure(
+                "p4",
+                {
+                    **validate_presence_settings(None),
+                    "self_right_enabled": False,
+                    "servo_release_s": 180.0,
+                    "presence_defers_release": True,
+                },
+            )
+            for step in range(40):
+                gw.now = 101.0 + step * 2.5  # 100 seconds of idle standing with person moving in frame
+                person_box["t"] = gw.now
+                person_box["x"] = 0.25 + 0.12 * math.sin(step * 0.6)
+                await gw.emit_event({"t": "imu", "robot_id": "p4"})
+                await asyncio.sleep(0.005)
+                self.assertEqual(ctrl.robot_status("p4")["mode"], "standby")
+
+            self.assertEqual([c for c in conn.sent_commands if c.get("t") == "walk_target"], [])
+            self.assertEqual([c for c in gw.issued if c.get("name") in ("walk", "face")], [])
+        finally:
+            await ctrl.close()
+
+    async def test_boot_reconnect_resets_release_timer_yields_to_wake_stretch_and_rest_angles_fit_pwm_limits(self):
+        import numpy as np
+        from gateway.presence import CALM_PASSIVE_DEG, REST_ANGLES_DEG
+
+        # 1. Verify REST_ANGLES_DEG and CALM_PASSIVE_DEG satisfy exact linkage closure and P4 PWM bounds
+        manifold = _get_shared_manifold(None)
+        cal_specs = [
+            (0, "rear_left_shoulder", 1760, False, 0),
+            (1, "rear_left_carrier", 2750, True, -3087),
+            (2, "rear_left_crank", 2870, True, -11768),
+            (3, "rear_right_shoulder", 1650, True, 0),
+            (4, "rear_right_carrier", 415, False, -3087),
+            (5, "rear_right_crank", 440, False, -11768),
+            (6, "front_left_shoulder", 1650, True, 0),
+            (7, "front_left_carrier", 2740, True, -3087),
+            (8, "front_left_crank", 2750, True, -11768),
+            (9, "front_right_shoulder", 1700, False, 0),
+            (10, "front_right_carrier", 560, False, -3087),
+            (11, "front_right_crank", 575, False, -11768),
+        ]
+        cal_joints = [
+            {
+                "id": idx,
+                "joint": name,
+                "home_us": home_us,
+                "pulse_us": home_us,
+                "us_per_degree": 10.0,
+                "invert": inv,
+                "home_cd": home_cd,
+            }
+            for idx, name, home_us, inv, home_cd in cal_specs
+        ]
+        live_body = manifold.body_for_calibration(cal_joints)
+        low_deg = np.rad2deg(live_body.low.detach().cpu().numpy()).reshape(12)
+        high_deg = np.rad2deg(live_body.high.detach().cpu().numpy()).reshape(12)
+        for pose_name, pose_deg in (("REST_ANGLES_DEG", REST_ANGLES_DEG), ("CALM_PASSIVE_DEG", CALM_PASSIVE_DEG)):
+            arr = np.asarray(pose_deg, dtype=np.float64)
+            proj, _ = manifold.project_angles_deg(pose_deg, body=live_body)
+            self.assertLessEqual(
+                float(np.max(np.abs(np.asarray(proj) - arr))),
+                1e-3,
+                f"{pose_name} must satisfy exact V2 four-bar linkage closure",
+            )
+            self.assertGreaterEqual(
+                float(np.min(arr - low_deg)),
+                18.0,
+                f"{pose_name} must stay >= 18 deg above low PWM/calibration limit",
+            )
+            self.assertGreaterEqual(
+                float(np.min(high_deg - arr)),
+                18.0,
+                f"{pose_name} must stay >= 18 deg below high PWM/calibration limit",
+            )
+
+        # 2. Gateway runs for 32 minutes (1920s > servo_release_s=180s) BEFORE robot powers on and connects
+        freestyle_busy = {"active": False}
+        gw = FakePresenceGateway()
+        conn = gw._connections["p4"]
+        conn.last_calibration = {"joints": cal_joints}
+        conn.last_status["output_ready"] = True
+        conn.last_status["output_armed"] = False
+        ctrl = PresenceController(gw, freestyle_active_fn=lambda _rid: freestyle_busy["active"])
+        ctrl.runtime.load()
+        try:
+            ctrl.configure("p4", {**validate_presence_settings(None), "servo_release_s": 180.0})
+            # Simulate robot offline at gateway start, then booting 32 minutes later
+            await gw.emit_event({"t": "connection", "status": "disconnected", "robot_id": "p4"})
+            gw.now = 2020.0  # +1920s elapsed
+            await gw.emit_event({"t": "connection", "status": "connected", "robot_id": "p4", "epoch": 1})
+            self.assertEqual(ctrl.robot_status("p4")["release_idle_seconds"], 0.0)
+
+            # Boot `wake` event arrives before EnvironmentAdapter finishes submitting Freestyle stretch
+            await gw.emit_event({
+                "t": "event",
+                "name": "body_event",
+                "robot_id": "p4",
+                "epoch": 1,
+                "data": {"kind": "wake", "reason": "boot"},
+            })
+            await gw.emit_event({"t": "imu", "robot_id": "p4"})
+            await asyncio.sleep(0.06)
+
+            # System 3 MUST NOT issue resting_release (`motion_plan` / `stop`) or a competing `stand`!
+            self.assertEqual(gw.issued, [], "System 3 must yield cleanly to the boot wake/Freestyle stretch sequence")
+            self.assertEqual(ctrl.robot_status("p4")["mode"], "yielded")
+
+            # Freestyle claims and executes "Perform a whole-body stretch." over 6 seconds
+            freestyle_busy["active"] = True
+            for dt in (0.5, 2.0, 4.0, 6.0):
+                gw.now = 2020.0 + dt
+                await gw.emit_event({"t": "imu", "robot_id": "p4"})
+                await asyncio.sleep(0.01)
+                self.assertEqual(gw.issued, [], "System 3 must not preempt active Freestyle boot stretch")
+                self.assertEqual(ctrl.robot_status("p4")["mode"], "yielded")
+
+            # Freestyle stretch finishes with robot standing and armed -> System 3 settles into standby without fault
+            freestyle_busy["active"] = False
+            conn.last_status["output_armed"] = True
+            gw.now = 2027.0
+            await gw.emit_event({"t": "imu", "robot_id": "p4"})
+            await asyncio.sleep(0.04)
+            self.assertEqual(ctrl.robot_status("p4")["mode"], "standby")
+            self.assertEqual(gw.issued, [])
         finally:
             await ctrl.close()
 

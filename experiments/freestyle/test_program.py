@@ -304,7 +304,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.bridge.jobs[job['job_id']]['state'],'generated')
         self.assertIn('model_deg',self.generated[0]['observation']['joints'][JOINTS[0]])
 
-    async def test_adjusted_unverified_target_is_not_reported_as_completed(self):
+    async def test_adjusted_unverified_target_finishes_sequence_without_llm_retry(self):
         async def receipt(seq, **kwargs):
             return {'t':'done','seq':seq,'position_verified':False,'target_adjusted_joints':48}
         self.gateway.wait_terminal=receipt
@@ -313,9 +313,9 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         submitted=await self.bridge.submit('robot','complete both targets',True)
         await self.bridge.tasks[submitted['job_id']]
         result=await self.bridge.result(submitted['job_id'])
-        self.assertEqual(result['state'],'error')
-        self.assertIn('did not verify',result['error'])
-        self.assertEqual(len(self.gateway.sent),1)
+        self.assertEqual(result['state'],'completed')
+        self.assertEqual(len(self.gateway.sent),2)
+        self.assertEqual([r['position_verified'] for r in result['receipts']],[False,False])
         self.assertEqual(len(self.generated),0)
 
     async def test_stop_and_release_acknowledgements_complete_the_selected_program(self):
@@ -619,11 +619,11 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(job['history'][3]['receipts'],[])
         self.assertEqual(job['history'][5]['receipts'],[{'t':'done','seq':2,'position_verified':True}])
 
-    async def test_stall_after_completed_gesture_initiates_one_fresh_recovery_call(self):
+    async def test_stall_after_completed_gesture_never_hijacks_completed_hold(self):
         calls=[]
         def generate(endpoint, request):
             calls.append(copy.deepcopy(request))
-            return {'program':[move(JOINTS[0],5 if request['event'] else 20,'current',50)]}
+            return {'program':[move(JOINTS[0],20,'current',50)]}
         async def feedback(*args):
             angle=18 if self.gateway.sent else 10
             return {'joints':[{'id':i,'model_deg':angle,'command_us':1500,'calibrated':True} for i in range(12)]}
@@ -637,17 +637,10 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(completed.get('current_action'))
         self.assertEqual(completed['completed_action'],move(JOINTS[0],20,'current',50))
         await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
-                                'data':{'kind':'servo_stall','joints':[{'id':0}]}})
-        await asyncio.gather(*self.bridge.tasks.values())
-        self.assertEqual(len(calls),2)
-        self.assertEqual(calls[-1]['event']['type'],'servo_stall')
-        context=calls[-1]['history'][0]
-        self.assertEqual(context['program_state'],'completed')
-        self.assertEqual(context['completed_action'],move(JOINTS[0],20,'current',50))
-        self.assertEqual(context['remaining_program'],[])
-        self.assertNotIn('interrupted_action',context)
-        self.assertEqual(self.gateway.sent[-1][-1][1][0],2300)
-        self.assertTrue(all(job['state']=='completed' for job in self.bridge.jobs.values()))
+                                'data':{'kind':'servo_stall','outputs_released':False,'joints':[{'id':0}]}})
+        self.assertEqual(len(calls),1)
+        self.assertEqual(len(self.bridge.jobs),1)
+        self.assertEqual(completed['state'],'completed')
 
     async def test_recovery_preserves_an_unfinished_action_and_its_remaining_plan(self):
         first=move(JOINTS[0],20,'current',50)
@@ -681,61 +674,29 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             release.set()
             await self.bridge.tasks[submitted['job_id']]
 
-    async def test_failed_target_recovery_keeps_rejection_completed_action_and_remaining_goal(self):
+    async def test_unverified_target_completes_remaining_program_without_recursive_submit(self):
         first=move(JOINTS[0],5,'current',50)
-        failed=move(JOINTS[1],10,'current',50)
+        adjusted=move(JOINTS[1],10,'current',50)
         pending=move(JOINTS[2],-5,'current',50)
         calls=[]
         def generate(endpoint,request):
             calls.append(copy.deepcopy(request))
-            return {'program':[first,failed,pending]}
+            return {'program':[first,adjusted,pending]}
         self.bridge.generate=generate
-        rejection={'t':'done','seq':2,'position_verified':False,'target_adjusted_joints':2}
+        unverified={'t':'done','seq':2,'position_verified':False,'target_adjusted_joints':2}
         async def terminal(seq,**kwargs):
-            return copy.deepcopy(rejection) if seq==2 else {'t':'done','seq':seq,'position_verified':True}
-        self.gateway.wait_terminal=terminal
-        submitted=await self.bridge.submit('robot','move all three joints',True)
-        await self.bridge.tasks[submitted['job_id']]
-        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'error')
-        preview=await self.bridge.submit('robot','move all three joints',False,
-            {'name':'body_event','data':{'kind':'servo_feedback_fault'}})
-        await self.bridge.tasks[preview['job_id']]
-        context=calls[-1]['history'][0]
-        self.assertEqual(context['program_state'],'error')
-        self.assertEqual(context['failed_action'],failed)
-        self.assertNotIn('interrupted_action',context)
-        self.assertEqual(context['completed_action'],first)
-        self.assertEqual(context['remaining_program'],[pending])
-        self.assertEqual(context['error_evidence'],rejection)
-        self.assertIn('did not verify',context['error'])
-
-    async def test_failed_target_automatically_submits_recovery_when_enabled(self):
-        first=move(JOINTS[0],5,'current',50)
-        failed=move(JOINTS[1],10,'current',50)
-        pending=move(JOINTS[2],-5,'current',50)
-        recovered=move(JOINTS[1],6,'current',50)
-        calls=[]
-        def generate(endpoint,request):
-            calls.append(copy.deepcopy(request))
-            return {'program':[recovered,pending] if request['event'] else [first,failed,pending]}
-        self.bridge.generate=generate
-        rejection={'t':'done','seq':2,'position_verified':False,'target_adjusted_joints':2}
-        async def terminal(seq,**kwargs):
-            return copy.deepcopy(rejection) if seq==2 else {'t':'done','seq':seq,'position_verified':True}
+            return copy.deepcopy(unverified) if seq==2 else {'t':'done','seq':seq,'position_verified':True}
         self.gateway.wait_terminal=terminal
         await self.bridge.configure('robot','http://unused',True)
         submitted=await self.bridge.submit('robot','move all three joints',True)
         await self.bridge.tasks[submitted['job_id']]
-        await asyncio.gather(*list(self.bridge.tasks.values()))
-        self.assertEqual(len(calls),2)
-        context=calls[-1]['history'][0]
-        self.assertEqual(context['program_state'],'error')
-        self.assertEqual(context['failed_action'],failed)
-        self.assertEqual(context['completed_action'],first)
-        self.assertEqual(context['remaining_program'],[pending])
-        self.assertEqual(context['error_evidence'],rejection)
-        recovery_job=self.bridge.jobs[self.bridge.active['robot']]
-        self.assertEqual(recovery_job['state'],'completed')
+        self.assertEqual(len(calls),1)
+        self.assertEqual(len(self.bridge.jobs),1)
+        job=self.bridge.jobs[submitted['job_id']]
+        self.assertEqual(job['state'],'completed')
+        self.assertEqual(job['completed_action'],pending)
+        self.assertEqual(len(self.gateway.sent),3)
+        self.assertEqual(job['receipts'][1],unverified)
 
     async def test_continue_authored_motion_events_do_not_interrupt_active_motion(self):
         await self.bridge.configure('robot','http://unused',True)
@@ -813,17 +774,14 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         # The P4 seeds its speed ramp from shaft feedback; no synthetic 1ms frame.
         self.assertEqual(self.gateway.sent[0][0],[5000,[3000]+[1000]*11])
         self.assertEqual(sum(map(len,self.gateway.sent)),48)
-    async def test_events_are_opt_in_and_admit_without_waiting_for_inference(self):
-        event={'robot_id':'robot','name':'body_event','data':{'kind':'servo_stall','joints':[{'id':0}]}}
-        await self.bridge.event(event)
-        self.assertFalse(self.bridge.jobs)
+    async def test_body_events_never_auto_submit_llm_recovery_even_when_configured(self):
         await self.bridge.configure('robot','http://unused',True)
-        await self.bridge.event(event)
-        tasks=list(self.bridge.tasks.values())
-        self.assertEqual(len(tasks),1)
-        await asyncio.gather(*tasks)
-        self.assertEqual(self.generated[0]['event']['type'],'servo_stall')
-        self.assertEqual(self.generated[0]['event']['joints'],event['data']['joints'])
+        for kind in ('servo_stall','servo_feedback_fault','tipped','rapid_movement','slip'):
+            await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
+                'data':{'kind':kind,'outputs_released':False,'joints':[{'id':0}]}})
+        self.assertFalse(self.bridge.jobs)
+        self.assertFalse(self.generated)
+        self.assertFalse(self.gateway.sent)
     async def test_manual_command_supersedes_pending_generation(self):
         entered=threading.Event(); release=threading.Event()
         def slow(*args):
@@ -975,193 +933,73 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['state'],'superseded')
         self.assertFalse(self.gateway.sent)
 
-    async def test_recovery_plans_concurrently_then_replaces_with_fresh_positions(self):
-        first_packet=asyncio.Event(); allow_first=asyncio.Event(); second_packet=asyncio.Event()
-        model_entered=asyncio.Event(); model_release=asyncio.Event()
-        faces=[]
-        async def face(name,args,**kwargs):
-            self.assertEqual(name,'face')
-            if 'expr' in args:faces.append(args['expr'])
-            return 0
-        self.gateway.queue_intent=face
-        original_receipt=self.gateway.wait_terminal
-        async def receipt(sequence,**kwargs):
-            if sequence==1:
-                first_packet.set();await allow_first.wait()
-            elif sequence==2:
-                second_packet.set();await asyncio.Future()
-            return await original_receipt(sequence,**kwargs)
-        self.gateway.wait_terminal=receipt
-        async def generate(endpoint,request):
-            if request['event']:
-                model_entered.set();await model_release.wait()
-                return {'program':[call('face',expr='angry'),move(JOINTS[0],-4,'current',50),
-                    call('face',expr='wave'),
-                    call('oscillate',joint=JOINTS[0],amplitude_deg=2,cycles=3,speed_pct=50)]}
-            return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=20,speed_pct=50)]}
-        self.bridge.generate=generate
-        await self.bridge.configure('robot','http://unused',True)
-        submitted=await self.bridge.submit('robot','wave',True)
-        original=self.bridge.tasks[submitted['job_id']]
-        await first_packet.wait()
-        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
-            'data':{'kind':'servo_stall','outputs_released':False,'joints':[{'id':0}]}})
-        await model_entered.wait()
-        recovery=next(task for key,task in self.bridge.tasks.items() if key!=submitted['job_id'])
-        self.assertEqual(self.bridge.active['robot'],submitted['job_id'])
-        allow_first.set();await second_packet.wait()
-        self.assertFalse(original.done(),'Existing packets continue while recovery inference runs')
-        async def fresh(*args):
-            return {'joints':[{'id':i,'model_deg':18,'command_us':1500,'calibrated':True} for i in range(12)]}
-        self.bridge.transport.request=fresh
-        model_release.set();await asyncio.gather(original,recovery)
-        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'superseded')
-        self.assertEqual(self.gateway.sent[-1][-1][1][0],1400)
-        self.assertEqual(len(self.gateway.sent[-1]),12)
-        self.assertTrue(all(frame[1][0]<1800 for frame in self.gateway.sent[-1]))
-        self.assertEqual(faces,['angry','wave'])
-
-    async def test_manual_stop_cancels_pending_recovery_without_an_active_job(self):
-        entered=asyncio.Event()
-        async def generate(*args):
-            entered.set();await asyncio.Future()
-        self.bridge.generate=generate
-        await self.bridge.configure('robot','http://unused',True)
-        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
-            'data':{'kind':'servo_stall','outputs_released':False}})
-        await entered.wait();identifier=next(iter(self.bridge.tasks));task=self.bridge.tasks[identifier]
-        await self.bridge.command({'robot_id':'robot','t':'stop'})
-        await task
-        self.assertEqual(self.bridge.jobs[identifier]['state'],'superseded')
-        self.assertFalse(self.gateway.sent)
-
     async def test_inactivity_rest_does_not_delegate_body_power_management_to_model(self):
         await self.bridge.event({'t':'event','name':'idle_rest','robot_id':'robot','epoch':1,'seq':7})
         for task in list(self.bridge.tasks.values()):await task
         self.assertEqual(self.generated,[])
         self.assertEqual(self.gateway.sent,[])
 
-    async def prepare_stalled_correction(self, *, running=False, release_rejected=False):
-        from gateway.body_events import BodyEvents
-        self.gateway.body_events=BodyEvents()
-        owner={}
-        snapshot=self.gateway.status_snapshot
-        async def status():
-            value=await snapshot()
-            value['robots']['robot'].update(body_command=dict(owner),body_command_sequence=owner.get('seq'))
-            return value
-        async def command(value):owner.update(value)
-        self.gateway.status_snapshot=status
-        self.gateway.subscribe_commands(command)
-        self.releases=[];self.notices=[];self.correction_started=asyncio.Event()
-        async def publish(event):
-            self.notices.append(copy.deepcopy(event))
-            for callback in list(self.gateway.events):await callback(event)
-        self.gateway._publish_event=publish
-        release_sequences=set()
-        async def stop(**options):
-            self.gateway.seq+=1;seq=self.gateway.seq
-            async with AsyncExitStack() as admission:
-                if options.get('on_sequence'):
-                    guard=options['on_sequence'](seq)
-                    if guard is not None:await admission.enter_async_context(guard)
-                self.releases.append(options.get('detach',False));release_sequences.add(seq)
-                for callback in self.gateway.commands:
-                    await callback({'t':'stop','robot_id':'robot','seq':seq,'detach':options.get('detach',False)})
-            return seq
-        self.gateway.estop=stop
-        receipt=self.gateway.wait_terminal
-        async def terminal(seq,**options):
-            if seq in release_sequences:return {'t':'nak' if release_rejected else 'ack','seq':seq}
-            if running and seq==2:
-                self.correction_started.set();await asyncio.Future()
-            return await receipt(seq,**options)
-        self.gateway.wait_terminal=terminal
-        async def generate(endpoint,request):
-            self.generated.append(request)
-            return {'program':[move(JOINTS[0],-4 if request['event'] else 20,'current',50)]}
-        self.bridge.generate=generate
-        await self.bridge.configure('robot','http://unused',True)
-        original=await self.bridge.submit('robot','wave',True)
-        await self.bridge.tasks[original['job_id']]
-        self.first_stall={'t':'event','name':'body_event','robot_id':'robot','epoch':1,'event_id':'stall:1',
-            'data':{'kind':'servo_stall','command_sequence':1,'clock_us':1000,'outputs_released':False,
-                    'joints':[{'id':0,'name':JOINTS[0]}]}}
-        await self.bridge.event(self.first_stall)
-        recovery=next(job for job in self.bridge.jobs.values() if job.get('event'))
-        self.correction=recovery
-        if running:await self.correction_started.wait()
-        else:await self.bridge.tasks[recovery['id']]
-        self.assertEqual(self.releases,[],'First stall must try correction before releasing')
-        self.second_stall=copy.deepcopy(self.first_stall)
-        self.second_stall.update(event_id='stall:2')
-        self.second_stall['data'].update(command_sequence=2,clock_us=2000)
-
-    async def test_old_stall_does_not_release_a_replacement_command(self):
-        await self.prepare_stalled_correction()
-        await self.bridge.event(self.first_stall)
-        self.assertEqual(self.releases,[])
-        replacement=await self.bridge.submit('robot','new movement',True)
-        await self.bridge.tasks[replacement['job_id']]
-        await self.bridge.event(self.second_stall)
-        self.assertEqual(self.releases,[])
-        self.assertEqual(len(self.generated),3)
-
-    async def test_second_stall_triggers_model_recovery_without_releasing_servos(self):
-        await self.prepare_stalled_correction()
-        await self.bridge.event(self.second_stall)
-        follow_up = [job for job in self.bridge.jobs.values() if job.get('event') and job['id'] != self.correction['id']]
-        self.assertEqual(len(follow_up), 1)
-        await asyncio.gather(*list(self.bridge.tasks.values()))
-        self.assertEqual(self.releases, [])
-        self.assertEqual(len(self.generated), 3)
-        self.assertEqual(self.generated[-1]['event']['command_sequence'], 2)
-        self.assertTrue(any('correction_delta_deg' in item for item in self.generated[-1]['history']))
-
-    async def test_manual_replacement_cancels_pending_second_stall_recovery(self):
-        await self.prepare_stalled_correction()
-        entered=asyncio.Event();allow=asyncio.Event()
-        base_generate=self.bridge.generate
-        async def slow_generate(endpoint,request):
-            if request.get('event') and len(self.generated)>=2:
-                entered.set();await allow.wait()
-            return await base_generate(endpoint,request)
-        self.bridge.generate=slow_generate
-        await self.bridge.event(self.second_stall)
-        await entered.wait()
-        follow_up=next(job for job in self.bridge.jobs.values() if job.get('event') and job['id']!=self.correction['id'])
-        pending_task=self.bridge.tasks[follow_up['id']]
-        replacement=await self.bridge.submit('robot','new movement',True)
-        allow.set()
-        await self.bridge.tasks[replacement['job_id']]
-        await asyncio.gather(pending_task,return_exceptions=True)
-        self.assertEqual(self.releases,[])
-        self.assertEqual(self.bridge.jobs[replacement['job_id']]['state'],'completed')
-
     async def test_released_stall_cannot_start_another_model_correction(self):
         await self.bridge.configure('robot','http://unused',True)
         await self.bridge.event({'t':'event','name':'body_event','robot_id':'robot','epoch':1,
             'data':{'kind':'servo_stall','outputs_released':True,'command_sequence':1}})
         self.assertEqual(self.generated,[])
+        self.assertFalse(self.bridge.jobs)
 
-    async def test_unverified_completion_decodes_joint_bitmask_into_recovery_event(self):
-        await self.bridge.configure('robot','http://unused',True)
-        self.gateway.wait_terminal=AsyncMock(return_value={
-            't':'done','seq':1,'position_verified':False,'unverified_joints':1<<9,'target_adjusted_joints':1<<10})
-        async def generate(endpoint,request):
-            self.generated.append(copy.deepcopy(request))
-            return {'program':[] if request.get('event') else [move(JOINTS[9],20,'current',50)]}
-        self.bridge.generate=generate
-        job=await self.bridge.submit('robot','raise right hand',True)
-        await self.bridge.tasks[job['job_id']]
-        await asyncio.gather(*list(self.bridge.tasks.values()))
-        recovery=next(item for item in self.bridge.jobs.values() if item.get('event'))
-        self.assertEqual(recovery['state'],'completed')
-        event=self.generated[-1]['event']
-        self.assertEqual(event['type'],'servo_stall')
-        self.assertFalse(event['outputs_released'])
-        self.assertEqual([j['id'] for j in event['joints']],[9,10])
-        self.assertEqual([j['name'] for j in event['joints']],[JOINTS[9],JOINTS[10]])
+    async def test_released_stall_aborts_active_freestyle_job_with_failed_error(self):
+        entered=asyncio.Event()
+        async def waiting_receipt(seq,**kwargs):
+            entered.set()
+            await asyncio.Future()
+        self.gateway.wait_terminal=waiting_receipt
+        self.bridge.generate=lambda *args:{'program':[move(JOINTS[0],20,'current',50)]}
+        submitted=await self.bridge.submit('robot','wave',True)
+        await entered.wait()
+        job=self.bridge.jobs[submitted['job_id']]
+        job['last_sequence']=1
+        await self.bridge.event({'t':'event','name':'body_event','robot_id':'robot','epoch':1,
+            'data':{'kind':'servo_stall','outputs_released':True,'command_sequence':1,
+                    'joints':[{'id':0,'name':JOINTS[0]}]}})
+        result=await self.bridge.result(submitted['job_id'])
+        self.assertEqual(result['state'],'error')
+        self.assertIn('servo_stall',result['error'])
+        self.assertIn(JOINTS[0],result['error'])
+        self.assertTrue(result['error_evidence']['outputs_released'])
+        self.assertEqual(result['receipts'],[{'t':'cancelled','seq':1,'code':'servo_stall','outputs_released':True}])
+        self.assertNotIn('robot',self.bridge.active)
+
+    async def test_stale_sequence_or_epoch_released_stall_does_not_abort_current_job(self):
+        entered=asyncio.Event(); release=asyncio.Event()
+        original_receipt=self.gateway.wait_terminal
+        async def controlled_receipt(seq,**kwargs):
+            entered.set()
+            await release.wait()
+            return await original_receipt(seq,**kwargs)
+        self.gateway.wait_terminal=controlled_receipt
+        self.bridge.generate=lambda *args:{'program':[move(JOINTS[0],20,'current',50)]}
+        submitted=await self.bridge.submit('robot','wave',True)
+        await entered.wait()
+        self.bridge.jobs[submitted['job_id']]['last_sequence']=5
+        # Stale command_sequence=2 or mismatched epoch=99 must be ignored
+        await self.bridge.event({'t':'event','name':'body_event','robot_id':'robot','epoch':1,
+            'data':{'kind':'servo_stall','outputs_released':True,'command_sequence':2}})
+        await self.bridge.event({'t':'event','name':'body_event','robot_id':'robot','epoch':99,
+            'data':{'kind':'servo_stall','outputs_released':True,'command_sequence':5}})
+        self.assertFalse(self.bridge.tasks[submitted['job_id']].done())
+        release.set()
+        result=await self.bridge.result(submitted['job_id'])
+        self.assertEqual(result['state'],'completed')
+
+    async def test_released_stall_after_completion_clears_ownership_without_corrupting_completed_job(self):
+        self.bridge.generate=lambda *args:{'program':[move(JOINTS[0],20,'current',50)]}
+        submitted=await self.bridge.submit('robot','wave',True)
+        await self.bridge.tasks[submitted['job_id']]
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'completed')
+        await self.bridge.event({'t':'event','name':'body_event','robot_id':'robot','epoch':1,
+            'data':{'kind':'servo_stall','outputs_released':True,'command_sequence':0}})
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'completed')
+        self.assertNotIn('robot',self.bridge.active)
+        self.assertEqual(self.generated,[])
 
     async def test_generated_native_library_shortcuts_are_not_executed(self):
         for name in ('gesture','emote'):
@@ -1177,132 +1015,11 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.bridge.jobs[stand_job['job_id']]['state'],'completed')
         self.assertEqual(self.gateway.intents,[('stand',{})])
 
-    async def test_release_motion_event_cannot_restart_servos(self):
-        await self.bridge.configure('robot','http://unused',True)
-        original=self.gateway.status_snapshot
-        owner={'t':'stop','detach':True,'seq':22}
-        async def snapshot():
-            value=await original()
-            value['robots']['robot']['body_command']=dict(owner)
-            return value
-        self.gateway.status_snapshot=snapshot
-        event={'robot_id':'robot','epoch':1,'name':'body_event',
-               'data':{'kind':'rapid_movement'}}
-        for kind in ('rapid_movement','servo_feedback_fault'):
-            event['data']['kind']=kind
-            await self.bridge.event(event)
-        self.assertFalse(self.bridge.tasks)
-        self.assertFalse(self.generated)
-        self.assertFalse(self.gateway.sent)
-        owner.update(t='intent',name='stand',seq=23)
-        await self.bridge.event(event)
-        for task in list(self.bridge.tasks.values()):
-            await task
-        self.assertTrue(self.generated)
-        self.assertTrue(self.gateway.sent)
-
-    async def test_recovery_generation_error_preserves_existing_motion(self):
-        entered=asyncio.Event()
-        async def receipt(*args,**kwargs):
-            entered.set();await asyncio.Future()
-        self.gateway.wait_terminal=receipt
-        async def generate(endpoint,request):
-            if request['event']:raise ValueError('model unavailable')
-            return {'program':[move(JOINTS[0],20,'current',50)]}
-        self.bridge.generate=generate
-        await self.bridge.configure('robot','http://unused',True)
-        submitted=await self.bridge.submit('robot','wave',True)
-        current=self.bridge.tasks[submitted['job_id']];await entered.wait()
-        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
-            'data':{'kind':'servo_stall','outputs_released':False}})
-        identifier=next(key for key in self.bridge.tasks if key!=submitted['job_id'])
-        await self.bridge.tasks[identifier]
-        self.assertEqual(self.bridge.jobs[identifier]['state'],'error')
-        self.assertFalse(current.done())
-        self.assertEqual(self.bridge.active['robot'],submitted['job_id'])
-
-    async def test_empty_recovery_does_not_cancel_existing_motion(self):
-        entered=asyncio.Event()
-        async def receipt(*args,**kwargs):
-            entered.set();await asyncio.Future()
-        self.gateway.wait_terminal=receipt
-        async def generate(endpoint,request):
-            return {'program':[] if request['event'] else [move(JOINTS[0],20,'current',50)]}
-        self.bridge.generate=generate
-        await self.bridge.configure('robot','http://unused',True)
-        submitted=await self.bridge.submit('robot','wave',True)
-        current=self.bridge.tasks[submitted['job_id']];await entered.wait()
-        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
-            'data':{'kind':'servo_stall','outputs_released':False}})
-        identifier=next(key for key in self.bridge.tasks if key!=submitted['job_id'])
-        await self.bridge.tasks[identifier]
-        self.assertEqual(self.bridge.jobs[identifier]['state'],'completed')
-        self.assertFalse(current.done())
-        self.assertEqual(self.bridge.active['robot'],submitted['job_id'])
-
-    async def test_recovery_admission_failure_keeps_original_program_running(self):
-        entered=asyncio.Event()
-        async def receipt(*args,**kwargs):
-            entered.set();await asyncio.Future()
-        self.gateway.wait_terminal=receipt
-        async def generate(endpoint,request):
-            return {'program':[move(JOINTS[0],20,'current',50)]}
-        self.bridge.generate=generate
-        await self.bridge.configure('robot','http://unused',True)
-        submitted=await self.bridge.submit('robot','wave',True)
-        current=self.bridge.tasks[submitted['job_id']];await entered.wait()
-        async def unavailable(*args,**kwargs):
-            raise ValueError('Robot disconnected before admission')
-        self.gateway.queue_motion_plan=unavailable
-        await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
-            'data':{'kind':'servo_stall','outputs_released':False}})
-        identifier=next(key for key in self.bridge.tasks if key!=submitted['job_id'])
-        await self.bridge.tasks[identifier]
-        self.assertEqual(self.bridge.jobs[identifier]['state'],'error')
-        self.assertFalse(current.done())
-        self.assertEqual(self.bridge.active['robot'],submitted['job_id'])
-
     async def test_old_motion_event_does_not_override_replacement_command(self):
         await self.bridge.configure('robot','http://unused',True)
         await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
             'data':{'kind':'servo_stall','command_sequence':99}})
         self.assertFalse(self.bridge.jobs)
-
-    async def test_recovery_receives_interrupted_program_and_fresh_observations(self):
-        self.bridge.generate=lambda endpoint,request:self.generate(endpoint,copy.deepcopy(request))
-        for kind in ('servo_stall', 'servo_feedback_fault', 'tipped', 'rapid_movement', 'slip'):
-            with self.subTest(kind=kind):
-                entered=asyncio.Event()
-                original_receipt=self.gateway.wait_terminal
-                async def waiting_receipt(*args, **kwargs):
-                    entered.set()
-                    await asyncio.Future()
-                self.gateway.wait_terminal=waiting_receipt
-                submitted=await self.bridge.submit('robot','wave',True)
-                interrupted=self.bridge.tasks[submitted['job_id']]
-                await entered.wait()
-                prior=self.bridge.jobs[submitted['job_id']]
-                prior['history']=[{'joints':{JOINTS[0]:9}}]
-                self.gateway.wait_terminal=original_receipt
-                async def fresh(*args):
-                    return {'joints':[{'id':i,'model_deg':12,'command_us':1500,
-                                      'calibrated':True} for i in range(12)]}
-                self.bridge.transport.request=fresh
-                await self.bridge.configure('robot','http://unused',True)
-                await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
-                    'data':{'kind':kind,'joints':[{'id':0}]}})
-                recovery=next(task for identifier,task in self.bridge.tasks.items() if identifier!=submitted['job_id'])
-                await asyncio.gather(interrupted,recovery)
-                request=self.generated[-1]
-                self.assertEqual(prior['state'],'superseded')
-                self.assertEqual(request['request'],'wave')
-                self.assertEqual(request['event']['type'],kind)
-                self.assertEqual(request['observation']['joints'][JOINTS[0]]['model_deg'],12)
-                self.assertEqual(len(request['history']),1)
-                self.assertNotIn('interrupted_program',request['history'][0])
-                self.assertEqual(request['history'][-1]['interrupted_action'],prior['current_action'])
-                self.assertNotIn('packet_progress',request['history'][-1])
-                self.assertEqual(request['history'][-1]['remaining_program'],prior['remaining_program'])
 
     async def test_faces_do_not_wait_for_receipts_and_release_only_the_owned_selection(self):
         sent=[]

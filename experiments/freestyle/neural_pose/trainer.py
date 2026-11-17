@@ -73,28 +73,47 @@ from .contract import (
     POSE_OBS_SIZE,
     POSE_SAMPLES,
     POSE_SCHEMA,
+    pose_mirror_tables,
 )
 from .goals import DEFAULT_ENV_JSON, STAND_ANGLES_DEG, PoseManifold, _ensure_native_library
 from . import mdp as pose_mdp
 
 _ensure_native_library()
 
-RECIPE = "ainekio-neural-pose-mjlab-v2-delay"
+RECIPE = "ainekio-neural-pose-mjlab-v4-equivariant"
 DEFAULT_HIDDEN_DIMS = (512, 256, 128)
-POSE_RESIDUAL_SCALE = 0.16
+POSE_RESIDUAL_SCALE = 0.26
 POSE_GOAL_FOOT_SLICE = slice(57, 69)
 MAX_CMD_DELAY_TICKS = 4
 MAX_OBS_DELAY_TICKS = 6
+DEFAULT_JAM_EPISODE_PROB = 0.32
+
+
+@requires_model_fields("jnt_range")
+def pose_joint_range_fields(env, env_ids):
+    """Allocate per-world joint ranges for physical unilateral limb-obstruction injection."""
+
+
+def _register_mirror_buffers(module: torch.nn.Module, *, persistent: bool) -> None:
+    obs_p, obs_s, act_p, act_s = pose_mirror_tables()
+    module.register_buffer("obs_mirror_perm", torch.tensor(obs_p, dtype=torch.long), persistent=persistent)
+    module.register_buffer("obs_mirror_sign", torch.tensor(obs_s, dtype=torch.float32), persistent=persistent)
+    module.register_buffer("act_mirror_perm", torch.tensor(act_p, dtype=torch.long), persistent=persistent)
+    module.register_buffer("act_mirror_sign", torch.tensor(act_s, dtype=torch.float32), persistent=persistent)
 
 
 class _ResidualTorchMLPModel(_TorchMLPModel):
     def __init__(self, model: MLPModel, residual_scale: float = POSE_RESIDUAL_SCALE) -> None:
         super().__init__(model)
         self.residual_scale = float(residual_scale)
+        _register_mirror_buffers(self, persistent=True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         goal_foot = x[:, POSE_GOAL_FOOT_SLICE]
-        u = super().forward(x)
+        x_mir = x[:, self.obs_mirror_perm] * self.obs_mirror_sign
+        u_fwd = super().forward(x)
+        u_mir = super().forward(x_mir)[:, self.act_mirror_perm] * self.act_mirror_sign
+        u = 0.5 * (u_fwd + u_mir)
         return torch.clamp(goal_foot + self.residual_scale * u, -1.0, 1.0)
 
 
@@ -102,21 +121,66 @@ class _ResidualOnnxMLPModel(_OnnxMLPModel):
     def __init__(self, model: MLPModel, verbose: bool, residual_scale: float = POSE_RESIDUAL_SCALE) -> None:
         super().__init__(model, verbose)
         self.residual_scale = float(residual_scale)
+        _register_mirror_buffers(self, persistent=True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         goal_foot = x[:, POSE_GOAL_FOOT_SLICE]
-        u = super().forward(x)
+        x_mir = x[:, self.obs_mirror_perm] * self.obs_mirror_sign
+        u_fwd = super().forward(x)
+        u_mir = super().forward(x_mir)[:, self.act_mirror_perm] * self.act_mirror_sign
+        u = 0.5 * (u_fwd + u_mir)
         return torch.clamp(goal_foot + self.residual_scale * u, -1.0, 1.0)
 
 
 class ResidualPoseMLPModel(MLPModel):
-    """Goal-anchored residual MLP: outputs bounded residual u in [-1, 1]^12 during PPO
-    and exports clamp(goal_foot + POSE_RESIDUAL_SCALE * u, -1, 1) directly into policy.onnx."""
+    """Left-right reflection-equivariant goal-anchored residual MLP:
+    preserves 100% of asymmetric single-limb poses/jams while guaranteeing exact zero
+    lateral bias whenever the state and goal are left-right symmetric."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        _register_mirror_buffers(self, persistent=False)
+
+    @torch.no_grad()
+    def symmetrize_normalizer(self) -> None:
+        if hasattr(self.obs_normalizer, "_mean") and hasattr(self.obs_normalizer, "_var"):
+            m = self.obs_normalizer._mean.detach().clone()
+            v = self.obs_normalizer._var.detach().clone()
+            m_sym = (0.5 * (m + m[:, self.obs_mirror_perm] * self.obs_mirror_sign)).clone()
+            v_sym = (0.5 * (v + v[:, self.obs_mirror_perm])).clone()
+            self.obs_normalizer._buffers["_mean"] = m_sym
+            self.obs_normalizer._buffers["_var"] = v_sym
+            self.obs_normalizer._buffers["_std"] = torch.sqrt(v_sym).clone()
+
+    def update_normalization(self, obs) -> None:
+        if self.obs_normalization:
+            mlp_obs = torch.cat([obs[g] for g in self.obs_groups], dim=-1)
+            mir_obs = mlp_obs[:, self.obs_mirror_perm] * self.obs_mirror_sign
+            self.obs_normalizer.update(torch.cat((mlp_obs, mir_obs), dim=0))  # type: ignore[attr-defined]
+            self.symmetrize_normalizer()
+
+    def forward(self, obs, masks=None, hidden_state=None, stochastic_output: bool = False) -> torch.Tensor:
+        from rsl_rl.utils import unpad_trajectories
+
+        obs = unpad_trajectories(obs, masks) if masks is not None and not self.is_recurrent else obs
+        raw_obs = torch.cat([obs[g] for g in self.obs_groups], dim=-1)
+        mir_obs = raw_obs[:, self.obs_mirror_perm] * self.obs_mirror_sign
+        mlp_fwd = self.mlp(self.obs_normalizer(raw_obs))
+        mlp_mir = self.mlp(self.obs_normalizer(mir_obs))[:, self.act_mirror_perm] * self.act_mirror_sign
+        mlp_output = 0.5 * (mlp_fwd + mlp_mir)
+        if self.distribution is not None:
+            if stochastic_output:
+                self.distribution.update(mlp_output)
+                return self.distribution.sample()
+            return self.distribution.deterministic_output(mlp_output)
+        return mlp_output
 
     def as_jit(self) -> torch.nn.Module:
+        self.symmetrize_normalizer()
         return _ResidualTorchMLPModel(self, residual_scale=POSE_RESIDUAL_SCALE)
 
     def as_onnx(self, verbose: bool) -> torch.nn.Module:
+        self.symmetrize_normalizer()
         return _ResidualOnnxMLPModel(self, verbose, residual_scale=POSE_RESIDUAL_SCALE)
 
 
@@ -286,6 +350,23 @@ class PoseAction(ActionTerm):
         # 4th-wire ADC usability mask (simulates clipped/faulted feedback wires like joints 1 & 4)
         self.usable_mask = torch.ones((env.num_envs, 12), dtype=torch.bool, device=env.device)
 
+        # Mechanical jam / physical limb-obstruction curriculum buffers
+        mj_m = env.sim.mj_model
+        self.mj_joint_ids = torch.tensor(
+            [int(mj_m.joint(f"robot/{name}").id) for name in JOINTS], dtype=torch.long, device=env.device
+        )
+        self.default_jnt_range = torch.as_tensor(
+            mj_m.jnt_range[self.mj_joint_ids.detach().cpu().numpy()], dtype=torch.float32, device=env.device
+        )
+        self.jam_episode = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+        self.jam_leg_mask = torch.zeros((env.num_envs, 4), dtype=torch.bool, device=env.device)
+        self.jam_joint_mask = torch.zeros((env.num_envs, 12), dtype=torch.bool, device=env.device)
+        self.jam_stop_rad = torch.zeros((env.num_envs, 12), dtype=torch.float32, device=env.device)
+        self.jam_mid_rad = torch.zeros((env.num_envs, 12), dtype=torch.float32, device=env.device)
+        self.jam_dir = torch.zeros((env.num_envs, 12), dtype=torch.float32, device=env.device)
+        self.jam_contacted = torch.zeros((env.num_envs, 4), dtype=torch.bool, device=env.device)
+        self.jam_contact_age = torch.zeros((env.num_envs, 4), dtype=torch.long, device=env.device)
+
         self.history = torch.zeros(
             (env.num_envs, POSE_SAMPLES, POSE_FEATURES), dtype=torch.float32, device=env.device
         )
@@ -338,7 +419,87 @@ class PoseAction(ActionTerm):
     def raw_action(self):
         return self._raw
 
-    def _sample_goals(self, ids: torch.Tensor):
+    def _inject_goal_obstructions(self, ids: torch.Tensor, q_start: torch.Tensor):
+        n = len(ids)
+        if n == 0:
+            return
+        dev = self._env.device
+        jnt_ranges = self._env.sim.model.jnt_range
+        jnt_ranges[ids.unsqueeze(1), self.mj_joint_ids.unsqueeze(0), :] = self.default_jnt_range.unsqueeze(0)
+
+        self.jam_leg_mask[ids] = False
+        self.jam_joint_mask[ids] = False
+        self.jam_dir[ids] = 0.0
+        self.jam_contacted[ids] = False
+        self.jam_contact_age[ids] = 0
+        self.jam_mid_rad[ids] = self.current_goal_rad[ids]
+        self.jam_stop_rad[ids] = self.current_goal_rad[ids]
+
+        # On jam episodes, ~80% of goal segments inject a physical unilateral hard-stop mid-reach
+        seg_jam = self.jam_episode[ids] & (torch.rand(n, device=dev) < 0.80)
+        if not bool(seg_jam.any()):
+            return
+        cand_local = torch.nonzero(seg_jam, as_tuple=False).squeeze(-1)
+        sub_ids = ids[cand_local]
+        m = len(sub_ids)
+
+        qs = q_start[cand_local]
+        qg = self.current_goal_rad[sub_ids]
+        dq43 = (qg - qs).reshape(m, 4, 3)
+        leg_travel = dq43.abs().amax(dim=-1)
+        usable4 = self.usable_mask[sub_ids].reshape(m, 4, 3).all(dim=-1)
+        sup4 = self.leg_support[sub_ids]
+        susp1 = self.is_suspended[sub_ids].unsqueeze(-1)
+        free_pref = (sup4 < 0.5) | susp1
+
+        valid_leg = (leg_travel > 0.40) & usable4
+        pref_leg = valid_leg & free_pref
+        use_leg = torch.where(pref_leg.any(dim=-1, keepdim=True), pref_leg, valid_leg)
+        ok_mask = use_leg.any(dim=-1)
+        if not bool(ok_mask.any()):
+            return
+
+        scores = torch.where(use_leg, 1.0 + torch.rand_like(leg_travel), torch.zeros_like(leg_travel))
+        leg_sel = scores.argmax(dim=-1)
+        leg_oh = torch.nn.functional.one_hot(leg_sel, num_classes=4).to(torch.bool)
+        leg_oh_12 = leg_oh.repeat_interleave(3, dim=-1)
+
+        # Intermediate stop at 22%..55% of requested limb travel, projected onto closed 4-bar manifold
+        alpha = 0.22 + 0.33 * torch.rand((m, 1), device=dev)
+        q_mix = torch.where(leg_oh_12, qs + alpha * (qg - qs), qg)
+        q_mid, _ = self.manifold.project_batch_rad(q_mix)
+
+        rem = (qg - q_mid) * leg_oh_12.to(torch.float32)
+        rem43 = rem.reshape(m, 4, 3)
+        sh_blk = leg_oh & (rem43[..., 0].abs() > 0.20)
+        ca_gt_cr = rem43[..., 1].abs() >= rem43[..., 2].abs()
+        ca_blk = leg_oh & ca_gt_cr & (rem43[..., 1].abs() > 0.20)
+        cr_blk = leg_oh & (~ca_gt_cr) & (rem43[..., 2].abs() > 0.20)
+        j_blk = torch.stack((sh_blk, ca_blk, cr_blk), dim=-1).reshape(m, 12) & ok_mask.unsqueeze(-1)
+        valid_jam_env = j_blk.any(dim=-1)
+        if not bool(valid_jam_env.any()):
+            return
+
+        # Keep goal static on jammed segments so the unreachable posture is crisp and unambiguous
+        active_sub = sub_ids[valid_jam_env]
+        self.osc_active[active_sub] = False
+        self.osc_amp_rad[active_sub] = 0.0
+
+        j_dir = torch.where(j_blk, torch.sign(rem), torch.zeros_like(rem))
+        def_lo = self.default_jnt_range[:, 0].unsqueeze(0).expand(m, 12)
+        def_hi = self.default_jnt_range[:, 1].unsqueeze(0).expand(m, 12)
+        new_lo = torch.where(j_dir < -0.5, torch.clamp(q_mid, def_lo, def_hi - 0.03), def_lo)
+        new_hi = torch.where(j_dir > 0.5, torch.clamp(q_mid, def_lo + 0.03, def_hi), def_hi)
+        new_range = torch.stack((new_lo, new_hi), dim=-1)
+        jnt_ranges[sub_ids.unsqueeze(1), self.mj_joint_ids.unsqueeze(0), :] = new_range
+
+        self.jam_leg_mask[sub_ids] = leg_oh & valid_jam_env.unsqueeze(-1)
+        self.jam_joint_mask[sub_ids] = j_blk
+        self.jam_dir[sub_ids] = j_dir
+        self.jam_stop_rad[sub_ids] = q_mid
+        self.jam_mid_rad[sub_ids] = torch.where(valid_jam_env.unsqueeze(-1), q_mid, qg)
+
+    def _sample_goals(self, ids: torch.Tensor, q_start_override: torch.Tensor | None = None):
         n = len(ids)
         if n == 0:
             return
@@ -385,6 +546,13 @@ class PoseAction(ActionTerm):
         fallback_j = torch.randint(0, 12, (n,), device=dev)
         joint_mask[torch.arange(n, device=dev), fallback_j] |= none_picked
         self.osc_amp_rad[ids] = torch.where(osc.unsqueeze(-1) & joint_mask, amp, 0.0)
+
+        q_start = (
+            q_start_override.to(torch.float32)
+            if q_start_override is not None
+            else self._entity.data.joint_pos[ids][:, self.joint_ids]
+        )
+        self._inject_goal_obstructions(ids, q_start)
 
     def _update_suspended_wrench(self):
         if len(self.suspended_ids) == 0:
@@ -504,8 +672,9 @@ class PoseAction(ActionTerm):
         self.pkt_hold_prob[ids] = torch.where(wifi_world, 0.20, 0.04)
 
         # Simulate 4th-wire usability faults on 35% of episodes (including rear carriers 1 & 4)
+        self.jam_episode[ids] = torch.rand(n, device=dev) < DEFAULT_JAM_EPISODE_PROB
         usable = torch.ones((n, 12), dtype=torch.bool, device=dev)
-        fault_ep = torch.rand(n, device=dev) < 0.35
+        fault_ep = (~self.jam_episode[ids]) & (torch.rand(n, device=dev) < 0.35)
         random_drop = torch.rand((n, 12), device=dev) < 0.18
         rear_carrier_drop = torch.zeros((n, 12), dtype=torch.bool, device=dev)
         rear_carrier_drop[:, 1] = torch.rand(n, device=dev) < 0.65
@@ -514,7 +683,7 @@ class PoseAction(ActionTerm):
         self.usable_mask[ids] = usable & (~drop_mask)
 
         self.sensors.reset(ids, q_proj_rad.to(torch.float32))
-        self._sample_goals(ids)
+        self._sample_goals(ids, q_start_override=q_proj_rad)
         self._update_suspended_wrench()
         self.pending_reset = ids
 
@@ -540,6 +709,14 @@ class PoseAction(ActionTerm):
         self.cmd_delay_buf = torch.roll(self.cmd_delay_buf, 1, dims=0)
         self.cmd_delay_buf[0] = self.targets
         self.delayed_targets.copy_(self.cmd_delay_buf[self.cmd_delay_ticks, self.env_arange])
+        q_true = self._entity.data.joint_pos[:, self.joint_ids]
+        dist_to_stop = self.jam_dir * (self.jam_stop_rad - q_true)
+        hit_joint = self.jam_joint_mask & (dist_to_stop <= 0.035)
+        hit_leg = hit_joint.reshape(-1, 4, 3).any(dim=-1) & self.jam_leg_mask
+        self.jam_contacted = self.jam_contacted | hit_leg
+        self.jam_contact_age = torch.where(
+            self.jam_contacted, self.jam_contact_age + 1, torch.zeros_like(self.jam_contact_age)
+        )
         self._update_suspended_wrench()
 
     def apply_actions(self):
@@ -636,7 +813,12 @@ class PoseAction(ActionTerm):
             ),
             dim=-1,
         )
-        priv = torch.cat((q_true, v_true, q_cmd, contacts, lin_vel, susp, delays), dim=-1)
+        jam_3 = self.jam_contacted.repeat_interleave(3, dim=-1).to(torch.float32)
+        jam_active_dir = self.jam_dir * jam_3
+        jam_stop_delta = (self.jam_stop_rad - q_true) * self.jam_joint_mask.to(torch.float32)
+        priv = torch.cat(
+            (q_true, v_true, q_cmd, contacts, lin_vel, susp, delays, jam_active_dir, jam_stop_delta), dim=-1
+        )
         return torch.nan_to_num(priv, nan=0.0, posinf=0.0, neginf=0.0)
 
     def close(self):
@@ -785,6 +967,7 @@ def make_pose_env_cfg(config: EnvironmentConfig, num_envs: int = 1024, *, includ
     com_randomization = deepcopy(cfg.events["randomize_com"])
     cfg.events = {
         "mg90s_force_fields": EventTermCfg(func=mg90s_force_fields, mode="startup"),
+        "pose_joint_range_fields": EventTermCfg(func=pose_joint_range_fields, mode="startup"),
         "reset_pose_worlds": EventTermCfg(func=pose_mdp.reset_pose_worlds, mode="reset"),
         "foot_friction": EventTermCfg(
             func=gait_mdp.randomize_multisurface_friction,
@@ -809,6 +992,7 @@ def make_pose_env_cfg(config: EnvironmentConfig, num_envs: int = 1024, *, includ
 
     cfg.rewards = {
         "pose_tracking": RewardTermCfg(func=pose_mdp.pose_tracking_reward, weight=5.0),
+        "jam_compliance": RewardTermCfg(func=pose_mdp.jam_compliance_cost, weight=-3.5),
         "grounded_balance": RewardTermCfg(func=pose_mdp.grounded_balance_cost, weight=-1.6),
         "action_smoothness": RewardTermCfg(func=pose_mdp.action_smoothness_cost, weight=-0.16),
         "settle_damping": RewardTermCfg(func=pose_mdp.settle_damping_cost, weight=-0.10),
@@ -857,9 +1041,8 @@ def _calibrate_critic_on_actor(runner, wrapped, device: str, *, rollout_steps: i
         with torch.no_grad():
             for _ in range(rollout_steps):
                 obs_td = wrapped.get_observations()
-                a_norm = actor.obs_normalizer(obs_td["actor"])
                 c_norm = critic.obs_normalizer(obs_td["critic"])
-                act = mlp(a_norm).clamp(-8.0, 8.0).tanh()
+                act = actor(obs_td, stochastic_output=False)
                 next_obs_td, rew, dones, extras = wrapped.step(act)
                 next_c_norm = critic.obs_normalizer(next_obs_td["critic"])
                 timeouts = extras.get("time_outs", torch.zeros_like(dones, dtype=torch.bool))
@@ -990,6 +1173,128 @@ def _kinematic_warmstart(runner, wrapped, env, device: str):
     return {"warmstart_action_mae": warmstart_mae, "warmstart_critic_mse": critic_mse}
 
 
+def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: float, device: str):
+    """Distill unobstructed v2-delay teacher + closed-loop compliant jam recoil via 3 DAgger rounds."""
+    pose_term: PoseAction = env.action_manager.get_term("pose")
+    actor = runner.alg.actor
+    critic = runner.alg.critic
+    mlp = actor.mlp
+
+    t_sd = raw_ckpt["actor_state_dict"]
+    t_mean = t_sd["obs_normalizer._mean"].to(device)
+    t_std = t_sd["obs_normalizer._std"].to(device)
+    w0, b0 = t_sd["mlp.0.weight"], t_sd["mlp.0.bias"]
+    w1, b1 = t_sd["mlp.2.weight"], t_sd["mlp.2.bias"]
+    w2, b2 = t_sd["mlp.4.weight"], t_sd["mlp.4.bias"]
+    w3, b3 = t_sd["mlp.6.weight"], t_sd["mlp.6.bias"]
+    teacher_mlp = torch.nn.Sequential(
+        torch.nn.Linear(w0.shape[1], w0.shape[0]),
+        torch.nn.ELU(),
+        torch.nn.Linear(w1.shape[1], w1.shape[0]),
+        torch.nn.ELU(),
+        torch.nn.Linear(w2.shape[1], w2.shape[0]),
+        torch.nn.ELU(),
+        torch.nn.Linear(w3.shape[1], w3.shape[0]),
+    ).to(device)
+    for idx, (w, b) in ((0, (w0, b0)), (2, (w1, b1)), (4, (w2, b2)), (6, (w3, b3))):
+        teacher_mlp[idx].weight.data.copy_(w.to(device))
+        teacher_mlp[idx].bias.data.copy_(b.to(device))
+    teacher_mlp.eval()
+
+    # Refresh actor normalizer on mixed unobstructed + jammed closed-loop states
+    actor.obs_normalizer.train(True)
+    critic.obs_normalizer.train(True)
+    opt = torch.optim.AdamW(mlp.parameters(), lr=1.0e-3, weight_decay=1e-5)
+    scale_ratio = float(prev_scale) / float(POSE_RESIDUAL_SCALE)
+    dagger_mae = 0.0
+
+    def _compute_expert_u(obs_raw: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        t_norm = (obs_raw - t_mean) / t_std.clamp_min(1e-6)
+        u_teacher = (teacher_mlp(t_norm).clamp(-8.0, 8.0).tanh() * scale_ratio).clamp(-0.95, 0.95)
+        delay_gate = pose_term.obs_delay_ticks.unsqueeze(-1) + 2
+        ready_leg = pose_term.jam_leg_mask & pose_term.jam_contacted & (pose_term.jam_contact_age >= delay_gate)
+        ready_j = ready_leg.repeat_interleave(3, dim=-1)
+        if not bool(ready_leg.any()):
+            return u_teacher, torch.ones_like(u_teacher)
+        q_true = pose_term._entity.data.joint_pos[:, pose_term.joint_ids]
+        blocked_j = ready_j & pose_term.jam_joint_mask
+        # Gentle 0.055 rad (~3.15 deg) feeler preload keeps jam observable forever while cutting stall error ~85%+
+        q_ideal = torch.where(blocked_j, q_true + 0.055 * pose_term.jam_dir, q_true)
+        _, foot_ideal = pose_term.manifold.project_batch_rad(q_ideal)
+        u_recoil = ((foot_ideal - pose_term.current_goal_foot) / float(POSE_RESIDUAL_SCALE)).clamp(-0.96, 0.96)
+        # Upweight obstructed leg coordinates 18x so minority jam frames are fitted with high precision
+        sample_w = torch.where(ready_j, torch.full_like(u_teacher, 18.0), torch.ones_like(u_teacher))
+        return torch.where(ready_j, u_recoil, u_teacher), sample_w
+
+    saved_jam_prob = DEFAULT_JAM_EPISODE_PROB
+    try:
+        globals()["DEFAULT_JAM_EPISODE_PROB"] = 0.50
+        actor.obs_normalizer.eval()
+        critic.obs_normalizer.eval()
+        for round_i, (rollout_steps, epochs, student_prob) in enumerate(
+            ((240, 22, 0.0), (260, 22, 0.55), (260, 22, 0.85), (260, 22, 0.95))
+        ):
+            wrapped.reset()
+            xs, ys, ws = [], [], []
+            with torch.no_grad():
+                for _ in range(rollout_steps):
+                    obs_td = wrapped.get_observations()
+                    obs_actor = obs_td["actor"]
+                    norm_obs = actor.obs_normalizer(obs_actor)
+                    u_exp, w_exp = _compute_expert_u(obs_actor)
+                    y_logit = torch.atanh(u_exp.clamp(-0.97, 0.97))
+                    xs.append(norm_obs.detach())
+                    ys.append(y_logit.detach())
+                    ws.append(w_exp.detach())
+                    if student_prob > 0.0 and torch.rand((), device=device).item() < student_prob:
+                        act = mlp(norm_obs).clamp(-8.0, 8.0).tanh()
+                    else:
+                        act = u_exp
+                    wrapped.step(act)
+
+            x_all = torch.cat(xs, dim=0)
+            y_all = torch.cat(ys, dim=0)
+            w_all = torch.cat(ws, dim=0)
+            y_tanh = y_all.tanh()
+            n_s = x_all.shape[0]
+            for _ in range(epochs):
+                perm = torch.randperm(n_s, device=device)
+                for start in range(0, n_s, 4096):
+                    idx = perm[start : start + 4096]
+                    pred = mlp(x_all[idx])
+                    wb = w_all[idx]
+                    loss = (
+                        wb * (0.20 * (pred - y_all[idx]).square() + 3.0 * (pred.tanh() - y_tanh[idx]).square())
+                    ).sum() / wb.sum().clamp_min(1.0)
+                    opt.zero_grad()
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(mlp.parameters(), 2.0)
+                    opt.step()
+            for g in opt.param_groups:
+                g["lr"] *= 0.72
+            with torch.no_grad():
+                jam_mask = w_all > 5.0
+                dagger_mae = float((mlp(x_all[:8192]).tanh() - y_tanh[:8192]).abs().mean().item())
+                jam_dagger_mae = (
+                    float((mlp(x_all).tanh()[jam_mask] - y_tanh[jam_mask]).abs().mean().item())
+                    if bool(jam_mask.any())
+                    else 0.0
+                )
+    finally:
+        globals()["DEFAULT_JAM_EPISODE_PROB"] = saved_jam_prob
+        actor.obs_normalizer.train(True)
+        critic.obs_normalizer.train(True)
+
+    critic_mse = _calibrate_critic_on_actor(runner, wrapped, device, rollout_steps=200, sweeps=6)
+    if hasattr(actor.distribution, "log_std_param"):
+        actor.distribution.log_std_param.data.fill_(math.log(0.06))
+    runner.alg.optimizer.state.clear()
+    if torch.device(device).type == "cuda":
+        torch.cuda.empty_cache()
+    wrapped.reset()
+    return {"dagger_action_mae": dagger_mae, "dagger_jam_action_mae": jam_dagger_mae, "calibrated_critic_mse": critic_mse}
+
+
 def train(
     directory: str | Path,
     config: EnvironmentConfig,
@@ -1061,14 +1366,72 @@ def train(
 
         if resume:
             ckpt_p = Path(resume)
-            ckpt_path = str(ckpt_p if ckpt_p.is_file() else ckpt_p / "learner.pt")
+            ckpt_file = ckpt_p if ckpt_p.is_file() else ckpt_p / "learner.pt"
+            ckpt_path = str(ckpt_file)
+            prev_manifest_path = ckpt_file.with_name("manifest.json")
+            prev_scale = POSE_RESIDUAL_SCALE
+            if prev_manifest_path.is_file():
+                prev_scale = float(
+                    json.loads(prev_manifest_path.read_text()).get("pose_residual_scale", POSE_RESIDUAL_SCALE)
+                )
             raw_ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
             has_opt = "optimizer_state_dict" in raw_ckpt
+            critic_sd = raw_ckpt.get("critic_state_dict", {})
+            critic_compatible = (
+                "mlp.0.weight" in critic_sd
+                and tuple(critic_sd["mlp.0.weight"].shape)
+                == tuple(runner.alg.critic.state_dict()["mlp.0.weight"].shape)
+                and abs(prev_scale - POSE_RESIDUAL_SCALE) < 1e-6
+            )
             runner.load(
                 ckpt_path,
-                load_cfg={"actor": True, "critic": True, "optimizer": has_opt, "iteration": has_opt, "rnd": False},
+                load_cfg={
+                    "actor": True,
+                    "critic": critic_compatible,
+                    "optimizer": False,
+                    "iteration": False,
+                    "rnd": False,
+                },
                 map_location=device,
             )
+            if hasattr(runner.alg.actor, "symmetrize_normalizer"):
+                runner.alg.actor.symmetrize_normalizer()
+            manifest["resumed_from"] = str(ckpt_p)
+            if abs(prev_scale - POSE_RESIDUAL_SCALE) > 1e-6:
+                scale_ratio = prev_scale / POSE_RESIDUAL_SCALE
+                with torch.no_grad():
+                    runner.alg.actor.mlp[-1].weight.mul_(scale_ratio)
+                    runner.alg.actor.mlp[-1].bias.mul_(scale_ratio)
+            if not critic_compatible:
+                save_json(
+                    directory / "progress.json",
+                    {"state": "dagger_jam_warmstart", "iterations": iterations, "steps": 0},
+                )
+                ws_info = _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt, prev_scale, device)
+                manifest["warmstart"] = {
+                    "resumed_actor_from": str(ckpt_p),
+                    "prev_residual_scale": prev_scale,
+                    "new_residual_scale": POSE_RESIDUAL_SCALE,
+                    **ws_info,
+                }
+            else:
+                save_json(
+                    directory / "progress.json",
+                    {"state": "critic_recalibration", "iterations": iterations, "steps": 0},
+                )
+                critic_mse = _calibrate_critic_on_actor(runner, wrapped, device, rollout_steps=160, sweeps=4)
+                if hasattr(runner.alg.actor.distribution, "log_std_param"):
+                    runner.alg.actor.distribution.log_std_param.data.fill_(math.log(0.06))
+                runner.alg.optimizer.state.clear()
+                manifest["warmstart"] = {
+                    "resumed_actor_from": str(ckpt_p),
+                    "calibrated_critic_mse": critic_mse,
+                }
+            if hasattr(runner, "alg") and hasattr(runner.alg, "learning_rate"):
+                runner.alg.learning_rate = 8.0e-5
+                for group in runner.alg.optimizer.param_groups:
+                    group["lr"] = runner.alg.learning_rate
+            save_json(directory / "manifest.json", manifest)
         elif warmstart:
             save_json(directory / "progress.json", {"state": "warmstart", "iterations": iterations, "steps": 0})
             ws_info = _kinematic_warmstart(runner, wrapped, env, device)
@@ -1083,12 +1446,15 @@ def train(
             ep_info = values.get("ep_infos") or []
             mae_vals = []
             gest_vals = []
+            jam_vals = []
             for x in ep_info:
                 src = x.get("log", x) if isinstance(x, dict) else {}
                 if "Pose/joint_mae_deg" in src:
                     mae_vals.append(float(torch.as_tensor(src["Pose/joint_mae_deg"]).float().mean().item()))
                 if "Pose/gesture_leg_mae_deg" in src:
                     gest_vals.append(float(torch.as_tensor(src["Pose/gesture_leg_mae_deg"]).float().mean().item()))
+                if "Pose/jam_stall_deg" in src:
+                    jam_vals.append(float(torch.as_tensor(src["Pose/jam_stall_deg"]).float().mean().item()))
             save_json(
                 directory / "progress.json",
                 {
@@ -1100,6 +1466,7 @@ def train(
                     "update_seconds": values["learn_time"],
                     "joint_mae_deg": round(sum(mae_vals) / len(mae_vals), 3) if mae_vals else None,
                     "gesture_leg_mae_deg": round(sum(gest_vals) / len(gest_vals), 3) if gest_vals else None,
+                    "jam_stall_deg": round(sum(jam_vals) / len(jam_vals), 3) if jam_vals else None,
                 },
             )
 

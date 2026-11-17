@@ -15,7 +15,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from .challenge import assess, read_rows, replay, trajectory_metrics, write_rows
-from .freestyle_curriculum import build_curriculum_splits
+from .freestyle_curriculum import build_curriculum_splits, prog_full_body_stretch
 from .runtime import compact
 
 
@@ -267,9 +267,7 @@ def source_motion(name):
     initial_row=list(rows[0]) if name=='crouch' else [0,94,-2125]*4
     entry=[number(v) for v in initial_row]
     if name=='stretch':
-        # Owner's requested crouch, front-limb extension, holds and standing finish.
-        # The old Blender/source curve lacks the accepted extension.
-        program=stretch_program(entry)
+        program=prog_full_body_stretch(50,1.5)
         final=entry
     else:
         program=[call('face',expr=name),call('pose',joints=list(JOINTS),
@@ -307,24 +305,6 @@ def source_motion(name):
             'intentional_hold_s':round(sum(a['arguments']['seconds'] for a in program if a['name']=='hold'),6),
             'entry_model_deg':entry,'final_model_deg':final,
             'representation':'compact movement stages; no continuous source-curve fidelity claim'}
-
-
-def stretch_program(entry=None):
-    """Editable compact stretch; geometry checked, physical acceptance separate."""
-    from .runtime import JOINTS
-    entry=entry if entry is not None else [0,.94,-21.25]*4
-    body=lambda dx,dz:call('body',translation_mm=[dx,0,dz],rotation_deg=[0,0,0],
-                           legs=[],foot_offsets_mm=[],speed_pct=100,taper_deg=0)
-    step=lambda leg,dx,h=18:[
-        call('feet',legs=[leg],offsets_mm=[[0,0,h]],speed_pct=100,taper_deg=0),
-        call('feet',legs=[leg],offsets_mm=[[dx,0,-h]],speed_pct=100,taper_deg=0)]
-    return [call('face',expr='stretch'),
-            call('pose',joints=list(JOINTS),angles_deg=entry,reference='absolute',speed_pct=100,taper_deg=0),
-            *step('front_left',30),*step('front_right',30),
-            body(0,-16),call('hold',seconds=.9),body(-5,0),call('hold',seconds=.7),
-            body(5,16),*step('front_left',-30),*step('front_right',-30),
-            call('pose',joints=list(JOINTS),angles_deg=entry,reference='absolute',speed_pct=100,taper_deg=0),
-            call('hold',seconds=.5),call('face',expr='stand')]
 
 
 def call(name, **arguments):

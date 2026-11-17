@@ -193,9 +193,8 @@ int main(void)
         const uint16_t stalled=ainekio_p4_feedback_stalled(&progress,mapping,targets);
         assert(stalled==(n==4?(1U<<4):0));
     }
-    /* Recorded ground-fault shape: all signals below their captured ranges.
-     * Extrapolated diagnostics remain possible, but they cannot prove a jam
-     * or create a measured position for corrective control. */
+    /* Signals outside [500, 2800] us remain observable for stall/thermal protection
+     * while excluded from balance frames; true ADC rail faults (0/4095) clear jam state. */
     ainekio_p4_feedback_snapshot_t healthy=sample;
     for(unsigned j=0;j<12;j++) {
         unsigned c=sample.config.joint[j].channel;
@@ -207,6 +206,13 @@ int main(void)
     assert(!health.unavailable && !health.clipped && !health.above_calibration);
     assert(!ainekio_p4_feedback_frame(mapping,&frame));
     assert(!arrived(mapping,targets,1000,&waiting) && waiting==0xfff);
+    assert(!ainekio_p4_feedback_stalled(&progress,mapping,targets));
+    for(unsigned j=0;j<12;j++)assert(progress.joint[j].progress_at!=0);
+    for(unsigned j=0;j<12;j++) {
+        unsigned c=sample.config.joint[j].channel;
+        sample.raw[c]=0;
+        sample.sampled_us[c]+=20000;
+    }
     assert(!ainekio_p4_feedback_stalled(&progress,mapping,targets));
     for(unsigned j=0;j<12;j++)assert(!progress.joint[j].progress_at);
     sample=healthy;
@@ -255,5 +261,116 @@ int main(void)
         sample.raw[c]=end+sign*4;sample.filtered_raw[c]=end+sign*7;
         assert(arrived(mapping,targets,1000,&waiting));
     }
+    /* 1. Zero false positives under 6.5 deg static gravity sag for 60 s and
+     * under oscillating 50 Hz walk_target trajectories with reversals. */
+    sample=healthy;
+    sample.config.enabled=sample.config.jam_enabled=true;
+    sample.config.tolerance_us=30;sample.config.no_progress_ms=1000;sample.config.progress_us=5;
+    progress=(ainekio_p4_feedback_progress_t){0};
+    ainekio_p4_feedback_thermal_t thermal={0};
+    ainekio_feedback_filter_t filters[16]={0};
+    int64_t sim_us=50000000;
+    for(unsigned j=0;j<12;j++) {
+        mapping[j].us_per_degree=11.111111f;
+        sample.config.joint[j].point[0]=(ainekio_feedback_point_t){300,500};
+        sample.config.joint[j].point[1]=(ainekio_feedback_point_t){1900,1650};
+        sample.config.joint[j].point[2]=(ainekio_feedback_point_t){3500,2800};
+        targets[mapping[j].channel]=1650;
+    }
+    for(unsigned step=0;step<3000;step++) {
+        sim_us+=20000;
+        for(unsigned j=0;j<12;j++) {
+            const unsigned ch=sample.config.joint[j].channel;
+            /* 6.5 deg sag = 72.22 us below 1650 us target, with ADC jitter. */
+            const double pulse_us=1650.0-72.22+((step+j)%2?1.5:-1.5);
+            const double raw_f=300.0+(pulse_us-500.0)*(1600.0/1150.0);
+            sample.raw[ch]=(uint16_t)lround(raw_f);
+            sample.sampled_us[ch]=sim_us;
+            ainekio_feedback_filter_update(&filters[ch],sample.raw[ch],sim_us);
+            sample.filtered_raw[ch]=(float)filters[ch].position;
+            sample.velocity_raw_s[ch]=(float)filters[ch].velocity;
+        }
+        assert(ainekio_p4_feedback_stalled(&progress,mapping,targets)==0);
+        assert(ainekio_p4_feedback_thermal_step(&thermal,mapping,targets,true,(uint64_t)sim_us)==0);
+        for(unsigned j=0;j<12;j++)assert(thermal.thermal_load[j]==0.0f);
+    }
+    /* Oscillating 50 Hz walk_target trajectory with 90 us dynamic load lag
+     * (staying on one side of target across reversals) for 60 simulated seconds. */
+    progress=(ainekio_p4_feedback_progress_t){0};
+    thermal=(ainekio_p4_feedback_thermal_t){0};
+    double sim_pos_us[12];
+    for(unsigned j=0;j<12;j++)sim_pos_us[j]=1650.0;
+    for(unsigned step=0;step<3000;step++) {
+        sim_us+=20000;
+        const double t=step*0.02;
+        for(unsigned j=0;j<12;j++) {
+            const unsigned ch=sample.config.joint[j].channel;
+            const double phase=6.283185307179586*1.25*t+j*0.5;
+            const double cmd=1650.0+220.0*sin(phase);
+            targets[mapping[j].channel]=(uint16_t)lround(cmd);
+            /* Loaded plant lags and sags by 55 us, never hitting exact peaks. */
+            const double desired=cmd-55.0;
+            sim_pos_us[j]+=(desired-sim_pos_us[j])*0.35;
+            const double raw_f=300.0+(sim_pos_us[j]-500.0)*(1600.0/1150.0);
+            sample.raw[ch]=(uint16_t)lround(raw_f);
+            sample.sampled_us[ch]=sim_us;
+            ainekio_feedback_filter_update(&filters[ch],sample.raw[ch],sim_us);
+            sample.filtered_raw[ch]=(float)filters[ch].position;
+            sample.velocity_raw_s[ch]=(float)filters[ch].velocity;
+        }
+        assert(ainekio_p4_feedback_stalled(&progress,mapping,targets)==0);
+        assert(ainekio_p4_feedback_thermal_step(&thermal,mapping,targets,true,(uint64_t)sim_us)==0);
+    }
+
+    /* 2. End-stop jam outside [500, 2800] us: jammed at 430 us while commanded
+     * to 320 us trips stall observation and thermal cutoff in ~8-10 seconds. */
+    progress=(ainekio_p4_feedback_progress_t){0};
+    thermal=(ainekio_p4_feedback_thermal_t){0};
+    for(unsigned j=0;j<12;j++) {
+        mapping[j].us_per_degree=6.0f;
+        targets[mapping[j].channel]=1650;
+        const unsigned ch=sample.config.joint[j].channel;
+        sample.raw[ch]=1900;sample.filtered_raw[ch]=1900.f;sample.velocity_raw_s[ch]=0.f;
+    }
+    /* Joint 3 is calibrated on [500, 2800] us (raw 300..3500) and jammed below
+     * calibration at 430 us (raw ~203) while commanded to 320 us. */
+    targets[mapping[3].channel]=320;
+    const unsigned jam_ch=sample.config.joint[3].channel;
+    const double jam_raw=300.0+(430.0-500.0)*(1600.0/1150.0);
+    sample.raw[jam_ch]=(uint16_t)lround(jam_raw);
+    filters[jam_ch]=(ainekio_feedback_filter_t){0};
+    ainekio_feedback_filter_update(&filters[jam_ch],sample.raw[jam_ch],sim_us);
+    sample.filtered_raw[jam_ch]=(float)filters[jam_ch].position;
+    sample.velocity_raw_s[jam_ch]=0.f;
+    ainekio_p4_feedback_health(&sample,&health);
+    assert(health.below_calibration==(1U<<3));
+    bool stall_seen=false;
+    unsigned trip_step=0;
+    for(unsigned step=1;step<=600;step++) {
+        sim_us+=20000;
+        for(unsigned j=0;j<12;j++) {
+            const unsigned ch=sample.config.joint[j].channel;
+            sample.sampled_us[ch]=sim_us;
+        }
+        ainekio_feedback_filter_update(&filters[jam_ch],sample.raw[jam_ch],sim_us);
+        sample.filtered_raw[jam_ch]=(float)filters[jam_ch].position;
+        sample.velocity_raw_s[jam_ch]=(float)filters[jam_ch].velocity;
+        const uint16_t stalled=ainekio_p4_feedback_stalled(&progress,mapping,targets);
+        if(stalled) {
+            assert(stalled==(1U<<3) && !stall_seen);
+            stall_seen=true;
+        }
+        const uint16_t tripped=ainekio_p4_feedback_thermal_step(&thermal,mapping,targets,true,(uint64_t)sim_us);
+        if(tripped) {
+            assert(tripped==(1U<<3));
+            trip_step=step;
+            break;
+        }
+    }
+    assert(stall_seen);
+    const double trip_seconds=trip_step*0.02;
+    assert(trip_seconds>=8.0 && trip_seconds<=10.0);
+    printf("End-stop jam (430 us vs 320 us outside [500, 2800] us) tripped thermal cutoff in %.2f s.\n",trip_seconds);
+
     puts("Feedback arrival: endpoint noise within saved tolerance, mapping, freshness, actual target errors, jam timing and signal faults passed.");
 }

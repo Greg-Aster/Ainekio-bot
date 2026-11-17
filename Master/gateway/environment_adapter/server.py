@@ -7,6 +7,7 @@ import json
 import math
 from pathlib import Path
 import struct
+from collections import deque
 from collections.abc import Coroutine
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -156,8 +157,14 @@ class EnvironmentAdapter:
         self._last_microphone_level_at = float("-inf")
         self._microphone_level_task: asyncio.Task[None] | None = None
         self._last_audio_result: dict[str, object] | None = None
+        self._text_stream: deque[dict[str, object]] = deque(maxlen=80)
+        self._text_stream_ids: deque[str] = deque(maxlen=160)
         self._action_tasks: set[asyncio.Task[None]] = set()
         self._active_action_ids: set[str] = set()
+        self._motion_stall_aborts: dict[
+            str,
+            tuple[str | None, int | None, int | None, str | None, asyncio.Future[dict[str, object]]],
+        ] = {}
         self._walk_update_task: asyncio.Task[None] | None = None
         self._bridge_ready = False
         self._settings_requests: dict[str, asyncio.Future[dict[str, object]]] = {}
@@ -210,12 +217,43 @@ class EnvironmentAdapter:
             await self._send_observation()
         return {'playbackTarget': self._speech_target, **({'computerDevice':self._computer_device} if self._computer_device else {})}
 
+    def record_text_stream_message(self, raw: Mapping[str, object]) -> dict[str, object] | None:
+        text = raw.get("text")
+        if not isinstance(text, str) or not text.strip():
+            return None
+        msg_id = str(raw.get("id") or f"mh-text-{uuid4().hex[:16]}").strip()
+        if msg_id in self._text_stream_ids:
+            return None
+        role_raw = str(raw.get("role") or "assistant").strip().lower()
+        role = role_raw if role_raw in {"assistant", "user", "system"} else "assistant"
+        entry: dict[str, object] = {
+            "id": msg_id,
+            "text": text.strip()[:4000],
+            "role": role,
+            "timestamp": (
+                str(raw["timestamp"]).strip()
+                if isinstance(raw.get("timestamp"), str) and str(raw["timestamp"]).strip()
+                else self.utcnow().isoformat()
+            ),
+        }
+        for key in ("source", "cognitiveMode", "executionId"):
+            val = raw.get(key)
+            if isinstance(val, str) and val.strip():
+                entry[key] = val.strip()[:80]
+        self._text_stream_ids.append(msg_id)
+        self._text_stream.append(entry)
+        return entry
+
+    def clear_text_stream(self) -> None:
+        self._text_stream.clear()
+
     def connection_status(self) -> dict[str, object]:
         websocket = self._websocket
         return {
             "connected": bool(self._bridge_ready and websocket is not None and not websocket.closed),
             "robotId": self._selected_robot()[0],
             "lastAudioResult": dict(self._last_audio_result) if self._last_audio_result else None,
+            "messages": list(self._text_stream),
         }
 
     async def behavior_settings(self, enabled: bool | None = None) -> dict[str, object]:
@@ -385,8 +423,25 @@ class EnvironmentAdapter:
                 self._last_audio_result = {
                     key: value
                     for key, value in message.items()
-                    if key in {"utteranceId", "status", "message", "timestamp"}
+                    if key in {"utteranceId", "status", "message", "timestamp", "transcript"}
                 }
+                transcript_text = message.get("transcript")
+                if message.get("status") == "completed" and isinstance(transcript_text, str) and transcript_text.strip():
+                    utt_id = message.get("utteranceId")
+                    self.record_text_stream_message(
+                        {
+                            "id": f"voice:{utt_id}" if isinstance(utt_id, str) and utt_id else None,
+                            "text": transcript_text,
+                            "role": "user",
+                            "source": "voice",
+                            "timestamp": message.get("timestamp"),
+                        }
+                    )
+                continue
+            if message.get("type") == "environment.text_stream":
+                payload_msg = message.get("message")
+                if isinstance(payload_msg, Mapping):
+                    self.record_text_stream_message(payload_msg)
                 continue
             if message.get("type") == "environment.observation.ack":
                 if message.get("admitted") is True and isinstance(message.get("observationId"), str):
@@ -729,6 +784,14 @@ class EnvironmentAdapter:
             # Manual translation keeps its finite-cycle semantics.
             translated = translate_environment_action({**action, "continuous": True}, model=(self._selected_robot()[1] or {}).get("model"))
         if translated.kind == "text":
+            self.record_text_stream_message(
+                {
+                    "id": f"action:{action_id}" if action_id else None,
+                    "text": translated.params.get("text"),
+                    "role": "assistant",
+                    "source": "environment-bridge",
+                }
+            )
             await self.gateway.publish_transcript(
                 {
                     "source": "environment_adapter",
@@ -809,7 +872,13 @@ class EnvironmentAdapter:
                         check_interpretation_owner)
                 submission = await self.gateway.request_motion(translated.params["description"], robot_id=robot_id,
                     job_id=action_id, on_job=remember_job if receipt is not None else None)
-                result = await self.gateway.freestyle_result(submission["jobId"])
+                result = await self._await_motion_with_stall_abort(
+                    action_id,
+                    robot_id,
+                    robot_epoch if type(robot_epoch) is int else None,
+                    self.gateway.freestyle_result(submission["jobId"]),
+                    job_id=str(submission["jobId"]),
+                )
                 return self._motion_result(action_id, result)
             except (GatewayError, ConnectionClosed, OSError, KeyError, ValueError) as error:
                 row = await asyncio.to_thread(self.receipts.action, action_id) if receipt is not None else None
@@ -843,12 +912,22 @@ class EnvironmentAdapter:
             )
             if action_context_key is None:
                 remember_sequence(sequence)
-            terminal = await self.gateway.wait_terminal(
+            wait_coro = self.gateway.wait_terminal(
                 sequence,
                 robot_id=robot_id,
                 epoch=robot_epoch,
                 timeout=None,
             )
+            if translated.kind == "intent" and translated.name not in {"face", "say"}:
+                terminal = await self._await_motion_with_stall_abort(
+                    action_id,
+                    robot_id,
+                    robot_epoch if type(robot_epoch) is int else None,
+                    wait_coro,
+                    sequence=sequence,
+                )
+            else:
+                terminal = await wait_coro
         except (GatewayError, TimeoutError, ConnectionClosed, OSError) as exc:
             receipt = await asyncio.to_thread(self.receipts.action, action_id) if isinstance(action_id, str) else None
             status = "outcome_unknown" if receipt is not None and receipt["wire"] is not None else "rejected"
@@ -868,10 +947,98 @@ class EnvironmentAdapter:
         return self._terminal_feedback(action_id, terminal, command=translated.name or translated.kind,
             sequence=sequence, robot_id=robot_id, epoch=robot_epoch)
 
+    async def _await_motion_with_stall_abort(
+        self,
+        action_id: str | None,
+        robot_id: str | None,
+        epoch: int | None,
+        coro: Coroutine[Any, Any, dict[str, object]],
+        *,
+        sequence: int | None = None,
+        job_id: str | None = None,
+    ) -> dict[str, object]:
+        key = action_id or f"anon:{uuid4().hex}"
+        loop = asyncio.get_running_loop()
+        abort_future: asyncio.Future[dict[str, object]] = loop.create_future()
+        self._motion_stall_aborts[key] = (robot_id, epoch, sequence, job_id, abort_future)
+        main_task = asyncio.ensure_future(coro)
+        try:
+            done, _ = await asyncio.wait(
+                {main_task, abort_future},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if main_task in done:
+                return main_task.result()
+            stall_info = abort_future.result()
+            main_task.cancel()
+            await asyncio.gather(main_task, return_exceptions=True)
+            if job_id is not None:
+                if getattr(self.gateway, "freestyle_cancel", None) is not None:
+                    try:
+                        await self.gateway.freestyle_cancel(job_id)
+                    except Exception:
+                        pass
+                return {
+                    "id": job_id,
+                    "robot_id": robot_id,
+                    "epoch": epoch,
+                    "state": "error",
+                    "error": str(stall_info["error"]),
+                    "error_evidence": dict(stall_info["data"]),
+                    "receipts": [],
+                }
+            return {
+                "t": "cancelled",
+                "seq": sequence,
+                "code": "servo_stall",
+                "outputs_released": True,
+                "execution_error": str(stall_info["error"]),
+            }
+        finally:
+            self._motion_stall_aborts.pop(key, None)
+            if not main_task.done():
+                main_task.cancel()
+                await asyncio.gather(main_task, return_exceptions=True)
+
+    def _abort_released_stall_waiters(self, event: Mapping[str, object]) -> None:
+        data = event.get("data") if isinstance(event.get("data"), Mapping) else {}
+        if data.get("kind") != "servo_stall" or data.get("outputs_released") is not True:
+            return
+        ev_robot = event.get("robot_id")
+        ev_epoch = event.get("epoch")
+        ev_seq = data.get("command_sequence")
+        conn = getattr(self.gateway, "_connections", {}).get(ev_robot) if isinstance(ev_robot, str) else None
+        if conn is not None and hasattr(conn, "_abort_pending_motion_on_stall"):
+            conn._abort_pending_motion_on_stall(event)
+        joints = [
+            str(item.get("name") or item.get("id"))
+            for item in (data.get("joints") or [])
+            if isinstance(item, Mapping)
+        ]
+        detail = f" ({', '.join(joints)})" if joints else ""
+        error_msg = f"servo_stall: body released servo outputs{detail}"
+        for r_id, ep, seq, _job_id, fut in tuple(self._motion_stall_aborts.values()):
+            if fut.done():
+                continue
+            if r_id is not None and ev_robot is not None and r_id != ev_robot:
+                continue
+            if ep is not None and type(ev_epoch) is int and ep != ev_epoch:
+                continue
+            if seq is not None and type(ev_seq) is int and ev_seq > 0 and seq != ev_seq:
+                continue
+            fut.set_result({"error": error_msg, "data": dict(data)})
+
     def _motion_result(self, action_id, result):
         status = {"completed": "completed", "superseded": "cancelled", "error": "failed"}[result["state"]]
-        if status == "failed" and type(result.get("last_sequence")) is int and not any(
-            receipt.get("seq") == result["last_sequence"] for receipt in result.get("receipts", [])
+        released_stall = (
+            isinstance(result.get("error_evidence"), Mapping)
+            and result["error_evidence"].get("outputs_released") is True
+        )
+        if (
+            status == "failed"
+            and not released_stall
+            and type(result.get("last_sequence")) is int
+            and not any(receipt.get("seq") == result["last_sequence"] for receipt in result.get("receipts", []))
         ):
             status = "outcome_unknown"
         feedback = self._feedback(action_id, status, result.get("error") or result["state"],
@@ -1045,8 +1212,11 @@ class EnvironmentAdapter:
             return
         if event.get("name") == "body_event":
             data=event.get("data") or {}
-            if data.get("kind")=="servo_stall" and not (data.get("correction_failed") or data.get("outputs_released")):
-                return
+            if data.get("kind")=="servo_stall":
+                if not (data.get("correction_failed") or data.get("outputs_released")):
+                    return
+                if data.get("outputs_released") is True:
+                    self._abort_released_stall_waiters(event)
         if event.get("name") == "body_event" and (event.get("data") or {}).get("kind") == "wake":
             self._track_action(f"wake:{event['event_id']}", self._process_wake(event, self._websocket))
             return
@@ -1209,7 +1379,7 @@ class EnvironmentAdapter:
             startup["stretch"] = {"state": "not_dispatched", "reason": "body_session_ended"}
         else:
             try:
-                submission = await self.gateway.request_motion("Stand up, stretch, and finish standing.", robot_id=robot_id)
+                submission = await self.gateway.request_motion("Perform a whole-body stretch.", robot_id=robot_id)
                 startup["stretch"] = {"state": "dispatched", **submission,
                     "robotId": robot_id, "epoch": event["epoch"], "timestamp": self.utcnow().isoformat()}
             except (GatewayError, ConnectionClosed, OSError) as exc:
@@ -1956,7 +2126,14 @@ class EnvironmentAdapter:
             if wire.get("kind") == "freestyle":
                 if wire.get("gatewayInstance") != self.gateway.instance_id:
                     raise GatewayError("previous gateway session ended; awaiting authenticated robot reconnection")
-                return self._motion_result(action_id, await self.gateway.freestyle_result(wire["jobId"]))
+                resumed_result = await self._await_motion_with_stall_abort(
+                    action_id,
+                    robot_id if isinstance(robot_id, str) else None,
+                    epoch if type(epoch) is int else None,
+                    self.gateway.freestyle_result(wire["jobId"]),
+                    job_id=str(wire["jobId"]),
+                )
+                return self._motion_result(action_id, resumed_result)
             if wire.get("kind") == "computer-speech":
                 raise GatewayError("Body Control restarted before computer playback completion was recorded")
             if not isinstance(robot_id, str) or type(epoch) is not int or type(sequence) is not int:
@@ -1964,7 +2141,13 @@ class EnvironmentAdapter:
             if wire.get("gatewayInstance") != self.gateway.instance_id:
                 # Epochs and wire sequences can be reused by a new gateway.
                 raise GatewayError("previous gateway session ended; awaiting authenticated robot reconnection")
-            terminal = await self.gateway.wait_terminal(sequence, robot_id=robot_id, epoch=epoch, timeout=None)
+            wait_coro = self.gateway.wait_terminal(sequence, robot_id=robot_id, epoch=epoch, timeout=None)
+            if wire.get("kind") == "intent" and command.get("type") != "faceExpression":
+                terminal = await self._await_motion_with_stall_abort(
+                    action_id, robot_id, epoch, wait_coro, sequence=sequence
+                )
+            else:
+                terminal = await wait_coro
             feedback = self._terminal_feedback(action_id, terminal,
                 command=command.get("command", command.get("type")), robot_id=robot_id, epoch=epoch, sequence=sequence)
         except (GatewayError, TimeoutError, ConnectionClosed, OSError, KeyError, ValueError) as error:

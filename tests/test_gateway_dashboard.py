@@ -1591,6 +1591,65 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload[0], "face")
         self.assertEqual(payload[1], {"expr": "run"})
 
+    async def test_cockpit_metahuman_stream_status_and_clear_endpoint(self) -> None:
+        stream_messages = [
+            {
+                "id": "msg-1",
+                "text": "Camera feed online. Ready in Cockpit.",
+                "role": "assistant",
+                "source": "environment",
+                "timestamp": "2026-11-16T18:05:00Z",
+            }
+        ]
+        bridge = SimpleNamespace(
+            connection_status=lambda: {
+                "connected": True,
+                "lastAudioResult": None,
+                "messages": list(stream_messages),
+            },
+            clear_text_stream=lambda: stream_messages.clear(),
+        )
+        self.server.environment_adapter = bridge
+
+        self.assertEqual((await self._request("POST", "/api/metahuman-stream", {"op": "clear"}))[0], 401)
+        cookie, csrf = await self._login()
+
+        status_code, status_payload, _ = await self._request("GET", "/api/status", cookie=cookie)
+        self.assertEqual(status_code, 200)
+        self.assertTrue(status_payload["metahuman"]["connected"])
+        self.assertEqual(len(status_payload["metahuman"]["messages"]), 1)
+        self.assertEqual(status_payload["metahuman"]["messages"][0]["text"], "Camera feed online. Ready in Cockpit.")
+
+        self.assertEqual((await self._request("POST", "/api/metahuman-stream", {"op": "clear"}, cookie=cookie))[0], 403)
+        self.assertEqual(
+            (await self._request("POST", "/api/metahuman-stream", {"op": "invalid"}, cookie=cookie, csrf=csrf))[0],
+            400,
+        )
+        clear_code, clear_payload, _ = await self._request(
+            "POST",
+            "/api/metahuman-stream",
+            {"op": "clear"},
+            cookie=cookie,
+            csrf=csrf,
+        )
+        self.assertEqual(clear_code, 200)
+        self.assertEqual(clear_payload, {"ok": True, "messages": []})
+        _, status_after, _ = await self._request("GET", "/api/status", cookie=cookie)
+        self.assertEqual(status_after["metahuman"]["messages"], [])
+        self.assertEqual(self.gateway.calls, [], "Cockpit stream controls must never send physical robot commands")
+
+        html_code, html_bytes, _ = await self._raw_request("GET", "/", cookie=cookie)
+        self.assertEqual(html_code, 200)
+        html = html_bytes.decode("utf-8")
+        self.assertIn('id="cockpit-stream-panel"', html)
+        self.assertIn('id="cockpit-stream-toggle"', html)
+
+        css_code, css_bytes, _ = await self._raw_request("GET", "/assets/dashboard.css", cookie=cookie)
+        self.assertEqual(css_code, 200)
+        css = css_bytes.decode("utf-8")
+        self.assertIn(".cockpit-stream-panel {", css)
+        self.assertIn("background: rgba(10, 16, 22, 0.34);", css)
+
 
 if __name__ == "__main__":
     unittest.main()

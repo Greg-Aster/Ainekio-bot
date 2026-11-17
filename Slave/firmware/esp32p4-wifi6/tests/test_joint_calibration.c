@@ -149,7 +149,9 @@ static void test_commanded_reference_round_trip(void)
     assert(ainekio_p4_joint_unmap_frame(joints, pulses, &restored));
     assert(fabs(restored.position[0] - frame.position[0]) < 5);
     pulses[0] = 0;
-    assert(!ainekio_p4_joint_unmap_frame(joints, pulses, &restored));
+    assert(ainekio_p4_joint_unmap_frame(joints, pulses, &restored));
+    assert(fabs(restored.position[0] - 100. * ainekio_v2_center_degrees(0)) < 1e-3);
+    assert(fabs(restored.position[1] - frame.position[1]) < 5);
 }
 
 static void test_manual_pulse_reference_is_literal(void)
