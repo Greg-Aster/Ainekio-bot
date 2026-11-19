@@ -2149,9 +2149,9 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
         async def fake_neural_call(path: str, payload=None):
             if path.startswith("/status"):
                 return {
-                    "model_id": "pupper-test",
+                    "model_id": "microduck-test",
                     "checkpoint_id": "ckpt-1",
-                    "kind": "pupper-mjx",
+                    "kind": "microduck-mjlab",
                     "environment": {
                         "observation_schema": "ainekio-neural-gait-v3",
                         "reference_joint_deg": [0.0, 0.94, -21.25] * 4,
@@ -2161,7 +2161,7 @@ class SensorTelemetryTests(unittest.IsolatedAsyncioTestCase):
                 }
             assert path == "/infer"
             inferred_commands.append((round(t_now[0], 3), list(payload["observation"]["command"])))
-            return {"model_id": "pupper-test", "checkpoint_id": "ckpt-1", "action": [0.0] * 12}
+            return {"model_id": "microduck-test", "checkpoint_id": "ckpt-1", "action": [0.0] * 12}
 
         service.neural_gait.call = fake_neural_call
 

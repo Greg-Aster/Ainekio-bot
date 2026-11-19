@@ -483,6 +483,105 @@ def standalone_scenarios(probe=False):
                     validate_prefix(wave_row)
                     yield wave_row
 
+    # Last-ditch multi-joint splayed stance-jam recovery (`reason == 'stance_transition_jam'`):
+    # When >= 2 stance joints stall against severe floor/obstacle obstruction for 1.8 s,
+    # shift CoM onto the opposite tripod, unload and step the jammed limb cleanly inward,
+    # re-acquire nominal Stand, and complete only safe remaining gesture phases (never LAY_DOWN sprawl).
+    splay_cases = (
+        ('rear_left', [0, 1], [-39.5, 16.0, -14.0] if not probe else [-35.0, 14.0, -16.0], [8, -10, 6]),
+        ('rear_right', [3, 4], [-38.0, 15.0, -15.0] if not probe else [-33.5, 13.5, -16.5], [8, 10, 6]),
+        ('front_left', [6, 7], [-36.0, 17.0, -14.5] if not probe else [-32.0, 14.5, -16.0], [-8, -10, 6]),
+        ('front_right', [9, 10], [-37.0, 16.5, -15.0] if not probe else [-33.0, 15.0, -16.5], [-8, 10, 6]),
+        ('rear_left', [0, 2], [26.0, -12.0, -39.0] if not probe else [23.0, -10.5, -36.5], [8, -10, 6]),
+        ('rear_right', [3, 5], [25.5, -11.5, -38.5] if not probe else [22.5, -10.0, -36.0], [8, 10, 6]),
+        ('front_left', [6, 8], [24.0, -12.0, -38.0] if not probe else [21.5, -10.5, -35.5], [-8, -10, 6]),
+        ('front_right', [9, 11], [24.5, -11.5, -38.5] if not probe else [22.0, -10.0, -36.0], [-8, 10, 6]),
+    )
+    followups = (
+        ('Stand up cleanly and hold level.', [], [call('face', expr='stand')]),
+        ('Please pretend to ride a motorcycle leaning through mountain curves!',
+         [call('body', translation_mm=[-2, 12, -2], rotation_deg=[-8, 2, 7], legs=[], foot_offsets_mm=[], speed_pct=70),
+          call('body', translation_mm=[2, -12, 2], rotation_deg=[8, -2, -7], legs=[], foot_offsets_mm=[], speed_pct=70),
+          call('face', expr='stand')],
+         [call('body', translation_mm=[-2, 12, -2], rotation_deg=[-8, 2, 7], legs=[], foot_offsets_mm=[], speed_pct=70),
+          call('body', translation_mm=[2, -12, 2], rotation_deg=[8, -2, -7], legs=[], foot_offsets_mm=[], speed_pct=70),
+          call('face', expr='stand')]),
+        ('Take a polite bow and return to stand.',
+         [call('body', translation_mm=[-8, 0, -8], rotation_deg=[0, 11, 0], legs=[], foot_offsets_mm=[], speed_pct=55),
+          call('hold', seconds=0.8),
+          call('body', translation_mm=[8, 0, 8], rotation_deg=[0, -11, 0], legs=[], foot_offsets_mm=[], speed_pct=55),
+          call('face', expr='stand')],
+         [call('body', translation_mm=[-8, 0, -8], rotation_deg=[0, 11, 0], legs=[], foot_offsets_mm=[], speed_pct=55),
+          call('hold', seconds=0.8),
+          call('body', translation_mm=[8, 0, 8], rotation_deg=[0, -11, 0], legs=[], foot_offsets_mm=[], speed_pct=55),
+          call('face', expr='stand')]),
+        ('Mime sipping a cup of tea and biscuits.',
+         [call('face', expr='stand')],
+         [call('face', expr='stand')]),
+    )
+    for s_i, (leg, stalled_ids, leg_splay_deg, shift_mm) in enumerate(splay_cases):
+        leg_idx = legs.index(leg)
+        present = dict(stand_goal)
+        for ax_i, ax_name in enumerate(('shoulder', 'carrier', 'crank')):
+            present[f'{leg}_{ax_name}'] = leg_splay_deg[ax_i]
+        other_leg = legs[(leg_idx + 1) % 4]
+        present[f'{other_leg}_shoulder'] = -11.5 if not probe else -9.5
+        sjam_state = state_at(base_state, present)
+        for j in JOINTS:
+            sjam_state['joints'][j]['commanded_model_deg'] = stand_goal[j]
+        mask_bits = 0
+        for sid in stalled_ids:
+            mask_bits |= (1 << sid)
+        sjam_state['feedback'] = {'enabled': True, 'stalled_joints': mask_bits, 'no_progress_ms': 1800}
+        sjam_state['imu'] = imu(3.5 if (leg_idx % 2 == 0) else -3.5, 'roll')
+        leg_js = [f'{leg}_shoulder', f'{leg}_carrier', f'{leg}_crank']
+        step_recovery_core = [
+            call('face', expr=FACES[s_i % len(FACES)]),
+            call('body', translation_mm=list(shift_mm), rotation_deg=[0, 0, 0], legs=[], foot_offsets_mm=[], speed_pct=55),
+            call('pose', joints=leg_js, angles_deg=[0.0, -16.0, -34.0], reference='absolute', speed_pct=60),
+            copy.deepcopy(stand_pose),
+        ]
+        # 1. Standalone unowned stance_transition_jam
+        q_sjam_alone = {
+            'request': request,
+            'event': {'type': 'servo_stall', 'joints': list(stalled_ids), 'outputs_released': False, 'reason': 'stance_transition_jam'},
+            'observation': copy.deepcopy(sjam_state),
+            'history': [],
+        }
+        alone_row = row_for(
+            source_stub, 'standalone_stance_jam_recovery', q_sjam_alone, [*step_recovery_core, call('face', expr='stand')], 0, variant,
+            {'joints': list(stalled_ids), 'leg': leg, 'scope': 'standalone multi-joint splayed stance_transition_jam recovery to nominal stand'},
+        )
+        validate_prefix(alone_row)
+        yield alone_row
+
+        # 2. In-program stance_transition_jam with motion_goal
+        f_req, rem_prog, safe_tail = followups[s_i % len(followups)]
+        interrupted_stand = copy.deepcopy(stand_pose)
+        for req_txt in (f_req, request):
+            q_sjam_goal = {
+                'request': req_txt,
+                'event': {'type': 'servo_stall', 'joints': list(stalled_ids), 'outputs_released': False, 'reason': 'stance_transition_jam'},
+                'observation': copy.deepcopy(sjam_state),
+                'history': [
+                    {'joints': {JOINTS[k]: present[JOINTS[k]] for k in stalled_ids}},
+                    {'program_state': 'executing', 'interrupted_action': interrupted_stand, 'remaining_program': copy.deepcopy(rem_prog)},
+                ],
+                'motion_goal': {
+                    'request': f_req,
+                    'interrupted_action': interrupted_stand,
+                    'remaining_program': copy.deepcopy(rem_prog),
+                },
+            }
+            goal_stub = {'id': f'sjamgoal{s_i:08d}', 'source_hash': hashlib.sha256(f_req.encode()).hexdigest(),
+                         'title': f_req, 'query': compact({'request': f_req})}
+            sjam_goal_row = row_for(
+                goal_stub, 'stance_transition_jam_recovery', q_sjam_goal, [*step_recovery_core, *copy.deepcopy(safe_tail)], 0, variant,
+                {'joints': list(stalled_ids), 'leg': leg, 'scope': 'last-ditch stance_transition_jam tripod unload recovery and safe continuation'},
+            )
+            validate_prefix(sjam_goal_row)
+            yield sjam_goal_row
+
 
 def event_variants(rows):
     """Use the same compact lessons for the enabled feedback/IMU event routes."""

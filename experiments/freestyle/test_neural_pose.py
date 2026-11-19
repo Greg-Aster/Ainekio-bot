@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 from dataclasses import replace
 import json
 import math
@@ -995,30 +996,22 @@ class BridgeNeuralPoseLifecycleTests(unittest.IsolatedAsyncioTestCase):
             )
             res = await bridge.result(sub["job_id"])
             self.assertEqual(res["state"], "completed")
-            self.assertEqual(len(gen_calls), 1, "Must never call freestyle-0.8b LLM for stall recovery")
+            self.assertEqual(len(gen_calls), 1, "Must never call freestyle-0.8b LLM for single-limb obstacle contact")
 
             recoils = [payload for kind, payload in rec.events if kind == "joint_recoil"]
-            self.assertEqual(len(recoils), 2, "Both mid-program and final-pose stalls must trigger compliant recoil")
-            self.assertAlmostEqual(recoils[0]["joints"]["front_right_carrier"], 13.0, places=2)
-            self.assertAlmostEqual(recoils[1]["joints"]["front_left_carrier"], 10.0, places=2)
+            self.assertEqual(recoils, [], "Executor must never mutate cmd_q_rad or later segment goals via hardcoded joint_recoil")
 
-            # Verify mid-program recoil backed off from 15.0 -> ~13.0 deg within ~0.28s (14 stalled ticks)
+            # Verify executor did NOT hijack/mutate goal_deg prematurely mid-segment
             first_hit_15 = next(i for i, v in enumerate(fr_carrier_trace) if abs(v - 15.0) < 0.05)
-            backed_off_idx = next(
-                i for i in range(first_hit_15 + 1, len(fr_carrier_trace)) if fr_carrier_trace[i] <= 13.5
-            )
-            stalled_window_ticks = backed_off_idx - first_hit_15
-            self.assertGreaterEqual(stalled_window_ticks, 14)
-            self.assertLessEqual(stalled_window_ticks, 17)
+            self.assertGreaterEqual(len(fr_carrier_trace) - first_hit_15, 16)
 
-            # Verify middle unblocked segment (rear_left_shoulder -> 12 deg) still executed cleanly
+            # Verify middle unblocked segment (rear_left_shoulder -> 12 deg) and final return (0 deg) executed cleanly
             self.assertGreater(max(rl_shoulder_trace), 10.5)
+            self.assertLessEqual(abs(rl_shoulder_trace[-1]), 1.5)
 
-            # Verify final-pose stall triggered smooth 0.85s return-to-Ready (STAND_ANGLES_DEG) before estop hold
+            # Verify final-pose stall settled safely (~10.0 deg) without forcing an unwanted return to STAND_ANGLES_DEG
             ready_events = [kind for kind, _ in rec.events if kind in ("return_to_ready_started", "return_to_ready_completed")]
-            self.assertEqual(ready_events, ["return_to_ready_started", "return_to_ready_completed"])
-            for i in range(12):
-                self.assertAlmostEqual(phys_deg[i], stand_proj[i], delta=3.5)
+            self.assertEqual(ready_events, [])
             stops = [c for c in gw.conn.sent if c.get("t") == "stop"]
             self.assertEqual(len(stops), 1)
             self.assertNotIn("detach", stops[0])
@@ -1066,6 +1059,460 @@ class BridgeNeuralPoseLifecycleTests(unittest.IsolatedAsyncioTestCase):
         finally:
             await bridge.close()
 
+    async def test_adaptive_neural_unloading_runs_uninterrupted_without_hardcoded_stand_handoff(self):
+        gw = _MockGateway()
+        runtime = _DummyRuntime()
+        manifold = runtime._m
+        stand_proj, stand_foot = manifold.project_angles_deg(STAND_ANGLES_DEG)
+        splayed_start = [-38.0, 16.0, 12.0, 2.0, -22.0, -18.0, -3.0, 18.0, -14.0, -14.0, 0.0, -28.0]
+
+        class _AdaptiveMicrostepActor(_DummyActor):
+            def __init__(self):
+                self.calls = 0
+
+            def infer_feet_mm(self, obs_vec):
+                assert len(obs_vec) == POSE_OBS_SIZE
+                self.calls += 1
+                # Simulate neural micro-step: first 24 ticks (0.48s > old 0.28s cutoff) lift Z on rear_left,
+                # then swing to stand_foot.
+                if self.calls <= 24:
+                    lift_act = list(stand_foot)
+                    lift_act[1] = 0.42
+                    lift_act[2] = 0.28
+                    return lift_act, pose_foot_offsets(lift_act, self.foot_scale_mm)
+                return list(stand_foot), pose_foot_offsets(stand_foot, self.foot_scale_mm)
+
+        runtime._a = _AdaptiveMicrostepActor()
+        for i, j in enumerate(JOINTS):
+            gw.obs["joints"][j] = {
+                "home_deg": STAND_ANGLES_DEG[i],
+                "model_deg": splayed_start[i],
+                "filtered_model_deg": splayed_start[i],
+                "commanded_model_deg": splayed_start[i],
+                "velocity_deg_s": 0.0,
+                "feedback_usable": True,
+            }
+        gw.clock = lambda: gw._t
+        orig_send = gw.conn.send_command
+        phys_deg = list(splayed_start)
+        tick_n = {"n": 0}
+
+        async def sim_send_command(command: dict, *, received_at: float, on_sequence=None, **kwargs) -> int:
+            seq = await orig_send(command, received_at=received_at, on_sequence=on_sequence, **kwargs)
+            if command.get("t") == "walk_target":
+                gw._t += 0.020
+                gw.obs["feedback"]["device_us"] += 20_000
+                tick_n["n"] += 1
+                sent_norm = (
+                    torch.tensor(command["feet_mm"], dtype=torch.float64).reshape(1, 12)
+                    / manifold.body.scale.repeat(4)
+                )
+                cmd_deg = (manifold.body.decode(sent_norm)[0] * 180.0 / math.pi).tolist()
+                for idx_j, name_j in enumerate(JOINTS):
+                    prev_v = phys_deg[idx_j]
+                    # Shoulder stays snagged at -38 deg for first 20 ticks (0.40s) until foot unloads Z, then tracks cleanly
+                    if idx_j == 0 and tick_n["n"] <= 20:
+                        new_v = -38.0
+                    else:
+                        step = max(-8.0, min(8.0, cmd_deg[idx_j] - prev_v))
+                        new_v = prev_v + step
+                    phys_deg[idx_j] = new_v
+                    gw.obs["joints"][name_j]["filtered_model_deg"] = new_v
+                    gw.obs["joints"][name_j]["model_deg"] = new_v
+                    gw.obs["joints"][name_j]["commanded_model_deg"] = cmd_deg[idx_j]
+                    gw.obs["joints"][name_j]["velocity_deg_s"] = (new_v - prev_v) / 0.020
+            return seq
+
+        gw.conn.send_command = sim_send_command
+        gw.body_sensor_observation = lambda robot_id: gw.obs
+
+        async def fake_gen(endpoint, req, **kw):
+            return {
+                "program": [
+                    {"name": "body", "arguments": {"translation_mm": [0.0, 0.0, 0.0], "rotation_deg": [0.0, 0.0, 0.0], "legs": [], "foot_offsets_mm": [], "speed_pct": 65}},
+                    {"name": "face", "arguments": {"expr": "stand"}},
+                ]
+            }
+
+        bridge = Bridge(gw, _MockTransport(), generate=fake_gen, neural_pose_runtime=runtime)
+        try:
+            sub = await bridge.submit(gw.conn.robot_id, "center smoothly", execute=True)
+            res = await bridge.result(sub["job_id"])
+            self.assertEqual(res["state"], "completed")
+            stand_intents = [c for c in gw.conn.sent if c.get("t") == "intent" and c.get("name") == "stand"]
+            self.assertEqual(stand_intents, [], "Must never interrupt 50 Hz neural policy with hardcoded stand intent")
+            self.assertLessEqual(abs(gw.obs["joints"]["rear_left_shoulder"]["filtered_model_deg"] - stand_proj[0]), 3.5)
+        finally:
+            await bridge.close()
+
+    async def test_stance_deflection_completes_program_without_synthetic_jam_or_replan(self):
+        gw = _MockGateway()
+        runtime = _DummyRuntime()
+        manifold = runtime._m
+        stand_proj, _ = manifold.project_angles_deg(STAND_ANGLES_DEG)
+        for i, j in enumerate(JOINTS):
+            gw.obs["joints"][j] = {
+                "home_deg": STAND_ANGLES_DEG[i],
+                "model_deg": stand_proj[i],
+                "filtered_model_deg": stand_proj[i],
+                "commanded_model_deg": stand_proj[i],
+                "velocity_deg_s": 0.0,
+                "feedback_usable": True,
+            }
+        gw.obs["imu"]["angular_rate_rad_s"] = [0.01, -0.01, 0.01]
+        gw.clock = lambda: gw._t
+        orig_send = gw.conn.send_command
+
+        async def sim_send_command(command: dict, *, received_at: float, on_sequence=None, **kwargs) -> int:
+            seq = await orig_send(command, received_at=received_at, on_sequence=on_sequence, **kwargs)
+            if command.get("t") == "walk_target":
+                gw._t += 0.020
+                gw.obs["feedback"]["device_us"] += 20_000
+                sent_norm = (
+                    torch.tensor(command["feet_mm"], dtype=torch.float64).reshape(1, 12)
+                    / manifold.body.scale.repeat(4)
+                )
+                cmd_deg = (manifold.body.decode(sent_norm)[0] * 180.0 / math.pi).tolist()
+                for idx_j, name_j in enumerate(JOINTS):
+                    # Deflect rear_left_shoulder and rear_right leg under static carpet friction
+                    if idx_j in (0, 4, 5):
+                        new_v = -18.5 if idx_j == 0 else STAND_ANGLES_DEG[idx_j]
+                    else:
+                        new_v = cmd_deg[idx_j]
+                    prev_v = gw.obs["joints"][name_j]["filtered_model_deg"]
+                    gw.obs["joints"][name_j]["filtered_model_deg"] = new_v
+                    gw.obs["joints"][name_j]["model_deg"] = new_v
+                    gw.obs["joints"][name_j]["commanded_model_deg"] = cmd_deg[idx_j]
+                    gw.obs["joints"][name_j]["velocity_deg_s"] = (new_v - prev_v) / 0.020
+            return seq
+
+        gw.conn.send_command = sim_send_command
+        gw.body_sensor_observation = lambda robot_id: gw.obs
+
+        gen_requests = []
+
+        async def fake_gen(endpoint, req, **kw):
+            gen_requests.append(copy.deepcopy(req))
+            return {
+                "program": [
+                    {
+                        "name": "pose",
+                        "arguments": {
+                            "joints": list(JOINTS),
+                            "reference": "absolute",
+                            "angles_deg": [0.0, -21.8, 19.98] * 4,
+                            "speed_pct": 60,
+                        },
+                    },
+                    {"name": "hold", "arguments": {"seconds": 0.4}},
+                ]
+            }
+
+        class _GoalTrackingActor(_DummyActor):
+            def infer_feet_mm(self, obs_vec):
+                assert len(obs_vec) == POSE_OBS_SIZE
+                goal_norm = list(obs_vec[57:69])
+                return goal_norm, pose_foot_offsets(goal_norm, self.foot_scale_mm)
+
+        runtime._a = _GoalTrackingActor()
+        bridge = Bridge(gw, _MockTransport(), generate=fake_gen, neural_pose_runtime=runtime)
+        try:
+            await bridge.configure(gw.conn.robot_id, "http://127.0.0.1:8794", False)
+            sub = await bridge.submit(gw.conn.robot_id, "rest down", execute=True)
+            res = await bridge.result(sub["job_id"])
+            self.assertEqual(res["state"], "completed")
+            self.assertIsNone(res.get("error"))
+            self.assertEqual(len(gen_requests), 1, "Must complete program directly without synthetic stance_transition_jam replan")
+        finally:
+            await bridge.close()
+
+    async def test_adc_jitter_on_pinned_shoulder_recoils_cleanly_before_hold_and_refreshes_post_stand_start(self):
+        gw = _MockGateway()
+        runtime = _DummyRuntime()
+        manifold = runtime._m
+        stand_proj, _ = manifold.project_angles_deg(STAND_ANGLES_DEG)
+
+        # Cold-boot disarmed state with splayed RL shoulder (-32.75 deg) before native `stand` arms servos
+        gw.conn.last_status = {"output_armed": False, "output_fault": 0, "imu": gw.obs["imu"]}
+        phys_deg = list(stand_proj)
+        phys_deg[0] = -32.75
+        phys_deg[2] = 55.72
+        for i, j in enumerate(JOINTS):
+            gw.obs["joints"][j] = {
+                "home_deg": STAND_ANGLES_DEG[i],
+                "model_deg": phys_deg[i],
+                "filtered_model_deg": phys_deg[i],
+                "commanded_model_deg": None,
+                "velocity_deg_s": 0.0,
+                "feedback_usable": True,
+            }
+        gw.obs["imu"]["angular_rate_rad_s"] = [0.01, -0.01, 0.01]
+        gw.clock = lambda: gw._t
+        orig_send = gw.conn.send_command
+        tick_counter = {"n": 0}
+        hold_rl_cmds: list[float] = []
+
+        async def sim_send_command(command: dict, *, received_at: float, on_sequence=None, **kwargs) -> int:
+            seq = await orig_send(command, received_at=received_at, on_sequence=on_sequence, **kwargs)
+            if (
+                command.get("t") == "intent"
+                and command.get("name") == "walk"
+                and not gw.conn.last_status["output_armed"]
+                and abs(phys_deg[2]) > 45.0
+            ):
+                # Mirror P4 body.c:1164 rejecting cold-boot walk when crank (+55.72 deg) is folded outside walk entry limits
+                fut = asyncio.get_running_loop().create_future()
+                fut.set_result({"t": "rejected", "seq": seq, "code": "reference"})
+                gw.conn.pending[seq].acknowledgement = fut
+                return seq
+            if command.get("t") == "intent" and command.get("name") == "stand":
+                # Native `stand` arms servos and settles RL shoulder at -16.45 deg under floor friction
+                gw.conn.last_status["output_armed"] = True
+                for i, j in enumerate(JOINTS):
+                    phys_deg[i] = -16.45 if i == 0 else stand_proj[i]
+                    gw.obs["joints"][j]["filtered_model_deg"] = phys_deg[i]
+                    gw.obs["joints"][j]["model_deg"] = phys_deg[i]
+                    gw.obs["joints"][j]["commanded_model_deg"] = phys_deg[i]
+            elif command.get("t") == "walk_target":
+                gw._t += 0.020
+                gw.obs["feedback"]["device_us"] += 20_000
+                tick_counter["n"] += 1
+                sent_norm = (
+                    torch.tensor(command["feet_mm"], dtype=torch.float64).reshape(1, 12)
+                    / manifold.body.scale.repeat(4)
+                )
+                cmd_deg = (manifold.body.decode(sent_norm)[0] * 180.0 / math.pi).tolist()
+                hold_rl_cmds.append(cmd_deg[0])
+                for idx_j, name_j in enumerate(JOINTS):
+                    prev_v = phys_deg[idx_j]
+                    if idx_j == 0:
+                        # Simulate carpet/load sag: RL shoulder settles 15 deg below cmd_deg with finite slew + ADC ripple
+                        jitter = 0.25 if (tick_counter["n"] % 2 == 0) else -0.25
+                        sag_target = cmd_deg[0] - 15.0
+                        step0 = 0.0 if tick_counter["n"] == 1 else max(-4.0, min(4.0, sag_target - prev_v))
+                        new_v = prev_v + step0 + (0.0 if tick_counter["n"] == 1 else jitter)
+                    else:
+                        step = max(-8.0, min(8.0, cmd_deg[idx_j] - prev_v))
+                        new_v = prev_v + step
+                    phys_deg[idx_j] = new_v
+                    gw.obs["joints"][name_j]["filtered_model_deg"] = new_v
+                    gw.obs["joints"][name_j]["model_deg"] = new_v
+                    gw.obs["joints"][name_j]["commanded_model_deg"] = cmd_deg[idx_j]
+                    gw.obs["joints"][name_j]["velocity_deg_s"] = (new_v - prev_v) / 0.020
+            return seq
+
+        gw.conn.send_command = sim_send_command
+        gw.body_sensor_observation = lambda robot_id: gw.obs
+
+        class _GoalTrackingActor(_DummyActor):
+            def infer_feet_mm(self, obs_vec):
+                assert len(obs_vec) == POSE_OBS_SIZE
+                goal_norm = list(obs_vec[57:69])
+                return goal_norm, pose_foot_offsets(goal_norm, self.foot_scale_mm)
+
+        runtime._a = _GoalTrackingActor()
+
+        async def fake_gen(endpoint, req, **kw):
+            return {
+                "program": [
+                    {
+                        "name": "pose",
+                        "arguments": {
+                            "joints": list(JOINTS),
+                            "angles_deg": list(STAND_ANGLES_DEG),
+                            "reference": "absolute",
+                            "speed_pct": 60,
+                        },
+                    },
+                    {
+                        "name": "pose",
+                        "arguments": {
+                            "joints": list(JOINTS),
+                            "angles_deg": [0.0, -16.0, -22.0, 0.0, -16.0, -22.0, 0.0, 40.0, 46.0, 0.0, 40.0, 46.0],
+                            "reference": "absolute",
+                            "speed_pct": 50,
+                        },
+                    },
+                    {"name": "hold", "arguments": {"seconds": 0.4}},
+                    {
+                        "name": "pose",
+                        "arguments": {
+                            "joints": list(JOINTS),
+                            "angles_deg": list(STAND_ANGLES_DEG),
+                            "reference": "absolute",
+                            "speed_pct": 60,
+                        },
+                    },
+                    {"name": "hold", "arguments": {"seconds": 0.4}},
+                ]
+            }
+
+        recorded_events: list[tuple[str, dict]] = []
+        bridge = Bridge(gw, _MockTransport(), generate=fake_gen, neural_pose_runtime=runtime)
+        orig_record = bridge.record
+
+        def spy_record(job, kind, payload, **kw):
+            recorded_events.append((kind, payload))
+            return orig_record(job, kind, payload, **kw)
+
+        bridge.record = spy_record
+        try:
+            sub = await bridge.submit(gw.conn.robot_id, "Perform a whole-body stretch.", execute=True)
+            res = await bridge.result(sub["job_id"])
+            self.assertEqual(res["state"], "completed")
+            preps = [p for k, p in recorded_events if k == "motion_prepared"]
+            self.assertAlmostEqual(
+                preps[0]["start"]["rear_left_shoulder"],
+                -16.45,
+                delta=0.5,
+                msg="motion_prepared start must reflect refreshed post-stand posture rather than stale cold-boot -32.75 deg",
+            )
+            # Across all 3 pose segments and 2 holds under 15 deg load sag, target and cmd_q_rad must NEVER ratchet negative!
+            for p in preps:
+                self.assertAlmostEqual(p["target"]["rear_left_shoulder"], 0.0, delta=0.5)
+            recoils = [p for k, p in recorded_events if k == "joint_recoil"]
+            self.assertEqual(recoils, [])
+            self.assertGreaterEqual(
+                min(hold_rl_cmds[-20:]),
+                -1.5,
+                msg="RL shoulder command must stay at commanded 0 deg target rather than ratcheting negative across segments",
+            )
+        finally:
+            await bridge.close()
+
+    async def test_cold_boot_in_range_arms_directly_into_50hz_neural_stream_without_legacy_stand(self):
+        gw = _MockGateway()
+        runtime = _DummyRuntime()
+        manifold = runtime._m
+        stand_proj, _ = manifold.project_angles_deg(STAND_ANGLES_DEG)
+        gw.conn.last_status = {"output_armed": False, "output_fault": 0, "imu": gw.obs["imu"]}
+        phys_deg = list(stand_proj)
+        phys_deg[0] = -16.3
+        for i, j in enumerate(JOINTS):
+            gw.obs["joints"][j] = {
+                "home_deg": STAND_ANGLES_DEG[i],
+                "model_deg": phys_deg[i],
+                "filtered_model_deg": phys_deg[i],
+                "commanded_model_deg": None,
+                "velocity_deg_s": 0.0,
+                "feedback_usable": True,
+            }
+        gw.obs["imu"]["angular_rate_rad_s"] = [0.01, -0.01, 0.01]
+        gw.clock = lambda: gw._t
+        orig_send = gw.conn.send_command
+
+        async def sim_send_command(command: dict, *, received_at: float, on_sequence=None, **kwargs) -> int:
+            seq = await orig_send(command, received_at=received_at, on_sequence=on_sequence, **kwargs)
+            if command.get("t") == "intent" and command.get("name") == "walk":
+                gw.conn.last_status["output_armed"] = True
+            elif command.get("t") == "walk_target":
+                gw._t += 0.020
+                gw.obs["feedback"]["device_us"] += 20_000
+                sent_norm = (
+                    torch.tensor(command["feet_mm"], dtype=torch.float64).reshape(1, 12)
+                    / manifold.body.scale.repeat(4)
+                )
+                cmd_deg = (manifold.body.decode(sent_norm)[0] * 180.0 / math.pi).tolist()
+                for idx_j, name_j in enumerate(JOINTS):
+                    prev_v = phys_deg[idx_j]
+                    new_v = prev_v + max(-6.0, min(6.0, cmd_deg[idx_j] - prev_v))
+                    phys_deg[idx_j] = new_v
+                    gw.obs["joints"][name_j]["filtered_model_deg"] = new_v
+                    gw.obs["joints"][name_j]["model_deg"] = new_v
+                    gw.obs["joints"][name_j]["commanded_model_deg"] = cmd_deg[idx_j]
+                    gw.obs["joints"][name_j]["velocity_deg_s"] = (new_v - prev_v) / 0.020
+            return seq
+
+        gw.conn.send_command = sim_send_command
+        gw.body_sensor_observation = lambda robot_id: gw.obs
+
+        class _GoalTrackingActor(_DummyActor):
+            def infer_feet_mm(self, obs_vec):
+                goal_norm = list(obs_vec[57:69])
+                return goal_norm, pose_foot_offsets(goal_norm, self.foot_scale_mm)
+
+        runtime._a = _GoalTrackingActor()
+
+        async def fake_gen(endpoint, req, **kw):
+            return {"program": [{"name": "stand", "arguments": {}}]}
+
+        bridge = Bridge(gw, _MockTransport(), generate=fake_gen, neural_pose_runtime=runtime)
+        try:
+            sub = await bridge.submit(gw.conn.robot_id, "stand up", execute=True)
+            res = await bridge.result(sub["job_id"])
+            self.assertEqual(res["state"], "completed")
+            stand_intents = [c for c in gw.conn.sent if c.get("t") == "intent" and c.get("name") == "stand"]
+            self.assertEqual(stand_intents, [], "Cold boot in walk-entry range must arm directly into 50 Hz neural stream")
+            self.assertLessEqual(abs(phys_deg[0] - stand_proj[0]), 2.0)
+        finally:
+            await bridge.close()
+
+    def test_overhead_118deg_carrier_singularity_returns_smoothly_to_stand(self):
+        """Regression for [0, 118, 55] deg overhead stretch crossing concave 4-bar toggle boundary on return to stand."""
+        manifold = PoseManifold(device="cpu")
+        cal_joints = [
+            {"id": 0, "channel": 0, "home_us": 1760, "invert": False, "home_cd": 0, "us_per_degree": 11.111111},
+            {"id": 1, "channel": 1, "home_us": 2750, "invert": True, "home_cd": -3087, "us_per_degree": 11.111111},
+            {"id": 2, "channel": 2, "home_us": 2870, "invert": True, "home_cd": -11768, "us_per_degree": 11.111111},
+            {"id": 3, "channel": 3, "home_us": 1650, "invert": True, "home_cd": 0, "us_per_degree": 11.111111},
+            {"id": 4, "channel": 4, "home_us": 415, "invert": False, "home_cd": -3087, "us_per_degree": 11.111111},
+            {"id": 5, "channel": 5, "home_us": 440, "invert": False, "home_cd": -11768, "us_per_degree": 11.111111},
+            {"id": 6, "channel": 6, "home_us": 1650, "invert": True, "home_cd": 0, "us_per_degree": 11.111111},
+            {"id": 7, "channel": 7, "home_us": 2740, "invert": True, "home_cd": -3087, "us_per_degree": 11.111111},
+            {"id": 8, "channel": 8, "home_us": 2750, "invert": True, "home_cd": -11768, "us_per_degree": 11.111111},
+            {"id": 9, "channel": 9, "home_us": 1700, "invert": False, "home_cd": 0, "us_per_degree": 11.111111},
+            {"id": 10, "channel": 10, "home_us": 560, "invert": False, "home_cd": -3087, "us_per_degree": 11.111111},
+            {"id": 11, "channel": 11, "home_us": 575, "invert": False, "home_cd": -11768, "us_per_degree": 11.111111},
+        ]
+        live_body = manifold.body_for_calibration(cal_joints)
+        stand_proj, stand_foot = manifold.project_angles_deg(STAND_ANGLES_DEG, body=live_body)
+
+        # 1. Direct step_host_command from [0, 118, 55] deg on all 4 legs -> stand_foot
+        q_rad = torch.tensor([[0.0, 118.0, 55.0] * 4], dtype=torch.float64) * (math.pi / 180.0)
+        prev_deg = [0.0, 118.0, 55.0] * 4
+        max_single_step_deg = 0.0
+        for _ in range(30):
+            q_rad, _, _ = manifold.step_host_command(stand_foot, q_rad, speed_scale=0.5, body=live_body)
+            cur_deg = [v * 180.0 / math.pi for v in q_rad[0].tolist()]
+            max_single_step_deg = max(max_single_step_deg, max(abs(a - b) for a, b in zip(cur_deg, prev_deg)))
+            prev_deg = cur_deg
+        self.assertLessEqual(max_single_step_deg, 7.5, "Manifold step out of +118 deg must respect motor slew rate")
+        for i in range(12):
+            self.assertAlmostEqual(prev_deg[i], stand_proj[i], delta=1.0)
+
+        # 2. Full closed-loop NeuralPoseActor trajectory from stretch [0, -16, -22, ..., 0, 118, 55] -> STAND_ANGLES
+        policy_path = resolve_active_policy_path()
+        if policy_path is not None and policy_path.exists():
+            actor = NeuralPoseActor(policy_path)
+            hist = PoseObservationHistory()
+            q_cur = [-0.2, -16.0, -19.8, 0.5, -16.0, -20.2, -1.6, 118.0, 55.0, -1.3, 118.0, 55.0]
+            q_cmd_rad = torch.tensor([q_cur], dtype=torch.float64) * (math.pi / 180.0)
+            prev_act = [0.0] * 12
+            for tick in range(70):
+                cmd_deg = [v * 180.0 / math.pi for v in q_cmd_rad[0].tolist()]
+                feat = assemble_pose_features(
+                    measured_deg=q_cur,
+                    commanded_deg=cmd_deg,
+                    velocity_deg_s=[0.0] * 12,
+                    usable_flags=[True] * 12,
+                    orientation_wxyz=[0.997, 0.062, 0.008, -0.042],
+                    angular_rate_rad_s=[0.0, 0.0, 0.0],
+                    acceleration_m_s2=[-0.14, 1.68, 9.46],
+                    goal_joint_deg=stand_proj,
+                    goal_foot_norm=stand_foot,
+                    leg_support=[1.0, 1.0, 1.0, 1.0],
+                    speed_scale=0.5,
+                    previous_action=prev_act,
+                )
+                act, _ = actor.infer_feet_mm(hist.push_and_project(tick * 0.02, feat))
+                q_cmd_rad, prev_act, _ = manifold.step_host_command(act, q_cmd_rad, speed_scale=0.5, body=live_body)
+                new_cmd = [v * 180.0 / math.pi for v in q_cmd_rad[0].tolist()]
+                for j in range(12):
+                    q_cur[j] += max(-6.0, min(6.0, new_cmd[j] - q_cur[j]))
+            final_cmd = [v * 180.0 / math.pi for v in q_cmd_rad[0].tolist()]
+            self.assertLessEqual(abs(final_cmd[7] - stand_proj[7]), 12.0, f"FL carrier stayed stuck at {final_cmd[7]}")
+            self.assertLessEqual(abs(final_cmd[10] - stand_proj[10]), 12.0, f"FR carrier stayed stuck at {final_cmd[10]}")
+
 
 def run_mujoco_qualification(policy_path: Path) -> dict:
     """Evaluate the trained (512, 256, 128) policy.onnx in authoritative 500 Hz GaitEnvironment."""
@@ -1103,6 +1550,7 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
         obs_delay_ticks: int = 0,
         servo_kp_scale: float = 1.0,
         adc_vel_spikes: bool = False,
+        carpet_snag_k_n_m: float = 0.0,
     ) -> dict:
         from collections import deque
 
@@ -1145,6 +1593,20 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
         import mujoco
 
         mujoco.mj_forward(sim.model, sim.data)
+        init_q_rad = torch.tensor(init_proj_deg, dtype=torch.float64).reshape(1, 12) * (math.pi / 180.0)
+        _, init_phys_rad = manifold.body.pwm(init_q_rad)
+        init_ctrl = init_phys_rad[0].numpy().copy()
+        if carpet_snag_k_n_m > 0.0 and not suspended:
+            # Let all feet settle firmly onto the z=0 floor under gravity before starting the snag scenario
+            for _ in range(120):
+                for c_i in range(12):
+                    sim.data.ctrl[act_ids[c_i]] = float(init_ctrl[c_i])
+                mujoco.mj_step(sim.model, sim.data)
+            init_proj_deg = [float(sim.data.qpos[a] * 180.0 / math.pi) for a in joint_qpos_adrs]
+            init_proj_deg, init_foot = manifold.project_angles_deg(init_proj_deg)
+            init_q_rad = torch.tensor(init_proj_deg, dtype=torch.float64).reshape(1, 12) * (math.pi / 180.0)
+            _, init_phys_rad = manifold.body.pwm(init_q_rad)
+            init_ctrl = init_phys_rad[0].numpy().copy()
         sim.commanded_deg = np.asarray(init_proj_deg, dtype=np.float64)
 
         obs_dict = {
@@ -1171,9 +1633,6 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
         hold_joint_p2p_list = []
         infer_ms = []
 
-        init_q_rad = torch.tensor(init_proj_deg, dtype=torch.float64).reshape(1, 12) * (math.pi / 180.0)
-        _, init_phys_rad = manifold.body.pwm(init_q_rad)
-        init_ctrl = init_phys_rad[0].numpy().copy()
         cmd_queue = deque([init_ctrl.copy() for _ in range(cmd_delay_ticks + 1)], maxlen=cmd_delay_ticks + 1)
 
         filt_q_deg = np.asarray(init_proj_deg, dtype=np.float64).copy()
@@ -1181,7 +1640,7 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
             list(init_proj_deg),
             [0.0] * 12,
             list(init_proj_deg),
-            [1.0, 0.0, 0.0, 0.0],
+            sim.data.qpos[3:7].tolist(),
             [0.0, 0.0, 0.0],
             [0.0, 0.0, 9.81],
         )
@@ -1302,6 +1761,25 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
                     pushed = True
 
                 torso_id = sim.model.body("torso").id
+                pickup_body_ids = [int(sim.model.body(f"{l}_pickup_body").id) for l in legs]
+                foot_site_ids = [int(sim.model.site(f"{l}_reference").id) for l in legs]
+                # Track RL foot vertical clearance in true MuJoCo world-frame Z (mm above grounded floor contact Z)
+                cur_rl_z_mm = float(sim.data.site_xpos[foot_site_ids[0], 2] * 1000.0)
+                rl_sh_jid = int(sim.model.joint("rear_left_shoulder").id)
+                if s_i == 0 and t_sim == 0.0:
+                    floor_rl_z_mm = cur_rl_z_mm
+                    max_rl_lift_mm = 0.0
+                    orig_rl_sh_limited = int(sim.model.jnt_limited[rl_sh_jid])
+                    orig_rl_sh_range = sim.model.jnt_range[rl_sh_jid].copy()
+                    rl_carpet_locked = bool(carpet_snag_k_n_m > 0.0)
+                    rl_carpet_grounded_once = False
+                    if rl_carpet_locked:
+                        # Unilateral carpet-pile shoulder lock at -36 deg until rear_left foot lifts >= 6 mm clear of floor
+                        sim.model.jnt_limited[rl_sh_jid] = 1
+                        sim.model.jnt_range[rl_sh_jid] = [math.radians(-70.0), math.radians(-36.0)]
+                if rl_carpet_grounded_once or carpet_snag_k_n_m <= 0.0:
+                    max_rl_lift_mm = max(max_rl_lift_mm, cur_rl_z_mm - floor_rl_z_mm)
+
                 for _ in range(10):
                     if suspended:
                         pos = sim.data.qpos[:3]
@@ -1322,6 +1800,22 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
                         sim.data.xfrc_applied[torso_id, 3:6] = tau
                     else:
                         sim.data.xfrc_applied[torso_id, :] = 0.0
+                        rl_pb = pickup_body_ids[0]
+                        sub_rl_z_mm = float(sim.data.site_xpos[foot_site_ids[0], 2] * 1000.0)
+                        in_floor_contact = any(
+                            int(sim.model.geom_bodyid[sim.data.contact[c_idx].geom1]) == rl_pb
+                            or int(sim.model.geom_bodyid[sim.data.contact[c_idx].geom2]) == rl_pb
+                            for c_idx in range(int(sim.data.ncon))
+                        )
+                        if in_floor_contact:
+                            rl_carpet_grounded_once = True
+                            floor_rl_z_mm = min(floor_rl_z_mm, sub_rl_z_mm)
+                        elif rl_carpet_grounded_once:
+                            max_rl_lift_mm = max(max_rl_lift_mm, sub_rl_z_mm - floor_rl_z_mm)
+                            if rl_carpet_locked and (sub_rl_z_mm - floor_rl_z_mm) >= 6.0:
+                                rl_carpet_locked = False
+                                sim.model.jnt_limited[rl_sh_jid] = orig_rl_sh_limited
+                                sim.model.jnt_range[rl_sh_jid] = orig_rl_sh_range
 
                     # Apply MG90S torque-speed envelope + position target by exact joint actuator ID
                     for c_i, j_name in enumerate(JOINTS):
@@ -1362,6 +1856,8 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
                 hold_cmd_p2p_list.append(float(np.max(np.ptp(tail_cmd, axis=0))))
                 hold_joint_p2p_list.append(float(np.max(np.ptp(tail_jnt, axis=0))))
 
+        sim.model.jnt_limited[int(sim.model.joint("rear_left_shoulder").id)] = orig_rl_sh_limited
+        sim.model.jnt_range[int(sim.model.joint("rear_left_shoulder").id)] = orig_rl_sh_range
         return {
             "scenario": name,
             "suspended": suspended,
@@ -1371,6 +1867,8 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
             "mean_end_mae_deg": round(sum(seg_errors_deg) / max(1, len(seg_errors_deg)), 2),
             "hold_cmd_p2p_deg": round(max(hold_cmd_p2p_list), 2) if hold_cmd_p2p_list else None,
             "hold_joint_p2p_deg": round(max(hold_joint_p2p_list), 2) if hold_joint_p2p_list else None,
+            "max_rl_lift_mm": round(float(max_rl_lift_mm), 2),
+            "rl_shoulder_end_deg": round(float(end_q_deg[0]), 2),
             "mean_infer_ms": round(sum(infer_ms) / max(1, len(infer_ms)), 3),
         }
 
@@ -1522,6 +2020,36 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
                 servo_kp_scale=1.8,
                 adc_vel_spikes=True,
             ),
+            _run_scenario(
+                "splayed_carpet_snag_microstep_recovery",
+                [-40.91, 7.01, -19.84, -12.44, 7.71, -21.42, -12.37, -0.78, -20.25, -17.82, 5.15, -21.68],
+                [
+                    {
+                        "name": "body",
+                        "arguments": {
+                            "translation_mm": [-10.0, 10.0, 0.0],
+                            "rotation_deg": [0.0, 0.0, 0.0],
+                            "legs": [],
+                            "foot_offsets_mm": [],
+                            "speed_pct": 75,
+                        },
+                    },
+                    {
+                        "name": "feet",
+                        "arguments": {
+                            "legs": ["front_right"],
+                            "offsets_mm": [[22.0, -14.0, 42.0]],
+                            "speed_pct": 70,
+                        },
+                    },
+                    {"name": "stand", "arguments": {}},
+                    {"name": "hold", "arguments": {"seconds": 1.0}},
+                ],
+                suspended=False,
+                cmd_delay_ticks=2,
+                obs_delay_ticks=4,
+                carpet_snag_k_n_m=360.0,
+            ),
         ]
         return {"policy": str(policy_path), "scenarios": results}
     finally:
@@ -1563,6 +2091,17 @@ class ClosedLoopPolicyQualificationTests(unittest.TestCase):
             self.assertFalse(item["fell_over"], f"Scenario {item['scenario']} tipped over: {item}")
             self.assertLess(item["mean_end_mae_deg"], 14.0, f"Scenario {item['scenario']} poor tracking: {item}")
             self.assertLess(item["mean_infer_ms"], 5.0)
+            if item["scenario"] == "splayed_carpet_snag_microstep_recovery":
+                self.assertGreaterEqual(
+                    item["max_rl_lift_mm"],
+                    6.0,
+                    f"Splayed carpet-snag recovery must unload/lift rear_left foot >= 6 mm clear of carpet pile: {item}",
+                )
+                self.assertLessEqual(
+                    abs(item["rl_shoulder_end_deg"]),
+                    6.0,
+                    f"Splayed carpet-snag recovery must unlock rear_left_shoulder from -36 deg to stand: {item}",
+                )
             if item.get("hold_cmd_p2p_deg") is not None and "wifi_180ms_delayed" in item["scenario"]:
                 self.assertLess(
                     item["hold_cmd_p2p_deg"],

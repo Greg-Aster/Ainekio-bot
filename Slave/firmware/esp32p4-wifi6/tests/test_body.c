@@ -3038,7 +3038,85 @@ static void standing_catch_recovery_and_compliant_clamp(void)
     assert(body.feedback_thermal.thermal_load[1]==0.0f);
     assert(fabs((double)last_written[rl_carrier_ch]-pinned_us)<=max_clamp_us);
     for(unsigned ch=0;ch<12;ch++)assert(last_written[ch]!=0);
-    puts("Standing catch recovery & post-replan 2 deg compliant clamp: host_nominal hold arming, 1.0 s sag replan under balance trims, and 15 s zero-heat compliant stance passed.");
+
+    /* 4. Unloaded constant tilt (5.2 deg roll, balance never settles):
+     *    a) Active leveling trims do not false-fire feedback_check before 1.0 s sag debounce.
+     *    b) Even if repeated unloaded catch cycles briefly verify at pass end,
+     *       autonomous stand_hold_recover stops after STAND_MAX_REPLANS (2)
+     *       unsettled cycles and disarms both stand_goal_active and balance_hold. */
+    reset();
+    assert(ainekio_p4_joint_defaults(mapped_joints));
+    leveling_enabled=true;
+    shaft_feedback_enabled=true;
+    shaft_feedback_reached=false; /* Would immediately trip feedback_check if checked during active leveling! */
+    shaft_wait_mask=1U<<0;
+    imu_status.calibration_applied=true;
+    imu_status.attitude.available=imu_status.attitude.fresh=true;
+    imu_status.attitude.orientation_wxyz[0]=cosf(0.045f);
+    imu_status.attitude.orientation_wxyz[1]=sinf(0.045f); /* ~5.16 deg roll: never settles */
+    start=host_walk(8410);
+    assert(execute(&start)==ESP_OK);
+    target=host_target(8411,8410,1,0);
+    assert(execute(&target)==ESP_OK);
+    advance(200);
+    assert(ainekio_p4_body_hold(driver.state.generation)==ESP_OK);
+    assert(ainekio_p4_body_event(&ev) && ev.sequence==8410);
+    assert(body.stand_goal_active && body.balance_hold);
+    /* Over 600 ms of active leveling without >=9.5 deg catch, stand_hold_recover must NOT false-fire. */
+    advance(600);
+    assert(body.motion.kind==MOTION_NONE && body.stand_hold_replans==0);
+
+    /* Now induce 2 back-to-back unsettled catch cycles that each verify at pass end:
+     * after cycle 2, both stand_goal_active and balance_hold must disarm instead of cycling forever. */
+    for(unsigned cycle=1;cycle<=STAND_MAX_REPLANS;cycle++) {
+        shaft_tracking_available=shaft_measured_override=true;
+        shaft_measured=body.pose;
+        shaft_measured.position[1]=body.pose.position[1]-2400.0f;
+        shaft_measured.velocity[1]=0.0f;
+        limit_ms=3000;
+        while(body.motion.kind==MOTION_NONE && limit_ms){advance(20);limit_ms-=20;}
+        assert(limit_ms>0 && body.motion.kind==MOTION_POSE && body.stand_hold_replans==cycle);
+        shaft_measured_override=false;
+        shaft_feedback_reached=true;
+        limit_ms=12000;
+        while(body.motion.kind!=MOTION_NONE && limit_ms){advance(20);limit_ms-=20;}
+        assert(limit_ms>0);
+    }
+    assert(!body.stand_goal_active && !body.balance_hold);
+    const unsigned settled_writes=writes;
+    advance(10000); /* 10 full seconds: zero additional autonomous stepping or leveling churn! */
+    assert(body.motion.kind==MOTION_NONE && !body.stand_goal_active && !body.balance_hold);
+    (void)settled_writes;
+
+    /* 5. Mid-air tilt swing during contact_entry after STAND_MAX_REPLANS exhausted
+     *    (reproducing the exact [14.7, -48.9, -40.3, ...] crooked freeze):
+     *    instead of locking up in MOTION_POSE (entering=true), falls back to
+     *    smooth joint-space transition and finishes at symmetric Stand. */
+    reset();
+    leveling_enabled=true;
+    shaft_feedback_enabled=shaft_feedback_reached=true;
+    imu_status.calibration_applied=true;
+    imu_status.attitude.available=imu_status.attitude.fresh=true;
+    imu_status.attitude.orientation_wxyz[0]=1.0f;
+    ainekio_v2_walk_pose_t sym_stand;
+    assert(ainekio_v2_walk_pose(0,(ainekio_v2_walk_controls_t){0,1},&sym_stand));
+    assert(ainekio_p4_joint_fit_frame(mapped_joints,&sym_stand.frame));
+    ainekio_command_t crooked_stand=command(8420,AINEKIO_INTENT_STAND);
+    assert(execute(&crooked_stand)==ESP_OK);
+    advance(60);
+    assert(body.motion.kind==MOTION_POSE && body.motion.entering && body.motion.contact_entry);
+    /* Inject the twisted mid-air pose with replans exhausted and force posture_advance_mapped to fail. */
+    const float crooked_cd[12]={1470.f,-4890.f,-4030.f,-380.f,480.f,-4050.f,560.f,-1070.f,-210.f,-620.f,-3940.f,-4830.f};
+    for(unsigned j=0;j<12;j++)body.pose.position[j]=crooked_cd[j];
+    body.motion.posture_replans=STAND_MAX_REPLANS;
+    body.motion.posture.anchors[0][2]=500.0; /* Unreachable mid-air anchor forces posture_advance_mapped to return false */
+    ev=finish(15000);
+    assert(ev.completed && ev.sequence==8420);
+    assert(body.motion.kind==MOTION_NONE && !body.motion.entering);
+    for(unsigned j=0;j<12;j++)
+        assert(fabsf(body.pose.position[j]-sym_stand.frame.position[j])<5.0f);
+
+    puts("Standing catch recovery & post-replan 2 deg compliant clamp: host_nominal hold arming, 1.0 s sag replan under balance trims, unloaded loop cap, contact_entry deadlock escape, and 15 s zero-heat compliant stance passed.");
 }
 
 int main(int argc,char **argv)

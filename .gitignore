@@ -51,6 +51,8 @@ snapshots/
 # Oversized local gait video renders and their chapter sidecars.
 /Slave/hardware/v2-12servo/ainekio-gaits-and-motions-2x-*.mp4
 /Slave/hardware/v2-12servo/ainekio-gaits-and-motions-2x-*-chapters.txt
+/Slave/hardware/v2-12servo/v3-gaits-and-motions-2x-*.mp4
+/Slave/hardware/v2-12servo/v3-gaits-and-motions-2x-*-chapters.txt
 
 # Personal MetaHuman data must stay outside this repo.
 profiles/

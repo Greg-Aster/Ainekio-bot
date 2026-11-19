@@ -1,0 +1,33 @@
+{
+  "purpose": "Permissive (MIT) reference models for off-the-shelf servo fitment studies; isolated from original printable Ainekio robot CAD. Restricted GPL-3.0 (Nova-Q MG996R) and CC-BY-SA-4.0 (FreeCAD SG90) files have been removed.",
+  "assets": [
+    {
+      "name": "MG90S",
+      "source": "https://github.com/one-for-all/four-legged",
+      "files": [
+        "MG90S.obj",
+        "MG90S.mtl",
+        "MG90S-before-part-organization.blend",
+        "front-shell-fixes-MG90S  Lower housing.stl",
+        "v3wip-MG90S  Lower housing.stl"
+      ],
+      "units": "meters in source; imported at 1000x into millimeter scene",
+      "license": "MIT",
+      "license_file": "MG90S-source-LICENSE.txt",
+      "status": "Non-printable fitment reference and experimental lower-cover wire-exit study; retain MIT notice if redistributed."
+    },
+    {
+      "name": "MG90D",
+      "source": "https://github.com/adafruit/Adafruit_CAD_Parts/tree/main/1143%20Micro%20Servo%20-%20High%20Torque%20Metal%20Gear",
+      "author": "Adafruit Industries",
+      "files": [
+        "Adafruit-MG90D.stl",
+        "Adafruit-MG90D.step"
+      ],
+      "units": "mm",
+      "license": "MIT",
+      "license_file": "Adafruit-LICENSE.txt",
+      "status": "MG90D comparison only, not MG90S; exterior fitment reference."
+    }
+  ]
+}

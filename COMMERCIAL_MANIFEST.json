@@ -1,0 +1,146 @@
+{
+  "schema": "ainekio-commercial-manifest-v1",
+  "product": "Ainekio Robot Companion (V2 12-Servo ESP32-P4 & V3 DSSERVO)",
+  "copyright_owner": "Gregory Aster",
+  "updated": "2026-11-19",
+  "dual_license_authority": "Gregory Aster is the sole copyright author of 100% of original code, firmware, neural policy weights, Freestyle datasets, and printable 3D robot meshes across Ainekio-bot and ainekio-os. Public repository licenses (PolyForm-Noncommercial-1.0.0 and CC-BY-NC-SA-4.0) restrict third parties only and do not restrict commercial distribution by Gregory Aster.",
+  "included_artifacts": {
+    "firmware": [
+      {
+        "path": "Slave/firmware/esp32p4-wifi6",
+        "target_hardware": "Waveshare ESP32-P4-WIFI6 + ESP32-C6",
+        "owner": "Gregory Aster",
+        "third_party_obligations": [
+          "Include Apache-2.0, MIT, BSD-3-Clause, and Espressif MIT notices from THIRD_PARTY_INVENTORY.json in product documentation / cockpit About screen.",
+          "Keep Espressif-MIT components (esp-sr, esp_video, esp_ipa) exclusively on Espressif silicon."
+        ]
+      },
+      {
+        "path": "Slave/software/core",
+        "owner": "Gregory Aster"
+      },
+      {
+        "path": "Slave/software/models/v2-12servo",
+        "owner": "Gregory Aster"
+      }
+    ],
+    "host_gateway_and_services": [
+      {
+        "path": "Master/gateway",
+        "excluded_subpaths": [
+          "Master/gateway/neural_gait/vendor"
+        ],
+        "owner": "Gregory Aster",
+        "runtime_dependencies_allowed_licenses": [
+          "MIT",
+          "Apache-2.0",
+          "BSD-2-Clause",
+          "BSD-3-Clause",
+          "ISC",
+          "PSF-2.0"
+        ]
+      },
+      {
+        "path": "experiments/freestyle",
+        "excluded_subpaths": [
+          "experiments/freestyle/artifacts"
+        ],
+        "owner": "Gregory Aster"
+      }
+    ],
+    "neural_weights_and_models": [
+      {
+        "name": "On-chip MicroDuck v2_microduck int8 policy",
+        "path": "Slave/software/models/v2-12servo/motions/microduck/policy.bin",
+        "provenance": "Trained in MuJoCo on original Ainekio V2 MJCF kinematics; compiled via stdlib tools/compile_microduck.py.",
+        "license_clearance": "100% Gregory Aster original weights (Apache-2.0 training harness notice preserved if training scripts are distributed)."
+      },
+      {
+        "name": "Custom Ainekio microWakeWord TFLite model",
+        "path": "Slave/firmware/components/ainekio_wake",
+        "provenance": "Trained by Gregory Aster using synthetic TTS corpus; executed on Apache-2.0 esp-tflite-micro.",
+        "license_clearance": "Commercial-clear with Apache-2.0 TFLite Micro notice."
+      },
+      {
+        "name": "RT-DETRv2-R18VD ONNX + OWLv2 Open-Vocabulary Detector",
+        "path": "build/models/vision",
+        "provenance": "PekingU/rtdetr_v2_r18vd (Apache-2.0) and google/owlv2-base-patch16-ensemble (Apache-2.0).",
+        "license_clearance": "Commercial-clear with Apache-2.0 notices."
+      },
+      {
+        "name": "OpenCV YuNet & SFace ONNX Face Identity Models",
+        "provenance": "opencv/opencv_zoo (MIT + Apache-2.0).",
+        "license_clearance": "Commercial-clear with MIT and Apache-2.0 notices."
+      },
+      {
+        "name": "Freestyle Qwen3.5-0.8B LoRA Motion Generator",
+        "provenance": "Fine-tuned from Apache-2.0 Qwen3.5-0.8B exclusively on original Ainekio 12-servo motion library and grounded recovery curricula.",
+        "license_clearance": "Commercial-clear with Qwen Apache-2.0 notice."
+      }
+    ],
+    "printable_3d_cad": [
+      {
+        "path": "Slave/hardware/v2-12servo/STL",
+        "provenance": "100% clean-room original meshes created from scratch by Gregory Aster (zero third-party vertices).",
+        "license_clearance": "100% Gregory Aster commercial IP."
+      },
+      {
+        "path": "Slave/hardware/v1-8servo",
+        "provenance": "100% clean-room original meshes created from scratch by Gregory Aster.",
+        "license_clearance": "100% Gregory Aster commercial IP."
+      }
+    ]
+  },
+  "excluded_from_commercial_packages": [
+    "third_party/cad-references/**",
+    "build/pupper-v3-upstream/**",
+    "experiments/freestyle/artifacts/**"
+  ],
+  "prohibited_spdx_licenses_in_shipped_code_or_cad": [
+    "AGPL-3.0-only",
+    "AGPL-3.0-or-later",
+    "GPL-2.0-only",
+    "GPL-3.0-only",
+    "GPL-3.0-or-later",
+    "CC-BY-NC-3.0",
+    "CC-BY-NC-4.0",
+    "CC-BY-NC-SA-3.0",
+    "CC-BY-NC-SA-4.0",
+    "CC-BY-SA-3.0",
+    "CC-BY-SA-4.0",
+    "Apple-ML-Research"
+  ],
+  "trademark_and_registry_clearance": {
+    "checked_date": "2026-11-19",
+    "exact_mark_ainekio": {
+      "uspto_tsdr": "0 exact matches for 'AINEKIO'",
+      "wipo_and_euipo": "0 exact matches for 'AINEKIO'",
+      "package_registries": {
+        "pypi_ainekio": "available (HTTP 404)",
+        "npm_ainekio": "available (HTTP 404)",
+        "npm_ainekio_os": "available (HTTP 404)",
+        "crates_io_ainekio": "available (HTTP 404)"
+      },
+      "domain": "ainek.io owned by Gregory Aster"
+    },
+    "adjacent_marks_requiring_counsel_strategy": [
+      {
+        "mark": "AINEKO",
+        "us_registration_number": "8368759",
+        "us_serial_number": "98040987",
+        "registration_date": "2026-07-28",
+        "owner": "Convex Research, Inc. (Palo Alto, CA)",
+        "classes": ["009"],
+        "goods_summary": "Downloadable software for software development, workflow development and management, data analytics, serverless cloud frameworks, and APIs",
+        "pypi": "aineko (occupied by Convex Research)",
+        "commercial_positioning_note": "File/market Ainekio primarily around International Class 028 / 007 / 009 physical personal companion robots and onboard robotic control firmware, and avoid describing standalone software in Class 009 as general-purpose serverless/data-workflow developer tooling to prevent likelihood-of-confusion rejections against US Reg. No. 8,368,759."
+      },
+      {
+        "mark": "AiNEKKO",
+        "domain": "nekko.ai",
+        "sector": "Open RISC-V AI silicon / semiconductor IP",
+        "commercial_positioning_note": "Distinct market from consumer/maker 3D-printed companion quadruped robots; avoid semiconductor/chip IP claims under the mark."
+      }
+    ]
+  }
+}

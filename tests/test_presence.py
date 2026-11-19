@@ -79,6 +79,7 @@ class FakePresenceGateway:
         self.measured_deg = list(STAND_ANGLES_DEG)
         self.commanded_deg = list(STAND_ANGLES_DEG)
         self.stalled_joints = 0
+        self.commanded_mask = 4095
         self.speaking = (False, 0.0)
         self.ensure_normal_calls = 0
         self.body_events = SimpleNamespace(config=lambda _r: {"tip_degrees": 60.0, "tip_clear_degrees": 45.0})
@@ -137,7 +138,11 @@ class FakePresenceGateway:
                 "acceleration_m_s2": list(self.accel_m_s2),
             },
             "joints": joints,
-            "feedback": {"device_us": int(self.now * 1_000_000), "stalled_joints": self.stalled_joints},
+            "feedback": {
+                "device_us": int(self.now * 1_000_000),
+                "stalled_joints": self.stalled_joints,
+                "commanded_mask": self.commanded_mask,
+            },
         }
 
     async def queue_intent(self, name: str, params: dict | None = None, *, robot_id: str | None = None) -> int:
@@ -705,7 +710,7 @@ class PresenceSystemTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(ctrl.robot_status("p4")["mode"], "passive")
             self.assertEqual(len([c for c in gw.issued if c.get("name") == "stand"]), stands_before)
 
-            # Clear passive with asymmetric twisted posture -> re-anchors to symmetric STAND_ANGLES_DEG
+            # Clear passive with asymmetric twisted posture (3 legs standing + 1 leg twisted) -> re-anchors to symmetric STAND_ANGLES_DEG
             await ctrl.clear_passive("p4", stand_up=False)
             gw.measured_deg = [-2.2, 82.0, -92.0, 2.0, 1.0, -21.0, -3.0, 2.0, -22.0, 1.0, 2.0, -21.0]
             gw.commanded_deg = list(gw.measured_deg)
@@ -713,7 +718,27 @@ class PresenceSystemTests(unittest.IsolatedAsyncioTestCase):
             gw.now = 106.0
             await gw.emit_event({"t": "imu", "robot_id": "p4"})
             await asyncio.sleep(0.04)
-            self.assertTrue(st.anchor_is_standing, "Asymmetric twisted posture must re-anchor to symmetric stand")
+            self.assertTrue(st.anchor_is_standing, "3-leg standing stumble must re-anchor to symmetric stand")
+
+            # Intentional asymmetric/prone `play dead` posture (cranks > +5 deg) must NOT re-anchor to stand
+            # and must stay completely still during TTS speech (`anchor_is_prone == True`)!
+            await gw.emit_external_command({"t": "stop", "detach": False, "robot_id": "p4", "seq": 55})
+            dead_deg = [-32.52, 33.34, 50.91, -32.52, 33.34, 50.91, -23.33, 98.62, 65.62, -32.52, 33.34, 50.91]
+            gw.measured_deg = list(dead_deg)
+            gw.commanded_deg = list(dead_deg)
+            gw.speaking = (True, 0.75)
+            conn = gw._connections["p4"]
+            conn.sent_commands.clear()
+            gw.now = 108.0
+            await gw.emit_event({"t": "imu", "robot_id": "p4"})
+            await asyncio.sleep(0.05)
+            self.assertFalse(st.anchor_is_standing, "Play-dead posture must not snap to standing anchor")
+            self.assertTrue(st.anchor_is_prone, "Play-dead posture must be recognized as prone")
+            self.assertEqual(
+                [c for c in conn.sent_commands if c.get("t") == "walk_target"],
+                [],
+                "Prone/dead posture must not stream standing walk_target sway during TTS",
+            )
         finally:
             await ctrl.close()
 
@@ -875,6 +900,289 @@ class PresenceSystemTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(0.04)
             self.assertEqual(ctrl.robot_status("p4")["mode"], "standby")
             self.assertEqual(gw.issued, [])
+        finally:
+            await ctrl.close()
+
+    async def test_relaxed_stand_sag_jam_compliance_and_thermal_release_backoff(self):
+        import numpy as np
+
+        gw = FakePresenceGateway()
+        conn = gw._connections["p4"]
+        ctrl = PresenceController(gw)
+        ctrl.runtime.load()
+        try:
+            ctrl.configure("p4", validate_presence_settings(None))
+            st = ctrl._state("p4")
+
+            # 1. Relaxed post-`stand` resting sag on `rear_left_carrier` (-14.8 deg while other 3 legs are near +1 deg)
+            #    must anchor compliantly around -14.8 deg instead of forcing +0.94 deg on planted feet!
+            sagged_deg = list(STAND_ANGLES_DEG)
+            sagged_deg[1] = -14.8
+            gw.measured_deg = list(sagged_deg)
+            gw.commanded_deg = list(sagged_deg)
+            gw.speaking = (True, 0.72)
+            gw.now = 102.0
+            await gw.emit_event({"t": "imu", "robot_id": "p4"})
+            await asyncio.sleep(0.04)
+
+            self.assertTrue(st.anchor_is_standing)
+            self.assertIsNotNone(st.walk_seq)
+            first_wt = [c for c in conn.sent_commands if c.get("t") == "walk_target"][-1]
+            # At -14.8 deg, RL foot z is ~+14.1 mm (vs +1.9 mm at +0.94 deg); compliant anchor must stay near +14 mm
+            self.assertGreater(
+                float(first_wt["feet_mm"][2]),
+                9.0,
+                "Relaxed post-stand sag on rear_left_carrier must stay compliantly anchored instead of jacking to +0.94 deg",
+            )
+
+            # 2. Mid-stream pinned carrier + shoulder lag over sustained speech sway (40 ticks):
+            #    PresenceMLP `compliance_trim_mm` yields boundedly toward the pinned -26 deg carrier, while
+            #    `st.anchor_feet_mm` remains strictly invariant (never ratchets/drifts outward under sway lag)!
+            anchor_before = st.anchor_feet_mm.copy()
+            gw.measured_deg[0] = -16.8
+            gw.commanded_deg[0] = -3.0
+            gw.measured_deg[1] = -26.0
+            gw.commanded_deg[1] = -12.0
+            for tick in range(40):
+                gw.now = 102.2 + tick * 0.08
+                await gw.emit_event({"t": "imu", "robot_id": "p4"})
+                await asyncio.sleep(0.006)
+
+            np.testing.assert_allclose(
+                st.anchor_feet_mm,
+                anchor_before,
+                atol=1e-6,
+                err_msg="st.anchor_feet_mm must never drift/ratchet outward under tracking lag during sustained speech",
+            )
+            self.assertGreater(
+                float(st.compliance_trim_mm[2]),
+                2.0,
+                f"Expected bounded positive z compliance relief on pinned RL carrier, got {st.compliance_trim_mm[2]:.2f} mm",
+            )
+            self.assertLessEqual(
+                max(abs(v) for v in st.compliance_trim_mm),
+                14.0 + 1e-6,
+                "Compliance trim must stay strictly bounded within +/-14 mm",
+            )
+
+            # 3. Firmware thermal cutoff (`servo_stall` with `outputs_released: True`) during active speech:
+            #    must immediately close the walk stream, suppress `rapid_movement` bounce probes, and back off
+            #    instead of reopening a 3-legged `walk` stream 30 ms later!
+            walks_before_stall = len([c for c in gw.issued if c.get("name") == "walk"])
+            gw.now = 104.0
+            await gw.emit_event({
+                "t": "event",
+                "name": "body_event",
+                "robot_id": "p4",
+                "epoch": 1,
+                "data": {
+                    "kind": "servo_stall",
+                    "joints": [{"id": 1, "name": "rear_left_carrier"}],
+                    "joint_mask": 2,
+                    "outputs_released": True,
+                    "reason": "no_position_progress",
+                },
+            })
+            # Subsequent `rapid_movement` 0.5s later must NOT arm a +/-8 mm bounce probe during thermal cooldown
+            gw.now = 104.5
+            gw.commanded_mask = 4093
+            await gw.emit_event({
+                "t": "event",
+                "name": "body_event",
+                "robot_id": "p4",
+                "epoch": 1,
+                "data": {"kind": "rapid_movement"},
+            })
+            await gw.emit_event({"t": "imu", "robot_id": "p4"})
+            await asyncio.sleep(0.03)
+
+            self.assertIsNone(st.walk_seq, "Thermal-cutoff servo_stall must close active walk stream")
+            self.assertEqual(st.probe_until, 0.0, "Must not arm vertical bounce probe during stall cooldown")
+            self.assertEqual(
+                len([c for c in gw.issued if c.get("name") == "walk"]),
+                walks_before_stall,
+                "Must not immediately re-open a 3-legged walk stream during thermal cooldown",
+            )
+
+            # 4. Post-speech idle joint settling: after speech ends and `commanded_deg` is stationary,
+            #    passive 4th-wire settling (14 deg on carriers with flat IMU) must NEVER trigger `passive`!
+            gw.speaking = (False, 0.0)
+            gw.commanded_mask = 4095
+            gw.commanded_deg = list(STAND_ANGLES_DEG)
+            gw.measured_deg = list(STAND_ANGLES_DEG)
+            for step in range(12):
+                gw.now = 120.0 + step * 0.08
+                settled = list(STAND_ANGLES_DEG)
+                settled[1] = 0.94 - step * 1.4
+                settled[4] = 0.94 - step * 1.4
+                gw.measured_deg = settled
+                gw.tilt_pitch_deg = 0.0
+                await gw.emit_event({"t": "imu", "robot_id": "p4"})
+                await asyncio.sleep(0.008)
+            self.assertEqual(
+                ctrl.robot_status("p4")["mode"],
+                "standby",
+                "Passive joint settling under stationary hold targets must never trigger legs_moved_without_ground_reaction",
+            )
+        finally:
+            await ctrl.close()
+
+    async def test_wake_word_one_shot_perk_locks_silent_hold_and_releases_face_on_vad_close(self):
+        import numpy as np
+
+        gw = FakePresenceGateway()
+        conn = gw._connections["p4"]
+        ctrl = PresenceController(gw)
+        ctrl.runtime.load()
+        try:
+            ctrl.configure("p4", validate_presence_settings(None))
+            st = ctrl._state("p4")
+
+            # 1. `vad_open` + `wake_word` triggers a brief ~0.42s attentive nose-up perk + foreground `listening` face
+            gw.now = 102.0
+            await gw.emit_event({"t": "event", "robot_id": "p4", "name": "vad_open"})
+            await gw.emit_event({"t": "event", "robot_id": "p4", "name": "wake_word"})
+            for tick in range(8):
+                gw.now = 102.0 + tick * 0.05
+                await gw.emit_event({"t": "imu", "robot_id": "p4"})
+                await asyncio.sleep(0.008)
+
+            perk_targets = [c for c in conn.sent_commands if c.get("t") == "walk_target"]
+            self.assertGreaterEqual(len(perk_targets), 3, "wake_word must stream smooth one-shot perk frames")
+            last_perk_feet = perk_targets[-1]["feet_mm"]
+            # Nose-up perk: rear z (idx 2, 5) > anchor (+1.92 mm), front z (idx 8, 11) < anchor (+1.92 mm)
+            self.assertGreater(float(last_perk_feet[2]), float(st.anchor_feet_mm[2]) + 2.5)
+            self.assertLess(float(last_perk_feet[8]), float(st.anchor_feet_mm[8]) - 3.0)
+            listen_faces = [
+                c
+                for c in gw.issued
+                if c.get("name") == "face" and (c.get("params") or {}).get("expr") == "listening"
+            ]
+            self.assertTrue(listen_faces and listen_faces[-1]["params"].get("background") is False)
+
+            # 2. Past +0.42s while user is still speaking (`vad_open` active): holds `st.walk_seq` open at 0 Hz
+            #    with zero `stop` commands (since P4 `stop` clears foreground/background faces via display_restore)
+            #    and zero new `walk_target` packets so servos stay 100% motionless while `listening` stays displayed!
+            stops_before_lock = len([c for c in gw.issued if c.get("t") == "stop"])
+            wt_count_after_lock = len([c for c in conn.sent_commands if c.get("t") == "walk_target"])
+            gw.now = 102.50
+            await gw.emit_event({"t": "imu", "robot_id": "p4"})
+            await asyncio.sleep(0.02)
+            self.assertIsNotNone(st.walk_seq, "Wake perk must hold stream quietly without sending P4 stop")
+            self.assertEqual(
+                len([c for c in gw.issued if c.get("t") == "stop"]),
+                stops_before_lock,
+                "Must not send P4 stop mid-utterance (P4 stop clears listening face)",
+            )
+            self.assertTrue(st.foreground_face_owned, "Listening face must remain active until vad_close")
+
+            for dt in (1.0, 2.0, 3.5):
+                gw.now = 102.0 + dt
+                await gw.emit_event({"t": "imu", "robot_id": "p4"})
+                await asyncio.sleep(0.01)
+            self.assertEqual(
+                len([c for c in conn.sent_commands if c.get("t") == "walk_target"]),
+                wt_count_after_lock,
+                "Zero servo updates allowed while listening after the 0.42s wake perk completes",
+            )
+            self.assertEqual(
+                len([c for c in gw.issued if c.get("t") == "stop"]),
+                stops_before_lock,
+                "Zero stop commands allowed during wake-word utterance",
+            )
+
+            # 3. `vad_close` immediately releases foreground `listening` face (without sending `stop`) so `thinking` shows
+            gw.now = 106.0
+            await gw.emit_event({"t": "event", "robot_id": "p4", "name": "vad_close"})
+            await gw.emit_event({"t": "imu", "robot_id": "p4"})
+            await asyncio.sleep(0.02)
+            self.assertFalse(st.foreground_face_owned, "Foreground listening face must release immediately on vad_close")
+            self.assertEqual(
+                len([c for c in gw.issued if c.get("t") == "stop"]),
+                stops_before_lock,
+                "Must not send P4 stop on vad_close so MetaHuman background thinking face is preserved",
+            )
+
+            # 4. If no TTS reply occurs within 10s after `vad_close`, smoothly settles back to symmetric anchor and locks hold
+            for tick in range(20):
+                gw.now = 116.2 + tick * 0.10
+                await gw.emit_event({"t": "imu", "robot_id": "p4"})
+                await asyncio.sleep(0.008)
+                if not st.wake_perk_unsettled and st.walk_seq is None:
+                    break
+            self.assertFalse(st.wake_perk_unsettled)
+            self.assertIsNone(st.walk_seq)
+            settled_feet = [c for c in conn.sent_commands if c.get("t") == "walk_target"][-1]["feet_mm"]
+            self.assertLessEqual(float(np.max(np.abs(np.asarray(settled_feet) - st.anchor_feet_mm))), 1.5)
+        finally:
+            await ctrl.close()
+
+    async def test_speech_sway_and_unusable_feedback_never_false_trigger_passive_detach(self):
+        gw = FakePresenceGateway()
+        conn = gw._connections["p4"]
+        conn.last_calibration = {"joints": {}}
+        conn.last_status["output_ready"] = True
+        conn.last_status["output_armed"] = True
+        freestyle_busy = {"active": False}
+        usable_override: dict[int, bool] = {}
+
+        orig_obs = gw.body_sensor_observation
+
+        def custom_obs(robot_id: str) -> dict:
+            obs = orig_obs(robot_id)
+            for idx, flag in usable_override.items():
+                obs["joints"][JOINTS[idx]]["feedback_usable"] = flag
+            return obs
+
+        gw.body_sensor_observation = custom_obs
+        ctrl = PresenceController(gw, freestyle_active_fn=lambda _r: freestyle_busy["active"])
+        try:
+            ctrl.configure("p4", {**validate_presence_settings(None), "self_right_enabled": True})
+
+            # 1. `rapid_movement` during active Freestyle or speech must NEVER arm `probe_until`
+            freestyle_busy["active"] = True
+            await gw.emit_event({"t": "event", "robot_id": "p4", "name": "body_event", "data": {"kind": "rapid_movement"}})
+            self.assertEqual(ctrl._state("p4").probe_until, 0.0)
+            freestyle_busy["active"] = False
+
+            gw.speaking = (True, 0.72)
+            await gw.emit_event({"t": "event", "robot_id": "p4", "name": "body_event", "data": {"kind": "rapid_movement"}})
+            self.assertEqual(ctrl._state("p4").probe_until, 0.0)
+
+            # 2. Speech sway on a flat IMU (e.g. supported on stand or compliant carpet) + `rear_right_carrier`
+            #    intermittent `feedback_usable=False` + `commanded_model_deg=None` -> `-16 deg` transition
+            #    must NEVER false-trigger `passive` or `stop(detach=True)`!
+            usable_override[4] = False
+            manifold = _get_shared_manifold(None)
+            import torch
+            for step in range(20):
+                gw.now = 101.0 + step * 0.06
+                pz = (12.0 * math.sin(step * 0.35)) / 42.0
+                act = [0.0, 0.0, pz, 0.0, 0.0, pz, 0.0, 0.0, -pz, 0.0, 0.0, -pz]
+                q_rad = manifold.continuous_decode_rad(torch.tensor([act], dtype=torch.float64))[0]
+                q = [math.degrees(float(v)) for v in q_rad]
+                gw.measured_deg = q
+                gw.commanded_deg = [None] * 12 if step < 2 else q  # type: ignore[list-item]
+                gw.tilt_pitch_deg = 0.0
+                await gw.emit_event({"t": "imu", "robot_id": "p4"})
+                await asyncio.sleep(0.01)
+                self.assertNotEqual(ctrl.robot_status("p4")["mode"], "passive")
+
+            self.assertFalse(any(c.get("t") == "stop" and c.get("detach") is True for c in gw.issued))
+
+            # 3. Non-standing posture (e.g. front paws raised at +113 deg) with `speaking=False` must NEVER
+            #    trigger grounded tilt sympathy (`legs_moved_without_ground_reaction`)
+            gw.speaking = (False, 0.0)
+            usable_override.clear()
+            for step in range(12):
+                gw.now = 103.0 + step * 0.06
+                q = [-8.0, -16.0, -12.0, -4.0, -14.0, -14.0, -6.0, 113.0 + step * 1.2, 56.0, -8.0, 108.0 - step * 1.2, 54.0]
+                gw.measured_deg = q
+                gw.commanded_deg = q
+                gw.tilt_pitch_deg = 0.0
+                await gw.emit_event({"t": "imu", "robot_id": "p4"})
+                await asyncio.sleep(0.01)
+                self.assertNotEqual(ctrl.robot_status("p4")["mode"], "passive")
         finally:
             await ctrl.close()
 

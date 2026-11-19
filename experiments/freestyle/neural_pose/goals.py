@@ -522,6 +522,32 @@ class PoseManifold:
                 (pulse >= 1.0) & (pulse <= 65535.0), axis=-1
             )
             ok = closed & pulse_ok
+            if not np.all(ok):
+                # Straight-line chord in (carrier, crank) crossed the concave 4-bar toggle boundary
+                # (e.g. returning from [0, 118, 55] deg overhead stretch): step along the closed foot-space manifold.
+                pts_prev, _ = fb.forward(prev)
+                pts_goal, _ = fb.forward(goal)
+                act_prev = (pts_prev - fb.origin[None, ...]) / fb.scale.reshape(1, 1, 3)
+                act_goal = (pts_goal - fb.origin[None, ...]) / fb.scale.reshape(1, 1, 3)
+                alphas = np.geomspace(0.001, 1.0, 24, dtype=np.float64)
+                probe_acts = act_prev[None, ...] + alphas[:, None, None, None] * (act_goal - act_prev)[None, ...]
+                bsz = prev.shape[0]
+                q_probes = fb.continuous_decode_rad(probe_acts.reshape(24 * bsz, 12)).reshape(24, bsz, 4, 3)
+                p_ok = fb.forward(q_probes)[1] & fb._pulse_valid(q_probes)
+                step_sz = np.amax(np.abs(q_probes - prev[None, ...]), axis=-1)
+                within = p_ok & (step_sz <= max_travel * 1.15) & (step_sz > 1e-5)
+                for b_idx in range(bsz):
+                    for l_idx in range(4):
+                        if not ok[b_idx, l_idx]:
+                            valid_k = np.where(within[:, b_idx, l_idx])[0]
+                            if len(valid_k) > 0:
+                                q_b[b_idx, l_idx] = q_probes[valid_k[-1], b_idx, l_idx]
+                                ok[b_idx, l_idx] = True
+                            else:
+                                any_k = np.where(p_ok[:, b_idx, l_idx] & (step_sz[:, b_idx, l_idx] > 1e-5))[0]
+                                if len(any_k) > 0:
+                                    q_b[b_idx, l_idx] = q_probes[any_k[0], b_idx, l_idx]
+                                    ok[b_idx, l_idx] = True
             q_sel = np.where(ok[..., None], q_b, prev)
             q_log, _ = fb.pwm(q_sel)
             pts, _ = fb.forward(q_log.reshape(1, 4, 3))
@@ -546,6 +572,34 @@ class PoseManifold:
             (pulse >= 1) & (pulse <= 65535)
         ).all(-1)
         ok = closed & pulse_ok
+        if not bool(ok.all()):
+            pts_prev, _ = b.forward(prev)
+            pts_goal, _ = b.forward(goal)
+            act_prev = (pts_prev - b.origin.unsqueeze(0)) / b.scale.reshape(1, 1, 3)
+            act_goal = (pts_goal - b.origin.unsqueeze(0)) / b.scale.reshape(1, 1, 3)
+            alphas = torch.logspace(-3.0, 0.0, 24, dtype=b.O.dtype, device=b.device)
+            probe_acts = act_prev.unsqueeze(0) + alphas.reshape(24, 1, 1, 1) * (act_goal - act_prev).unsqueeze(0)
+            q_probes = self.continuous_decode_rad(probe_acts.reshape(24, 12), body=b).reshape(24, 1, 4, 3)
+            _, p_closed = b.forward(q_probes)
+            p_pulse = torch.floor(b.pulse_home + (torch.rad2deg(q_probes) - b.home) * b.pulse_scale + 0.5)
+            p_ok = (
+                p_closed
+                & ((p_pulse[..., 1:] >= 300) & (p_pulse[..., 1:] <= 2950)).all(-1)
+                & ((p_pulse >= 1) & (p_pulse <= 65535)).all(-1)
+            )
+            step_sz = (q_probes - prev.unsqueeze(0)).abs().amax(dim=-1)
+            within = p_ok & (step_sz <= max_travel * 1.15) & (step_sz > 1e-5)
+            for l_idx in range(4):
+                if not bool(ok[0, l_idx]):
+                    valid_k = torch.nonzero(within[:, 0, l_idx], as_tuple=False).flatten()
+                    if valid_k.numel() > 0:
+                        q_b[0, l_idx] = q_probes[valid_k[-1], 0, l_idx]
+                        ok[0, l_idx] = True
+                    else:
+                        any_k = torch.nonzero(p_ok[:, 0, l_idx] & (step_sz[:, 0, l_idx] > 1e-5), as_tuple=False).flatten()
+                        if any_k.numel() > 0:
+                            q_b[0, l_idx] = q_probes[any_k[0], 0, l_idx]
+                            ok[0, l_idx] = True
         q_sel = torch.where(ok.unsqueeze(-1), q_b, prev)
         q_log, _ = b.pwm(q_sel)
         pts, _ = b.forward(q_log.reshape(1, 4, 3))
@@ -686,17 +740,30 @@ def _is_stand_goal(deg: list[float], stand_ref_deg: list[float]) -> bool:
     return max(abs(a - b) for a, b in zip(deg, stand_ref_deg)) <= 1.5
 
 
+def _stance_shoulder_delta_deg(start_deg: list[float], goal_deg: list[float], support: list[float]) -> float:
+    """Largest shoulder excursion on grounded stance legs (used to budget adaptive micro-step time)."""
+    best = 0.0
+    for leg_idx in range(4):
+        if support[leg_idx] >= 0.5:
+            best = max(best, abs(goal_deg[leg_idx * 3] - start_deg[leg_idx * 3]))
+    return best
+
+
 def _pose_segment_duration_s(
     max_delta_deg: float,
     speed_scale: float,
     *,
     is_stand: bool = False,
     from_nonstanding: bool = False,
+    stance_shoulder_delta_deg: float = 0.0,
 ) -> float:
     """Compute realistic closed-loop servo + policy settling budget (independent of 2000 deg/s NVS ramp)."""
     if from_nonstanding or (is_stand and max_delta_deg > 45.0):
         servo_travel_deg_s = max(55.0, 140.0 * speed_scale)
         return max(1.75, min(3.8, max_delta_deg / servo_travel_deg_s + 0.55))
+    if stance_shoulder_delta_deg >= 12.0:
+        servo_travel_deg_s = max(60.0, 165.0 * speed_scale)
+        return max(1.20, min(3.5, max_delta_deg / servo_travel_deg_s + 0.55))
     servo_travel_deg_s = max(65.0, 240.0 * speed_scale)
     margin = 0.35 if is_stand else 0.22
     floor = 0.70 if is_stand else 0.32
@@ -739,7 +806,13 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
             goal_deg, goal_foot_norm = manifold.project_angles_deg(STAND_ANGLES_DEG)
             max_delta = max(abs(a - b) for a, b in zip(goal_deg, physical_start_deg))
             duration_s = _pose_segment_duration_s(
-                max_delta, speed_scale, is_stand=True, from_nonstanding=from_nonstanding
+                max_delta,
+                speed_scale,
+                is_stand=True,
+                from_nonstanding=from_nonstanding,
+                stance_shoulder_delta_deg=_stance_shoulder_delta_deg(
+                    physical_start_deg, goal_deg, [1.0, 1.0, 1.0, 1.0]
+                ),
             )
             segments.append(
                 {
@@ -782,7 +855,11 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
             if is_stand_goal:
                 from_nonstanding = bool(from_nonstanding or _is_nonstanding_posture(physical_start_deg) or max_delta > 45.0)
             duration_s = _pose_segment_duration_s(
-                max_delta, speed_scale, is_stand=is_stand_goal, from_nonstanding=from_nonstanding
+                max_delta,
+                speed_scale,
+                is_stand=is_stand_goal,
+                from_nonstanding=from_nonstanding,
+                stance_shoulder_delta_deg=_stance_shoulder_delta_deg(physical_start_deg, goal_deg, support),
             )
             segments.append(
                 {
@@ -807,8 +884,10 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
             physical_start_deg = list(raw_initial_deg) if not posture_initialized else list(cursor_deg)
             from_nonstanding = False
             if not posture_initialized:
-                if _is_nonstanding_posture(raw_initial_deg):
+                if name == "body" and _is_nonstanding_posture(raw_initial_deg):
                     cursor_deg, _ = manifold.project_angles_deg(STAND_ANGLES_DEG)
+                    from_nonstanding = True
+                elif _is_nonstanding_posture(raw_initial_deg):
                     from_nonstanding = True
                 posture_initialized = True
             resolved = manifold.resolve_spatial_deg(action, cursor_deg)
@@ -819,7 +898,11 @@ def compile_goal_segments(program: list[dict], observation: dict, manifold: Pose
             if is_stand_goal:
                 from_nonstanding = bool(from_nonstanding or _is_nonstanding_posture(physical_start_deg) or max_delta > 45.0)
             duration_s = _pose_segment_duration_s(
-                max_delta, speed_scale, is_stand=is_stand_goal, from_nonstanding=from_nonstanding
+                max_delta,
+                speed_scale,
+                is_stand=is_stand_goal,
+                from_nonstanding=from_nonstanding,
+                stance_shoulder_delta_deg=_stance_shoulder_delta_deg(physical_start_deg, goal_deg, support),
             )
             segments.append(
                 {

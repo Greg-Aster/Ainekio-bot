@@ -1887,13 +1887,19 @@ static void dispatch_command(
     } else if (command->kind == AINEKIO_COMMAND_INTENT &&
                command->data.intent.kind == AINEKIO_INTENT_FACE &&
                runtime->display != NULL) {
-        persistence = ainekio_display_show_face(
-            runtime->display,
-            command->data.intent.data.asset,
-            AINEKIO_FACE_MODE_ONCE,
-            false,
-            true
-        );
+        const ainekio_face_selection_t *face = &command->data.intent.data.face;
+        if (face->release || face->background || face->timeout_ms != 0U ||
+            face->token[0] != '\0' || face->if_token[0] != '\0') {
+            persistence = ESP_ERR_INVALID_ARG;
+        } else {
+            persistence = ainekio_display_show_face(
+                runtime->display,
+                face->expression,
+                AINEKIO_FACE_MODE_ONCE,
+                false,
+                true
+            );
+        }
     }
 
     if (persistence != ESP_OK) {

@@ -174,10 +174,27 @@ def pose_tracking_reward(env) -> torch.Tensor:
     err = (q_true - eff_goal).reshape(-1, 4, 3)
     abs_err = err.abs()
 
-    # Stance legs during multi-leg lifts (sum(support) < 3.5) get 0.10 rad (~5.7 deg) CoM-balancing slack
-    partial_support = (support.sum(dim=-1) < 3.5) & (~suspended)
-    stance_leg = (support > 0.5) & partial_support.unsqueeze(-1)
-    eff_err = torch.where(stance_leg.unsqueeze(-1), (abs_err - 0.10).clamp_min(0.0), abs_err)
+    # Stance balance & friction-jam micro-step slack:
+    # - Zero slack on unobstructed 4-leg stances so static postures settle tightly (<1.5 deg MAE).
+    # - During 3-leg/2-paw gestures (sum(support) < 3.5) OR while an actual ground-contact friction jam
+    #   is being unloaded (`stance_jam_stepping`), grant CoM slack on supporting legs and carrier/crank
+    #   vertical lift slack on the jammed leg until its shoulder swings within 8 deg of goal.
+    sjam_mask = getattr(pose_term, "stance_jam_leg_mask", None)
+    if sjam_mask is not None:
+        sjam_unlocked = pose_term.stance_jam_unlocked
+        stance_jam_stepping = sjam_mask & ((~sjam_unlocked) | (abs_err[..., 0] > 0.045))
+    else:
+        stance_jam_stepping = torch.zeros_like(support, dtype=torch.bool)
+
+    any_stepping = stance_jam_stepping.any(dim=-1)
+    partial_support = ((support.sum(dim=-1) < 3.5) | any_stepping) & (~suspended)
+    stance_leg = (support > 0.5) & (~stance_jam_stepping) & partial_support.unsqueeze(-1)
+
+    slack = torch.zeros_like(abs_err)
+    slack = torch.where(stance_leg.unsqueeze(-1), torch.full_like(slack, 0.10), slack)
+    lift_slack = torch.tensor([0.0, 0.42, 0.46], device=abs_err.device, dtype=abs_err.dtype).reshape(1, 1, 3)
+    slack = torch.where(stance_jam_stepping.unsqueeze(-1), lift_slack, slack)
+    eff_err = (abs_err - slack).clamp_min(0.0)
 
     leg_sq = eff_err.square().mean(dim=-1)  # (N, 4)
     coarse = torch.exp(-leg_sq / (0.18 ** 2))
@@ -262,16 +279,60 @@ def action_smoothness_cost(env) -> torch.Tensor:
     ddu = du - pose_term.prev_action_delta
     d_app = pose_term.applied_action - pose_term.prev_applied_action
     jam_contacted = getattr(pose_term, "jam_contacted", None)
+    sjam_mask = getattr(pose_term, "stance_jam_leg_mask", None)
+    active_special = torch.zeros((env.num_envs, 4), dtype=torch.bool, device=u.device)
     if jam_contacted is not None:
-        unobstructed_f = (~jam_contacted.repeat_interleave(3, dim=-1)).to(u.dtype)
-    else:
-        unobstructed_f = torch.ones_like(u)
+        active_special = active_special | jam_contacted
+    if sjam_mask is not None:
+        q_true = pose_term._entity.data.joint_pos[:, pose_term.joint_ids]
+        sh_err = (q_true - pose_term.current_goal_rad).abs().reshape(-1, 4, 3)[..., 0]
+        active_special = active_special | (sjam_mask & ((~pose_term.stance_jam_unlocked) | (sh_err > 0.045)))
+    unobstructed_f = (~active_special.repeat_interleave(3, dim=-1)).to(u.dtype)
     return (
-        0.55 * du.square().sum(dim=-1)
-        + 0.40 * ddu.square().sum(dim=-1)
-        + 1.50 * d_app.square().sum(dim=-1)
-        + 0.06 * (u.square() * unobstructed_f).sum(dim=-1)
-    ).clamp(0.0, 6.0)
+        2.10 * du.square().sum(dim=-1)
+        + 1.50 * ddu.square().sum(dim=-1)
+        + 2.25 * d_app.square().sum(dim=-1)
+        + 0.16 * (u.square() * unobstructed_f).sum(dim=-1)
+    ).clamp(0.0, 8.0)
+
+
+def stance_step_clearance_reward(env, sensor_name: str = "feet_ground_contact") -> torch.Tensor:
+    """Reward unloading micro-step strictly when a grounded stance limb hits a ground-friction jam."""
+    pose_term = env.action_manager.get_term("pose")
+    sjam_mask = getattr(pose_term, "stance_jam_leg_mask", None)
+    if sjam_mask is None:
+        return torch.zeros(env.num_envs, device=env.device)
+
+    contact_sensor = env.scene[sensor_name]
+    in_contact = contact_sensor.data.found > 0  # (N, 4)
+    contact_count = in_contact.float().sum(dim=-1)  # (N,)
+    foot_z_w = pose_term._entity.data.site_pos_w[:, pose_term.foot_site_ids, 2]
+    floor_z = getattr(pose_term, "stance_jam_floor_z", foot_z_w)
+    wz_lift = torch.where(floor_z < 1e5, (foot_z_w - floor_z).clamp(0.0, 0.020), torch.zeros_like(foot_z_w))
+
+    delay_gate = pose_term.obs_delay_ticks.unsqueeze(-1) + 2
+    q_true = pose_term._entity.data.joint_pos[:, pose_term.joint_ids]
+    sh_err = (q_true - pose_term.current_goal_rad).abs().reshape(-1, 4, 3)[..., 0]
+    need_unload = (
+        sjam_mask
+        & (pose_term.stance_jam_age >= delay_gate)
+        & ((~pose_term.stance_jam_unlocked) | (sh_err > 0.045))
+    )
+    unloaded = need_unload & (~in_contact)
+    lift_progress = torch.where(
+        need_unload,
+        0.60 * (wz_lift / 0.010).clamp(max=1.3) + 0.40 * (~in_contact).float(),
+        torch.zeros_like(wz_lift),
+    )
+    grav = env.scene["robot"].data.projected_gravity_b
+    stable_base = (contact_count >= 2.5) & ((-grav[:, 2]) > 0.75) & (unloaded.float().sum(dim=-1) <= 1.5)
+    step_bonus = lift_progress.sum(dim=-1).clamp(max=1.1) * stable_base.float()
+    env.extras["log"]["Pose/microstep_unload_frac"] = (
+        pose_term.stance_jam_unlocked[sjam_mask].float().mean()
+        if bool(sjam_mask.any())
+        else torch.tensor(0.0, device=env.device)
+    )
+    return torch.where(pose_term.is_suspended, torch.zeros_like(step_bonus), step_bonus)
 
 
 def settle_damping_cost(env) -> torch.Tensor:
@@ -283,36 +344,42 @@ def settle_damping_cost(env) -> torch.Tensor:
     d_app = pose_term.applied_action - pose_term.prev_applied_action
     dd_app = d_app - pose_term.prev_applied_delta
 
-    near_goal = (q_true - pose_term.current_goal_rad).abs() < 0.18
+    near_goal = (q_true - pose_term.current_goal_rad).abs() < 0.32
     jam_contacted = getattr(pose_term, "jam_contacted", None)
     if jam_contacted is not None:
         jam_3 = jam_contacted.repeat_interleave(3, dim=-1)
         q_cmd = pose_term.logical.to(torch.float32)
         cmd_ideal = torch.where(jam_3 & pose_term.jam_joint_mask, q_true + 0.060 * pose_term.jam_dir, q_true)
-        near_jam = (q_cmd - cmd_ideal).abs() < 0.12
+        near_jam = (q_cmd - cmd_ideal).abs() < 0.14
         near = torch.where(jam_3, near_jam, near_goal)
     else:
         near = near_goal
+
+    sjam_mask = getattr(pose_term, "stance_jam_leg_mask", None)
+    if sjam_mask is not None:
+        sh_err = (q_true - pose_term.current_goal_rad).abs().reshape(-1, 4, 3)[..., 0]
+        sjam_stepping_3 = (sjam_mask & ((~pose_term.stance_jam_unlocked) | (sh_err > 0.14))).repeat_interleave(3, dim=-1)
+        near = near & (~sjam_stepping_3)
 
     osc_active = pose_term.osc_active
     static_f = (near & (~osc_active.unsqueeze(-1))).float()
 
     vel_ring = (v_true.square() * static_f).mean(dim=-1)
-    res_ring = (du.square() * static_f).sum(dim=-1) * 2.0
-    cmd_ring = ((d_app.square() + dd_app.square()) * static_f).sum(dim=-1) * 3.0
+    res_ring = (du.square() * static_f).sum(dim=-1) * 7.5
+    cmd_ring = ((d_app.square() + dd_app.square()) * static_f).sum(dim=-1) * 5.2
     env.extras["log"]["Pose/residual_rms"] = pose_term.raw_action.square().mean().sqrt()
-    return (vel_ring + res_ring + cmd_ring).clamp(0.0, 6.0)
+    return (vel_ring + res_ring + cmd_ring).clamp(0.0, 10.0)
 
 
 def stance_slip_cost(env, sensor_name: str = "feet_ground_contact", asset_cfg=None) -> torch.Tensor:
-    """Penalize horizontal foot sliding on grounded stance legs."""
+    """Penalize horizontal foot dragging while planted under load (encourages clean vertical lift to step)."""
     pose_term = env.action_manager.get_term("pose")
     asset = env.scene["robot"]
     contact_sensor = env.scene[sensor_name]
     in_contact = (contact_sensor.data.found > 0).float() * pose_term.leg_support
     foot_vel_xy = asset.data.site_lin_vel_w[:, pose_term.foot_site_ids, :2]
     vel_sq = foot_vel_xy.square().sum(dim=-1)
-    cost = (vel_sq * in_contact).sum(dim=-1).clamp(0.0, 3.0)
+    cost = (vel_sq * in_contact).sum(dim=-1).clamp(0.0, 4.0)
     return torch.where(pose_term.is_suspended, torch.zeros_like(cost), cost)
 
 
@@ -325,7 +392,7 @@ def tipped_over_termination(env) -> torch.Tensor:
 
 
 def reset_pose_worlds(env, env_ids):
-    """Reset both grounded (70%) and suspended/unloaded (30%) worlds, including folded starts."""
+    """Reset both grounded (70%) and suspended/unloaded (30%) worlds, including splayed & folded starts."""
     if env_ids is None:
         ids = torch.arange(env.num_envs, device=env.device)
     else:
@@ -339,7 +406,7 @@ def reset_pose_worlds(env, env_ids):
     suspended = pose_term.is_suspended[ids]
 
     # Sample diverse initial joint poses:
-    # 40% nominal stand, 35% folded/hanging/rest (including exact unloaded test angles!), 25% random bank pose
+    # 22% nominal stand, 22% folded/hanging/rest, 36% asymmetric splayed/twisted stance, 20% random bank pose
     u = torch.rand(n, device=env.device)
     q_init = pose_term.stand_q_rad.unsqueeze(0).expand(n, 12).clone()
 
@@ -347,19 +414,31 @@ def reset_pose_worlds(env, env_ids):
     fold_idx = torch.randint(0, len(folded_presets), (n,), device=env.device)
     q_fold = folded_presets[fold_idx]
 
+    splayed_presets = getattr(pose_term, "splayed_presets_rad", folded_presets)
+    splay_idx = torch.randint(0, len(splayed_presets), (n,), device=env.device)
+    q_splay = splayed_presets[splay_idx]
+
     bank_idx_g = torch.randint(0, pose_term.grounded_goal_count, (n,), device=env.device)
     bank_idx_s = torch.randint(0, len(pose_term.goal_bank_rad), (n,), device=env.device)
     bank_idx = torch.where(suspended, bank_idx_s, bank_idx_g)
     q_bank = pose_term.goal_bank_rad[bank_idx]
 
-    q_proj = torch.where((u < 0.40).unsqueeze(-1), q_init, torch.where((u < 0.75).unsqueeze(-1), q_fold, q_bank))
+    q_proj = torch.where(
+        (u < 0.22).unsqueeze(-1),
+        q_init,
+        torch.where(
+            (u < 0.44).unsqueeze(-1),
+            q_fold,
+            torch.where((u < 0.80).unsqueeze(-1), q_splay, q_bank),
+        ),
+    )
 
     # Compute exact 20-DOF four-bar closed qpos
     q20 = full_four_bar_qpos20(pose_term.body, q_proj.reshape(n, 4, 3))
     v20 = torch.zeros_like(q20)
     asset.write_joint_state_to_sim(q20, v20, env_ids=ids)
 
-    # Compute safe root z so folded/crouched poses spawn cleanly on terrain without penetration
+    # Compute safe root z so folded/crouched/splayed poses spawn cleanly on terrain without penetration
     pts, _ = pose_term.body.forward(q_proj.to(torch.float64).reshape(n, 4, 3))
     lowest_foot_z_m = (pts[..., 2].amin(dim=-1).to(torch.float32)) * 1e-3
     grounded_z = (-lowest_foot_z_m + 0.022).clamp(0.052, 0.145)
@@ -370,7 +449,7 @@ def reset_pose_worlds(env, env_ids):
     root[:, 2] += target_z
 
     angles = (torch.rand((n, 3), device=env.device) * 2 - 1)
-    angles[:, :2] *= math.radians(5.0)
+    angles[:, :2] *= math.radians(7.0)
     angles[:, 2] *= math.pi
     root[:, 3:7] = quat_mul(root[:, 3:7], quat_from_euler_xyz(*angles.unbind(-1)))
     root[:, 7:] = 0.0

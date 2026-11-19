@@ -109,14 +109,13 @@ policy source and preserve its correction/state lifecycle; do not add a parallel
 PWM owner, balance controller or recovery agent. The host policy observation must
 include the applied corrections/configuration so it does not unknowingly fight them.
 
-## Active neural gait stacks and visual measurement
+## Active neural gait stack and visual measurement
 
-Two neural locomotion stacks are maintained alongside native analytic gaits (`Walk`, `Run`, `Crawl`, `Crab`):
+MicroDuck neural locomotion is maintained alongside native analytic gaits (`Walk`, `Run`, `Crawl`, `Crab`):
 
 - **MicroDuck (`microduck-mjlab` / `v2_microduck`)**: [`microduck.py`](../../Master/gateway/neural_gait/microduck.py) and [`microduck_mdp.py`](../../Master/gateway/neural_gait/microduck_mdp.py) train PPO policies in MuJoCo/mjlab against the 12-servo Ainekio closed-chain CAD plant and export ONNX checkpoints and compiled firmware weights (`Slave/software/models/v2-12servo/motions/microduck/policy.bin`) so MicroDuck can run either from the host policy service (`8796`) or directly on the ESP32-P4 (`v2_microduck`).
-- **Pupper MJX (`pupper-mjx`)**: [`import_pupper_mjx.py`](../../Master/gateway/neural_gait/import_pupper_mjx.py), [`pupper_mjx_actor.py`](../../Master/gateway/neural_gait/pupper_mjx_actor.py), and [`jax_hardware.py`](../../Master/gateway/neural_gait/jax_hardware.py) bind the upstream MJX/Brax PPO trainer and actor exports to Ainekio's CAD geometry, native 4th-wire feedback, and LSM6DS3 IMU pipeline ([`server.py`](../../Master/gateway/neural_gait/server.py)). See the current status at the top of the [gait journal](GAIT_RESEARCH_JOURNAL.md).
 
-Earlier CBOR/BoTorch parameter optimizers (`GaitLearningService`, `gait_optimizer.py`, `gait_trace`), firmware phase-residual tables (`gait_learning.c`, `learning.c`), and custom SB3/REDQ/pink-noise stacks have been retired. Simulation checkpoints remain clearly distinguished from loaded physical hardware trials.
+Earlier Stanford Pupper V3 MJX host policies (`pupper-mjx`), CBOR/BoTorch parameter optimizers (`GaitLearningService`, `gait_optimizer.py`, `gait_trace`), firmware phase-residual tables (`gait_learning.c`, `learning.c`), and custom SB3/REDQ/pink-noise stacks have been retired. Simulation checkpoints remain clearly distinguished from loaded physical hardware trials.
 
 [Camera motion](../../Master/gateway/depth_motion_worker.py) has metric-depth /
 feature-map and [calibrated ground-plane](../../Master/gateway/ground_plane.py)
@@ -159,7 +158,7 @@ original operation's completion/cancellation. All training videos must identify
 simulation, configuration, checkpoint and failed trials.
 
 Maintained regression entry points include the gateway dashboard/service,
-body-event, neural-gait (`MicroDuck` & `Pupper MJX`), and depth-motion suites in `tests/`,
+body-event, neural-gait (`MicroDuck`), and depth-motion suites in `tests/`,
 P4 body/servo-feedback tests, and the V2 motion CMake tests for walking feedback,
 balance, posture, MicroDuck and gait timing. The neural simulator suite must test
 against these production owners rather than copying them into a second controller.
@@ -328,7 +327,7 @@ completion remains owned by the existing goal system, not a neural cycle count.
    require behavioral qualification, beyond the connected software tests.
 
 Maintained checks for these boundaries are `tests/test_neural_gait.py`,
-`tests/test_microduck_gait.py`, `tests/test_pupper_mjx_gait.py`,
+`tests/test_microduck_gait.py`,
 `VirtualBodySensorTests` and `NativeWalkTests` in `tests/test_neural_gait_sensors.py`,
 `SensorTelemetryTests` in `tests/test_gateway_service.py`, and the
 neural preview/authentication tests in `tests/test_gateway_dashboard.py`.

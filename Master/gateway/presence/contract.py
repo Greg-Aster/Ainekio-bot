@@ -16,9 +16,9 @@ PRESENCE_COMPLIANCE_DIM = 12
 PRESENCE_EXPR_DIM = 6
 PRESENCE_ACTION_DIM = PRESENCE_FOOT_DIM + PRESENCE_COMPLIANCE_DIM + PRESENCE_EXPR_DIM  # 30 outputs
 PRESENCE_FOOT_SCALE_MM = (8.0, 8.0, 8.0)
-PRESENCE_COMPLIANCE_STEP_MM = 1.8
-PRESENCE_COMPLIANCE_MAX_XY_MM = 3.5
-PRESENCE_COMPLIANCE_MAX_Z_MM = 2.0
+PRESENCE_COMPLIANCE_STEP_MM = 3.2
+PRESENCE_COMPLIANCE_MAX_XY_MM = 6.5
+PRESENCE_COMPLIANCE_MAX_Z_MM = 14.0
 
 LEGS = ("rear_left", "rear_right", "front_left", "front_right")
 JOINTS = tuple(f"{leg}_{axis}" for leg in LEGS for axis in ("shoulder", "carrier", "crank"))
@@ -148,6 +148,17 @@ def presence_foot_offsets(action_12, scale_mm=PRESENCE_FOOT_SCALE_MM) -> list[fl
     return out
 
 
+def _common_mode_drift(values: list[float]) -> float:
+    """Return shared 4-leg drift only when all 4 legs push in the same direction (prevents 4-leg body sink/rise while letting 1..3 jammed legs yield 100%)."""
+    lo = min(values)
+    if lo > 0.0:
+        return lo
+    hi = max(values)
+    if hi < 0.0:
+        return hi
+    return 0.0
+
+
 def update_compliance_trim_mm(
     trim_mm: list[float] | tuple[float, ...],
     step_mm: list[float] | tuple[float, ...],
@@ -155,20 +166,24 @@ def update_compliance_trim_mm(
     enabled: bool = True,
     decay: float = 0.94,
 ) -> list[float]:
-    """Update persistent stance compliance trim (mm) to relieve inter-leg shear without planar windup or sag."""
+    """Update stance compliance trim (mm) to yield single/multi-leg jams and shear without 4-leg gravity sink."""
     if not enabled:
         return [0.0] * PRESENCE_FOOT_DIM
     raw_x = [float(trim_mm[leg * 3 + 0]) * decay + float(step_mm[leg * 3 + 0]) for leg in range(4)]
     raw_y = [float(trim_mm[leg * 3 + 1]) * decay + float(step_mm[leg * 3 + 1]) for leg in range(4)]
-    raw_z = [float(trim_mm[leg * 3 + 2]) * 0.88 + float(step_mm[leg * 3 + 2]) for leg in range(4)]
+    raw_z = [
+        float(trim_mm[leg * 3 + 2]) * 0.90
+        + (float(step_mm[leg * 3 + 2]) if abs(float(step_mm[leg * 3 + 2])) >= 0.65 else 0.0)
+        for leg in range(4)
+    ]
     mean_x = 0.25 * sum(raw_x)
     mean_y = 0.25 * sum(raw_y)
-    mean_z = 0.25 * sum(raw_z)
+    common_z = _common_mode_drift(raw_z)
     out: list[float] = []
     for leg in range(4):
         tx = max(-PRESENCE_COMPLIANCE_MAX_XY_MM, min(PRESENCE_COMPLIANCE_MAX_XY_MM, raw_x[leg] - 0.5 * mean_x))
         ty = max(-PRESENCE_COMPLIANCE_MAX_XY_MM, min(PRESENCE_COMPLIANCE_MAX_XY_MM, raw_y[leg] - 0.5 * mean_y))
-        tz = max(-PRESENCE_COMPLIANCE_MAX_Z_MM, min(PRESENCE_COMPLIANCE_MAX_Z_MM, raw_z[leg] - mean_z))
+        tz = max(-PRESENCE_COMPLIANCE_MAX_Z_MM, min(PRESENCE_COMPLIANCE_MAX_Z_MM, raw_z[leg] - common_z))
         out.extend((tx, ty, tz))
     return out
 
@@ -356,7 +371,7 @@ class SympatheticMotionMonitor:
 
     def __init__(self, window_s: float = 0.75):
         self.window_s = float(window_s)
-        self._samples: deque[tuple[float, list[float], tuple[float, float], float, float, float]] = deque(maxlen=48)
+        self._samples: deque[tuple[float, list[float], list[float] | None, tuple[float, float], float, float, float]] = deque(maxlen=48)
         self._righting_started_at: float | None = None
         self._righting_initial_tilt_deg: float = 0.0
         self._unsym_streak: int = 0
@@ -413,11 +428,31 @@ class SympatheticMotionMonitor:
         orientation_wxyz,
         angular_rate_rad_s,
         acceleration_m_s2,
+        commanded_deg: list[float] | None = None,
+        usable_flags: list[bool] | None = None,
     ) -> tuple[bool, float, str | None]:
-        """Record a 20 Hz sample and check whether substantial leg movement produced sympathetic IMU response.
+        """Record a 20 Hz sample and check whether substantial commanded leg movement produced sympathetic IMU response.
 
         Returns (unsympathetic_detected, sympathy_score, reason).
         """
+        if usable_flags is not None:
+            # Grounded 4-leg tilt geometry requires usable 4th-wire feedback on every leg's carrier/crank;
+            # never synthesize fake measured jumps from fallback commanded angles.
+            if any(not usable_flags[3 * leg + k] for leg in range(4) for k in (1, 2)):
+                self._samples.clear()
+                self._unsym_streak = 0
+                return False, self.last_score, None
+
+        # Grounded tilt kinematics only hold when all 4 legs are in downward standing stance (not raised overhead / prone)
+        if any(
+            abs(float(measured_deg[3 * leg + 1]) - STAND_ANGLES_DEG[3 * leg + 1]) > 68.0
+            or float(measured_deg[3 * leg + 2]) > 15.0
+            for leg in range(4)
+        ):
+            self._samples.clear()
+            self._unsym_streak = 0
+            return False, self.last_score, None
+
         t = float(now)
         if self._samples and t < self._samples[-1][0]:
             self._samples.clear()
@@ -426,7 +461,8 @@ class SympatheticMotionMonitor:
         kin_roll, kin_pitch = kinematic_grounded_tilt_deg(measured_feet_z_mm)
         gyro_dps = math.degrees(math.hypot(*(float(v) for v in angular_rate_rad_s)))
         dt = (t - self._samples[-1][0]) if self._samples else 0.05
-        self._samples.append((t, list(measured_deg), (kin_roll, kin_pitch), imu_roll, imu_pitch, gyro_dps))
+        cmd_copy = list(commanded_deg) if commanded_deg is not None else None
+        self._samples.append((t, list(measured_deg), cmd_copy, (kin_roll, kin_pitch), imu_roll, imu_pitch, gyro_dps))
 
         cutoff = t - self.window_s
         while len(self._samples) > 2 and self._samples[0][0] < cutoff:
@@ -440,20 +476,34 @@ class SympatheticMotionMonitor:
             return False, self.last_score, None
 
         n = len(self._samples)
+        joint_indices = [
+            i for i in range(12) if (usable_flags is None or usable_flags[i])
+        ]
+        if not joint_indices:
+            self._unsym_streak = 0
+            return False, self.last_score, None
         max_joint_step = max(
             max(s[1][i] for s in self._samples) - min(s[1][i] for s in self._samples)
-            for i in range(12)
+            for i in joint_indices
         )
-        kr_vals = [s[2][0] for s in self._samples]
-        kp_vals = [s[2][1] for s in self._samples]
-        ir_vals = [s[3] for s in self._samples]
-        ip_vals = [s[4] for s in self._samples]
+        if all(s[2] is not None for s in self._samples):
+            max_cmd_step = max(
+                max(s[2][i] for s in self._samples) - min(s[2][i] for s in self._samples)  # type: ignore[index]
+                for i in joint_indices
+            )
+            if max_cmd_step < 7.5:
+                self._unsym_streak = 0
+                return False, self.last_score, None
+        kr_vals = [s[3][0] for s in self._samples]
+        kp_vals = [s[3][1] for s in self._samples]
+        ir_vals = [s[4] for s in self._samples]
+        ip_vals = [s[5] for s in self._samples]
         kin_span = math.hypot(max(kr_vals) - min(kr_vals), max(kp_vals) - min(kp_vals))
         imu_span = math.hypot(max(ir_vals) - min(ir_vals), max(ip_vals) - min(ip_vals))
-        mean_gyro_dps = sum(s[5] for s in self._samples) / n
+        mean_gyro_dps = sum(s[6] for s in self._samples) / n
 
         # Only judge sympathetic ground reaction when the legs executed an unmistakable tilting differential
-        if max_joint_step < 6.0 or kin_span < 5.2:
+        if max_joint_step < 8.0 or kin_span < 8.5:
             self._unsym_streak = 0
             return False, self.last_score, None
 

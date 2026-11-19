@@ -31,7 +31,7 @@ from tests.program_ownership_harness import ProgramBody
 from tests.test_environment_adapter import FakeWebSocket
 import gateway.environment_adapter.server as adapter_server
 from gateway.plugins import CameraFramePlugin
-from gateway.yolo_backend import YoloBackend
+from gateway.detector_backend import DetectorBackend
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 
 
@@ -50,15 +50,16 @@ class PerceptionBody(ProgramBody):
         if self.image is None:
             raise ValueError("Recorded image could not be decoded")
         # Any library diagnostic stays off the JSON-lines channel.
+        weights_env = os.environ.get("AINEKIO_DETECTOR_WEIGHTS") or os.environ["AINEKIO_YOLO_WEIGHTS"]
+        size_env = int(os.environ.get("AINEKIO_DETECTOR_IMAGE_SIZE") or os.environ.get("AINEKIO_YOLO_IMAGE_SIZE", "640"))
         with contextlib.redirect_stdout(sys.stderr):
-            backend = YoloBackend(os.environ["AINEKIO_YOLO_WEIGHTS"], device="cpu",
-                image_size=int(os.environ.get("AINEKIO_YOLO_IMAGE_SIZE", "640")))
+            backend = DetectorBackend(weights_env, device="cpu", image_size=size_env)
         self.backend = backend
         # Explicitly crop the one central person from the packaged public photo.
-        # This edits pixels only. All detections/boxes still come from YOLO.
+        # This edits pixels only. All detections/boxes still come from the detector.
         self.target = self.image[390:870, 220:350]
         if self.image.shape[:2] != (1080, 810):
-            raise ValueError('This replay requires the documented Ultralytics bus.jpg fixture')
+            raise ValueError('This replay requires the documented 810x1080 person fixture')
         self.artifacts = Path(os.environ['AINEKIO_PERCEPTION_ARTIFACTS'])
         self.artifacts.mkdir(parents=True, exist_ok=True)
         self.frames = {}
@@ -127,11 +128,11 @@ class PerceptionBody(ProgramBody):
 
 async def main():
     body = PerceptionBody()
-    import torch, ultralytics
+    import onnxruntime
     print(json.dumps({"ready": body.snapshot(), "classes": body.backend.classes,
         "model": body.backend.model, "imageSha256": hashlib.sha256(Path(os.environ['AINEKIO_RECORDED_IMAGE']).read_bytes()).hexdigest(),
-        "versions": {"python": sys.version.split()[0], "torch": torch.__version__, "ultralytics": ultralytics.__version__, "opencv": body.cv2.__version__},
-        "device": "cpu", "imageSize": body.backend.image_size, "threads": torch.get_num_threads(), "physicalDestination": False}), flush=True)
+        "versions": {"python": sys.version.split()[0], "onnxruntime": onnxruntime.__version__, "opencv": body.cv2.__version__},
+        "device": "cpu", "imageSize": body.backend.image_size, "physicalDestination": False}), flush=True)
     try:
         while line := await asyncio.to_thread(sys.stdin.readline):
             try:

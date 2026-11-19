@@ -45,8 +45,9 @@ the same time.
 ## How pins are numbered
 
 View the Freenove board from the component side, with the antenna at the top and
-the two USB-C ports at the bottom, as shown in the checked-in
-[Freenove pinout](reference/ESP32S3_Pinout.png).
+the two USB-C ports at the bottom, per the official
+[Freenove ESP32-S3-WROOM tutorial documentation](https://github.com/Freenove/Freenove_ESP32_S3_WROOM_Board)
+and [Espressif ESP32-S3-WROOM-1 datasheet](https://www.espressif.com/sites/default/files/documentation/esp32-s3-wroom-1_wroom-1u_datasheet_en.pdf).
 
 - `L1` through `L20` number the left header from top to bottom.
 - `R1` through `R20` number the right header from top to bottom.

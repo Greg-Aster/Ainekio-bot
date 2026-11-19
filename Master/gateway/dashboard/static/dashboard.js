@@ -4246,8 +4246,8 @@
         const select = byId('neural-gait-model');
         const formatRunOptionText = run => {
           const labelId = formatRunId(run.id);
-          const kindLabel = run.kind === 'pupper-mjx' ? 'pupper-mjx'
-            : run.kind === 'microduck-mjlab' ? (run.id.startsWith('8533681d') ? 'microduck (v12)' : 'microduck')
+          const kindLabel = run.kind === 'microduck-mjlab'
+            ? (run.id.startsWith('8533681d') ? 'microduck (v12)' : 'microduck')
             : run.kind || 'simulation';
           return `${labelId} · ${kindLabel} · ${run.state} · ${(run.steps || 0).toLocaleString()} RL steps`;
         };
@@ -4267,7 +4267,7 @@
         for (const quickId of ['walk-neural-model-select', 'cockpit-neural-model-select']) {
           const quickSelect = byId(quickId);
           if (quickSelect && document.activeElement !== quickSelect) {
-            const runnable = status.runs.filter(run => run.has_policy && (run.kind === 'pupper-mjx' || run.kind === 'microduck-mjlab' || run.id === status.model_id));
+            const runnable = status.runs.filter(run => run.has_policy && (run.kind === 'microduck-mjlab' || run.id === status.model_id));
             const quickSig = runnable.map(r => `${r.id}:${r.steps}`).join('|');
             if (quickSelect.dataset.sig !== quickSig) {
               quickSelect.dataset.sig = quickSig;

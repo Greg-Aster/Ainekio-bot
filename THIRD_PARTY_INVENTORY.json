@@ -1,0 +1,191 @@
+{
+  "schema": "ainekio-third-party-inventory-v1",
+  "repository": "Greg-Aster/Ainekio-bot",
+  "updated": "2026-11-19",
+  "owner_copyright": "Copyright (c) 2025-2026 Gregory Aster",
+  "components": [
+    {
+      "id": "microduck-rl-python",
+      "name": "Pollen Robotics Microduck RL (Python training framework only)",
+      "path": "Master/gateway/neural_gait/vendor/microduck_rl",
+      "upstream_url": "https://github.com/pollen-robotics/microduck_rl",
+      "upstream_commit": "bae39f5900b318f7e87fc485c30a31213cfa14eb",
+      "copyright": "Pollen Robotics",
+      "spdx_license": "Apache-2.0",
+      "license_file": "Master/gateway/neural_gait/vendor/microduck_rl/LICENSE",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": false,
+      "notes": "All 54 upstream CC-BY-NC-SA-4.0 STL meshes and LICENSE-MODELS.md were omitted and purged; Ainekio trains against its own original V2 MJCF and compiles quantized int8 weights via stdlib tools/compile_microduck.py."
+    },
+    {
+      "id": "fusion-imu",
+      "name": "Fusion AHRS IMU Library",
+      "path": "Slave/software/imu/vendor/Fusion",
+      "upstream_url": "https://github.com/xioTechnologies/Fusion",
+      "copyright": "xio Technologies Limited / Sebastian Madgwick",
+      "spdx_license": "MIT",
+      "license_file": "Slave/software/imu/vendor/Fusion/LICENSE.md",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": true
+    },
+    {
+      "id": "esphome-micro-speech-features",
+      "name": "esphome/esp-micro-speech-features",
+      "path": "Slave/firmware/esp32p4-wifi6/managed_components/esphome__esp-micro-speech-features",
+      "upstream_url": "https://github.com/esphome/esp-micro-speech-features",
+      "copyright": "The TensorFlow Authors / ESPHome",
+      "spdx_license": "Apache-2.0",
+      "license_file": "Slave/firmware/esp32p4-wifi6/managed_components/esphome__esp-micro-speech-features/LICENSE",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": true
+    },
+    {
+      "id": "esp-tflite-micro",
+      "name": "espressif/esp-tflite-micro (with flatbuffers & gemmlowp)",
+      "path": "Slave/firmware/esp32p4-wifi6/managed_components/espressif__esp-tflite-micro",
+      "upstream_url": "https://github.com/espressif/esp-tflite-micro",
+      "copyright": "The TensorFlow Authors / Google Inc. / Espressif Systems",
+      "spdx_license": "Apache-2.0",
+      "license_file": "Slave/firmware/esp32p4-wifi6/managed_components/espressif__esp-tflite-micro/LICENSE",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": true
+    },
+    {
+      "id": "espressif-apache-idf-components",
+      "name": "Espressif Apache-2.0 IDF Managed Components (esp-dsp, esp-nn, esp_cam_sensor, esp_codec_dev, esp_h264, esp_hosted, esp_sccb_intf, esp_serial_slave_link, esp_websocket_client, esp_wifi_remote, eppp_link, mdns, usb_host_uvc, cmake_utilities)",
+      "path": "Slave/firmware/esp32p4-wifi6/managed_components",
+      "upstream_url": "https://components.espressif.com/",
+      "copyright": "Espressif Systems (Shanghai) Co., Ltd.",
+      "spdx_license": "Apache-2.0",
+      "license_file": "Slave/firmware/esp32p4-wifi6/managed_components/espressif__esp_hosted/LICENSE",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": true
+    },
+    {
+      "id": "espressif-hardware-mit-components",
+      "name": "Espressif Hardware-Scoped MIT Components (esp-sr, esp_video, esp_ipa, esp_jpeg)",
+      "path": "Slave/firmware/esp32p4-wifi6/managed_components/espressif__esp-sr",
+      "upstream_url": "https://github.com/espressif/esp-sr",
+      "copyright": "Espressif Systems (Shanghai) Pte Ltd",
+      "spdx_license": "LicenseRef-Espressif-MIT",
+      "license_file": "Slave/firmware/esp32p4-wifi6/managed_components/espressif__esp-sr/LICENSE",
+      "commercial_use": "permitted_on_espressif_hardware_with_notice",
+      "shipped_in_robot_firmware": true,
+      "notes": "Royalty-free commercial permission is explicitly granted for use on Espressif Systems silicon (ESP32-P4 / ESP32-S3). Must not be ported to non-Espressif MCUs/SBCs."
+    },
+    {
+      "id": "cjson-and-littlefs",
+      "name": "cJSON & LittleFS",
+      "path": "Slave/firmware/esp32p4-wifi6/managed_components/joltwallet__littlefs",
+      "upstream_url": "https://github.com/littlefs-project/littlefs",
+      "copyright": "Dave Gamble (cJSON) / ARM Limited & Brian Pugh (LittleFS)",
+      "spdx_license": "MIT AND BSD-3-Clause",
+      "license_file": "Slave/firmware/esp32p4-wifi6/managed_components/joltwallet__littlefs/src/littlefs/LICENSE.md",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": true
+    },
+    {
+      "id": "rtdetrv2-r18vd",
+      "name": "RT-DETRv2-R18VD Local ONNX Object Detector",
+      "path": "build/models/vision/rtdetrv2_r18vd_640.onnx",
+      "upstream_url": "https://huggingface.co/PekingU/rtdetr_v2_r18vd",
+      "copyright": "Peking University / Wenyu Lv et al.",
+      "spdx_license": "Apache-2.0",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": false,
+      "notes": "Replaces AGPL-3.0 Ultralytics YOLO for continuous local gateway detection via MIT ONNX Runtime."
+    },
+    {
+      "id": "owlv2-base-patch16-ensemble",
+      "name": "Google OWLv2 Open-Vocabulary & Visual-Guided Detector",
+      "path": "build/models/vision/owlv2-base-patch16-ensemble",
+      "upstream_url": "https://huggingface.co/google/owlv2-base-patch16-ensemble",
+      "copyright": "Google Research",
+      "spdx_license": "Apache-2.0",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": false,
+      "notes": "Replaces AGPL-3.0 YOLOE and Apple Research-Only MobileCLIP for local text-guided search and one-shot visual region selection."
+    },
+    {
+      "id": "opencv-zoo-yunet-sface",
+      "name": "OpenCV Zoo YuNet Face Detector & SFace Face Recognizer",
+      "path": "Master/gateway/person_identity.py",
+      "upstream_url": "https://github.com/opencv/opencv_zoo",
+      "copyright": "Shiqi Yu (YuNet) / Yaoyao Zhong et al. & OpenCV Zoo Contributors (SFace)",
+      "spdx_license": "MIT AND Apache-2.0",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": false
+    },
+    {
+      "id": "moge-2-depth",
+      "name": "MoGe-2 Monocular Metric Geometry Estimator",
+      "path": "Master/gateway/depth_motion_worker.py",
+      "upstream_url": "https://github.com/microsoft/MoGe",
+      "copyright": "Microsoft Corporation / Ruicheng Wang & Meta Platforms (DINOv2 backbone)",
+      "spdx_license": "MIT AND Apache-2.0",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": false
+    },
+    {
+      "id": "qwen3.5-freestyle-base",
+      "name": "Qwen3.5-0.8B Base Model for Freestyle Motion LoRA",
+      "path": "experiments/freestyle",
+      "upstream_url": "https://huggingface.co/Qwen/Qwen3.5-0.8B",
+      "copyright": "Alibaba Cloud / Qwen Team",
+      "spdx_license": "Apache-2.0",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": false,
+      "notes": "Freestyle LoRA weights are trained exclusively on original Ainekio 12-servo motion library and grounded recovery curricula (experiments/freestyle/training-data/manifest.json); zero AMASS/HumanML3D mocap data used."
+    },
+    {
+      "id": "cad-reference-mg90s-and-adafruit",
+      "name": "Off-the-Shelf MG90S & Adafruit MG90D Fitment Reference CAD",
+      "path": "third_party/cad-references/Servo_Reference_Assets",
+      "upstream_url": "https://github.com/one-for-all/four-legged",
+      "copyright": "one-for-all/four-legged contributors & Adafruit Industries",
+      "spdx_license": "MIT",
+      "license_file": "third_party/cad-references/Servo_Reference_Assets/MG90S-source-LICENSE.txt",
+      "commercial_use": "permitted_with_notice",
+      "shipped_in_robot_firmware": false,
+      "notes": "Non-printable off-the-shelf servo references isolated outside Slave/hardware/."
+    }
+  ],
+  "removed_or_retired": [
+    {
+      "name": "Pollen Robotics Microduck 3D STL Meshes (54 files)",
+      "former_path": "Master/gateway/neural_gait/vendor/microduck_rl/src/mjlab_microduck/robot/*/assets/*.stl",
+      "former_license": "CC-BY-NC-SA-4.0",
+      "resolution": "Purged from repository; unused by Ainekio training or runtime."
+    },
+    {
+      "name": "Stanford Pupper V3 MJX Patches & Host Actor",
+      "former_path": "Slave/software/models/v2-12servo/simulation/pupper-*-ainekio.patch",
+      "former_license": "GPL-3.0-only",
+      "resolution": "Retired and removed; Ainekio uses original kinematics and MicroDuck PPO."
+    },
+    {
+      "name": "Freenove ESP32-S3 Reference Datasheet Bundle",
+      "former_path": "docs/v1-8servo/reference/",
+      "former_license": "CC-BY-NC-SA-3.0",
+      "resolution": "Removed from repository; replaced with upstream documentation URLs."
+    },
+    {
+      "name": "Nova-Q MG996R & FreeCAD Juan Fenoy SG90 Reference CAD",
+      "former_path": "Slave/hardware/v2-12servo/Servo_Reference_Assets/{MG996R-NovaQ*,SG90*}",
+      "former_license": "GPL-3.0-only / CC-BY-SA-4.0",
+      "resolution": "Purged from repository and v3-2.blend; V3 uses official DSSERVO CAD and V1/V2/V3 printable parts contain zero third-party vertices."
+    },
+    {
+      "name": "Harmony Puppy 2022 Reference Leg STEP/GLB Assemblies",
+      "former_path": "Slave/hardware/v2-12servo/{Big and small leg assembly-V2*,Leg model V2.0*}",
+      "former_license": "Upstream reference only",
+      "resolution": "Removed from Slave/hardware/; all printable Ainekio V1/V2/V3 meshes were independently modeled from scratch by Gregory Aster."
+    },
+    {
+      "name": "Ultralytics YOLO/YOLOE & Apple MobileCLIP",
+      "former_path": "Master/gateway/yolo_backend.py",
+      "former_license": "AGPL-3.0-only / Apple-ML-Research-NonCommercial",
+      "resolution": "Replaced by Master/gateway/detector_backend.py using Apache-2.0 RT-DETRv2 (ONNX Runtime MIT) + Apache-2.0 OWLv2 + clean original IoU/velocity tracker."
+    }
+  ]
+}

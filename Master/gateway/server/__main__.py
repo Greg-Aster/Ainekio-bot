@@ -138,13 +138,14 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--vision-url", default=os.environ.get("AINEKIO_VISION_URL"),
                         help="Configured Chat Completions endpoint (remote requires authenticated HTTPS); disabled when omitted")
     parser.add_argument("--vision-model", default=os.environ.get("AINEKIO_VISION_MODEL"))
-    parser.add_argument("--vision-yolo-weights", default=os.environ.get("AINEKIO_VISION_YOLO_WEIGHTS"), help="Explicit local YOLO .pt file; optional offline detector instead of the configured URL")
-    parser.add_argument("--vision-yolo-device", default=os.environ.get("AINEKIO_VISION_YOLO_DEVICE", "cpu"))
-    parser.add_argument("--vision-yolo-image-size", type=int, default=os.environ.get("AINEKIO_VISION_YOLO_IMAGE_SIZE", "640"))
-    parser.add_argument("--vision-yolo-tracker", default=os.environ.get("AINEKIO_VISION_YOLO_TRACKER"),
-                        help="Optional ByteTrack YAML settings (for example bytetrack.yaml); requires lap")
-    parser.add_argument("--vision-yolo-text-encoder", default=os.environ.get("AINEKIO_VISION_YOLO_TEXT_ENCODER"),
-                        help="Existing local MobileCLIP TorchScript encoder for prompted YOLOE text search")
+    parser.add_argument("--vision-detector-weights", default=os.environ.get("AINEKIO_VISION_DETECTOR_WEIGHTS"),
+                        help="Explicit local Apache-2.0 RT-DETRv2 .onnx file or directory; optional offline detector instead of the configured URL")
+    parser.add_argument("--vision-detector-device", default=os.environ.get("AINEKIO_VISION_DETECTOR_DEVICE", "cpu"))
+    parser.add_argument("--vision-detector-image-size", type=int, default=os.environ.get("AINEKIO_VISION_DETECTOR_IMAGE_SIZE", "640"))
+    parser.add_argument("--vision-detector-tracker", default=os.environ.get("AINEKIO_VISION_DETECTOR_TRACKER"),
+                        help="Optional IoU continuity tracker ('iou' or local .json config)")
+    parser.add_argument("--vision-open-vocab-model", default=os.environ.get("AINEKIO_VISION_OPEN_VOCAB_MODEL"),
+                        help="Existing local Apache-2.0 OWLv2 directory for prompted text search and visual region selection")
     parser.add_argument("--vision-face-detector", default=os.environ.get("AINEKIO_VISION_FACE_DETECTOR"), help="Local YuNet ONNX file for enrolled people")
     parser.add_argument("--vision-face-recognizer", default=os.environ.get("AINEKIO_VISION_FACE_RECOGNIZER"), help="Local SFace ONNX file; no automatic downloads")
     parser.add_argument("--vision-timeout-s", type=float, default=2.0)
@@ -206,27 +207,32 @@ def _print_gateway_addresses(
 
 async def _run_production(args: argparse.Namespace) -> None:
     adapter_token = os.environ.get("AINEKIO_ENVIRONMENT_ADAPTER_TOKEN", "").strip()
-    yolo_weights = getattr(args, "vision_yolo_weights", None)
-    if yolo_weights and (args.vision_url or args.vision_model):
-        raise ValueError("select local YOLO weights or a vision URL/model, not both")
+    detector_weights = getattr(args, "vision_detector_weights", None)
+    if detector_weights and (args.vision_url or args.vision_model):
+        raise ValueError("select local detector weights or a vision URL/model, not both")
     if bool(args.vision_url) != bool(args.vision_model):
         raise ValueError("vision requires both --vision-url and --vision-model")
-    if (args.vision_url or yolo_weights) and not adapter_token:
+    if (args.vision_url or detector_weights) and not adapter_token:
         raise ValueError("recognition requires the authenticated Environment Bridge")
-    if (args.vision_url or yolo_weights) and (not math.isfinite(args.vision_max_frame_age_s) or not 0.1 <= args.vision_max_frame_age_s <= 30):
+    if (args.vision_url or detector_weights) and (not math.isfinite(args.vision_max_frame_age_s) or not 0.1 <= args.vision_max_frame_age_s <= 30):
         raise ValueError("vision frame age must be between 0.1 and 30 seconds")
     backend = VisionBackend(args.vision_url, args.vision_model,
         timeout_s=args.vision_timeout_s, api_key=os.environ.get("AINEKIO_VISION_API_KEY", "")) if args.vision_url else None
-    if yolo_weights:
-        from gateway.yolo_backend import YoloBackend
-        backend = YoloBackend(yolo_weights, device=args.vision_yolo_device, image_size=args.vision_yolo_image_size,
-                              tracker=args.vision_yolo_tracker, text_encoder=args.vision_yolo_text_encoder)
+    if detector_weights:
+        from gateway.detector_backend import DetectorBackend
+        backend = DetectorBackend(
+            detector_weights,
+            device=args.vision_detector_device,
+            image_size=args.vision_detector_image_size,
+            tracker=args.vision_detector_tracker,
+            open_vocab_model=args.vision_open_vocab_model,
+        )
 
     args.data_dir.mkdir(parents=True, exist_ok=True)
     face_detector, face_recognizer = getattr(args, "vision_face_detector", None), getattr(args, "vision_face_recognizer", None)
     if face_detector or face_recognizer:
-        if not (yolo_weights and face_detector and face_recognizer):
-            raise ValueError("Named people require local YOLO, YuNet and SFace model paths")
+        if not (detector_weights and face_detector and face_recognizer):
+            raise ValueError("Named people require local detector, YuNet and SFace model paths")
         from gateway.person_identity import FaceGallery, LocalFaces, PersonIdentityBackend
         faces = LocalFaces(face_detector, face_recognizer)
         backend = PersonIdentityBackend(backend, faces, FaceGallery(args.data_dir / "known-people.json", faces.model_hash))

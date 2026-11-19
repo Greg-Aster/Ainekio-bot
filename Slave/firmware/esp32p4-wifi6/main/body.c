@@ -272,6 +272,7 @@ typedef struct {
     uint64_t posture_commanded_us;
     bool posture_pending_write;
     uint32_t posture_replans;
+    uint64_t posture_replan_since;
     bool posture_replanning;
     /* Only one entry planner is active for a motion. */
     union {
@@ -313,6 +314,7 @@ typedef struct {
     uint32_t pending_home;
     motion_t motion;
     bool stand_goal_active;
+    uint32_t stand_hold_replans;
     uint64_t stand_goal_since, stand_catch_since;
     ainekio_p4_feedback_progress_t feedback_progress;
     ainekio_p4_feedback_thermal_t feedback_thermal;
@@ -670,7 +672,8 @@ static void finish_motion_with_stall(bool completed, esp_err_t result,
         body.balance_hold;
     body.stand_goal_active=completed && result==ESP_OK &&
         (stand_verified_finish || walk_stand_finish) &&
-        !body.thermal_cutoff_mask && ainekio_p4_feedback_stand_enabled();
+        !body.thermal_cutoff_mask && body.stand_hold_replans<STAND_MAX_REPLANS &&
+        ainekio_p4_feedback_stand_enabled();
     body.stand_catch_since=0;
     if(body.stand_goal_active)body.stand_goal_since=body.last_frame;
     memset(&body.feedback_progress,0,sizeof body.feedback_progress);
@@ -739,6 +742,7 @@ static void stop_body(esp_err_t result)
     body.active = body.ramping = body.pose_valid = false;
     body.thermal_cutoff_mask = 0;
     body.stalled_joints = 0;
+    body.stand_hold_replans = 0;
     body.balance_hold=false;body.balance_settled=false;body.balance_target_valid=false;body.balance_tracking_active=false;body.balance=(ainekio_v2_balance_t){0};
     memset(body.pulses, 0, sizeof(body.pulses));
     publish(body.pulses);
@@ -922,6 +926,7 @@ static void balance_frame(const ainekio_v2_walk_pose_t *nominal,const double anc
         if(body.balance_settled ? error<=BALANCE_WAKE_DEG :
             error<=BALANCE_SETTLE_DEG && rate<=BALANCE_SETTLE_RATE_DEG_S) {
             body.balance_settled=true;body.balance.sensor_usable=true;body.balance.reduced=false;
+            body.stand_hold_replans=0;
             body.balance.actuator_reference_valid=false;
             body.balance_tracking_active=false;
             memset(&body.balance_tracking,0,sizeof body.balance_tracking);
@@ -1016,6 +1021,7 @@ static esp_err_t start_rise(const body_request_t *request,uint64_t now)
     if(result!=AINEKIO_PCA_OK)return ESP_ERR_INVALID_STATE;
     commit_thermal_cutoff_mask(active_cutoff);
     finish_motion(false,ESP_OK);
+    body.stand_hold_replans=0;
     body.balance_hold=false;body.balance_settled=false;body.balance_target_valid=false;body.balance_tracking_active=false;body.balance=(ainekio_v2_balance_t){0};
     body.listen.active=false;body.ramping=false;body.active=true;
     body.motion=*next;body.generation=request->generation;
@@ -1237,6 +1243,7 @@ static esp_err_t start_motion_with_curve(const body_request_t *request, uint64_t
     if (result != AINEKIO_PCA_OK) return ESP_ERR_INVALID_STATE;
     commit_thermal_cutoff_mask(active_cutoff);
     finish_motion(false, ESP_OK);
+    body.stand_hold_replans=0;
     body.balance_hold=false;body.balance_settled=false;body.balance_target_valid=false;body.balance_tracking_active=false;
     body.balance=(ainekio_v2_balance_t){0};
     body.listen.active = false; /* Enter the new motion from the actual cue pose. */
@@ -1335,6 +1342,7 @@ static esp_err_t start_freestyle(const body_request_t *request, uint64_t now)
         .face_revision=body.motion.face_revision+1};
     body.motion.freestyle.plan = *plan;
     body.motion.freestyle.endpoint_written_us = 0;
+    body.stand_hold_replans=0;
     body.balance_hold=false;body.balance_settled=false;body.balance_target_valid=false;body.balance_tracking_active=false;
     body.balance=(ainekio_v2_balance_t){0};
     body.listen.active=false;
@@ -1450,9 +1458,9 @@ static void stand_verify_after_write(motion_t *motion,const ainekio_v2_frame_t *
  * unreachable linkage. Continue the lift/place sequence, then measure again. */
 static bool stand_replan(motion_t *motion,double dt)
 {
+    motion->posture_replanning=true;
     if(motion->posture_replans>=STAND_MAX_REPLANS)return false;
     const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
-    motion->posture_replanning=true;
     double euler[3];starting_attitude(euler);
     const unsigned first=ainekio_v2_posture_order_for_joints(motion->feedback_waiting_mask,
         motion->posture.order_offset+1);
@@ -1465,6 +1473,7 @@ static bool stand_replan(motion_t *motion,double dt)
         motion->contact_entry=true;motion->entering=true;motion->reverse_grounded_entry=false;
         motion->feedback_commanded_us=0;motion->feedback_waiting_mask=0;
         motion->feedback_pending_write=false;motion->posture_replanning=false;
+        motion->posture_replan_since=0;
         motion->feedback_verified=false;
         motion->settle_phase=0;motion->settle_pending_write=false;
         motion->posture_replans++;
@@ -1480,7 +1489,8 @@ static esp_err_t entry_finished(motion_t *motion,uint64_t now,const ainekio_v2_f
     if(motion->kind==MOTION_WALK)motion->walk.last_us=now;
     *complete=motion->kind==MOTION_POSE || motion->host_finishing;
     if(motion->host_finishing)motion->walk.complete=true;
-    if(motion->balance_on_complete && !motion->compliant_clamped) {
+    const bool unsettled_loop=!motion->connection && body.stand_hold_replans>=STAND_MAX_REPLANS;
+    if(motion->balance_on_complete && !motion->compliant_clamped && !unsettled_loop) {
         const double level[3]={0};
         /* Contact entry already retains the nominal pose. Its written frame
          * includes leveling; treating that as nominal applies correction twice. */
@@ -1734,11 +1744,44 @@ static esp_err_t motion_frame(uint64_t now, bool *complete, ainekio_v2_frame_t *
             if(!ainekio_v2_posture_advance_mapped(&motion->posture,&motion->posture_progress,dt,
                 posture_fit,(void *)&calibration)) {
                 if(!stand_replan(motion,dt)) {
-                    *sampled=body.pose;ainekio_p4_body_pulses(body.pulses);
-                    return ESP_OK;
-                }
-            } else motion->posture_replanning=false;
-            return posture_output(now,sampled);
+                    if(!motion->posture_replan_since)motion->posture_replan_since=now;
+                    if(motion->posture_replans<STAND_MAX_REPLANS &&
+                       now<motion->posture_replan_since+ARRIVAL_WAIT_TIMEOUT_US) {
+                        *sampled=body.pose;ainekio_p4_body_pulses(body.pulses);
+                        return ESP_OK;
+                    }
+                    motion->posture_replanning=false;
+                    motion->posture_replan_since=0;
+                    motion->posture_replans=STAND_MAX_REPLANS;
+                    motion->compliant_clamped=true;
+                    ainekio_v2_frame_t path_min,path_max;
+                    double deriv[AINEKIO_PCA_BODY_CHANNELS];
+                    uint16_t checked[AINEKIO_PCA_BODY_CHANNELS];
+                    if(ainekio_v2_transition_bounds(&body.pose,&motion->entry_to,
+                        &path_min,&path_max,deriv) &&
+                       ainekio_p4_frame_pulses(&path_min,checked) &&
+                       ainekio_p4_frame_pulses(&path_max,checked)) {
+                        double peak=0.;
+                        for(unsigned i=0;i<AINEKIO_BODY_JOINT_COUNT;i++)
+                            if(calibration.joints[i].channel>=0)
+                                peak=fmax(peak,deriv[i]/100.*1.875e6/500000.);
+                        motion->contact_entry=false;
+                        motion->reverse_grounded_entry=false;
+                        motion->entry_from=body.pose;
+                        motion->entry_start=now;
+                        motion->entry_duration=UINT64_C(500000);
+                        motion->entry_rate=ainekio_v2_speed_limited_rate(peak,
+                            motion->requested_rate>0.F?motion->requested_rate:1.F);
+                    } else {
+                        *sampled=body.pose;ainekio_p4_body_pulses(body.pulses);
+                        return entry_finished(motion,now,sampled,complete);
+                    }
+                } else motion->posture_replan_since=0;
+            } else {
+                motion->posture_replanning=false;
+                motion->posture_replan_since=0;
+            }
+            if(motion->contact_entry)return posture_output(now,sampled);
         }
         double elapsed=(double)(now-motion->entry_start)*
             (motion->reverse_grounded_entry ? 1. : motion->entry_rate);
@@ -2157,8 +2200,11 @@ static void stand_hold_recover(uint64_t now)
     }
     const ainekio_p4_calibration_t calibration=ainekio_p4_calibration();
     uint16_t remaining=0,caught=0;
-    if(!ainekio_p4_feedback_check(calibration.joints,body.pulses,
-        body.stand_goal_since,&remaining))remaining=0;
+    const bool actively_leveling=body.balance_hold && !body.balance_settled &&
+        ainekio_p4_balance_enabled();
+    if(!actively_leveling &&
+       !ainekio_p4_feedback_check(calibration.joints,body.pulses,
+           body.stand_goal_since,&remaining))remaining=0;
     ainekio_v2_frame_t target_frame=body.pose;
     if(ainekio_p4_joint_unmap_frame(calibration.joints,body.pulses,&target_frame)) {
         ainekio_v2_frame_t measured=target_frame;
@@ -2190,6 +2236,7 @@ static void stand_hold_recover(uint64_t now)
     motion->entering=true;motion->balance_on_complete=true;
     motion->compliant_clamped=false;motion->target_adjusted_joints=0;
     motion->posture_replans=0;motion->posture_replanning=false;
+    motion->posture_replan_since=0;
     motion->settle_phase=0;motion->settle_pending_write=false;
     motion->posture_arrival_mask=0;motion->posture_commanded_us=0;
     motion->posture_pending_write=false;motion->feedback_verified=false;
@@ -2199,6 +2246,7 @@ static void stand_hold_recover(uint64_t now)
     motion->feedback_waiting_mask=remaining;
     motion->stand_catch_mask=caught;
     memcpy(motion->feedback_targets,body.pulses,sizeof motion->feedback_targets);
+    body.stand_hold_replans++;
     body.stand_goal_active=false;
     body.stand_catch_since=0;
     body.balance_hold=body.balance_settled=false;
@@ -2437,6 +2485,7 @@ static void arm_standing_hold_if_upright(uint64_t now)
     }
     if(want_stand) {
         body.stand_goal_active=true;
+        body.stand_hold_replans=0;
         body.stand_goal_since=body.last_frame?body.last_frame:now;
         body.stand_catch_since=0;
     }
@@ -2457,6 +2506,7 @@ static esp_err_t process_request(const body_request_t *request, uint64_t now)
         ainekio_p4_body_listen(false);
         finish_motion(false, ESP_OK);
         body.ramping = false;
+        body.stand_hold_replans = 0;
         body.balance_hold=false;body.balance_settled=false;body.balance_target_valid=false;body.balance_tracking_active=false;body.balance=(ainekio_v2_balance_t){0};
         if (status.armed && was_host_nominal) arm_standing_hold_if_upright(now);
         publish_motion();
@@ -2474,6 +2524,7 @@ static esp_err_t process_request(const body_request_t *request, uint64_t now)
     body.listen.active = false;
     ainekio_p4_body_listen(false);
     finish_motion(false, ESP_OK);
+    body.stand_hold_replans = 0;
     body.balance_hold=false;body.balance_settled=false;body.balance_target_valid=false;body.balance_tracking_active=false;body.balance=(ainekio_v2_balance_t){0};
     if (request->prepare) return ESP_OK;
     const ainekio_p4_calibration_t calibration = ainekio_p4_calibration();

@@ -722,6 +722,7 @@ class Bridge:
 
     async def event(self,event):
         robot=event.get('robot_id')
+        setting=self.settings.get(robot,{})
         if event.get('t')=='connection':
             changed = self.connection_changes.pop(robot, None)
             if changed is not None:
@@ -730,42 +731,91 @@ class Bridge:
         if event.get('name')!='body_event':
             return
         data=event.get('data') or {}
-        if data.get('kind')!='servo_stall' or not data.get('outputs_released'):
+        kind=data.get('kind')
+        if kind=='servo_stall' and data.get('outputs_released'):
+            snapshot=(await self.gateway.status_snapshot())['robots'].get(robot)
+            if snapshot is not None and event.get('epoch',snapshot['epoch'])!=snapshot['epoch']:
+                return
+            active_id=self.active.get(robot)
+            active_job=self.jobs.get(active_id) if active_id else None
+            if active_job is None:
+                return
+            if event.get('epoch') is not None and active_job.get('epoch')!=event.get('epoch'):
+                return
+            sequence=data.get('command_sequence')
+            if (
+                sequence
+                and active_job.get('last_sequence') is not None
+                and sequence!=active_job.get('last_sequence')
+                and (snapshot is None or sequence!=snapshot.get('body_command_sequence'))
+            ):
+                return
+            active_task=self.tasks.get(active_id)
+            self.active.pop(robot,None)
+            if active_task is None or active_task.done():
+                return
+            joints=[item.get('name') or str(item.get('id')) for item in (data.get('joints') or []) if isinstance(item,dict)]
+            detail=f" ({', '.join(joints)})" if joints else ""
+            active_job['abort_error']=f"servo_stall: body released servo outputs{detail}"
+            active_job['abort_evidence']=copy.deepcopy(data)
+            last_seq=active_job.get('last_sequence')
+            if type(last_seq) is int and not any(r.get('seq')==last_seq for r in active_job.get('receipts',[])):
+                active_job['receipts'].append({
+                    't':'cancelled',
+                    'seq':last_seq,
+                    'code':'servo_stall',
+                    'outputs_released':True,
+                })
+            active_task.cancel()
+            return
+
+        if (
+            not setting.get('recover_events')
+            or data.get('outputs_released')
+            or data.get('motion_policy')=='continue_authored_motion'
+            or kind not in ('servo_stall','servo_feedback_fault','tipped','rapid_movement','slip')
+        ):
             return
         snapshot=(await self.gateway.status_snapshot())['robots'].get(robot)
-        if snapshot is not None and event.get('epoch',snapshot['epoch'])!=snapshot['epoch']:
+        if snapshot is None or event.get('epoch',snapshot['epoch'])!=snapshot['epoch']:
             return
         active_id=self.active.get(robot)
         active_job=self.jobs.get(active_id) if active_id else None
-        if active_job is None:
-            return
-        if event.get('epoch') is not None and active_job.get('epoch')!=event.get('epoch'):
+        active_task=self.tasks.get(active_id) if active_id else None
+        if (
+            active_job is None
+            or active_task is None
+            or active_task.done()
+            or active_job.get('event')
+            or not recovery_has_motion_owner(snapshot, active_job)
+        ):
             return
         sequence=data.get('command_sequence')
         if (
             sequence
             and active_job.get('last_sequence') is not None
             and sequence!=active_job.get('last_sequence')
-            and (snapshot is None or sequence!=snapshot.get('body_command_sequence'))
+            and sequence!=snapshot.get('body_command_sequence')
         ):
             return
-        active_task=self.tasks.get(active_id)
-        self.active.pop(robot,None)
-        if active_task is None or active_task.done():
+        # Under 50 Hz neural_pose, single-joint paw contact is handled locally by 0.28s joint_recoil;
+        # escalate to LLM recalculation on whole-body events (tipped/rapid_movement/slip) or multi-joint jams.
+        using_neural=self._use_neural_pose(active_job.get('observation') or snapshot or {})
+        if using_neural and kind in ('servo_stall','servo_feedback_fault') and len(data.get('joints') or []) < 2:
             return
-        joints=[item.get('name') or str(item.get('id')) for item in (data.get('joints') or []) if isinstance(item,dict)]
-        detail=f" ({', '.join(joints)})" if joints else ""
-        active_job['abort_error']=f"servo_stall: body released servo outputs{detail}"
-        active_job['abort_evidence']=copy.deepcopy(data)
-        last_seq=active_job.get('last_sequence')
-        if type(last_seq) is int and not any(r.get('seq')==last_seq for r in active_job.get('receipts',[])):
-            active_job['receipts'].append({
-                't':'cancelled',
-                'seq':last_seq,
-                'code':'servo_stall',
-                'outputs_released':True,
-            })
-        active_task.cancel()
+        request=active_job.get('request') or 'Recover from the reported body event using the available observations.'
+        await self.submit(
+            robot,
+            request,
+            True,
+            {
+                **event,
+                'data': {
+                    **data,
+                    'command_sequence': data.get('command_sequence', snapshot.get('body_command_sequence')),
+                },
+            },
+        )
 
     async def command(self,command):
         robot=command.get('robot_id'); previous=self.active.get(robot)

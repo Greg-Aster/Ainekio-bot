@@ -27,6 +27,10 @@ class CompactWireTests(unittest.TestCase):
         self.assertEqual(result['history'][0]['remaining_program'],[])
         self.assertNotIn('trajectory',encoding.tools)
 
+        stall_dicts=copy.deepcopy(q)
+        stall_dicts['event']['joints']=[{'id':0,'name':JOINTS[0]},{'id':4,'name':JOINTS[4]}]
+        self.assertEqual(model_query(stall_dicts,encoding)['event']['joints'],[0,4])
+
     def test_recovery_projection_preserves_current_measurements_and_correlated_receipts(self):
         from .observations import enrich
         encoding=ProgramEncoding([*TOOLS,face_tool()])

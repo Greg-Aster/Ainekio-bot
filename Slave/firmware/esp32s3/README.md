@@ -98,8 +98,21 @@ The existing semantic `sit` intent owns a dedicated held pose rather than
 aliasing `rest`: the front legs retain their mirrored stand geometry at R3 180
 degrees and L3 0 degrees, while the rear pair folds symmetrically to R4 60
 degrees and L4 120 degrees. The remaining joints retain the stand geometry,
-and the display holds the owner-authored `bored` face until another command
+and the display shows the `bored` face until another command
 changes the pose or face.
+
+All 59 `128×64` 1-bit SSD1306 OLED face expressions in
+`../../software/assets/seed/faces-v1.json` (`../../software/assets/seed/faces/`)
+and the compiled-in boot fallback (`components/ainekio_platform/src/default_face_bitmap.h`)
+are deterministically derived from the owner's V2 procedural C library
+(`../../software/faces/faces.def` and `../../software/faces/face.c`) via
+`../../software/faces/tools/derive_v1_oled.py`. After editing `faces.def` or
+`face.c`, rebuild `face_preview` and run:
+
+```bash
+python3 Slave/software/faces/tools/derive_v1_oled.py --renderer /path/to/face_preview
+python3 Slave/software/faces/tools/derive_v1_oled.py --renderer /path/to/face_preview --check
+```
 
 `walk_slow` and `run` retain the same lift, sweep, plant, and weight-transfer
 order as the physical `walk_forward` gait. The slow variant uses longer frame

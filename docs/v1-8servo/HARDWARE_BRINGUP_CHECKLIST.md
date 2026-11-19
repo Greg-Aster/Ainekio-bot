@@ -230,7 +230,7 @@ outbound speech delivery are separate unfinished gates.
   NVS erase is the only service operation that should replace it.
 - [ ] After setup, confirm the joined SSID, DHCP address, and gateway state are
   legible and accurate.
-- [ ] Exercise all 37 named expressions and all 48 encoded face frames, checking alignment, corruption, and transitions.
+- [ ] Exercise all 59 V2-derived named expressions and all 303 encoded face frames (`faces-v1.json`), checking alignment, corruption, and transitions.
 - [ ] Measure the 3.3 V rail during display updates.
 
 **Pass:** Text and faces fit the physical display, all intended frames render, and display activity does not destabilize the 3.3 V rail.

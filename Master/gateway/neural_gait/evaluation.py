@@ -1,4 +1,4 @@
-"""Simulation rollout evaluation and artifact loader for MicroDuck and Pupper MJX."""
+"""Simulation rollout evaluation and artifact loader for MicroDuck."""
 
 from copy import deepcopy
 import json
@@ -11,11 +11,11 @@ import numpy as np
 from .artifacts import summarize_commands
 from .environment import make_environment
 
-SUPPORTED_KINDS = ("microduck-mjlab", "pupper-mjx")
+SUPPORTED_KINDS = ("microduck-mjlab",)
 
 
 def load_policy(directory, checkpoint=None):
-    """Load an exported MicroDuck ONNX or Pupper MJX RTNeural policy."""
+    """Load an exported MicroDuck ONNX policy."""
     directory = Path(directory)
     manifest = json.loads((directory / "manifest.json").read_text())
     kind = manifest.get("kind")
@@ -25,13 +25,7 @@ def load_policy(directory, checkpoint=None):
         if not target:
             raise ValueError("This MicroDuck run has no exported policy yet")
         return MicroduckActor(directory / target)
-    if kind == "pupper-mjx":
-        from .pupper_mjx_actor import PupperMjxActor
-        target = checkpoint or manifest.get("policy")
-        if not target:
-            raise ValueError("This Pupper MJX run has no exported policy yet")
-        return PupperMjxActor(directory / target, environment=manifest.get("environment"))
-    raise ValueError(f"Unsupported neural gait policy kind {kind!r}; expected MicroDuck or Pupper MJX")
+    raise ValueError(f"Unsupported neural gait policy kind {kind!r}; expected MicroDuck")
 
 
 def request_interval_steps(config, command_switch_seconds=None, command_switch_range=None, rng=None):

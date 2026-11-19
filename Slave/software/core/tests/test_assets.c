@@ -55,6 +55,22 @@ static void test_all_seed_assets_decode_and_fit_default_calibration(void)
         assert(ainekio_motion_asset_decode(bytes, length, asset) == AINEKIO_ASSET_OK);
         assert(strcmp(asset->name, names[index]) == 0);
         assert(ainekio_motion_asset_check_limits(asset, &servos) == AINEKIO_ASSET_OK);
+        for (uint8_t cue = 0U; cue < asset->face_cue_count; ++cue) {
+            char face_path[512];
+            const int written = snprintf(
+                face_path,
+                sizeof(face_path),
+                "%s/faces/%s/0.bin",
+                AINEKIO_TEST_ASSET_ROOT,
+                asset->face_cues[cue].name
+            );
+            assert(written > 0 && (size_t)written < sizeof(face_path));
+            FILE *face_file = fopen(face_path, "rb");
+            assert(face_file != NULL);
+            assert(fseek(face_file, 0L, SEEK_END) == 0);
+            assert(ftell(face_file) == 1024L);
+            assert(fclose(face_file) == 0);
+        }
         free(asset);
         free(bytes);
     }

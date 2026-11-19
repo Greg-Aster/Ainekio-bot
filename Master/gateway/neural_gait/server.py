@@ -22,7 +22,7 @@ import numpy as np
 from .contract import SCHEMA, SCHEMAS, PROPRIO_SCHEMA, foot_offsets, vector
 from .artifacts import save_json, summarize_commands
 
-SUPPORTED_KINDS = ("microduck-mjlab", "pupper-mjx")
+SUPPORTED_KINDS = ("microduck-mjlab",)
 
 
 def evaluation_summary(value):
@@ -162,11 +162,9 @@ class Runtime:
         manifest = json.loads((path / "manifest.json").read_text())
         kind = manifest.get("kind")
         if kind not in SUPPORTED_KINDS:
-            raise ValueError("Select a MicroDuck or Pupper MJX checkpoint")
-        if kind == "microduck-mjlab" and not manifest.get("policy"):
+            raise ValueError("Select a MicroDuck checkpoint")
+        if not manifest.get("policy"):
             raise ValueError("This MicroDuck run has no exported policy yet")
-        if kind == "pupper-mjx" and not manifest.get("policy"):
-            raise ValueError("This Pupper MJX run has no exported policy yet")
         from .environment import POLICY_ENVIRONMENT_VERSIONS, representation_identity
         if (
             manifest["schema"] not in SCHEMAS
@@ -181,12 +179,8 @@ class Runtime:
             if selected is None:
                 raise ValueError("Choose a published checkpoint from this run")
             checkpoint = selected["policy"]
-        if kind == "microduck-mjlab":
-            from .microduck_actor import MicroduckActor
-            model = MicroduckActor(path / checkpoint)
-        else:
-            from .pupper_mjx_actor import PupperMjxActor
-            model = PupperMjxActor(path / checkpoint, environment=manifest["environment"])
+        from .microduck_actor import MicroduckActor
+        model = MicroduckActor(path / checkpoint)
         with self.lock:
             old_model = self.model
             self.model, self.model_id, self.environment = (
@@ -216,26 +210,6 @@ class Runtime:
             limits = self.environment["target_limits_deg"]
             if observation["target_limits_deg"] != limits:
                 raise ValueError("Observation action domain differs from the selected checkpoint")
-            if self.kind == "pupper-mjx":
-                result = self.model.infer_observation(observation, walk_context=walk_context)
-                resolved = result["resolved"]
-                return dict(
-                    schema=self.environment.get("observation_schema", SCHEMA),
-                    model_id=self.model_id,
-                    checkpoint_id=self.checkpoint_id,
-                    action=result["action"].tolist(),
-                    raw_action=result["raw_action"].tolist(),
-                    motor_targets_rad=result["motor_targets_rad"].tolist(),
-                    motor_targets_deg=result["motor_targets_deg"].tolist(),
-                    requested_foot_offset_mm=result["requested_foot_offset_mm"].tolist(),
-                    fitted_foot_offset_mm=resolved["applied_offset_mm"].tolist() if resolved else None,
-                    targets_deg=resolved["ramped_angles"].tolist() if resolved else None,
-                    nominal_goal_deg=resolved["nominal_goal_angles"].tolist() if resolved else None,
-                    leg_fit=resolved["leg_fit"].tolist() if resolved else None,
-                    elapsed_s=time.monotonic() - started,
-                    execution="preview_only",
-                    targets_resolved_by="existing P4 Walk kinematics",
-                )
             action, _ = self.model.predict(values, deterministic=True)
             identifier, selected_checkpoint = self.model_id, self.checkpoint_id
             schema = self.environment.get("observation_schema", SCHEMA)
@@ -342,7 +316,7 @@ class Runtime:
             path = self.run_path(identifier)
             manifest = json.loads((path / "manifest.json").read_text())
             if manifest.get("kind") not in SUPPORTED_KINDS:
-                raise ValueError("Replay supports MicroDuck and Pupper MJX runs only")
+                raise ValueError("Replay supports MicroDuck runs only")
             if (
                 manifest.get("schema") not in SCHEMAS
                 or manifest.get("environment_version") not in POLICY_ENVIRONMENT_VERSIONS

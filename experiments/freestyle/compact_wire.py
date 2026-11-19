@@ -149,6 +149,16 @@ def model_query(query, encoding):
     result['event'] = {k:v for k,v in observation(event).items() if k not in (
         'kind', 'imu', 'motion', 'thresholds', 'event_id', 'epoch', 'clock_us',
         'command_sequence', 'joint_mask')}
+    if isinstance(result['event'].get('joints'), list):
+        norm_joints = []
+        for j_item in result['event']['joints']:
+            if isinstance(j_item, dict) and set(j_item.keys()) <= {'id', 'name'}:
+                j_item = j_item.get('id', j_item.get('name'))
+            if j_item in JOINTS:
+                j_item = JOINTS.index(j_item)
+            if isinstance(j_item, dict) or (type(j_item) is int and 0 <= j_item < len(JOINTS)):
+                norm_joints.append(j_item)
+        result['event']['joints'] = norm_joints
     result['event']['type'] = kind
     if isinstance(event.get('imu'), dict) and not (isinstance(state, dict) and state.get('imu')):
         result['event']['imu'] = recovery_state({'imu':event['imu']})['imu']

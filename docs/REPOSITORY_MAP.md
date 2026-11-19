@@ -30,8 +30,8 @@ Only the selected board's firmware image runs on the microcontroller; Body Contr
 | `Master/gateway/server/` | `protocol-v1` `/robot` WebSocket server, session epochs, sequence fencing, capability negotiation, and command receipts |
 | `Master/gateway/environment_adapter/` | Loopback `/environment` WebSocket bridge, semantic translation, speech routing, body-event forwarding, and durable receipt replay |
 | `Master/gateway/dashboard/` | Operator HTTP API and browser UI (`127.0.0.1:8791`), optional `AINEKIO_DASHBOARD_NO_LOGIN=1` local mode, and Freestyle runtime wiring |
-| `Master/gateway/neural_gait/` | Neural locomotion service (`8796`), Microduck PPO/mjlab GPU training & ONNX export, Pupper MJX policies, and sensor/body tensor engines |
-| `Master/gateway/plugins.py`, `perception.py`, `depth_motion*.py` | Non-blocking camera frame worker, YOLO/YOLOE detection, YuNet/SFace person recognition, and depth/visual motion helpers |
+| `Master/gateway/neural_gait/` | Neural locomotion service (`8796`), Microduck PPO/mjlab GPU training & ONNX export, and sensor/body tensor engines |
+| `Master/gateway/plugins.py`, `perception.py`, `detector_backend.py`, `depth_motion*.py` | Non-blocking camera frame worker, Apache-2.0 RT-DETRv2 / OWLv2 detection, YuNet/SFace person recognition, and depth/visual motion helpers |
 | `Master/gateway/hotspot.py` | Robot Wi-Fi hotspot management and service fallback |
 | `Master/start-physical-gateway.sh`, `stop-physical-gateway.sh` | Physical Body Control lifecycle launchers and pairing import/export utilities |
 
@@ -46,7 +46,7 @@ Only the selected board's firmware image runs on the microcontroller; Body Contr
 
 ## Host and Integration Test Suites (`tests/`)
 
-- `tests/test_*.py` — Gateway, dashboard, `/environment` adapter, V2 P4 transport/commands/feedback, Microduck & Pupper MJX neural gait, depth motion, and hotspot/pairing tests.
+- `tests/test_*.py` — Gateway, dashboard, `/environment` adapter, V2 P4 transport/commands/feedback, Microduck neural gait, depth motion, and hotspot/pairing tests.
 - `tests/test_*.js` — Node `--test` browser/dashboard interaction and race suites.
 
 ## End-to-End Runtime Flow

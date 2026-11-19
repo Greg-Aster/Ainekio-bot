@@ -80,13 +80,14 @@ from . import mdp as pose_mdp
 
 _ensure_native_library()
 
-RECIPE = "ainekio-neural-pose-mjlab-v4-equivariant"
+RECIPE = "ainekio-neural-pose-mjlab-v6-relock"
 DEFAULT_HIDDEN_DIMS = (512, 256, 128)
-POSE_RESIDUAL_SCALE = 0.26
+POSE_RESIDUAL_SCALE = 0.43
 POSE_GOAL_FOOT_SLICE = slice(57, 69)
 MAX_CMD_DELAY_TICKS = 4
 MAX_OBS_DELAY_TICKS = 6
-DEFAULT_JAM_EPISODE_PROB = 0.32
+DEFAULT_JAM_EPISODE_PROB = 0.24
+DEFAULT_STANCE_JAM_PROB = 0.52
 
 
 @requires_model_fields("jnt_range")
@@ -226,7 +227,7 @@ def randomize_pose_actuators(env, env_ids):
 
 
 def push_grounded_robot(env, env_ids):
-    """Apply occasional external velocity nudges to grounded worlds for reactive balance recovery."""
+    """Apply external linear & angular velocity disturbances to grounded worlds for instant balance recovery."""
     ids = torch.arange(env.num_envs, device=env.device) if env_ids is None else env_ids
     if len(ids) == 0:
         return
@@ -235,7 +236,7 @@ def push_grounded_robot(env, env_ids):
     if len(grounded_ids) == 0:
         return
     asset = env.scene["robot"]
-    limits = torch.tensor([0.14, 0.12, 0.0, 0.35, 0.35, 0.0], device=env.device)
+    limits = torch.tensor([0.18, 0.16, 0.04, 0.46, 0.46, 0.22], device=env.device)
     delta = (torch.rand((len(grounded_ids), 6), device=env.device) * 2 - 1) * limits
     asset.write_root_link_velocity_to_sim(
         asset.data.root_link_vel_w[grounded_ids] + delta, env_ids=grounded_ids
@@ -271,11 +272,15 @@ class PoseAction(ActionTerm):
         self.foot_site_ids, _ = self._entity.find_sites(
             tuple(f"{leg}_reference" for leg in LEGS), preserve_order=True
         )
+        self.pickup_body_ids, _ = self._entity.find_bodies(
+            tuple(f"{leg}_pickup_body" for leg in LEGS), preserve_order=True
+        )
 
         # 70% grounded worlds, 30% supported/suspended-in-air (legs unloaded) worlds
         n_grounded = int(round(env.num_envs * 0.70))
         self.is_suspended = torch.arange(env.num_envs, device=env.device) >= n_grounded
         self.suspended_ids = torch.nonzero(self.is_suspended, as_tuple=False).squeeze(-1)
+        self.grounded_ids = torch.nonzero(~self.is_suspended, as_tuple=False).squeeze(-1)
 
         # Build diverse GPU goal bank (60+ curriculum families + 3-leg waves + 2-paw mimes + stances)
         (
@@ -306,6 +311,42 @@ class PoseAction(ActionTerm):
             torch.rand((len(folded_deg) * 7, 12), device=env.device) * 2 - 1
         ) * 3.5
         self.folded_presets_rad, _ = self.manifold.project_batch_rad(folded_jitter * (math.pi / 180.0))
+
+        # Asymmetric splayed/twisted grounded initial postures (including exact live -40.9 deg & -26.3 deg splays + mirrors)
+        splay_gen = torch.Generator(device="cpu")
+        splay_gen.manual_seed(19)
+        splay_base = torch.tensor(STAND_ANGLES_DEG, dtype=torch.float32).reshape(1, 4, 3).repeat(256, 1, 1)
+        splay_base[:160] += (torch.rand((160, 4, 3), generator=splay_gen) * 2 - 1) * torch.tensor([8.0, 7.0, 5.0])
+        splay_base[160:] += (torch.rand((96, 4, 3), generator=splay_gen) * 2 - 1) * torch.tensor([8.0, 12.0, 14.0])
+        for row_i in range(256):
+            n_bad = 1 if (row_i % 3 != 0) else 2
+            legs_picked = torch.randperm(4, generator=splay_gen)[:n_bad]
+            for leg_i in legs_picked.tolist():
+                sh_sign = -1.0 if torch.rand((), generator=splay_gen).item() < 0.65 else 1.0
+                max_mag = 44.0 if sh_sign < 0.0 else 36.0
+                splay_base[row_i, leg_i, 0] = sh_sign * (8.0 + (max_mag - 8.0) * torch.rand((), generator=splay_gen).item())
+                if row_i < 160:
+                    # Keep splayed stance foot planted on the floor (models extreme carpet/floor friction splays)
+                    splay_base[row_i, leg_i, 1] = -4.0 + 13.0 * torch.rand((), generator=splay_gen).item()
+                    splay_base[row_i, leg_i, 2] = -24.0 + 8.0 * torch.rand((), generator=splay_gen).item()
+                else:
+                    splay_base[row_i, leg_i, 1] += -24.0 + 46.0 * torch.rand((), generator=splay_gen).item()
+                    splay_base[row_i, leg_i, 2] += -18.0 + 48.0 * torch.rand((), generator=splay_gen).item()
+        live_splays = torch.tensor(
+            [
+                [-40.77, 18.37, 13.27, 2.97, -25.05, -18.65, -3.55, 20.07, -12.97, -16.36, 0.14, -31.21],
+                [2.97, -25.05, -18.65, -40.77, 18.37, 13.27, -16.36, 0.14, -31.21, -3.55, 20.07, -12.97],
+                [-26.28, -0.14, 4.90, -3.85, -11.41, -20.46, -6.57, 17.23, -21.42, -12.20, 8.39, -36.86],
+                [-3.85, -11.41, -20.46, -26.28, -0.14, 4.90, -12.20, 8.39, -36.86, -6.57, 17.23, -21.42],
+                [-40.91, 7.01, -19.84, -12.44, 7.71, -21.42, -12.37, -0.78, -20.25, -17.82, 5.15, -21.68],
+                [-12.44, 7.71, -21.42, -40.91, 7.01, -19.84, -17.82, 5.15, -21.68, -12.37, -0.78, -20.25],
+                [-12.37, -0.78, -20.25, -17.82, 5.15, -21.68, -40.91, 7.01, -19.84, -12.44, 7.71, -21.42],
+                [-17.82, 5.15, -21.68, -12.37, -0.78, -20.25, -12.44, 7.71, -21.42, -40.91, 7.01, -19.84],
+            ],
+            dtype=torch.float32,
+        )
+        splay_all = torch.cat((live_splays, splay_base.reshape(256, 12)), dim=0).to(device=env.device)
+        self.splayed_presets_rad, _ = self.manifold.project_batch_rad(splay_all * (math.pi / 180.0))
         if torch.device(env.device).type == "cuda":
             torch.cuda.empty_cache()
 
@@ -366,6 +407,16 @@ class PoseAction(ActionTerm):
         self.jam_dir = torch.zeros((env.num_envs, 12), dtype=torch.float32, device=env.device)
         self.jam_contacted = torch.zeros((env.num_envs, 4), dtype=torch.bool, device=env.device)
         self.jam_contact_age = torch.zeros((env.num_envs, 4), dtype=torch.long, device=env.device)
+
+        # Ground-contact unilateral shoulder friction-lock buffers (unlocks the instant foot lifts Z)
+        self.stance_jam_episode = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+        self.stance_jam_leg_mask = torch.zeros((env.num_envs, 4), dtype=torch.bool, device=env.device)
+        self.stance_jam_unlocked = torch.zeros((env.num_envs, 4), dtype=torch.bool, device=env.device)
+        self.stance_jam_airborne = torch.zeros((env.num_envs, 4), dtype=torch.bool, device=env.device)
+        self.stance_jam_age = torch.zeros((env.num_envs, 4), dtype=torch.long, device=env.device)
+        self.stance_jam_lock_rad = torch.zeros((env.num_envs, 4), dtype=torch.float32, device=env.device)
+        self.stance_jam_dir = torch.zeros((env.num_envs, 4), dtype=torch.float32, device=env.device)
+        self.stance_jam_floor_z = torch.full((env.num_envs, 4), 1e6, dtype=torch.float32, device=env.device)
 
         self.history = torch.zeros(
             (env.num_envs, POSE_SAMPLES, POSE_FEATURES), dtype=torch.float32, device=env.device
@@ -435,7 +486,50 @@ class PoseAction(ActionTerm):
         self.jam_mid_rad[ids] = self.current_goal_rad[ids]
         self.jam_stop_rad[ids] = self.current_goal_rad[ids]
 
-        # On jam episodes, ~80% of goal segments inject a physical unilateral hard-stop mid-reach
+        self.stance_jam_leg_mask[ids] = False
+        self.stance_jam_unlocked[ids] = False
+        self.stance_jam_airborne[ids] = False
+        self.stance_jam_age[ids] = 0
+        self.stance_jam_lock_rad[ids] = 0.0
+        self.stance_jam_dir[ids] = 0.0
+        self.stance_jam_floor_z[ids] = 1e6
+
+        # 1. Ground-contact unilateral shoulder friction jam (re-locks on touchdown until |q_sh - goal_sh| <= 2.6 deg!)
+        seg_sjam = self.stance_jam_episode[ids] & (~self.jam_episode[ids]) & (torch.rand(n, device=dev) < 0.88)
+        if bool(seg_sjam.any()):
+            sj_local = torch.nonzero(seg_sjam, as_tuple=False).squeeze(-1)
+            sj_ids = ids[sj_local]
+            ms = len(sj_ids)
+            qs_s = q_start[sj_local].reshape(ms, 4, 3)
+            qg_s = self.current_goal_rad[sj_ids].reshape(ms, 4, 3)
+            d_sh = qg_s[..., 0] - qs_s[..., 0]
+            usable_sh = self.usable_mask[sj_ids].reshape(ms, 4, 3)[..., 0]
+            sup_s = self.leg_support[sj_ids] > 0.5
+            four_leg_stance = self.leg_support[sj_ids].sum(dim=-1, keepdim=True) > 3.5
+            valid_sj = four_leg_stance & sup_s & usable_sh & (d_sh.abs() > 0.095)
+            if bool(valid_sj.any()):
+                sj_ok = valid_sj.any(dim=-1)
+                sj_scores = torch.where(valid_sj, d_sh.abs() + 0.05 * torch.rand_like(d_sh), torch.full_like(d_sh, -1.0))
+                sj_sel = sj_scores.argmax(dim=-1)
+                sj_oh = torch.nn.functional.one_hot(sj_sel, num_classes=4).to(torch.bool) & sj_ok.unsqueeze(-1)
+                active_sj_ids = sj_ids[sj_ok]
+                self.osc_active[active_sj_ids] = False
+                self.osc_amp_rad[active_sj_ids] = 0.0
+                # Snag catches at 0%..16% of lateral shoulder drag while foot is planted on carpet
+                alpha_sj = 0.16 * torch.rand((ms, 1), device=dev)
+                lock_sh = qs_s[..., 0] + alpha_sj * d_sh
+                sj_dir = torch.where(sj_oh, torch.sign(d_sh), torch.zeros_like(d_sh))
+                sh_jids = self.mj_joint_ids[0::3]
+                def_sh_lo = self.default_jnt_range[0::3, 0].unsqueeze(0).expand(ms, 4)
+                def_sh_hi = self.default_jnt_range[0::3, 1].unsqueeze(0).expand(ms, 4)
+                lo_sj = torch.where(sj_dir < -0.5, torch.clamp(lock_sh, def_sh_lo, def_sh_hi - 0.03), def_sh_lo)
+                hi_sj = torch.where(sj_dir > 0.5, torch.clamp(lock_sh, def_sh_lo + 0.03, def_sh_hi), def_sh_hi)
+                jnt_ranges[sj_ids.unsqueeze(1), sh_jids.unsqueeze(0), :] = torch.stack((lo_sj, hi_sj), dim=-1)
+                self.stance_jam_leg_mask[sj_ids] = sj_oh
+                self.stance_jam_lock_rad[sj_ids] = lock_sh
+                self.stance_jam_dir[sj_ids] = sj_dir
+
+        # 2. Rigid physical hard-stop on free/suspended limbs or carrier/crank (teaches compliant recoil)
         seg_jam = self.jam_episode[ids] & (torch.rand(n, device=dev) < 0.80)
         if not bool(seg_jam.any()):
             return
@@ -452,9 +546,8 @@ class PoseAction(ActionTerm):
         susp1 = self.is_suspended[sub_ids].unsqueeze(-1)
         free_pref = (sup4 < 0.5) | susp1
 
-        valid_leg = (leg_travel > 0.40) & usable4
-        pref_leg = valid_leg & free_pref
-        use_leg = torch.where(pref_leg.any(dim=-1, keepdim=True), pref_leg, valid_leg)
+        valid_leg = (leg_travel > 0.40) & usable4 & free_pref
+        use_leg = valid_leg
         ok_mask = use_leg.any(dim=-1)
         if not bool(ok_mask.any()):
             return
@@ -505,9 +598,9 @@ class PoseAction(ActionTerm):
             return
         dev = self._env.device
         susp = self.is_suspended[ids]
-        # 15% return-to-stand, 85% diverse goal bank (grounded envs use grounded-feasible subset;
+        # 26% return-to-stand, 74% diverse goal bank (grounded envs use grounded-feasible subset;
         # suspended/unloaded envs sample all 2048 goals including arbitrary 4-leg air motions)
-        to_stand = torch.rand(n, device=dev) < 0.15
+        to_stand = torch.rand(n, device=dev) < 0.26
         bank_idx_g = torch.randint(0, self.grounded_goal_count, (n,), device=dev)
         bank_idx_s = torch.randint(0, len(self.goal_bank_rad), (n,), device=dev)
         bank_idx = torch.where(susp, bank_idx_s, bank_idx_g)
@@ -577,6 +670,71 @@ class PoseAction(ActionTerm):
         self._entity.write_external_wrench_to_sim(
             f_w.unsqueeze(1), tau_w.unsqueeze(1), env_ids=s_ids, body_ids=[0]
         )
+
+    def _update_stance_friction_locks(self):
+        """Pin stance-jammed shoulders whenever the foot is on the carpet (< 8 mm lift),
+        re-locking if set down early and permanently unlocking only once |q_sh - goal_sh| <= 2.6 deg.
+        """
+        active_locked = self.stance_jam_leg_mask & (~self.stance_jam_unlocked)
+        if not bool(active_locked.any()):
+            return
+        in_contact = self._env.scene["feet_ground_contact"].data.found > 0  # (N, 4)
+        foot_z_w = self._entity.data.site_pos_w[:, self.foot_site_ids, 2]
+        self.stance_jam_floor_z = torch.where(
+            active_locked & in_contact,
+            torch.minimum(self.stance_jam_floor_z, foot_z_w),
+            self.stance_jam_floor_z,
+        )
+        q_sh = self._entity.data.joint_pos[:, self.joint_ids].reshape(-1, 4, 3)[..., 0]
+        goal_sh = self.current_goal_rad.reshape(-1, 4, 3)[..., 0]
+        d_rem = goal_sh - q_sh
+        sh_err = d_rem.abs()
+
+        # Permanently unlock once the shoulder swings inside 2.6 deg (0.045 rad) of goal
+        arrived = active_locked & (sh_err <= 0.045)
+        if bool(arrived.any()):
+            self.stance_jam_unlocked = self.stance_jam_unlocked | arrived
+            self.stance_jam_airborne = self.stance_jam_airborne & (~arrived)
+            env_a, leg_a = torch.nonzero(arrived, as_tuple=True)
+            sh_a = self.mj_joint_ids[leg_a * 3]
+            self._env.sim.model.jnt_range[env_a, sh_a, :] = self.default_jnt_range[leg_a * 3, :]
+            active_locked = self.stance_jam_leg_mask & (~self.stance_jam_unlocked)
+            if not bool(active_locked.any()):
+                return
+
+        floor_known = self.stance_jam_floor_z < 1e5
+        cleared_pile = (~in_contact) & floor_known & ((foot_z_w - self.stance_jam_floor_z) >= 0.008)
+
+        # Newly lifted >= 8 mm clear of carpet -> free shoulder joint range while airborne
+        newly_airborne = active_locked & (~self.stance_jam_airborne) & cleared_pile
+        if bool(newly_airborne.any()):
+            self.stance_jam_airborne = self.stance_jam_airborne | newly_airborne
+            env_u, leg_u = torch.nonzero(newly_airborne, as_tuple=True)
+            sh_u = self.mj_joint_ids[leg_u * 3]
+            self._env.sim.model.jnt_range[env_u, sh_u, :] = self.default_jnt_range[leg_u * 3, :]
+
+        # Touched back down (< 6 mm or ground contact) before reaching goal -> carpet re-locks at current q_sh
+        touched_down = active_locked & self.stance_jam_airborne & (
+            in_contact | ((~floor_known) | ((foot_z_w - self.stance_jam_floor_z) < 0.006))
+        )
+        if bool(touched_down.any()):
+            self.stance_jam_airborne = self.stance_jam_airborne & (~touched_down)
+            new_dir = torch.sign(d_rem)
+            self.stance_jam_lock_rad = torch.where(touched_down, q_sh, self.stance_jam_lock_rad)
+            self.stance_jam_dir = torch.where(touched_down, new_dir, self.stance_jam_dir)
+            env_l, leg_l = torch.nonzero(touched_down, as_tuple=True)
+            sh_l = self.mj_joint_ids[leg_l * 3]
+            def_lo = self.default_jnt_range[leg_l * 3, 0]
+            def_hi = self.default_jnt_range[leg_l * 3, 1]
+            lk = q_sh[env_l, leg_l]
+            dr = new_dir[env_l, leg_l]
+            lo_new = torch.where(dr < -0.5, torch.clamp(lk, def_lo, def_hi - 0.03), def_lo)
+            hi_new = torch.where(dr > 0.5, torch.clamp(lk, def_lo + 0.03, def_hi), def_hi)
+            self._env.sim.model.jnt_range[env_l, sh_l, :] = torch.stack((lo_new, hi_new), dim=-1)
+
+        dist_to_lock = self.stance_jam_dir * (self.stance_jam_lock_rad - q_sh)
+        pinned = active_locked & (~self.stance_jam_airborne) & in_contact & (dist_to_lock <= 0.035)
+        self.stance_jam_age = torch.where(pinned, self.stance_jam_age + 1, self.stance_jam_age)
 
     def _advance_goals_50hz(self, exclude_ids: torch.Tensor | None = None):
         active_env = torch.ones(self._env.num_envs, dtype=torch.bool, device=self._env.device)
@@ -673,8 +831,11 @@ class PoseAction(ActionTerm):
 
         # Simulate 4th-wire usability faults on 35% of episodes (including rear carriers 1 & 4)
         self.jam_episode[ids] = torch.rand(n, device=dev) < DEFAULT_JAM_EPISODE_PROB
+        self.stance_jam_episode[ids] = (~self.is_suspended[ids]) & (~self.jam_episode[ids]) & (
+            torch.rand(n, device=dev) < DEFAULT_STANCE_JAM_PROB
+        )
         usable = torch.ones((n, 12), dtype=torch.bool, device=dev)
-        fault_ep = (~self.jam_episode[ids]) & (torch.rand(n, device=dev) < 0.35)
+        fault_ep = (~self.jam_episode[ids]) & (~self.stance_jam_episode[ids]) & (torch.rand(n, device=dev) < 0.35)
         random_drop = torch.rand((n, 12), device=dev) < 0.18
         rear_carrier_drop = torch.zeros((n, 12), dtype=torch.bool, device=dev)
         rear_carrier_drop[:, 1] = torch.rand(n, device=dev) < 0.65
@@ -718,6 +879,7 @@ class PoseAction(ActionTerm):
             self.jam_contacted, self.jam_contact_age + 1, torch.zeros_like(self.jam_contact_age)
         )
         self._update_suspended_wrench()
+        self._update_stance_friction_locks()
 
     def apply_actions(self):
         robot = self._entity.data
@@ -816,8 +978,21 @@ class PoseAction(ActionTerm):
         jam_3 = self.jam_contacted.repeat_interleave(3, dim=-1).to(torch.float32)
         jam_active_dir = self.jam_dir * jam_3
         jam_stop_delta = (self.jam_stop_rad - q_true) * self.jam_joint_mask.to(torch.float32)
+        sjam_locked = (self.stance_jam_leg_mask & (~self.stance_jam_unlocked)).to(torch.float32)
         priv = torch.cat(
-            (q_true, v_true, q_cmd, contacts, lin_vel, susp, delays, jam_active_dir, jam_stop_delta), dim=-1
+            (
+                q_true,
+                v_true,
+                q_cmd,
+                contacts,
+                lin_vel,
+                susp,
+                delays,
+                jam_active_dir,
+                jam_stop_delta,
+                sjam_locked,
+            ),
+            dim=-1,
         )
         return torch.nan_to_num(priv, nan=0.0, posinf=0.0, neginf=0.0)
 
@@ -972,10 +1147,10 @@ def make_pose_env_cfg(config: EnvironmentConfig, num_envs: int = 1024, *, includ
         "foot_friction": EventTermCfg(
             func=gait_mdp.randomize_multisurface_friction,
             mode="reset",
-            params={"asset_cfg": SceneEntityCfg("robot", geom_names=foot_geoms), "ranges": (0.20, 1.35)},
+            params={"asset_cfg": SceneEntityCfg("robot", geom_names=foot_geoms), "ranges": (0.22, 1.85)},
         ),
         "push_grounded_robot": EventTermCfg(
-            func=push_grounded_robot, mode="interval", interval_range_s=(2.5, 5.5)
+            func=push_grounded_robot, mode="interval", interval_range_s=(2.0, 4.5)
         ),
     }
     if config.randomization:
@@ -992,11 +1167,12 @@ def make_pose_env_cfg(config: EnvironmentConfig, num_envs: int = 1024, *, includ
 
     cfg.rewards = {
         "pose_tracking": RewardTermCfg(func=pose_mdp.pose_tracking_reward, weight=5.0),
+        "stance_step_clearance": RewardTermCfg(func=pose_mdp.stance_step_clearance_reward, weight=1.75),
         "jam_compliance": RewardTermCfg(func=pose_mdp.jam_compliance_cost, weight=-3.5),
-        "grounded_balance": RewardTermCfg(func=pose_mdp.grounded_balance_cost, weight=-1.6),
+        "grounded_balance": RewardTermCfg(func=pose_mdp.grounded_balance_cost, weight=-1.8),
         "action_smoothness": RewardTermCfg(func=pose_mdp.action_smoothness_cost, weight=-0.16),
         "settle_damping": RewardTermCfg(func=pose_mdp.settle_damping_cost, weight=-0.10),
-        "stance_slip": RewardTermCfg(func=pose_mdp.stance_slip_cost, weight=-0.30),
+        "stance_slip": RewardTermCfg(func=pose_mdp.stance_slip_cost, weight=-0.75),
     }
     cfg.terminations = {
         "time_out": cfg.terminations["time_out"],
@@ -1174,7 +1350,7 @@ def _kinematic_warmstart(runner, wrapped, env, device: str):
 
 
 def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: float, device: str):
-    """Distill unobstructed v2-delay teacher + closed-loop compliant jam recoil via 3 DAgger rounds."""
+    """Distill v4 teacher + closed-loop friction-unloading micro-steps + rigid-jam recoil via DAgger."""
     pose_term: PoseAction = env.action_manager.get_term("pose")
     actor = runner.alg.actor
     critic = runner.alg.critic
@@ -1201,34 +1377,92 @@ def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: floa
         teacher_mlp[idx].bias.data.copy_(b.to(device))
     teacher_mlp.eval()
 
-    # Refresh actor normalizer on mixed unobstructed + jammed closed-loop states
-    actor.obs_normalizer.train(True)
-    critic.obs_normalizer.train(True)
     opt = torch.optim.AdamW(mlp.parameters(), lr=1.0e-3, weight_decay=1e-5)
     scale_ratio = float(prev_scale) / float(POSE_RESIDUAL_SCALE)
     dagger_mae = 0.0
+    jam_dagger_mae = 0.0
 
     def _compute_expert_u(obs_raw: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         t_norm = (obs_raw - t_mean) / t_std.clamp_min(1e-6)
         u_teacher = (teacher_mlp(t_norm).clamp(-8.0, 8.0).tanh() * scale_ratio).clamp(-0.95, 0.95)
+        q_true = pose_term._entity.data.joint_pos[:, pose_term.joint_ids]
         delay_gate = pose_term.obs_delay_ticks.unsqueeze(-1) + 2
         ready_leg = pose_term.jam_leg_mask & pose_term.jam_contacted & (pose_term.jam_contact_age >= delay_gate)
         ready_j = ready_leg.repeat_interleave(3, dim=-1)
-        if not bool(ready_leg.any()):
-            return u_teacher, torch.ones_like(u_teacher)
-        q_true = pose_term._entity.data.joint_pos[:, pose_term.joint_ids]
-        blocked_j = ready_j & pose_term.jam_joint_mask
-        # Gentle 0.055 rad (~3.15 deg) feeler preload keeps jam observable forever while cutting stall error ~85%+
-        q_ideal = torch.where(blocked_j, q_true + 0.055 * pose_term.jam_dir, q_true)
-        _, foot_ideal = pose_term.manifold.project_batch_rad(q_ideal)
-        u_recoil = ((foot_ideal - pose_term.current_goal_foot) / float(POSE_RESIDUAL_SCALE)).clamp(-0.96, 0.96)
-        # Upweight obstructed leg coordinates 18x so minority jam frames are fitted with high precision
-        sample_w = torch.where(ready_j, torch.full_like(u_teacher, 18.0), torch.ones_like(u_teacher))
-        return torch.where(ready_j, u_recoil, u_teacher), sample_w
+
+        u_out = u_teacher
+        sample_w = torch.ones_like(u_teacher)
+
+        # 1. Ground-contact friction jam ONLY: unload snagged stance foot vertically (+Z) + tripod CoM shift
+        sjam_ready = (
+            pose_term.stance_jam_leg_mask
+            & (pose_term.stance_jam_age >= delay_gate)
+            & (~ready_leg.any(dim=-1, keepdim=True))
+        )
+        sh_err = (pose_term.current_goal_rad - q_true).abs().reshape(-1, 4, 3)[..., 0]
+        cand_step = sjam_ready & ((~pose_term.stance_jam_unlocked) | (sh_err > 0.038))
+        if bool(cand_step.any()):
+            has_step = cand_step.any(dim=-1)
+            step_leg_oh = cand_step
+
+            _, curr_foot = pose_term.manifold.project_batch_rad(q_true)
+            curr_f43 = curr_foot.reshape(-1, 4, 3)
+            goal_f43 = pose_term.current_goal_foot.reshape(-1, 4, 3)
+            in_contact = env.scene["feet_ground_contact"].data.found > 0  # (N, 4)
+            airborne = getattr(pose_term, "stance_jam_airborne", ~in_contact)
+
+            xy_contact = 0.80 * curr_f43[..., :2] + 0.20 * goal_f43[..., :2]
+            # Relative +61 mm lift above curr_f43[..., 2] ensures even -41 deg splays clear 8 mm carpet pile cleanly
+            z_contact = (curr_f43[..., 2] + 0.34).clamp(-1.0, 0.88)
+            xy_air = goal_f43[..., :2]
+            z_air = (torch.maximum(curr_f43[..., 2], goal_f43[..., 2]) + 0.20).clamp(-1.0, 0.86)
+
+            step_xy = torch.where((~airborne).unsqueeze(-1), xy_contact, xy_air)
+            step_z = torch.where(~airborne, z_contact, z_air).unsqueeze(-1)
+            step_f43 = torch.cat((step_xy, step_z), dim=-1)
+
+            teach_f43 = (pose_term.current_goal_foot + float(POSE_RESIDUAL_SCALE) * u_teacher).clamp(-1.0, 1.0).reshape(-1, 4, 3)
+            left_single = (step_leg_oh[:, 0] | step_leg_oh[:, 2]) & (~(step_leg_oh[:, 1] | step_leg_oh[:, 3]))
+            right_single = (step_leg_oh[:, 1] | step_leg_oh[:, 3]) & (~(step_leg_oh[:, 0] | step_leg_oh[:, 2]))
+            com_shift_y = torch.where(left_single, -14.0 / 155.0, torch.where(right_single, 14.0 / 155.0, 0.0))
+            support_tripod = (~step_leg_oh) & (pose_term.leg_support > 0.5) & has_step.unsqueeze(-1)
+            teach_y = (teach_f43[..., 1] + torch.where(support_tripod, com_shift_y.unsqueeze(-1), 0.0)).clamp(-1.0, 1.0)
+            teach_shifted = torch.stack((teach_f43[..., 0], teach_y, teach_f43[..., 2]), dim=-1)
+
+            target_f43 = torch.where(step_leg_oh.unsqueeze(-1), step_f43, teach_shifted)
+            u_step = ((target_f43.reshape(-1, 12) - pose_term.current_goal_foot) / float(POSE_RESIDUAL_SCALE)).clamp(-0.96, 0.96)
+            step_j = step_leg_oh.repeat_interleave(3, dim=-1)
+            sup_j = support_tripod.repeat_interleave(3, dim=-1)
+            u_out = torch.where(has_step.unsqueeze(-1), u_step, u_out)
+            sample_w = torch.where(step_j, torch.full_like(sample_w, 14.0), torch.where(sup_j, torch.full_like(sample_w, 3.0), sample_w))
+
+        # 2. Rigid physical obstacle (`jam_contacted`): compliant recoil onto q_true + 3.15 deg feeler preload
+        if bool(ready_leg.any()):
+            blocked_j = ready_j & pose_term.jam_joint_mask
+            q_ideal = torch.where(blocked_j, q_true + 0.055 * pose_term.jam_dir, q_true)
+            _, foot_ideal = pose_term.manifold.project_batch_rad(q_ideal)
+            u_recoil = ((foot_ideal - pose_term.current_goal_foot) / float(POSE_RESIDUAL_SCALE)).clamp(-0.96, 0.96)
+            u_out = torch.where(ready_j, u_recoil, u_out)
+            sample_w = torch.where(ready_j, torch.full_like(sample_w, 18.0), sample_w)
+
+        return u_out, sample_w
 
     saved_jam_prob = DEFAULT_JAM_EPISODE_PROB
     try:
-        globals()["DEFAULT_JAM_EPISODE_PROB"] = 0.50
+        globals()["DEFAULT_JAM_EPISODE_PROB"] = 0.42
+        # Refresh observation normalizers on splayed + carpet-snag + rigid-jam distribution
+        actor.obs_normalizer.train(True)
+        critic.obs_normalizer.train(True)
+        wrapped.reset()
+        with torch.no_grad():
+            for _ in range(70):
+                obs_td = wrapped.get_observations()
+                actor.update_normalization(obs_td)
+                critic.update_normalization(obs_td)
+                u_warm, _ = _compute_expert_u(obs_td["actor"])
+                wrapped.step(u_warm)
+        if hasattr(actor, "symmetrize_normalizer"):
+            actor.symmetrize_normalizer()
         actor.obs_normalizer.eval()
         critic.obs_normalizer.eval()
         for round_i, (rollout_steps, epochs, student_prob) in enumerate(
@@ -1470,6 +1704,8 @@ def train(
                 },
             )
 
+        if hasattr(runner.logger, "git_status_repos"):
+            runner.logger.git_status_repos = []
         runner.logger.log = progress
         runner.learn(iterations, init_at_random_ep_len=True)
         runner.save(str(directory / "learner.pt"))

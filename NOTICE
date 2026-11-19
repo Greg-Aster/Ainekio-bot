@@ -3,35 +3,45 @@ Required Notice: Copyright (c) 2025-2026 Gregory Aster (https://ainek.io | https
 Ainekio — Non-Commercial Licensing & Attribution Notice
 =======================================================
 
-This repository contains both software and physical hardware/3D design assets.
-Commercial use by third parties is not permitted without a separate written
-commercial license from Gregory Aster.
+This repository contains both original software and original physical hardware/3D
+design assets created by Gregory Aster. Commercial use by third parties is not
+permitted without a separate written commercial license from Gregory Aster.
 
 1. Software, Firmware, Protocols, Motion Models, Policies & Datasets
    SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-   All source code, microcontroller firmware, gateway services, kinematics and
-   simulation scripts, motion/policy weights, and training datasets in this
-   repository are licensed under the PolyForm Noncommercial License 1.0.0
-   (see `LICENSE`).
+   All original source code, microcontroller firmware, gateway services,
+   kinematics and simulation scripts, motion/policy weights, and training
+   datasets in this repository are licensed under the PolyForm Noncommercial
+   License 1.0.0 (see `LICENSE`), except third-party components listed in
+   Section 3 and `THIRD_PARTY_INVENTORY.json`.
 
    Under the Notices section of the PolyForm Noncommercial License 1.0.0, any
    distribution of any part of the software must retain a copy of `LICENSE` (or
    its official URL) and the `Required Notice:` line at the top of this file.
 
-2. 3D CAD/Mesh Models, Mechanical Assemblies, Hardware Layouts & Documentation
+2. Original 3D Printable Robot Models, Mechanical Assemblies & Documentation
    SPDX-License-Identifier: CC-BY-NC-SA-4.0
-   All 3D printable and mechanical models (STL, STEP, STP, 3MF, GLB, GLTF, OBJ),
-   hardware assembly references, wiring diagrams, images, and documentation in
-   this repository are licensed under the Creative Commons
-   Attribution-NonCommercial-ShareAlike 4.0 International Public License
-   (see `LICENSE-HARDWARE`).
+   All original 3D printable robot meshes (`Slave/hardware/v1-8servo/` and
+   `Slave/hardware/v2-12servo/`), wiring diagrams, images, and documentation in
+   this repository were independently created by Gregory Aster and are licensed
+   under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+   International Public License (see `LICENSE-HARDWARE`).
 
-3. Third-Party Components
-   Third-party reference CAD models, libraries, and vendored upstream packages
-   retain their respective original licenses, including notices in:
-   - `Slave/hardware/v2-12servo/Servo_Reference_Assets/*LICENSE*.txt`
-   - `docs/v1-8servo/reference/LICENSE.txt`
-   - `Master/gateway/neural_gait/vendor/`
+3. Third-Party Components (Excluded from Sections 1 & 2)
+   Third-party reference CAD models, firmware libraries, and vendored upstream
+   packages retain their respective original open-source licenses (see
+   `THIRD_PARTY_INVENTORY.json` and `COMMERCIAL_MANIFEST.json` for full SPDX
+   and provenance records):
+   - `third_party/cad-references/Servo_Reference_Assets/*LICENSE*.txt` (`MIT`
+     off-the-shelf MG90S / MG90D fitment reference models)
+   - `third_party/cad-references/GY_LSM6DS3_Two_Hole_Reference_Model/` and
+     `third_party/cad-references/XIITIA_1p9_Display_Reference_Model/`
+     (clean-room datasheet reconstructions)
+   - `Master/gateway/neural_gait/vendor/microduck_rl/` (`Apache-2.0` Python
+     training framework; Pollen Robotics `CC-BY-NC-SA-4.0` STL meshes omitted)
+   - `Slave/software/imu/vendor/Fusion/` (`MIT` IMU AHRS library, xio Technologies)
+   - `Slave/firmware/*/managed_components/` (`Apache-2.0`, `MIT`, `BSD-3-Clause`,
+     and `LicenseRef-Espressif-MIT` for Espressif silicon)
 
 4. Trademarks & Commercial Licensing
    "Ainekio", "Ainekio OS", and `ainek.io` are project identifiers of

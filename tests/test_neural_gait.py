@@ -1159,35 +1159,49 @@ class PhysicsTests(unittest.TestCase):
 
 
     def test_checkpoint_server_loads_same_actions_after_restart_and_records_domain(self):
+        import importlib.util
+        if not (importlib.util.find_spec("onnx") and importlib.util.find_spec("onnxruntime")):
+            self.skipTest("Install onnx and onnxruntime for ONNX checkpoint runtime tests")
         import numpy as np
+        import onnx
+        from onnx import TensorProto, helper
         from dataclasses import asdict
         from unittest.mock import patch
-        from gateway.neural_gait.contract import PROPRIO_FEATURES, PROPRIO_SAMPLES, PROPRIO_SCHEMA
+        from gateway.neural_gait.contract import (
+            PROPRIO_FEATURES,
+            PROPRIO_SAMPLES,
+            PROPRIO_SCHEMA,
+            observation_size,
+        )
         from gateway.neural_gait.environment import (
             EnvironmentConfig,
             GaitEnvironment,
             ENVIRONMENT_VERSION,
             representation_identity,
         )
-        from gateway.neural_gait.pupper_mjx_actor import HISTORY_DIM, PUPPER_MJX_KIND
         from gateway.neural_gait.server import Runtime
 
-        def make_rtneural(bias_offset=0.0):
-            dims = [HISTORY_DIM, 4, 4, 4, 4, 12]
-            layers = []
-            for idx in range(5):
-                w = np.zeros((dims[idx], dims[idx + 1]), dtype=np.float32).tolist()
-                b = [float(bias_offset) if idx == 4 else 0.0] * dims[idx + 1]
-                layers.append({
-                    "activation": "tanh" if idx == 4 else "elu",
-                    "weights": [w, b],
-                })
-            return {
-                "in_shape": [None, HISTORY_DIM],
-                "layers": layers,
-                "joint_lower_limits": [-1.5] * 12,
-                "joint_upper_limits": [1.5] * 12,
-            }
+        obs_dim = observation_size(PROPRIO_SCHEMA)
+
+        def write_microduck_onnx(dest: Path, bias_offset=0.0):
+            weights = np.zeros((obs_dim, 12), dtype=np.float32)
+            bias = np.full((12,), float(bias_offset), dtype=np.float32)
+            x_in = helper.make_tensor_value_info("obs", TensorProto.FLOAT, [1, obs_dim])
+            y_out = helper.make_tensor_value_info("actions", TensorProto.FLOAT, [1, 12])
+            w_init = helper.make_tensor("W", TensorProto.FLOAT, [obs_dim, 12], weights.flatten().tolist())
+            b_init = helper.make_tensor("B", TensorProto.FLOAT, [12], bias.tolist())
+            node = helper.make_node("Gemm", inputs=["obs", "W", "B"], outputs=["actions"])
+            graph = helper.make_graph([node], "microduck_test", [x_in], [y_out], [w_init, b_init])
+            model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+            model.ir_version = 8
+            helper.set_model_props(
+                model,
+                {
+                    "ainekio_schema": PROPRIO_SCHEMA,
+                    "ainekio_action": "normalized-foot-offsets-v1",
+                },
+            )
+            onnx.save(model, str(dest))
 
         config = EnvironmentConfig(robot=robot_fixture(), observation_schema=PROPRIO_SCHEMA)
         env = GaitEnvironment(config, include_assembly=False)
@@ -1198,8 +1212,8 @@ class PhysicsTests(unittest.TestCase):
                 (path / "manifest.json").write_text(
                     json.dumps(
                         dict(
-                            kind=PUPPER_MJX_KIND,
-                            policy="policy.json",
+                            kind="microduck-mjlab",
+                            policy="policy.onnx",
                             schema=PROPRIO_SCHEMA,
                             environment=asdict(config),
                             environment_version=ENVIRONMENT_VERSION,
@@ -1208,7 +1222,7 @@ class PhysicsTests(unittest.TestCase):
                     )
                 )
                 (path / "environment.json").write_text(json.dumps(asdict(config)))
-                (path / "policy.json").write_text(json.dumps(make_rtneural(0.0)))
+                write_microduck_onnx(path / "policy.onnx", 0.0)
                 runtime = Runtime(root)
                 self.assertIsNone(runtime.model_id)
                 runtime.load("abc")
@@ -1217,6 +1231,7 @@ class PhysicsTests(unittest.TestCase):
                     "schema": PROPRIO_SCHEMA,
                     "proprio_history": [[0.0] * PROPRIO_FEATURES for _ in range(PROPRIO_SAMPLES)],
                     "joint_deg": [0.0, 3.46, -21.63] * 4,
+                    "target_deg": [0.0, 3.46, -21.63] * 4,
                     "joint_velocity_deg_s": [0.0] * 12,
                     "joint_usable": [True] * 12,
                     "target_limits_deg": config.target_limits_deg,
@@ -1234,10 +1249,10 @@ class PhysicsTests(unittest.TestCase):
                 )
                 checkpoint_id = "step-16"
                 (path / "checkpoints").mkdir()
-                (path / "checkpoints" / f"{checkpoint_id}.json").write_text(json.dumps(make_rtneural(0.0)))
+                write_microduck_onnx(path / "checkpoints" / f"{checkpoint_id}.onnx", 0.0)
                 (path / "checkpoints.json").write_text(json.dumps([
-                    dict(id=checkpoint_id, policy=f"checkpoints/{checkpoint_id}.json", steps=16)]))
-                (path / "policy.json").write_text(json.dumps(make_rtneural(0.5)))
+                    dict(id=checkpoint_id, policy=f"checkpoints/{checkpoint_id}.onnx", steps=16)]))
+                write_microduck_onnx(path / "policy.onnx", 0.25)
                 runtime.load("abc", checkpoint_id)
                 self.assertEqual(runtime.status(include_runs=False)["checkpoint_id"], checkpoint_id)
                 selected = Runtime(root).infer(obs)
@@ -1249,7 +1264,7 @@ class PhysicsTests(unittest.TestCase):
                 runtime.load("abc")
                 self.assertFalse(np.array_equal(first["action"], runtime.infer(obs)["action"]))
                 self.assertIsNone(runtime.checkpoint_id)
-                (path / "policy.json").write_text(json.dumps(make_rtneural(0.0)))
+                write_microduck_onnx(path / "policy.onnx", 0.0)
                 manifest_path = path / "manifest.json"
                 manifest = json.loads(manifest_path.read_text())
                 for version in (5, 6):

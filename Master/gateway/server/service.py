@@ -499,7 +499,7 @@ class GatewayConnection:
         state = NeuralWalk(status["model_id"], status["environment"], profile,
                            dict(message), reference["geometry"],
                            checkpoint_id=status.get("checkpoint_id"),
-                           record_observation=status.get("kind") in {"pupper-mjx", "microduck-mjlab"})
+                           record_observation=status.get("kind") == "microduck-mjlab")
         return message, state
 
     def _neural_sensor(self):

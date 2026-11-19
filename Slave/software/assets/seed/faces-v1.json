@@ -1,68 +1,24 @@
 {
+  "derived_from": "Slave/software/faces/faces.def",
   "faces": [
     {
       "fps": 1,
       "frames": [
-        "faces/walk/0.bin"
+        "faces/default/0.bin"
       ],
       "height": 64,
       "mode": "once",
-      "name": "walk",
+      "name": "default",
       "width": 128
     },
     {
       "fps": 1,
       "frames": [
-        "faces/rest/0.bin",
-        "faces/rest/1.bin",
-        "faces/rest/2.bin"
-      ],
-      "height": 64,
-      "mode": "boomerang",
-      "name": "rest",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/swim/0.bin"
+        "faces/idle/0.bin"
       ],
       "height": 64,
       "mode": "once",
-      "name": "swim",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/dance/0.bin",
-        "faces/dance/1.bin"
-      ],
-      "height": 64,
-      "mode": "loop",
-      "name": "dance",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/wave/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "wave",
-      "width": 128
-    },
-    {
-      "fps": 5,
-      "frames": [
-        "faces/point/0.bin",
-        "faces/point/1.bin",
-        "faces/point/2.bin"
-      ],
-      "height": 64,
-      "mode": "boomerang",
-      "name": "point",
+      "name": "idle",
       "width": 128
     },
     {
@@ -73,36 +29,559 @@
       "height": 64,
       "mode": "once",
       "name": "stand",
-      "source_alias": "idle",
       "width": 128
     },
     {
       "fps": 1,
       "frames": [
-        "faces/cute/0.bin"
+        "faces/neutral/0.bin"
       ],
       "height": 64,
       "mode": "once",
+      "name": "neutral",
+      "width": 128
+    },
+    {
+      "fps": 11,
+      "frames": [
+        "faces/idle_blink/0.bin",
+        "faces/idle_blink/1.bin",
+        "faces/idle_blink/2.bin",
+        "faces/idle_blink/3.bin",
+        "faces/idle_blink/4.bin"
+      ],
+      "height": 64,
+      "mode": "once",
+      "name": "idle_blink",
+      "width": 128
+    },
+    {
+      "fps": 3,
+      "frames": [
+        "faces/happy/0.bin",
+        "faces/happy/1.bin",
+        "faces/happy/2.bin",
+        "faces/happy/3.bin",
+        "faces/happy/4.bin",
+        "faces/happy/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "happy",
+      "width": 128
+    },
+    {
+      "fps": 8,
+      "frames": [
+        "faces/talk_happy/0.bin",
+        "faces/talk_happy/1.bin",
+        "faces/talk_happy/2.bin",
+        "faces/talk_happy/3.bin",
+        "faces/talk_happy/4.bin",
+        "faces/talk_happy/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "talk_happy",
+      "width": 128
+    },
+    {
+      "fps": 3,
+      "frames": [
+        "faces/sad/0.bin",
+        "faces/sad/1.bin",
+        "faces/sad/2.bin",
+        "faces/sad/3.bin",
+        "faces/sad/4.bin",
+        "faces/sad/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "sad",
+      "width": 128
+    },
+    {
+      "fps": 8,
+      "frames": [
+        "faces/talk_sad/0.bin",
+        "faces/talk_sad/1.bin",
+        "faces/talk_sad/2.bin",
+        "faces/talk_sad/3.bin",
+        "faces/talk_sad/4.bin",
+        "faces/talk_sad/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "talk_sad",
+      "width": 128
+    },
+    {
+      "fps": 4,
+      "frames": [
+        "faces/angry/0.bin",
+        "faces/angry/1.bin",
+        "faces/angry/2.bin",
+        "faces/angry/3.bin",
+        "faces/angry/4.bin",
+        "faces/angry/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "angry",
+      "width": 128
+    },
+    {
+      "fps": 8,
+      "frames": [
+        "faces/talk_angry/0.bin",
+        "faces/talk_angry/1.bin",
+        "faces/talk_angry/2.bin",
+        "faces/talk_angry/3.bin",
+        "faces/talk_angry/4.bin",
+        "faces/talk_angry/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "talk_angry",
+      "width": 128
+    },
+    {
+      "fps": 4,
+      "frames": [
+        "faces/surprised/0.bin",
+        "faces/surprised/1.bin",
+        "faces/surprised/2.bin",
+        "faces/surprised/3.bin",
+        "faces/surprised/4.bin",
+        "faces/surprised/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "surprised",
+      "width": 128
+    },
+    {
+      "fps": 8,
+      "frames": [
+        "faces/talk_surprised/0.bin",
+        "faces/talk_surprised/1.bin",
+        "faces/talk_surprised/2.bin",
+        "faces/talk_surprised/3.bin",
+        "faces/talk_surprised/4.bin",
+        "faces/talk_surprised/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "talk_surprised",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/sleepy/0.bin",
+        "faces/sleepy/1.bin",
+        "faces/sleepy/2.bin",
+        "faces/sleepy/3.bin",
+        "faces/sleepy/4.bin",
+        "faces/sleepy/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "sleepy",
+      "width": 128
+    },
+    {
+      "fps": 8,
+      "frames": [
+        "faces/talk_sleepy/0.bin",
+        "faces/talk_sleepy/1.bin",
+        "faces/talk_sleepy/2.bin",
+        "faces/talk_sleepy/3.bin",
+        "faces/talk_sleepy/4.bin",
+        "faces/talk_sleepy/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "talk_sleepy",
+      "width": 128
+    },
+    {
+      "fps": 4,
+      "frames": [
+        "faces/love/0.bin",
+        "faces/love/1.bin",
+        "faces/love/2.bin",
+        "faces/love/3.bin",
+        "faces/love/4.bin",
+        "faces/love/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "love",
+      "width": 128
+    },
+    {
+      "fps": 8,
+      "frames": [
+        "faces/talk_love/0.bin",
+        "faces/talk_love/1.bin",
+        "faces/talk_love/2.bin",
+        "faces/talk_love/3.bin",
+        "faces/talk_love/4.bin",
+        "faces/talk_love/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "talk_love",
+      "width": 128
+    },
+    {
+      "fps": 7,
+      "frames": [
+        "faces/excited/0.bin",
+        "faces/excited/1.bin",
+        "faces/excited/2.bin",
+        "faces/excited/3.bin",
+        "faces/excited/4.bin",
+        "faces/excited/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "excited",
+      "width": 128
+    },
+    {
+      "fps": 8,
+      "frames": [
+        "faces/talk_excited/0.bin",
+        "faces/talk_excited/1.bin",
+        "faces/talk_excited/2.bin",
+        "faces/talk_excited/3.bin",
+        "faces/talk_excited/4.bin",
+        "faces/talk_excited/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "talk_excited",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/confused/0.bin",
+        "faces/confused/1.bin",
+        "faces/confused/2.bin",
+        "faces/confused/3.bin",
+        "faces/confused/4.bin",
+        "faces/confused/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "confused",
+      "width": 128
+    },
+    {
+      "fps": 8,
+      "frames": [
+        "faces/talk_confused/0.bin",
+        "faces/talk_confused/1.bin",
+        "faces/talk_confused/2.bin",
+        "faces/talk_confused/3.bin",
+        "faces/talk_confused/4.bin",
+        "faces/talk_confused/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "talk_confused",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/thinking/0.bin",
+        "faces/thinking/1.bin",
+        "faces/thinking/2.bin",
+        "faces/thinking/3.bin",
+        "faces/thinking/4.bin",
+        "faces/thinking/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "thinking",
+      "width": 128
+    },
+    {
+      "fps": 8,
+      "frames": [
+        "faces/talk_thinking/0.bin",
+        "faces/talk_thinking/1.bin",
+        "faces/talk_thinking/2.bin",
+        "faces/talk_thinking/3.bin",
+        "faces/talk_thinking/4.bin",
+        "faces/talk_thinking/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "talk_thinking",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/bored/0.bin",
+        "faces/bored/1.bin",
+        "faces/bored/2.bin",
+        "faces/bored/3.bin",
+        "faces/bored/4.bin",
+        "faces/bored/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "bored",
+      "width": 128
+    },
+    {
+      "fps": 3,
+      "frames": [
+        "faces/listening/0.bin",
+        "faces/listening/1.bin",
+        "faces/listening/2.bin",
+        "faces/listening/3.bin",
+        "faces/listening/4.bin",
+        "faces/listening/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "listening",
+      "width": 128
+    },
+    {
+      "fps": 5,
+      "frames": [
+        "faces/walk/0.bin",
+        "faces/walk/1.bin",
+        "faces/walk/2.bin",
+        "faces/walk/3.bin",
+        "faces/walk/4.bin",
+        "faces/walk/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "walk",
+      "width": 128
+    },
+    {
+      "fps": 3,
+      "frames": [
+        "faces/walk_slow/0.bin",
+        "faces/walk_slow/1.bin",
+        "faces/walk_slow/2.bin",
+        "faces/walk_slow/3.bin",
+        "faces/walk_slow/4.bin",
+        "faces/walk_slow/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "walk_slow",
+      "width": 128
+    },
+    {
+      "fps": 10,
+      "frames": [
+        "faces/run/0.bin",
+        "faces/run/1.bin",
+        "faces/run/2.bin",
+        "faces/run/3.bin",
+        "faces/run/4.bin",
+        "faces/run/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "run",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/crawl/0.bin",
+        "faces/crawl/1.bin",
+        "faces/crawl/2.bin",
+        "faces/crawl/3.bin",
+        "faces/crawl/4.bin",
+        "faces/crawl/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "crawl",
+      "width": 128
+    },
+    {
+      "fps": 4,
+      "frames": [
+        "faces/crab/0.bin",
+        "faces/crab/1.bin",
+        "faces/crab/2.bin",
+        "faces/crab/3.bin",
+        "faces/crab/4.bin",
+        "faces/crab/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "crab",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/rest/0.bin",
+        "faces/rest/1.bin",
+        "faces/rest/2.bin",
+        "faces/rest/3.bin",
+        "faces/rest/4.bin",
+        "faces/rest/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "rest",
+      "width": 128
+    },
+    {
+      "fps": 1,
+      "frames": [
+        "faces/lay_down/0.bin"
+      ],
+      "height": 64,
+      "mode": "once",
+      "name": "lay_down",
+      "width": 128
+    },
+    {
+      "fps": 1,
+      "frames": [
+        "faces/crouch/0.bin"
+      ],
+      "height": 64,
+      "mode": "once",
+      "name": "crouch",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/sit/0.bin",
+        "faces/sit/1.bin",
+        "faces/sit/2.bin",
+        "faces/sit/3.bin",
+        "faces/sit/4.bin",
+        "faces/sit/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "sit",
+      "width": 128
+    },
+    {
+      "fps": 4,
+      "frames": [
+        "faces/swim/0.bin",
+        "faces/swim/1.bin",
+        "faces/swim/2.bin",
+        "faces/swim/3.bin",
+        "faces/swim/4.bin",
+        "faces/swim/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "swim",
+      "width": 128
+    },
+    {
+      "fps": 5,
+      "frames": [
+        "faces/dance/0.bin",
+        "faces/dance/1.bin",
+        "faces/dance/2.bin",
+        "faces/dance/3.bin",
+        "faces/dance/4.bin",
+        "faces/dance/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "dance",
+      "width": 128
+    },
+    {
+      "fps": 3,
+      "frames": [
+        "faces/wave/0.bin",
+        "faces/wave/1.bin",
+        "faces/wave/2.bin",
+        "faces/wave/3.bin",
+        "faces/wave/4.bin",
+        "faces/wave/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "wave",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/point/0.bin",
+        "faces/point/1.bin",
+        "faces/point/2.bin",
+        "faces/point/3.bin",
+        "faces/point/4.bin",
+        "faces/point/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "point",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/cute/0.bin",
+        "faces/cute/1.bin",
+        "faces/cute/2.bin",
+        "faces/cute/3.bin",
+        "faces/cute/4.bin",
+        "faces/cute/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
       "name": "cute",
       "width": 128
     },
     {
-      "fps": 1,
+      "fps": 4,
       "frames": [
-        "faces/pushup/0.bin"
+        "faces/pushup/0.bin",
+        "faces/pushup/1.bin",
+        "faces/pushup/2.bin",
+        "faces/pushup/3.bin",
+        "faces/pushup/4.bin",
+        "faces/pushup/5.bin"
       ],
       "height": 64,
-      "mode": "once",
+      "mode": "loop",
       "name": "pushup",
       "width": 128
     },
     {
-      "fps": 1,
+      "fps": 8,
       "frames": [
-        "faces/freaky/0.bin"
+        "faces/freaky/0.bin",
+        "faces/freaky/1.bin",
+        "faces/freaky/2.bin",
+        "faces/freaky/3.bin",
+        "faces/freaky/4.bin",
+        "faces/freaky/5.bin"
       ],
       "height": 64,
-      "mode": "once",
+      "mode": "loop",
       "name": "freaky",
       "width": 128
     },
@@ -117,469 +596,245 @@
       "width": 128
     },
     {
-      "fps": 1,
+      "fps": 4,
       "frames": [
-        "faces/worm/0.bin"
+        "faces/worm/0.bin",
+        "faces/worm/1.bin",
+        "faces/worm/2.bin",
+        "faces/worm/3.bin",
+        "faces/worm/4.bin",
+        "faces/worm/5.bin"
       ],
       "height": 64,
-      "mode": "once",
+      "mode": "loop",
       "name": "worm",
       "width": 128
     },
     {
-      "fps": 1,
+      "fps": 8,
       "frames": [
-        "faces/shake/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "shake",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/shrug/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "shrug",
-      "width": 128
-    },
-    {
-      "fps": 2,
-      "frames": [
-        "faces/dead/0.bin",
-        "faces/dead/1.bin",
-        "faces/dead/2.bin"
-      ],
-      "height": 64,
-      "mode": "boomerang",
-      "name": "dead",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/crab/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "crab",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/default/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "default",
-      "source_alias": "idle",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/idle/0.bin"
+        "faces/shake/0.bin",
+        "faces/shake/1.bin",
+        "faces/shake/2.bin",
+        "faces/shake/3.bin",
+        "faces/shake/4.bin",
+        "faces/shake/5.bin"
       ],
       "height": 64,
       "mode": "loop",
-      "name": "idle",
-      "width": 128
-    },
-    {
-      "fps": 7,
-      "frames": [
-        "faces/idle_blink/0.bin",
-        "faces/idle_blink/1.bin",
-        "faces/idle_blink/2.bin",
-        "faces/idle_blink/3.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "idle_blink",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/happy/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "happy",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/talk_happy/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "talk_happy",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/sad/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "sad",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/talk_sad/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "talk_sad",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/angry/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "angry",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/talk_angry/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "talk_angry",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/surprised/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "surprised",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/talk_surprised/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "talk_surprised",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/sleepy/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "sleepy",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/talk_sleepy/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "talk_sleepy",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/love/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "love",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/talk_love/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "talk_love",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/excited/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "excited",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/talk_excited/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "talk_excited",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/confused/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "confused",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/talk_confused/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "talk_confused",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/thinking/0.bin",
-        "faces/thinking/1.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "thinking",
-      "width": 128
-    },
-    {
-      "fps": 1,
-      "frames": [
-        "faces/talk_thinking/0.bin"
-      ],
-      "height": 64,
-      "mode": "once",
-      "name": "talk_thinking",
-      "width": 128
-    },
-    {
-      "fps": 2,
-      "frames": [
-        "faces/bored/0.bin",
-        "faces/bored/1.bin"
-      ],
-      "height": 64,
-      "mode": "boomerang",
-      "name": "bored",
-      "source": "ainekio_owner_authored_bitmap",
+      "name": "shake",
       "width": 128
     },
     {
       "fps": 3,
       "frames": [
-        "faces/nod/0.bin",
-        "faces/nod/1.bin"
+        "faces/shrug/0.bin",
+        "faces/shrug/1.bin",
+        "faces/shrug/2.bin",
+        "faces/shrug/3.bin",
+        "faces/shrug/4.bin",
+        "faces/shrug/5.bin"
       ],
       "height": 64,
-      "mode": "boomerang",
-      "name": "nod",
-      "source": "ainekio_owner_authored_bitmap",
+      "mode": "loop",
+      "name": "shrug",
       "width": 128
     },
     {
-      "fps": 5,
+      "fps": 1,
+      "frames": [
+        "faces/dead/0.bin"
+      ],
+      "height": 64,
+      "mode": "once",
+      "name": "dead",
+      "width": 128
+    },
+    {
+      "fps": 4,
+      "frames": [
+        "faces/nod/0.bin",
+        "faces/nod/1.bin",
+        "faces/nod/2.bin",
+        "faces/nod/3.bin",
+        "faces/nod/4.bin",
+        "faces/nod/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "nod",
+      "width": 128
+    },
+    {
+      "fps": 6,
       "frames": [
         "faces/celebrate/0.bin",
-        "faces/celebrate/1.bin"
+        "faces/celebrate/1.bin",
+        "faces/celebrate/2.bin",
+        "faces/celebrate/3.bin",
+        "faces/celebrate/4.bin",
+        "faces/celebrate/5.bin"
       ],
       "height": 64,
       "mode": "loop",
       "name": "celebrate",
-      "source": "ainekio_owner_authored_bitmap",
       "width": 128
     },
     {
-      "fps": 2,
+      "fps": 1,
       "frames": [
-        "faces/stretch/0.bin",
-        "faces/stretch/1.bin"
+        "faces/stretch/0.bin"
       ],
       "height": 64,
-      "mode": "boomerang",
+      "mode": "once",
       "name": "stretch",
-      "source": "ainekio_owner_authored_bitmap",
       "width": 128
     },
     {
       "fps": 5,
       "frames": [
         "faces/macarena/0.bin",
-        "faces/macarena/1.bin"
+        "faces/macarena/1.bin",
+        "faces/macarena/2.bin",
+        "faces/macarena/3.bin",
+        "faces/macarena/4.bin",
+        "faces/macarena/5.bin"
       ],
       "height": 64,
       "mode": "loop",
       "name": "macarena",
-      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 7,
+      "frames": [
+        "faces/salsa/0.bin",
+        "faces/salsa/1.bin",
+        "faces/salsa/2.bin",
+        "faces/salsa/3.bin",
+        "faces/salsa/4.bin",
+        "faces/salsa/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
+      "name": "salsa",
       "width": 128
     },
     {
       "fps": 5,
       "frames": [
-        "faces/salsa/0.bin",
-        "faces/salsa/1.bin"
+        "faces/surprised_motion/0.bin",
+        "faces/surprised_motion/1.bin",
+        "faces/surprised_motion/2.bin",
+        "faces/surprised_motion/3.bin",
+        "faces/surprised_motion/4.bin",
+        "faces/surprised_motion/5.bin"
       ],
       "height": 64,
       "mode": "loop",
-      "name": "salsa",
-      "source": "ainekio_owner_authored_bitmap",
-      "width": 128
-    },
-    {
-      "fps": 4,
-      "frames": [
-        "faces/surprised_motion/0.bin",
-        "faces/surprised_motion/1.bin"
-      ],
-      "height": 64,
-      "mode": "boomerang",
       "name": "surprised_motion",
-      "source": "ainekio_owner_authored_bitmap",
-      "width": 128
-    },
-    {
-      "fps": 2,
-      "frames": [
-        "faces/sad_motion/0.bin",
-        "faces/sad_motion/1.bin"
-      ],
-      "height": 64,
-      "mode": "boomerang",
-      "name": "sad_motion",
-      "source": "ainekio_owner_authored_bitmap",
       "width": 128
     },
     {
       "fps": 3,
       "frames": [
-        "faces/curious/0.bin",
-        "faces/curious/1.bin"
+        "faces/sad_motion/0.bin",
+        "faces/sad_motion/1.bin",
+        "faces/sad_motion/2.bin",
+        "faces/sad_motion/3.bin",
+        "faces/sad_motion/4.bin",
+        "faces/sad_motion/5.bin"
       ],
       "height": 64,
-      "mode": "boomerang",
+      "mode": "loop",
+      "name": "sad_motion",
+      "width": 128
+    },
+    {
+      "fps": 2,
+      "frames": [
+        "faces/curious/0.bin",
+        "faces/curious/1.bin",
+        "faces/curious/2.bin",
+        "faces/curious/3.bin",
+        "faces/curious/4.bin",
+        "faces/curious/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
       "name": "curious",
-      "source": "ainekio_owner_authored_bitmap",
       "width": 128
     },
     {
       "fps": 3,
       "frames": [
         "faces/turn_left_90/0.bin",
-        "faces/turn_left_90/1.bin"
+        "faces/turn_left_90/1.bin",
+        "faces/turn_left_90/2.bin",
+        "faces/turn_left_90/3.bin",
+        "faces/turn_left_90/4.bin",
+        "faces/turn_left_90/5.bin"
       ],
       "height": 64,
       "mode": "loop",
       "name": "turn_left_90",
-      "source": "ainekio_owner_authored_bitmap",
       "width": 128
     },
     {
       "fps": 3,
       "frames": [
         "faces/turn_right_90/0.bin",
-        "faces/turn_right_90/1.bin"
+        "faces/turn_right_90/1.bin",
+        "faces/turn_right_90/2.bin",
+        "faces/turn_right_90/3.bin",
+        "faces/turn_right_90/4.bin",
+        "faces/turn_right_90/5.bin"
       ],
       "height": 64,
       "mode": "loop",
       "name": "turn_right_90",
-      "source": "ainekio_owner_authored_bitmap",
-      "width": 128
-    },
-    {
-      "fps": 2,
-      "frames": [
-        "faces/walk_slow/0.bin",
-        "faces/walk_slow/1.bin"
-      ],
-      "height": 64,
-      "mode": "boomerang",
-      "name": "walk_slow",
-      "source": "ainekio_owner_authored_bitmap",
-      "width": 128
-    },
-    {
-      "fps": 5,
-      "frames": [
-        "faces/run/0.bin",
-        "faces/run/1.bin"
-      ],
-      "height": 64,
-      "mode": "loop",
-      "name": "run",
-      "source": "ainekio_owner_authored_bitmap",
-      "width": 128
-    },
-    {
-      "fps": 4,
-      "frames": [
-        "faces/number_one/0.bin",
-        "faces/number_one/1.bin"
-      ],
-      "height": 64,
-      "mode": "loop",
-      "name": "number_one",
-      "source": "ainekio_owner_authored_bitmap",
       "width": 128
     },
     {
       "fps": 3,
       "frames": [
-        "faces/number_two/0.bin",
-        "faces/number_two/1.bin"
+        "faces/number_one/0.bin",
+        "faces/number_one/1.bin",
+        "faces/number_one/2.bin",
+        "faces/number_one/3.bin",
+        "faces/number_one/4.bin",
+        "faces/number_one/5.bin"
       ],
       "height": 64,
-      "mode": "boomerang",
+      "mode": "loop",
+      "name": "number_one",
+      "width": 128
+    },
+    {
+      "fps": 4,
+      "frames": [
+        "faces/number_two/0.bin",
+        "faces/number_two/1.bin",
+        "faces/number_two/2.bin",
+        "faces/number_two/3.bin",
+        "faces/number_two/4.bin",
+        "faces/number_two/5.bin"
+      ],
+      "height": 64,
+      "mode": "loop",
       "name": "number_two",
-      "source": "ainekio_owner_authored_bitmap",
+      "width": 128
+    },
+    {
+      "fps": 1,
+      "frames": [
+        "faces/upright/0.bin"
+      ],
+      "height": 64,
+      "mode": "once",
+      "name": "upright",
       "width": 128
     }
-  ],
-  "owner_faces": [
-    "bored",
-    "nod",
-    "celebrate",
-    "stretch",
-    "macarena",
-    "salsa",
-    "surprised_motion",
-    "sad_motion",
-    "curious",
-    "turn_left_90",
-    "turn_right_90",
-    "walk_slow",
-    "run",
-    "number_one",
-    "number_two"
   ],
   "schema_version": 1
 }

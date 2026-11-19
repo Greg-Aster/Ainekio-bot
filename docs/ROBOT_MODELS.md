@@ -9,7 +9,7 @@ Ainekio maintains two distinct hardware models behind a shared `protocol-v1` tra
 
 | Model | Chassis & Kinematics | Controller & Drive | Motion & Locomotion Stack | Specifications |
 | --- | --- | --- | --- | --- |
-| `v2-12servo` | 4 legs × 3 DOF (shoulder, carrier, crank closed 4-bar linkage) | ESP32-P4-WIFI6 + PCA9685 (`0x40`) + CD74HC4067 ADC feedback | Compiled Microduck neural policy (`v2_microduck`), Pupper MJX host policy, analytic Walk/Run/Crawl/Crab, 23 finite postures/gestures, and model-backed Freestyle trajectories | [V2 Specifications](v2-12servo/SPECIFICATIONS.md) |
+| `v2-12servo` | 4 legs × 3 DOF (shoulder, carrier, crank closed 4-bar linkage) | ESP32-P4-WIFI6 + PCA9685 (`0x40`) + CD74HC4067 ADC feedback | Compiled Microduck neural policy (`v2_microduck`), Microduck host policy, analytic Walk/Run/Crawl/Crab, 23 finite postures/gestures, and model-backed Freestyle trajectories | [V2 Specifications](v2-12servo/SPECIFICATIONS.md) |
 | `v1-8servo` | 8-servo quadruped frame | ESP32-S3 direct MCPWM outputs | Portable core keyframe player and 8-joint `motion_plan_v1` | [V1 Specifications](v1-8servo/SPECIFICATIONS.md) |
 
 Hardware specifications reconcile CAD geometry, electrical pinouts, and measured evidence at their model-specific owners; V1 bring-up results never establish V2 wiring, calibration, or physical readiness.

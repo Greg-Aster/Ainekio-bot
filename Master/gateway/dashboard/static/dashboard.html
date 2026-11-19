@@ -238,7 +238,7 @@
         <label class="cockpit-setting-row">
           <div>
             <strong>Host neural policy</strong>
-            <span class="muted">Computer model (Pupper 600M or MicroDuck v12)</span>
+            <span class="muted">Computer model (MicroDuck v12)</span>
           </div>
           <select id="cockpit-neural-model-select"></select>
         </label>
@@ -427,7 +427,7 @@
             <label id="walk-cycles-field">Cycles <input id="walk-cycles" type="number" min="1" max="10" value="3" required></label>
             <p id="walk-run-hint" hidden>0–100% walks. Above 100% transitions to paired-leg Run; 200% is full Run.</p>
             <p id="walk-native-hint">On-chip MicroDuck runs the quantized 50 Hz neural policy directly on the ESP32-P4 at full movement speed. Stride and steering scale foot excursion and direction; Finish settles the feet.</p>
-            <p id="walk-neural-hint" hidden>Host neural walking streams targets from the selected host policy (MicroDuck or Pupper MJX) using the SI scales below or in Neural gait. Continue until Finish; MetaHuman goals still determine arrival. Switch to On-chip MicroDuck above to run the policy directly on the P4.</p>
+            <p id="walk-neural-hint" hidden>Host neural walking streams targets from the selected MicroDuck host policy using the SI scales below or in Neural gait. Continue until Finish; MetaHuman goals still determine arrival. Switch to On-chip MicroDuck above to run the policy directly on the P4.</p>
             <div id="walk-neural-quick-controls" class="neural-quick-card" hidden>
               <div class="neural-quick-header">
                 <strong id="walk-neural-active-model">Active policy: loading…</strong>
@@ -614,7 +614,7 @@
       <label class="switch-row"><span>Servo chatter &amp; stall load compliance (during speech)</span><input type="checkbox" name="chatter_relief_enabled"></label>
       <label class="switch-row"><span>Expressive speaking body motion &amp; speaker gaze</span><input type="checkbox" name="social_gaze_enabled"></label>
       <label class="switch-row"><span>Automatic conversational &amp; rest face expressions</span><input type="checkbox" name="expressions_enabled"></label>
-      <label class="switch-row"><span>Keep servos awake while YOLOE sees a person</span><input type="checkbox" name="presence_defers_release"></label>
+      <label class="switch-row"><span>Keep servos awake while camera sees a person</span><input type="checkbox" name="presence_defers_release"></label>
       <label>Lay down &amp; release servos after quiet inactivity (seconds; 0 = off)<input type="number" name="servo_release_s" min="0" max="86400" step="1" required></label>
       <label>When picked up or stuck in an unrecoverable tip
         <select name="passive_mode">
@@ -641,7 +641,7 @@
   <details id="neural-gait-panel" open>
     <summary>Neural walking · active policy, velocity scales and simulation training</summary>
     <p id="neural-gait-selection" class="neural-active-banner">Active model: loading…</p>
-    <p>Train MicroDuck policies in simulation, inspect MicroDuck and Pupper MJX evaluation results, and select the active walking policy. Preview reads robot sensors without moving. The walking source below applies to new Walk requests from Body Control and MetaHuman; existing goals still own arrival and Finish.</p>
+    <p>Train MicroDuck policies in simulation, inspect MicroDuck evaluation results, and select the active walking policy. Preview reads robot sensors without moving. The walking source below applies to new Walk requests from Body Control and MetaHuman; existing goals still own arrival and Finish.</p>
     <div class="neural-form-grid">
       <label>Walking source<select id="neural-walking-source"><option value="native">On-chip MicroDuck (native)</option><option value="neural">Selected host neural policy</option></select></label>
       <label>Forward m/s at 100%<input id="neural-walking-forward" type="number" step="any"></label>

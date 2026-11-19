@@ -21,11 +21,6 @@ from .goals import STAND_ANGLES_DEG, PoseManifold, compile_goal_segments, usable
 
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_ACTIVE_POLICY = ROOT / "experiments/freestyle/artifacts/neural-pose-active/policy.onnx"
-STALL_ERROR_DEG = 10.0
-STALL_VELOCITY_DEG_S = 6.0
-STALL_TICKS_50HZ = 14  # 0.28 s at 50 Hz
-STALL_RECOIL_DEG = 2.0
-RETURN_TO_READY_DURATION_S = 0.85
 
 
 def resolve_active_policy_path() -> Path | None:
@@ -143,7 +138,7 @@ async def execute_neural_pose_program(
     async def _arm_via_stand(connection) -> None:
         stand_seq = await gateway.queue_intent("stand", {}, robot_id=robot, **sequence_options)
         sequence_options.clear()
-        stand_res = await gateway.wait_terminal(stand_seq, robot_id=robot, epoch=connection.epoch, timeout=6.0)
+        stand_res = await gateway.wait_terminal(stand_seq, robot_id=robot, epoch=connection.epoch, timeout=15.0)
         job["receipts"].append(stand_res)
         bridge.record(job, "command_receipt", stand_res, sequence=stand_seq)
 
@@ -155,7 +150,7 @@ async def execute_neural_pose_program(
         if "walk_nominal_v1" not in connection.features:
             raise ValueError(f"Robot {robot} does not advertise walk_nominal_v1 for 50 Hz neural pose control")
         status_dict = getattr(connection, "last_status", None) or {}
-        if status_dict.get("output_armed") is False or bool(status_dict.get("output_fault")):
+        if bool(status_dict.get("output_fault")):
             await _arm_via_stand(connection)
             connection = gateway._connection(robot)
         history.reset()
@@ -191,7 +186,7 @@ async def execute_neural_pose_program(
                 job["receipts"].append(ack)
                 bridge.record(job, "command_receipt", ack, sequence=seq)
                 if ack.get("t") != "ack":
-                    if attempt == 0 and ack.get("code") in ("limit", "busy"):
+                    if attempt == 0 and ack.get("code") in ("limit", "busy", "reference", "state"):
                         await _arm_via_stand(connection)
                         connection = gateway._connection(robot)
                         continue
@@ -281,55 +276,6 @@ async def execute_neural_pose_program(
         )
         return sensor
 
-    def _detect_stalled_recoils(
-        sensor_now: dict,
-        target_deg: list[float],
-        stall_ticks: list[int],
-        prev_obs_sample: dict[int, tuple[float, float]],
-        already_recoiled: dict[int, float],
-        now: float,
-    ) -> dict[int, float]:
-        dev_us = (sensor_now.get("feedback") or {}).get("device_us")
-        t_obs = float(dev_us) / 1e6 if isinstance(dev_us, (int, float)) and dev_us > 0 else now
-        newly_recoiled: dict[int, float] = {}
-        for i, j in enumerate(JOINTS):
-            jd = sensor_now["joints"][j]
-            if jd.get("feedback_usable") and isinstance(jd.get("filtered_model_deg"), (int, float)):
-                val = float(jd["filtered_model_deg"])
-                err_signed = target_deg[i] - val
-                sign_dir = 1.0 if err_signed >= 0.0 else -1.0
-                rep_vel_toward = float(jd.get("velocity_deg_s") or 0.0) * sign_dir
-                if i in prev_obs_sample:
-                    prev_val, prev_t = prev_obs_sample[i]
-                    dt = t_obs - prev_t
-                    vel_toward = (
-                        max(rep_vel_toward, ((val - prev_val) / dt) * sign_dir)
-                        if dt > 1e-4
-                        else rep_vel_toward
-                    )
-                else:
-                    vel_toward = rep_vel_toward
-                prev_obs_sample[i] = (val, t_obs)
-                if (
-                    i not in already_recoiled
-                    and abs(err_signed) >= STALL_ERROR_DEG
-                    and vel_toward < STALL_VELOCITY_DEG_S
-                ):
-                    stall_ticks[i] += 1
-                    if stall_ticks[i] >= STALL_TICKS_50HZ:
-                        recoil_deg = val - STALL_RECOIL_DEG * sign_dir
-                        already_recoiled[i] = recoil_deg
-                        newly_recoiled[i] = recoil_deg
-                        stall_ticks[i] = 0
-                else:
-                    stall_ticks[i] = 0
-            else:
-                stall_ticks[i] = 0
-        return newly_recoiled
-
-    final_posture_jammed = False
-    jammed_action_name: str | None = None
-
     try:
         for seg_pos, seg in enumerate(segments):
             idx = seg["index"]
@@ -381,7 +327,10 @@ async def execute_neural_pose_program(
             receipt_start = len(job["receipts"])
 
             if kind in ("pose_goal", "oscillate_goal", "hold"):
+                had_stream = walk_seq is not None
                 connection = await _ensure_host_stream()
+                if not had_stream:
+                    before_sensor = gateway.body_sensor_observation(robot)
                 t_start = gateway.clock()
 
                 if kind == "pose_goal":
@@ -406,10 +355,6 @@ async def execute_neural_pose_program(
                     settled_frames = 0
                     prev_usable_deg: dict[int, float] = {}
                     prev_cmd_deg: list[float] | None = None
-                    stall_ticks = [0] * 12
-                    prev_obs_sample: dict[int, tuple[float, float]] = {}
-                    recoiled_targets: dict[int, float] = {}
-                    segment_recoiled = False
                     is_terminal_motion = not any(s["kind"] != "face" for s in segments[seg_pos + 1 :])
                     is_stand_op = bool(
                         seg.get("is_stand")
@@ -434,59 +379,13 @@ async def execute_neural_pose_program(
                     mean_tol = 2.5 if is_stand_op else (3.5 if tight_terminal_stance else 7.0)
                     max_step_tol = 0.6 if tight_terminal_stance else 1.2
                     req_settled_frames = 4 if is_stand_op else (3 if tight_terminal_stance else 2)
+                    max_settle_budget_s = max(duration_s + 2.2, 4.4) if tight_terminal_stance else duration_s
+
                     while True:
                         now = gateway.clock()
                         elapsed = now - t_start
                         tick_event.clear()
                         sensor_now = await _step_50hz(connection, goal_deg, goal_foot, support, spd, now=now)
-                        newly_recoiled = _detect_stalled_recoils(
-                            sensor_now, goal_deg, stall_ticks, prev_obs_sample, recoiled_targets, now
-                        )
-                        if newly_recoiled:
-                            segment_recoiled = True
-                            cand_goal_deg = list(goal_deg)
-                            for k, r_deg in recoiled_targets.items():
-                                cand_goal_deg[k] = r_deg
-                            goal_deg, goal_foot = manifold.project_angles_deg(cand_goal_deg, body=live_body)
-                            support = manifold.infer_leg_support(goal_deg)
-                            q_reset_deg = (cmd_q_rad[0] * (180.0 / math.pi)).cpu().tolist()
-                            for k in newly_recoiled:
-                                q_reset_deg[k] = goal_deg[k]
-                            re_deg, prev_action = manifold.project_angles_deg(q_reset_deg, body=live_body)
-                            cmd_q_rad = torch.tensor(
-                                re_deg, dtype=torch.float64, device=live_body.device
-                            ).reshape(1, 12) * (math.pi / 180.0)
-                            cmd_q_rad, _ = live_body.pwm(cmd_q_rad)
-                            active_set = {
-                                i for i in range(12) if abs(goal_deg[i] - live_start_deg[i]) > 2.0
-                            } | set(recoiled_targets)
-                            settled_frames = 0
-                            rem_delta = max(
-                                (
-                                    abs(
-                                        goal_deg[i]
-                                        - float(sensor_now["joints"][JOINTS[i]].get("filtered_model_deg") or goal_deg[i])
-                                    )
-                                    for i in range(12)
-                                    if sensor_now["joints"][JOINTS[i]].get("feedback_usable")
-                                ),
-                                default=0.0,
-                            )
-                            min_settle_s = min(min_settle_s, elapsed + max(0.04, rem_delta / host_slew_deg_s + 0.02))
-                            duration_s = max(duration_s, elapsed + 0.12)
-                            bridge.record(
-                                job,
-                                "joint_recoil",
-                                {
-                                    "action_index": idx,
-                                    "joints": {JOINTS[k]: r_deg for k, r_deg in newly_recoiled.items()},
-                                    "projected_goal": {JOINTS[i]: goal_deg[i] for i in range(12)},
-                                },
-                            )
-                            await _wait_next_tick(now)
-                            continue
-                        if elapsed >= duration_s:
-                            break
                         cmd_deg_now = (cmd_q_rad[0] * (180.0 / math.pi)).cpu().tolist()
                         cmd_step_max = (
                             max(abs(cmd_deg_now[i] - prev_cmd_deg[i]) for i in range(12))
@@ -508,7 +407,7 @@ async def execute_neural_pose_program(
                                 curr_usable_deg[i] = val
                                 err_i = abs(val - goal_deg[i])
                                 usable_errs.append(err_i)
-                                if i % 3 == 0 and i not in recoiled_targets:
+                                if i % 3 == 0:
                                     shoulder_errs.append(err_i)
                                 if support[i // 3] < 0.5:
                                     free_errs.append(err_i)
@@ -532,7 +431,7 @@ async def execute_neural_pose_program(
                             tracked_errs = active_errs if active_errs else usable_errs
                             mean_err = sum(tracked_errs) / len(tracked_errs)
                             stand_cmd_ok = True
-                            if is_stand_op and not segment_recoiled:
+                            if is_stand_op:
                                 stand_cmd_ok = (
                                     max(abs(cmd_deg_now[i] - goal_deg[i]) for i in range(12)) <= 5.0
                                     and max(abs(cmd_deg_now[i] - goal_deg[i]) for i in (0, 3, 6, 9)) <= 3.5
@@ -556,40 +455,19 @@ async def execute_neural_pose_program(
                                 settled_frames = 0
                         else:
                             settled_frames = 0
-                        await _wait_next_tick(now)
-                    if segment_recoiled:
-                        for later_seg in segments[seg_pos + 1 :]:
-                            l_kind = later_seg["kind"]
-                            if l_kind in ("stop", "release", "gait"):
+                        if elapsed >= duration_s:
+                            # On grounded terminal / stand segments, allow the 50 Hz neural policy to finish
+                            # unloading any >5.5 deg stance bind (safely inside firmware's 7 deg thermal deadband)
+                            # before closing the host stream.
+                            if (
+                                not tight_terminal_stance
+                                or not stance_errs
+                                or max(stance_errs) <= 5.5
+                                or elapsed >= max_settle_budget_s
+                            ):
                                 break
-                            if l_kind == "pose_goal" and later_seg["action"].get("name") != "stand":
-                                l_cand = list(later_seg["goal_deg"])
-                                changed_later = False
-                                for k in recoiled_targets:
-                                    if abs(l_cand[k] - orig_seg_goal_deg[k]) < 0.25:
-                                        l_cand[k] = goal_deg[k]
-                                        changed_later = True
-                                if changed_later:
-                                    l_deg, l_foot = manifold.project_angles_deg(l_cand, body=live_body)
-                                    later_seg["goal_deg"] = l_deg
-                                    later_seg["goal_foot_norm"] = l_foot
-                                    later_seg["leg_support"] = manifold.infer_leg_support(l_deg)
-                            elif l_kind == "oscillate_goal":
-                                osc_joints = set(later_seg["joint_indices"])
-                                changed_osc = False
-                                for k in recoiled_targets:
-                                    if k not in osc_joints and abs(later_seg["base_deg"][k] - orig_seg_goal_deg[k]) < 0.25:
-                                        later_seg["base_deg"][k] = goal_deg[k]
-                                        later_seg["end_deg"][k] = goal_deg[k]
-                                        changed_osc = True
-                                if changed_osc:
-                                    later_seg["end_deg"], _ = manifold.project_angles_deg(
-                                        later_seg["end_deg"], body=live_body
-                                    )
-                                    later_seg["leg_support"] = manifold.infer_leg_support(later_seg["end_deg"])
+                        await _wait_next_tick(now)
                     hold_goal_deg, hold_goal_foot, hold_support = goal_deg, goal_foot, support
-                    final_posture_jammed = segment_recoiled
-                    jammed_action_name = action.get("name") if segment_recoiled else None
 
                 elif kind == "oscillate_goal":
                     osc_dur = seg["cycles"] / seg["hz"]
@@ -598,11 +476,6 @@ async def execute_neural_pose_program(
                     _, end_foot = manifold.project_angles_deg(end_deg, body=live_body)
                     support = list(seg["leg_support"])
                     spd = seg["speed_scale"]
-                    stall_ticks = [0] * 12
-                    prev_obs_sample: dict[int, tuple[float, float]] = {}
-                    recoiled_targets: dict[int, float] = {}
-                    recoiled_dirs: dict[int, float] = {}
-                    segment_recoiled = False
                     bridge.record(
                         job,
                         "motion_prepared",
@@ -624,61 +497,24 @@ async def execute_neural_pose_program(
                                 seg["joint_indices"], seg["centers_deg"], seg["amplitudes_deg"]
                             ):
                                 cand[j_idx] = c_deg + a_deg * math.sin(phase)
-                            for k, r_deg in recoiled_targets.items():
-                                cand[k] = min(cand[k], r_deg) if recoiled_dirs[k] >= 0.0 else max(cand[k], r_deg)
                             g_deg, g_foot = manifold.project_angles_deg(cand, body=live_body)
                         else:
                             g_deg, g_foot = end_deg, end_foot
                         sensor_now = await _step_50hz(connection, g_deg, g_foot, support, spd, now=now)
-                        newly_recoiled = _detect_stalled_recoils(
-                            sensor_now, g_deg, stall_ticks, prev_obs_sample, recoiled_targets, now
-                        )
-                        if newly_recoiled:
-                            segment_recoiled = True
-                            for k, r_deg in newly_recoiled.items():
-                                val_k = float(sensor_now["joints"][JOINTS[k]]["filtered_model_deg"])
-                                recoiled_dirs[k] = 1.0 if (g_deg[k] - val_k) >= 0.0 else -1.0
-                                end_deg[k] = min(end_deg[k], r_deg) if recoiled_dirs[k] >= 0.0 else max(end_deg[k], r_deg)
-                            end_deg, end_foot = manifold.project_angles_deg(end_deg, body=live_body)
-                            support = manifold.infer_leg_support(end_deg)
-                            bridge.record(
-                                job,
-                                "joint_recoil",
-                                {
-                                    "action_index": idx,
-                                    "joints": {JOINTS[k]: r_deg for k, r_deg in newly_recoiled.items()},
-                                    "projected_goal": {JOINTS[i]: end_deg[i] for i in range(12)},
-                                },
-                            )
                         if elapsed >= total_dur:
                             break
                         await _wait_next_tick(now)
                     hold_goal_deg, hold_goal_foot, hold_support = end_deg, end_foot, support
-                    final_posture_jammed = segment_recoiled
-                    jammed_action_name = action.get("name") if segment_recoiled else None
 
                 elif kind == "hold":
                     hold_dur = max(0.02, float(seg["seconds"]))
-                    stall_ticks = [0] * 12
-                    prev_obs_sample: dict[int, tuple[float, float]] = {}
-                    recoiled_targets: dict[int, float] = {}
                     while True:
                         now = gateway.clock()
                         elapsed = now - t_start
                         tick_event.clear()
-                        sensor_now = await _step_50hz(
+                        await _step_50hz(
                             connection, hold_goal_deg, hold_goal_foot, hold_support, 0.5, now=now
                         )
-                        newly_recoiled = _detect_stalled_recoils(
-                            sensor_now, hold_goal_deg, stall_ticks, prev_obs_sample, recoiled_targets, now
-                        )
-                        if newly_recoiled:
-                            final_posture_jammed = True
-                            cand_hold = list(hold_goal_deg)
-                            for k, r_deg in recoiled_targets.items():
-                                cand_hold[k] = r_deg
-                            hold_goal_deg, hold_goal_foot = manifold.project_angles_deg(cand_hold, body=live_body)
-                            hold_support = manifold.infer_leg_support(hold_goal_deg)
                         if elapsed >= hold_dur:
                             break
                         await _wait_next_tick(now)
@@ -695,8 +531,6 @@ async def execute_neural_pose_program(
                     usable_joint_angles_deg(gateway.body_sensor_observation(robot)), body=live_body
                 )
                 hold_support = manifold.infer_leg_support(hold_goal_deg)
-                final_posture_jammed = False
-                jammed_action_name = None
 
             elif kind in ("stop", "release"):
                 walk_seq = None
@@ -704,8 +538,6 @@ async def execute_neural_pose_program(
                 seq = await gateway.estop(robot_id=robot, detach=detach, **sequence_options)
                 sequence_options.clear()
                 await bridge._receipt(job, seq, obs["epoch"], acknowledgement=True)
-                final_posture_jammed = False
-                jammed_action_name = None
 
             # Finalize operation record
             job["completed_operation_index"] = idx
@@ -749,85 +581,6 @@ async def execute_neural_pose_program(
                 obs = await bridge.connected_observation(job)
                 job["observation"] = obs
 
-        # If a joint stalled/recoiled on the final posture, smoothly return to Ready (Stand)
-        # over 0.85 s before locking hold so no limb stays parked near an obstacle or half-pose.
-        if (
-            final_posture_jammed
-            and jammed_action_name != "stand"
-            and walk_seq is not None
-            and bridge.active.get(robot) == job["id"]
-            and not job.get("cancellation_requested")
-        ):
-            connection = await _ensure_host_stream()
-            stand_deg, stand_foot = manifold.project_angles_deg(STAND_ANGLES_DEG, body=live_body)
-            stand_support = [1.0, 1.0, 1.0, 1.0]
-            stand_spd = 0.75
-            t_ready_start = gateway.clock()
-            ready_stall_ticks = [0] * 12
-            ready_prev_obs: dict[int, tuple[float, float]] = {}
-            ready_recoiled: dict[int, float] = {}
-            ready_prev_usable: dict[int, float] = {}
-            ready_settled = 0
-            bridge.record(
-                job,
-                "return_to_ready_started",
-                {
-                    "generation_index": generation_index,
-                    "duration_s": RETURN_TO_READY_DURATION_S,
-                    "target": {JOINTS[i]: stand_deg[i] for i in range(12)},
-                },
-            )
-            while True:
-                now = gateway.clock()
-                elapsed = now - t_ready_start
-                tick_event.clear()
-                sensor_now = await _step_50hz(connection, stand_deg, stand_foot, stand_support, stand_spd, now=now)
-                newly = _detect_stalled_recoils(
-                    sensor_now, stand_deg, ready_stall_ticks, ready_prev_obs, ready_recoiled, now
-                )
-                if newly:
-                    cand = list(stand_deg)
-                    for k, r_deg in ready_recoiled.items():
-                        cand[k] = r_deg
-                    stand_deg, stand_foot = manifold.project_angles_deg(cand, body=live_body)
-                    ready_settled = 0
-                    await _wait_next_tick(now)
-                    continue
-                if elapsed >= RETURN_TO_READY_DURATION_S:
-                    break
-                curr_usable: dict[int, float] = {}
-                errs: list[float] = []
-                steps: list[float] = []
-                for i, j in enumerate(JOINTS):
-                    jd = sensor_now["joints"][j]
-                    if jd.get("feedback_usable") and isinstance(jd.get("filtered_model_deg"), (int, float)):
-                        val = float(jd["filtered_model_deg"])
-                        curr_usable[i] = val
-                        errs.append(abs(val - stand_deg[i]))
-                        if i in ready_prev_usable:
-                            steps.append(abs(val - ready_prev_usable[i]))
-                had_prev = bool(ready_prev_usable)
-                ready_prev_usable = curr_usable
-                if elapsed >= 0.35 and had_prev and len(errs) >= 6:
-                    if max(errs) <= 4.0 and (sum(errs) / len(errs)) <= 2.5 and (not steps or max(steps) <= 1.0):
-                        ready_settled += 1
-                        if ready_settled >= 3:
-                            break
-                    else:
-                        ready_settled = 0
-                else:
-                    ready_settled = 0
-                await _wait_next_tick(now)
-            hold_goal_deg, hold_goal_foot, hold_support = stand_deg, stand_foot, stand_support
-            bridge.record(
-                job,
-                "return_to_ready_completed",
-                {
-                    "generation_index": generation_index,
-                    "after": _sample_snapshot(gateway.body_sensor_observation(robot)),
-                },
-            )
-
         # Lock final posture smoothly in place if our 50 Hz host stream is still active
         if walk_seq is not None and bridge.active.get(robot) == job["id"] and not job.get("cancellation_requested"):
             connection = gateway._connections.get(robot)
@@ -846,8 +599,13 @@ async def execute_neural_pose_program(
         if walk_seq is not None and bridge.active.get(robot) == job["id"]:
             connection = gateway._connections.get(robot)
             if connection is not None and connection._owns_walk(walk_seq):
+                @asynccontextmanager
+                async def _mark_err_hold(seq: int):
+                    job["neural_pose_hold_seq"] = seq
+                    yield
+
                 try:
-                    await gateway.estop(robot_id=robot, detach=False)
+                    await gateway.estop(robot_id=robot, detach=False, on_sequence=_mark_err_hold)
                 except Exception:
                     pass
         raise

@@ -2,10 +2,13 @@
   "repository": "https://github.com/pollen-robotics/microduck_rl",
   "commit": "bae39f5900b318f7e87fc485c30a31213cfa14eb",
   "imported": "2026-11-05",
-  "modifications": "None. Ainekio task adaptation lives in gateway.neural_gait.microduck.",
+  "modifications": "Removed unused CC-BY-NC-SA-4.0 STL meshes and LICENSE-MODELS.md, and updated pyproject.toml license metadata to Apache-2.0 only; only Apache-2.0 Python/config sources are retained. Ainekio task adaptation lives in gateway.neural_gait.microduck.",
   "omitted": [
     ".git",
     "AGENTS.md",
-    "CLAUDE.md"
+    "CLAUDE.md",
+    "LICENSE-MODELS.md",
+    "src/mjlab_microduck/robot/microduck/assets/*.stl",
+    "src/mjlab_microduck/robot/xl330_test_bench/assets/*.stl"
   ]
 }

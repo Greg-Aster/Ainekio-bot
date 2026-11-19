@@ -28,7 +28,7 @@ Dates identify the available saved states, not continuous daily coverage. Earlie
 | 2026-10-21 | `Ainekio-Daily-2026-10-21.blend` |
 | 2026-10-25 | `Ainekio-Motion-Working.blend` |
 | 2026-10-27 | `Ainekio-Motion-Working-Modeling-Recovery.blend` |
-| 2026-10-28 | `Servo_Reference_Assets/MG90S-before-part-organization.blend` |
+| 2026-10-28 | `../../third_party/cad-references/Servo_Reference_Assets/MG90S-before-part-organization.blend` |
 | 2026-11-02 | `compact-stand-before-printability-fix.blend` |
 | 2026-11-03 | `V3-before-Part003-lightening.blend` |
 | 2026-11-09 | `front-shell-fixes.blend` |

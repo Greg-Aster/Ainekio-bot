@@ -272,7 +272,7 @@ class PersonIdentityBackend:
             identities = self.tracker.update((*source, self.gallery.revision), counter, received_at, evidence)
         objects = tuple(replace(item, identity=identities.get(index)) for index, item in enumerate(recognition.objects))
         model_hash = hashlib.sha256((recognition.model + self.faces.model_hash + self.faces.detector_hash).encode()).hexdigest()
-        return replace(recognition, backend="ultralytics+sface", model="person-identity@" + model_hash, objects=objects,
+        return replace(recognition, backend=f"{recognition.backend}+sface", model="person-identity@" + model_hash, objects=objects,
             summary=f"{len(evidence)} people; {sum(i['state'] == 'face_match' for i in identities.values())} enrolled face matches.",
             uncertainties=("Face matches are estimates, not verified identity or liveness.",
                 "Tracked names use short box/color continuity; crossings, similar clothing and occlusion can defeat association.",

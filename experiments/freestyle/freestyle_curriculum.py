@@ -33,14 +33,40 @@ STAND_ANGLES = [0.0, 0.94, -21.25] * 4
 SIT_ANGLES = [0.0, -21.8, -10.64, 0.0, -21.8, -10.64, 0.0, 13.74, -65.79, 0.0, 13.74, -65.79]
 CROUCH_ANGLES = [0.0, -21.5, -22.0, 0.0, -21.5, -22.0, 0.0, -21.5, -22.0, 0.0, -21.5, -22.0]
 REST_ANGLES = [0.0, -21.8, 19.98] * 4
+LAY_DOWN_ANGLES = [-32.52, 33.34, 50.91] * 4
+DEAD_ANGLES = [-32.52, 33.34, 50.91, -32.52, 33.34, 50.91, -23.33, 98.62, 65.62, -23.33, 98.62, 65.62]
 DEEP_SQUAT_ANGLES = [0.0, -14.0, 26.0, 0.0, -14.0, 26.0, 0.0, -12.0, 22.0, 0.0, -12.0, 22.0]
 WIDE_STANCE_ANGLES = [-14.0, 8.0, -24.0] * 4
 
+SPLAYED_STAND_PRESETS = (
+    [-40.91, 7.01, -19.84, -12.44, 7.71, -21.42, -12.37, -0.78, -20.25, -17.82, 5.15, -21.68],
+    [-12.44, 7.71, -21.42, -40.91, 7.01, -19.84, -17.82, 5.15, -21.68, -12.37, -0.78, -20.25],
+    [-26.28, -0.14, -16.90, -3.85, -8.41, -20.46, -6.57, 12.23, -21.42, -14.20, 6.39, -28.86],
+    [-3.85, -8.41, -20.46, -26.28, -0.14, -16.90, -14.20, 6.39, -28.86, -6.57, 12.23, -21.42],
+    [22.0, 4.5, -20.0, -18.0, -3.5, -22.5, -28.0, 6.0, -19.5, 14.0, 2.0, -21.0],
+    [-18.0, -3.5, -22.5, 22.0, 4.5, -20.0, 14.0, 2.0, -21.0, -28.0, 6.0, -19.5],
+    [-14.0, 8.0, -24.0, -14.0, 8.0, -24.0, -14.0, 8.0, -24.0, -14.0, 8.0, -24.0],
+    [16.0, -4.0, -22.0, -22.0, 5.0, -19.0, 18.0, -2.0, -23.0, -31.0, 8.0, -18.5],
+)
+
 STARTING_POSES = {
     'stand': STAND_ANGLES,
+    'splayed_stand': SPLAYED_STAND_PRESETS[0],
     'sit': SIT_ANGLES,
     'crouch': CROUCH_ANGLES,
     'rest': REST_ANGLES,
+    'lay_down': LAY_DOWN_ANGLES,
+    'dead': DEAD_ANGLES,
+}
+
+POSTURE_FACES = {
+    'stand': 'stand',
+    'splayed_stand': 'stand',
+    'sit': 'sit',
+    'crouch': 'crouch',
+    'rest': 'rest',
+    'lay_down': 'lay_down',
+    'dead': 'dead',
 }
 
 
@@ -151,7 +177,7 @@ P4_FEATURES = [
     'gateway_switching_v1', 'audio_input_v1', 'face_feedback_v1',
 ]
 
-POSE_SEED_OFFSET = {'stand': 101, 'sit': 211, 'crouch': 307, 'rest': 401}
+POSE_SEED_OFFSET = {'stand': 101, 'splayed_stand': 157, 'sit': 211, 'crouch': 307, 'rest': 401, 'lay_down': 509, 'dead': 613}
 JOINT_CLAMP_BOUNDS = ((-96.0, 86.5), (-22.1, 163.5), (-104.0, 75.0))
 
 
@@ -168,7 +194,10 @@ def _euler_to_wxyz(roll_deg: float, pitch_deg: float, yaw_deg: float) -> list[fl
 
 
 def synthetic_observation(pose_name: str = 'stand', seed: int = 0):
-    angles = STARTING_POSES[pose_name]
+    if pose_name == 'splayed_stand':
+        angles = list(SPLAYED_STAND_PRESETS[max(0, seed) % len(SPLAYED_STAND_PRESETS)])
+    else:
+        angles = STARTING_POSES[pose_name]
     if seed <= 0:
         joints = {}
         for idx, (name, base) in enumerate(zip(JOINTS, angles)):
@@ -300,13 +329,17 @@ def validate_program(program: list[dict], start_pose_name: str = 'stand', *, obs
         raise ValueError('Custom curriculum must not emit servo release')
     encoded = ENCODING.encode(program)
     VALIDATOR.validate(encoded)
-    check_obs_list = [synthetic_observation(start_pose_name, seed=0)]
-    if obs is not None:
-        check_obs_list.append(obs)
+    check_obs_list = [obs] if obs is not None else [synthetic_observation(start_pose_name, seed=0)]
     for check_obs in check_obs_list:
         planned = None
         for index, action in enumerate(program):
             name = action['name']
+            if name == 'feet':
+                for off in action['arguments']['offsets_mm']:
+                    if not (-58.0 <= float(off[2]) <= 58.0):
+                        raise ValueError(
+                            f'Step {index} (feet) excessive single-step Z delta {off[2]} mm (must stay within [-58, +58] mm)'
+                        )
             if name in ('move', 'pose', 'oscillate', 'feet', 'body'):
                 compiled = compile_motion(action, check_obs, planned)
                 planned = compiled['end']
@@ -336,26 +369,181 @@ def validate_program(program: list[dict], start_pose_name: str = 'stand', *, obs
     return encoded
 
 
+STATEFUL_OR_EXPLICIT_END_FAMILIES = {
+    'stop_and_faces',
+    'direct_joint_control',
+    'posture_sit_hold',
+    'posture_lay_down_hold',
+    'posture_play_dead_hold',
+    'posture_crouch_rest_hold',
+    'seated_gesture_chains',
+    'party_and_collapse_arcs',
+    'recovery_and_revival_arcs',
+    'posture_transition_chains',
+}
+
+SEATED_FRONT_PAW_FAMILIES = {
+    'wave_right_hand',
+    'wave_left_hand',
+    'standing_right_hand',
+    'standing_left_hand',
+    'high_five',
+    'fist_bump',
+    'beckon_come_here',
+}
+
+
+def _starts_with_sit_brace_enter(prog: list[dict]) -> bool:
+    if len(prog) < 7 or prog[0]['name'] != 'face':
+        return False
+    enter_ref = sit_brace_enter(65)
+    for step, ref in zip(prog[1:6], enter_ref):
+        if step['name'] != 'pose' or step['arguments'].get('joints') != ref['arguments']['joints']:
+            return False
+        if step['arguments'].get('angles_deg') != ref['arguments']['angles_deg']:
+            return False
+    return True
+
+
+def _ends_with_sit_brace_exit(prog: list[dict]) -> bool:
+    if len(prog) < 8 or prog[-1]['name'] != 'face':
+        return False
+    exit_ref = sit_brace_exit(65)
+    for step, ref in zip(prog[-7:-1], exit_ref):
+        if step['name'] != 'pose' or step['arguments'].get('joints') != ref['arguments']['joints']:
+            return False
+        if step['arguments'].get('angles_deg') != ref['arguments']['angles_deg']:
+            return False
+    return True
+
+
+def _seated_front_paw_adaptation(curriculum_family: str, prog: list[dict], origin_deg: list[float]) -> list[dict]:
+    side = 'left' if 'left' in curriculum_family else 'right'
+    leg = f'front_{side}'
+    lead_face = prog[0] if prog and prog[0]['name'] == 'face' else face('happy')
+    return_pose = op('pose', joints=list(JOINTS), angles_deg=origin_deg, reference='absolute', speed_pct=65)
+    if curriculum_family in ('wave_right_hand', 'wave_left_hand'):
+        osc = next((a for a in prog if a['name'] == 'oscillate'), None)
+        cyc = osc['arguments'].get('cycles', 3) if osc else 3
+        spd = osc['arguments'].get('speed_pct', 75) if osc else 75
+        return [
+            lead_face,
+            op('pose', joints=leg_joints(leg), angles_deg=[-55.0, 46.0, 14.0], reference='absolute', speed_pct=spd),
+            op('oscillate', joint=f'{leg}_shoulder', amplitude_deg=26, cycles=cyc, speed_pct=spd),
+            return_pose,
+            face('sit'),
+        ]
+    if curriculum_family in ('standing_right_hand', 'standing_left_hand'):
+        has_osc = any(a['name'] == 'oscillate' for a in prog)
+        hold_op = next((a for a in prog if a['name'] == 'hold'), hold(1.0))
+        return [
+            lead_face,
+            op('pose', joints=leg_joints(leg), angles_deg=[-48.0, 46.0, 18.0], reference='absolute', speed_pct=65),
+            *([op('oscillate', joint=f'{leg}_shoulder', amplitude_deg=18, cycles=2, speed_pct=75)] if has_osc else [hold_op]),
+            return_pose,
+            face('sit'),
+        ]
+    if curriculum_family == 'high_five':
+        return [
+            lead_face,
+            op('pose', joints=leg_joints(leg), angles_deg=[-42.0, 52.0, 26.0], reference='absolute', speed_pct=75),
+            hold(0.75),
+            return_pose,
+            face('sit'),
+        ]
+    if curriculum_family == 'fist_bump':
+        return [
+            lead_face,
+            op('pose', joints=leg_joints(leg), angles_deg=[-16.0, 42.0, 24.0], reference='absolute', speed_pct=75),
+            op('move', joint=f'{leg}_crank', angle_deg=12.0, reference='current', speed_pct=85),
+            hold(0.5),
+            return_pose,
+            face('sit'),
+        ]
+    # beckon_come_here
+    return [
+        lead_face,
+        op('pose', joints=leg_joints(leg), angles_deg=[-22.0, 40.0, 18.0], reference='absolute', speed_pct=70),
+        op('oscillate', joint=f'{leg}_crank', amplitude_deg=14, cycles=3, speed_pct=75),
+        return_pose,
+        face('sit'),
+    ]
+
+
+def adapt_program_for_start_pose(
+    request: str,
+    program: list[dict],
+    curriculum_family: str,
+    start_pose: str,
+    obs: dict | None,
+) -> list[dict]:
+    full_program = copy.deepcopy(list(program))
+    if obs is None or start_pose == 'stand':
+        return full_program
+    first_motion = next((a for a in full_program if a['name'] not in ('face', 'hold')), None)
+    if first_motion is None or first_motion['name'] in ('stand', 'stop'):
+        return full_program
+    already_stands = (
+        first_motion['name'] == 'pose'
+        and first_motion['arguments'].get('joints') == list(JOINTS)
+        and first_motion['arguments'].get('angles_deg') == list(STAND_ANGLES)
+    )
+    if curriculum_family == 'posture_transition_chains':
+        if not already_stands:
+            insert_at = 1 if full_program and full_program[0]['name'] == 'face' else 0
+            full_program.insert(insert_at, stand_pose(speed_pct=65))
+        return full_program
+    if curriculum_family in STATEFUL_OR_EXPLICIT_END_FAMILIES:
+        return full_program
+
+    # When starting from a crooked/splayed standing posture, square up cleanly to Stand
+    # and finish in nominal Stand rather than returning to the crooked splay or confusing
+    # splayed shoulders with LAY_DOWN_ANGLES!
+    if start_pose == 'splayed_stand':
+        if not already_stands:
+            insert_at = 1 if full_program and full_program[0]['name'] == 'face' else 0
+            full_program.insert(insert_at, stand_pose(speed_pct=65))
+        return full_program
+
+    low = request.lower()
+    explicit_stand_ending = any(
+        p in low for p in ('finish standing', 'return to stand', 'return to standing', 'end standing', 'back on your feet')
+    )
+    if explicit_stand_ending:
+        if not already_stands:
+            insert_at = 1 if full_program and full_program[0]['name'] == 'face' else 0
+            full_program.insert(insert_at, stand_pose(speed_pct=65))
+        return full_program
+
+    origin_deg = [round(float(obs['joints'][j]['commanded_model_deg']), 2) for j in JOINTS]
+    return_pose = op('pose', joints=list(JOINTS), angles_deg=origin_deg, reference='absolute', speed_pct=60)
+    return_face = face(POSTURE_FACES.get(start_pose, 'stand'))
+
+    # Seated-native front-arm / head gestures stay seated and return directly to the seated observation!
+    if start_pose == 'sit':
+        if _starts_with_sit_brace_enter(full_program) and _ends_with_sit_brace_exit(full_program):
+            core = full_program[6:-7]
+            if core:
+                return [full_program[0], *core, return_pose, return_face]
+        if curriculum_family in SEATED_FRONT_PAW_FAMILIES and not _starts_with_sit_brace_enter(full_program):
+            return _seated_front_paw_adaptation(curriculum_family, full_program, origin_deg)
+
+    # Whole-body transient actions (bow, dance, stretch, walks, rear-leg lifts, or starting from crouch/rest/lay_down):
+    # rise cleanly to Stand to execute the whole-body motion, then return to the exact starting posture from obs!
+    if not already_stands:
+        insert_at = 1 if full_program and full_program[0]['name'] == 'face' else 0
+        full_program.insert(insert_at, stand_pose(speed_pct=65))
+    if full_program and full_program[-1]['name'] == 'face':
+        full_program.pop()
+    full_program.extend([return_pose, return_face])
+    return full_program
+
+
 def make_entry(request: str, program: list[dict], curriculum_family: str, *,
                with_observation: str | None = None, seed: int = 0, split: str = 'train'):
     start_pose = with_observation or 'stand'
-    full_program = list(program)
-    if start_pose in ('sit', 'crouch', 'rest'):
-        first_motion = next((a for a in full_program if a['name'] not in ('face', 'hold')), None)
-        already_stands = (
-            first_motion is not None and (
-                first_motion['name'] in ('stand', 'stop')
-                or (
-                    first_motion['name'] == 'pose'
-                    and first_motion['arguments'].get('joints') == list(JOINTS)
-                    and first_motion['arguments'].get('angles_deg') == list(STAND_ANGLES)
-                )
-            )
-        )
-        if first_motion and not already_stands:
-            insert_at = 1 if full_program and full_program[0]['name'] == 'face' else 0
-            full_program.insert(insert_at, stand_pose(speed_pct=65))
     obs = synthetic_observation(with_observation, seed=max(1, seed)) if with_observation else None
+    full_program = adapt_program_for_start_pose(request, program, curriculum_family, start_pose, obs)
     answers = validate_program(full_program, start_pose, obs=obs)
     if obs is not None:
         query_obj = model_query(enrich({
@@ -388,13 +576,13 @@ def make_entry(request: str, program: list[dict], curriculum_family: str, *,
 
 def prog_raise_hand(side: str = 'right', mode: str = 'standing', speed: int = 70, hold_s: float = 0.8):
     if side == 'both':
-        brace_spd = max(speed, 75)
+        brace_spd = min(85, max(35, speed))
         return [
             face('excited'),
             *sit_brace_enter(brace_spd),
             op('pose', joints=front_joints(),
                angles_deg=[-52.0, 42.0, 16.0, -52.0, 42.0, 16.0],
-               reference='absolute', speed_pct=max(speed, 70)),
+               reference='absolute', speed_pct=brace_spd),
             hold(hold_s),
             *sit_brace_exit(brace_spd),
             face('stand'),
@@ -402,7 +590,7 @@ def prog_raise_hand(side: str = 'right', mode: str = 'standing', speed: int = 70
     if mode != 'seated':
         return prog_standing_hand(side, 'lift', hold_s, speed)
     leg = f'front_{side}'
-    brace_spd = max(speed, 75)
+    brace_spd = min(85, max(35, speed))
     return [
         face('happy'),
         *sit_brace_enter(brace_spd),
@@ -418,8 +606,8 @@ def prog_raise_hand(side: str = 'right', mode: str = 'standing', speed: int = 70
 
 def prog_wave_hand(side: str = 'right', cycles: int = 3, speed: int = 75, quick: bool = True):
     if side == 'both':
-        brace_spd = max(speed, 75)
-        wave_spd = max(speed, 80)
+        brace_spd = min(85, max(35, speed))
+        wave_spd = min(95, max(40, speed + 5))
         return [
             face('wave'),
             *sit_brace_enter(brace_spd),
@@ -442,13 +630,13 @@ def prog_wave_hand(side: str = 'right', cycles: int = 3, speed: int = 75, quick:
         return [
             face('wave'),
             shift_in,
-            op('feet', legs=[leg], offsets_mm=[[20, sign * 22, 58]], speed_pct=speed),
+            op('feet', legs=[leg], offsets_mm=[[20, sign * 20, 52]], speed_pct=speed),
             op('oscillate', joint=f'{leg}_shoulder', amplitude_deg=24, cycles=cycles, speed_pct=speed),
-            op('feet', legs=[leg], offsets_mm=[[-20, -sign * 22, -58]], speed_pct=speed),
+            op('feet', legs=[leg], offsets_mm=[[-20, -sign * 20, -52]], speed_pct=speed),
             shift_out,
             face('stand'),
         ]
-    brace_spd = max(speed, 75)
+    brace_spd = min(85, max(35, speed))
     return [
         face('wave'),
         *sit_brace_enter(brace_spd),
@@ -564,15 +752,14 @@ def prog_high_five(side: str = 'right', speed: int = 75):
         ]
     leg = f'front_{side}'
     sign = 1 if side == 'left' else -1
-    shift_in, shift_out = weight_shift_for(leg, speed)
+    shift_in, _ = weight_shift_for(leg, speed)
     return [
         face('excited'),
         shift_in,
-        op('feet', legs=[leg], offsets_mm=[[24, sign * 18, 72]], speed_pct=speed),
-        op('feet', legs=[leg], offsets_mm=[[8, 0, 6]], speed_pct=min(100, speed + 15)),
+        op('feet', legs=[leg], offsets_mm=[[22, sign * 16, 48]], speed_pct=speed),
+        op('pose', joints=leg_joints(leg), angles_deg=[-36.0, 52.0, 26.0], reference='absolute', speed_pct=min(100, speed + 10)),
         hold(0.75),
-        op('feet', legs=[leg], offsets_mm=[[-32, -sign * 18, -78]], speed_pct=speed),
-        shift_out,
+        stand_pose(speed_pct=speed),
         face('stand'),
     ]
 
@@ -707,9 +894,9 @@ def prog_lift_leg(leg: str = 'front_right', height: str = 'normal', hold_s: floa
     shift_in, shift_out = weight_shift_for(leg, speed)
     sign = 1 if leg.endswith('_left') else -1
     is_front = leg.startswith('front_')
-    dx = 16 if is_front else 14
-    dy = sign * (14 if height == 'high' else 12)
-    dz = (56 if height == 'high' else 44) if is_front else (44 if height == 'high' else 34)
+    dx = 16 if is_front else (18 if height == 'high' else 14)
+    dy = sign * (14 if (height == 'high' and is_front) else 12)
+    dz = (56 if height == 'high' else 44) if is_front else (42 if height == 'high' else 34)
     return [
         face('happy'),
         shift_in,
@@ -948,16 +1135,14 @@ def prog_tiptoe_tall(speed: int = 55):
 
 
 def prog_sneak_prowl(speed: int = 35):
-    prowl = [-10.0, -10.0, 12.0, -10.0, -10.0, 12.0, -10.0, -12.0, 14.0, -10.0, -12.0, 14.0]
-    shoulders = ['rear_left_shoulder', 'rear_right_shoulder', 'front_left_shoulder', 'front_right_shoulder']
     return [
         face('curious'),
-        op('pose', joints=list(JOINTS), angles_deg=prowl, reference='absolute', speed_pct=speed, taper_deg=2),
-        op('pose', joints=shoulders, angles_deg=[-4.0, -18.0, -18.0, -4.0], reference='absolute', speed_pct=speed),
+        op('body', translation_mm=[-4, 0, -10], rotation_deg=[0, 4, 0], legs=[], foot_offsets_mm=[], speed_pct=speed, taper_deg=2),
+        op('body', translation_mm=[0, 8, 0], rotation_deg=[-2, 0, 8], legs=[], foot_offsets_mm=[], speed_pct=speed),
         hold(0.45),
-        op('pose', joints=shoulders, angles_deg=[-18.0, -4.0, -4.0, -18.0], reference='absolute', speed_pct=speed),
+        op('body', translation_mm=[0, -16, 0], rotation_deg=[4, 0, -16], legs=[], foot_offsets_mm=[], speed_pct=speed),
         hold(0.45),
-        stand_pose(speed_pct=speed + 20),
+        op('body', translation_mm=[4, 8, 10], rotation_deg=[-2, -4, 8], legs=[], foot_offsets_mm=[], speed_pct=min(85, speed + 20), taper_deg=2),
         face('stand'),
     ]
 
@@ -1161,30 +1346,29 @@ def prog_macarena_dance(cycles: int = 2, speed: int = 75):
             op('pose', joints=front_joints(), angles_deg=[18.0, 10.0, -28.0, 18.0, 10.0, -28.0], reference='absolute', speed_pct=speed),
             # Hands up to head sides
             op('pose', joints=front_joints(), angles_deg=[-65.0, 22.0, 18.0, -65.0, 22.0, 18.0], reference='absolute', speed_pct=speed),
-            # Hip shimmy in seated brace using rear shoulders
-            op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[-12.0, 12.0], reference='absolute', speed_pct=speed + 10),
-            op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[12.0, -12.0], reference='absolute', speed_pct=speed + 10),
-            op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[0.0, 0.0], reference='absolute', speed_pct=speed),
+            # Upper-body shimmy in seated brace using unloaded front arms (keeping planted rear shoulders steady)
+            op('pose', joints=front_joints(), angles_deg=[-74.0, 26.0, 20.0, -46.0, 26.0, 20.0], reference='absolute', speed_pct=min(100, speed + 10)),
+            op('pose', joints=front_joints(), angles_deg=[-46.0, 26.0, 20.0, -74.0, 26.0, 20.0], reference='absolute', speed_pct=min(100, speed + 10)),
+            op('pose', joints=front_joints(), angles_deg=[-60.0, 22.0, 18.0, -60.0, 22.0, 18.0], reference='absolute', speed_pct=speed),
         ])
-    seq.extend([*sit_brace_exit(speed - 10), face('stand')])
+    seq.extend([*sit_brace_exit(max(35, speed - 10)), face('stand')])
     return seq
 
 
 def prog_disco_dance(cycles: int = 3, speed: int = 80):
-    seq = [face('dance'), *sit_brace_enter(speed - 10)]
+    seq = [face('dance'), *sit_brace_enter(max(35, speed - 10))]
     # Left paw braces hip/waist while right paw points sky-high diagonal then across hip!
     seq.append(op('pose', joints=leg_joints('front_left'), angles_deg=[-32.0, 12.0, -36.0], reference='absolute', speed_pct=speed))
     for _ in range(cycles):
         seq.extend([
-            op('pose', joints=[*leg_joints('front_right'), 'rear_left_shoulder', 'rear_right_shoulder'],
-               angles_deg=[-64.0, 50.0, 28.0, -10.0, 10.0], reference='absolute', speed_pct=speed),
+            op('pose', joints=front_joints(),
+               angles_deg=[-42.0, 16.0, -30.0, -64.0, 50.0, 28.0], reference='absolute', speed_pct=speed),
             hold(0.25),
-            op('pose', joints=[*leg_joints('front_right'), 'rear_left_shoulder', 'rear_right_shoulder'],
-               angles_deg=[20.0, 6.0, -34.0, 10.0, -10.0], reference='absolute', speed_pct=speed),
+            op('pose', joints=front_joints(),
+               angles_deg=[-26.0, 10.0, -38.0, 20.0, 6.0, -34.0], reference='absolute', speed_pct=speed),
             hold(0.25),
         ])
-    seq.append(op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[0.0, 0.0], reference='absolute', speed_pct=speed))
-    seq.extend([*sit_brace_exit(speed - 10), face('stand')])
+    seq.extend([*sit_brace_exit(max(35, speed - 10)), face('stand')])
     return seq
 
 
@@ -1211,12 +1395,43 @@ def prog_robot_poplock(speed: int = 95):
 def prog_headbang_rock(cycles: int = 4, speed: int = 95):
     return [
         face('excited'),
-        op('pose', joints=list(JOINTS), angles_deg=list(WIDE_STANCE_ANGLES), reference='absolute', speed_pct=75),
+        op('body', translation_mm=[-4, 0, -2], rotation_deg=[0, 3, 0], legs=[], foot_offsets_mm=[], speed_pct=70),
         *[a for _ in range(cycles) for a in (
-            op('body', translation_mm=[4, 0, -4], rotation_deg=[0, 11, 0], legs=[], foot_offsets_mm=[], speed_pct=speed),
-            op('body', translation_mm=[-4, 0, 4], rotation_deg=[0, -11, 0], legs=[], foot_offsets_mm=[], speed_pct=speed),
+            op('body', translation_mm=[3, 0, -2], rotation_deg=[0, 8, 0], legs=[], foot_offsets_mm=[], speed_pct=speed),
+            op('body', translation_mm=[-3, 0, 2], rotation_deg=[0, -8, 0], legs=[], foot_offsets_mm=[], speed_pct=speed),
         )],
-        stand_pose(speed_pct=70),
+        op('body', translation_mm=[4, 0, 2], rotation_deg=[0, -3, 0], legs=[], foot_offsets_mm=[], speed_pct=65),
+        face('stand'),
+    ]
+
+
+def prog_cornering_ride(kind: str = 'motorcycle', cycles: int = 3, speed: int = 75):
+    """Closed-chain banking, carving, and cornering (motorcycle passes, surfing, slalom skiing)."""
+    if kind == 'slalom':
+        return [
+            face('excited'),
+            op('body', translation_mm=[2, 0, 2], rotation_deg=[0, 2, 0], legs=[], foot_offsets_mm=[], speed_pct=65),
+            *[a for _ in range(cycles) for a in (
+                op('body', translation_mm=[0, 8, 0], rotation_deg=[-4, 0, 6], legs=[], foot_offsets_mm=[], speed_pct=speed),
+                op('body', translation_mm=[0, -16, 0], rotation_deg=[8, 0, -12], legs=[], foot_offsets_mm=[], speed_pct=speed),
+                op('body', translation_mm=[0, 8, 0], rotation_deg=[-4, 0, 6], legs=[], foot_offsets_mm=[], speed_pct=speed),
+            )],
+            op('body', translation_mm=[-2, 0, -2], rotation_deg=[0, -2, 0], legs=[], foot_offsets_mm=[], speed_pct=60),
+            face('stand'),
+        ]
+    # Motorcycle / racecar mountain-pass banking: forward lean, smooth banking left/right + throttle pitch
+    return [
+        face('excited'),
+        op('body', translation_mm=[5, 0, 4], rotation_deg=[0, 3, 0], legs=[], foot_offsets_mm=[], speed_pct=65, taper_deg=2),
+        *[a for _ in range(cycles) for a in (
+            op('body', translation_mm=[-1, 9, 0], rotation_deg=[-5, 1, 6], legs=[], foot_offsets_mm=[], speed_pct=speed, taper_deg=2),
+            hold(0.25),
+            op('body', translation_mm=[1, -9, 0], rotation_deg=[5, -1, -6], legs=[], foot_offsets_mm=[], speed_pct=speed, taper_deg=2),
+            op('body', translation_mm=[-1, -9, 0], rotation_deg=[5, 1, -6], legs=[], foot_offsets_mm=[], speed_pct=speed, taper_deg=2),
+            hold(0.25),
+            op('body', translation_mm=[1, 9, 0], rotation_deg=[-5, -1, 6], legs=[], foot_offsets_mm=[], speed_pct=speed, taper_deg=2),
+        )],
+        op('body', translation_mm=[-5, 0, -4], rotation_deg=[0, -3, 0], legs=[], foot_offsets_mm=[], speed_pct=60, taper_deg=2),
         face('stand'),
     ]
 
@@ -1238,16 +1453,18 @@ def prog_hamlet_scene(speed: int = 55):
            reference='absolute', speed_pct=speed, taper_deg=3),
         hold(1.0),
         face('sad'),
-        # Contemplative tilt & slight raise of the skull
-        op('pose', joints=[*leg_joints('front_right'), 'rear_left_shoulder', 'rear_right_shoulder'],
-           angles_deg=[-32.0, 54.0, 28.0, -6.0, 6.0],
-           reference='absolute', speed_pct=speed - 10, taper_deg=3),
+        # Contemplative tilt & slight raise of the skull (unloaded front limbs only)
+        op('pose', joints=front_joints(),
+           angles_deg=[20.0, 12.0, -30.0, -32.0, 54.0, 28.0],
+           reference='absolute', speed_pct=max(30, speed - 10), taper_deg=3),
         hold(1.1),
-        # Gentle solemn shake
-        op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'],
-           angles_deg=[6.0, -6.0], reference='absolute', speed_pct=speed - 10),
-        op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'],
-           angles_deg=[0.0, 0.0], reference='absolute', speed_pct=speed - 10),
+        # Gentle solemn shake of the raised hand
+        op('pose', joints=leg_joints('front_right'),
+           angles_deg=[-18.0, 50.0, 24.0], reference='absolute', speed_pct=max(30, speed - 10)),
+        op('pose', joints=leg_joints('front_right'),
+           angles_deg=[-36.0, 50.0, 24.0], reference='absolute', speed_pct=max(30, speed - 10)),
+        op('pose', joints=leg_joints('front_right'),
+           angles_deg=[-26.0, 48.0, 22.0], reference='absolute', speed_pct=max(30, speed - 10)),
         # Lower hand and return to standing for curtain-call bow
         *sit_brace_exit(speed),
         face('bow'),
@@ -1446,8 +1663,6 @@ def prog_stir_pot(side: str = 'right', cycles: int = 2, taste: bool = True, spee
     for i in range(1, 8 * cycles + 1):
         theta = 2 * math.pi * i / 8
         pts.append([round(20 + 10 * math.cos(theta), 2), round(sign * (12 + 10 * math.sin(theta)), 2), 26])
-    if taste:
-        pts.extend([[21, sign * 22, 92]])
     seq = [
         face('thinking'),
         shift_in,
@@ -1455,12 +1670,14 @@ def prog_stir_pot(side: str = 'right', cycles: int = 2, taste: bool = True, spee
     ]
     if taste:
         seq.extend([
+            op('pose', joints=leg_joints(leg), angles_deg=[-18.0, 48.0, 26.0], reference='absolute', speed_pct=max(35, speed - 10)),
             hold(0.6),
             face('love'),
-            op('feet', legs=[leg], offsets_mm=[[-21, -sign * 22, -92]], speed_pct=speed),
+            stand_pose(speed_pct=speed),
+            face('stand'),
         ])
-    else:
-        seq.append(op('feet', legs=[leg], offsets_mm=[[-pts[-1][0], -pts[-1][1], -pts[-1][2]]], speed_pct=speed))
+        return seq
+    seq.append(op('feet', legs=[leg], offsets_mm=[[-pts[-1][0], -pts[-1][1], -pts[-1][2]]], speed_pct=speed))
     seq.extend([shift_out, face('stand')])
     return seq
 
@@ -1468,17 +1685,16 @@ def prog_stir_pot(side: str = 'right', cycles: int = 2, taste: bool = True, spee
 def prog_drink_cup(side: str = 'right', speed: int = 60):
     leg = f'front_{side}'
     sign = 1 if side == 'left' else -1
-    shift_in, shift_out = weight_shift_for(leg, speed)
+    shift_in, _ = weight_shift_for(leg, speed)
     return [
         face('happy'),
         shift_in,
         op('feet', legs=[leg], offsets_mm=[[22, sign * 14, 42]], speed_pct=speed),
-        op('feet', legs=[leg], offsets_mm=[[-1, sign * 9, 54]], speed_pct=speed - 10),
+        op('pose', joints=leg_joints(leg), angles_deg=[-18.0, 50.0, 28.0], reference='absolute', speed_pct=max(35, speed - 10)),
         op('body', translation_mm=[0, 0, 0], rotation_deg=[0, -5, 0], legs=[], foot_offsets_mm=[], speed_pct=45),
         hold(0.85),
         op('body', translation_mm=[0, 0, 0], rotation_deg=[0, 5, 0], legs=[], foot_offsets_mm=[], speed_pct=45),
-        op('feet', legs=[leg], offsets_mm=[[-21, -sign * 23, -96]], speed_pct=speed),
-        shift_out,
+        stand_pose(speed_pct=speed),
         face('stand'),
     ]
 
@@ -1573,10 +1789,10 @@ def prog_shadow_boxing(cycles: int = 2, speed: int = 90):
             # Right cross
             op('pose', joints=leg_joints('front_right'), angles_deg=[-8.0, 48.0, 28.0], reference='absolute', speed_pct=min(100, speed + 5)),
             op('pose', joints=leg_joints('front_right'), angles_deg=[-22.0, 24.0, 8.0], reference='absolute', speed_pct=speed),
-            # Bob & weave slip using rear shoulders
-            op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[-14.0, 14.0], reference='absolute', speed_pct=85),
-            op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[14.0, -14.0], reference='absolute', speed_pct=85),
-            op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[0.0, 0.0], reference='absolute', speed_pct=80),
+            # Bob & weave guard slip using unloaded front arms (keeping planted rear shoulders steady)
+            op('pose', joints=front_joints(), angles_deg=[-36.0, 18.0, -4.0, -12.0, 30.0, 14.0], reference='absolute', speed_pct=85),
+            op('pose', joints=front_joints(), angles_deg=[-12.0, 30.0, 14.0, -36.0, 18.0, -4.0], reference='absolute', speed_pct=85),
+            op('pose', joints=front_joints(), angles_deg=[-22.0, 24.0, 8.0, -22.0, 24.0, 8.0], reference='absolute', speed_pct=80),
         ])
     seq.extend([*sit_brace_exit(70), face('stand')])
     return seq
@@ -1709,16 +1925,17 @@ def prog_cat_dog_antics(kind: str = 'play_bow', cycles: int = 3, speed: int = 80
             op('body', translation_mm=[-18, 0, -4], rotation_deg=[0, 3, 0], legs=[], foot_offsets_mm=[], speed_pct=75, taper_deg=3),
             face('stand'),
         ]
-    # Dog play-bow + happy tail wag!
-    bow_pose = [-8.0, 12.0, -24.0, -8.0, 12.0, -24.0, -10.0, 32.0, 24.0, -10.0, 32.0, 24.0]
+    # Dog play-bow + happy closed-chain tail wag (no planted shoulder scrubbing)!
+    wag_spd = min(100, speed + 10)
     return [
         face('happy'),
-        op('pose', joints=list(JOINTS), angles_deg=bow_pose, reference='absolute', speed_pct=70, taper_deg=2),
+        op('body', translation_mm=[-4, 0, 2], rotation_deg=[0, 6, 0], legs=[], foot_offsets_mm=[], speed_pct=70, taper_deg=2),
         *[a for _ in range(cycles) for a in (
-            op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[-20.0, 4.0], reference='absolute', speed_pct=min(100, speed + 10)),
-            op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[4.0, -20.0], reference='absolute', speed_pct=min(100, speed + 10)),
+            op('body', translation_mm=[0, 6, 0], rotation_deg=[-2, 0, -5], legs=[], foot_offsets_mm=[], speed_pct=wag_spd),
+            op('body', translation_mm=[0, -12, 0], rotation_deg=[4, 0, 10], legs=[], foot_offsets_mm=[], speed_pct=wag_spd),
+            op('body', translation_mm=[0, 6, 0], rotation_deg=[-2, 0, -5], legs=[], foot_offsets_mm=[], speed_pct=wag_spd),
         )],
-        stand_pose(speed_pct=70),
+        op('body', translation_mm=[4, 0, -2], rotation_deg=[0, -6, 0], legs=[], foot_offsets_mm=[], speed_pct=70, taper_deg=2),
         face('stand'),
     ]
 
@@ -1855,14 +2072,13 @@ def prog_zombie_thriller(cycles: int = 2, speed: int = 75):
     ]
     for _ in range(cycles):
         seq.extend([
-            op('pose', joints=['front_left_shoulder', 'front_right_shoulder', 'rear_left_shoulder', 'rear_right_shoulder'],
-               angles_deg=[-46.0, 12.0, -10.0, 10.0], reference='absolute', speed_pct=speed, taper_deg=0),
+            op('pose', joints=['front_left_shoulder', 'front_right_shoulder'],
+               angles_deg=[-46.0, 12.0], reference='absolute', speed_pct=speed, taper_deg=0),
             hold(0.3),
-            op('pose', joints=['front_left_shoulder', 'front_right_shoulder', 'rear_left_shoulder', 'rear_right_shoulder'],
-               angles_deg=[12.0, -46.0, 10.0, -10.0], reference='absolute', speed_pct=speed, taper_deg=0),
+            op('pose', joints=['front_left_shoulder', 'front_right_shoulder'],
+               angles_deg=[12.0, -46.0], reference='absolute', speed_pct=speed, taper_deg=0),
             hold(0.3),
         ])
-    seq.append(op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[0.0, 0.0], reference='absolute', speed_pct=65))
     seq.extend([*sit_brace_exit(60), face('stand')])
     return seq
 
@@ -1875,9 +2091,9 @@ def prog_trex(speed: int = 80):
            angles_deg=[14.0, 18.0, -44.0, 14.0, 18.0, -44.0], reference='absolute', speed_pct=speed),
         op('oscillate', joint='front_left_crank', amplitude_deg=10, cycles=2, speed_pct=90),
         op('oscillate', joint='front_right_crank', amplitude_deg=10, cycles=2, speed_pct=90),
-        op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[-14.0, 14.0], reference='absolute', speed_pct=85),
-        op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[14.0, -14.0], reference='absolute', speed_pct=85),
-        op('pose', joints=['rear_left_shoulder', 'rear_right_shoulder'], angles_deg=[0.0, 0.0], reference='absolute', speed_pct=75),
+        op('pose', joints=front_joints(), angles_deg=[22.0, 24.0, -38.0, 6.0, 12.0, -50.0], reference='absolute', speed_pct=85),
+        op('pose', joints=front_joints(), angles_deg=[6.0, 12.0, -50.0, 22.0, 24.0, -38.0], reference='absolute', speed_pct=85),
+        op('pose', joints=front_joints(), angles_deg=[14.0, 18.0, -44.0, 14.0, 18.0, -44.0], reference='absolute', speed_pct=75),
         *sit_brace_exit(70),
         face('stand'),
     ]
@@ -1985,6 +2201,185 @@ def prog_opera_singer(speed: int = 55):
         op('body', translation_mm=[6, 0, -4], rotation_deg=[0, -11, 0], legs=[], foot_offsets_mm=[], speed_pct=55, taper_deg=3),
         face('stand'),
     ]
+
+
+def prog_polite_bow(speed: int = 55, hold_s: float = 1.0):
+    return [
+        face('bow'),
+        op('pose', joints=list(JOINTS),
+           angles_deg=[0.0, 14.0, -8.0, 0.0, 14.0, -8.0, 0.0, -21.0, -22.0, 0.0, -21.0, -22.0],
+           reference='absolute', speed_pct=speed, taper_deg=2),
+        hold(hold_s),
+        stand_pose(speed_pct=speed, taper_deg=2),
+        face('stand'),
+    ]
+
+
+def prog_posture_hold(target: str = 'sit', speed: int = 55, hold_s: float = 0.8):
+    if target == 'sit':
+        return [
+            face('sit'),
+            op('pose', joints=list(JOINTS), angles_deg=list(SIT_ANGLES), reference='absolute', speed_pct=speed, taper_deg=2),
+            hold(hold_s),
+        ]
+    if target == 'lay_down':
+        return [
+            face('lay_down'),
+            op('pose', joints=list(JOINTS), angles_deg=list(CROUCH_ANGLES), reference='absolute', speed_pct=speed),
+            op('pose', joints=list(JOINTS), angles_deg=list(LAY_DOWN_ANGLES), reference='absolute', speed_pct=speed, taper_deg=2),
+            hold(hold_s),
+        ]
+    if target == 'dead':
+        return [
+            face('surprised'),
+            op('pose', joints=list(JOINTS), angles_deg=list(CROUCH_ANGLES), reference='absolute', speed_pct=speed),
+            face('dead'),
+            op('pose', joints=list(JOINTS), angles_deg=list(LAY_DOWN_ANGLES), reference='absolute', speed_pct=min(85, speed + 5)),
+            op('pose', joints=list(JOINTS), angles_deg=list(DEAD_ANGLES), reference='absolute', speed_pct=speed),
+            hold(hold_s),
+        ]
+    if target == 'rest':
+        return [
+            face('rest'),
+            op('pose', joints=list(JOINTS), angles_deg=list(REST_ANGLES), reference='absolute', speed_pct=speed, taper_deg=2),
+            hold(hold_s),
+        ]
+    return [
+        face('crouch'),
+        op('pose', joints=list(JOINTS), angles_deg=list(CROUCH_ANGLES), reference='absolute', speed_pct=speed, taper_deg=2),
+        hold(hold_s),
+    ]
+
+
+def prog_seated_gesture_chain(gesture: str = 'wave', side: str = 'right', end_pose: str = 'sit', speed: int = 70):
+    leg = f'front_{side}'
+    seq = [
+        face('sit'),
+        op('pose', joints=list(JOINTS), angles_deg=list(SIT_ANGLES), reference='absolute', speed_pct=60, taper_deg=2),
+        hold(0.3),
+    ]
+    if gesture == 'wave':
+        seq.extend([
+            face('wave'),
+            op('pose', joints=leg_joints(leg), angles_deg=[-55.0, 46.0, 14.0], reference='absolute', speed_pct=speed),
+            op('oscillate', joint=f'{leg}_shoulder', amplitude_deg=26, cycles=3, speed_pct=speed),
+        ])
+    elif gesture == 'point':
+        seq.extend([
+            face('point'),
+            op('pose', joints=leg_joints(leg), angles_deg=[-14.0, 46.0, 28.0], reference='absolute', speed_pct=speed),
+            hold(0.8),
+        ])
+    elif gesture == 'clap':
+        seq.extend([
+            face('celebrate'),
+            op('pose', joints=front_joints(), angles_deg=[-34.0, 32.0, 18.0, -34.0, 32.0, 18.0], reference='absolute', speed_pct=speed),
+            *[a for _ in range(3) for a in (
+                op('pose', joints=['front_left_shoulder', 'front_right_shoulder'], angles_deg=[12.0, 12.0], reference='absolute', speed_pct=85),
+                op('pose', joints=['front_left_shoulder', 'front_right_shoulder'], angles_deg=[-38.0, -38.0], reference='absolute', speed_pct=85),
+            )],
+        ])
+    else:
+        seq.extend([
+            face('listening'),
+            op('pose', joints=leg_joints(leg), angles_deg=[-48.0, 48.0, 22.0], reference='absolute', speed_pct=speed),
+            hold(0.65),
+        ])
+    if end_pose == 'lay_down':
+        seq.extend(prog_posture_hold('lay_down', 55, 0.8))
+    elif end_pose == 'stand':
+        seq.extend([stand_pose(60), face('stand')])
+    else:
+        seq.extend([
+            op('pose', joints=list(JOINTS), angles_deg=list(SIT_ANGLES), reference='absolute', speed_pct=65, taper_deg=2),
+            face('sit'),
+            hold(0.4),
+        ])
+    return seq
+
+
+def prog_party_collapse(ending: str = 'dead', style: str = 'party', speed: int = 85):
+    seq = [face('celebrate' if style == 'party' else 'dance')]
+    if style == 'headbang':
+        seq.extend([
+            stand_pose(70),
+            *[a for _ in range(3) for a in (
+                op('pose', joints=front_joints(), angles_deg=[0.0, -21.0, -22.0, 0.0, -21.0, -22.0], reference='absolute', speed_pct=speed),
+                op('pose', joints=front_joints(), angles_deg=[0.0, 14.0, -8.0, 0.0, 14.0, -8.0], reference='absolute', speed_pct=speed),
+            )],
+        ])
+    else:
+        seq.extend([
+            stand_pose(70),
+            *[a for _ in range(3) for a in (
+                op('body', translation_mm=[2, 8, 2], rotation_deg=[-4, 1, 4], legs=[], foot_offsets_mm=[], speed_pct=speed),
+                op('body', translation_mm=[-4, -16, 0], rotation_deg=[8, -2, -8], legs=[], foot_offsets_mm=[], speed_pct=speed),
+                op('body', translation_mm=[2, 8, -2], rotation_deg=[-4, 1, 4], legs=[], foot_offsets_mm=[], speed_pct=speed),
+            )],
+            *prog_wave_hand('right', cycles=2, speed=speed, quick=True)[1:-1],
+            stand_pose(65),
+        ])
+    # Dizzy closed-chain wobble before collapsing into held terminal posture
+    seq.extend([
+        face('confused'),
+        op('body', translation_mm=[0, 6, 2], rotation_deg=[-4, 2, 4], legs=[], foot_offsets_mm=[], speed_pct=45),
+        op('body', translation_mm=[0, -6, -2], rotation_deg=[4, -2, -4], legs=[], foot_offsets_mm=[], speed_pct=40),
+    ])
+    if ending == 'lay_down':
+        seq.extend([
+            face('sleepy'),
+            op('pose', joints=list(JOINTS), angles_deg=list(CROUCH_ANGLES), reference='absolute', speed_pct=45),
+            face('lay_down'),
+            op('pose', joints=list(JOINTS), angles_deg=list(LAY_DOWN_ANGLES), reference='absolute', speed_pct=45, taper_deg=2),
+            hold(1.0),
+        ])
+    else:
+        seq.extend([
+            face('dead'),
+            op('pose', joints=list(JOINTS), angles_deg=list(LAY_DOWN_ANGLES), reference='absolute', speed_pct=70),
+            op('pose', joints=list(JOINTS), angles_deg=list(DEAD_ANGLES), reference='absolute', speed_pct=65),
+            hold(1.0),
+        ])
+    return seq
+
+
+def prog_dead_revive(ending: str = 'celebrate'):
+    seq = [
+        face('dead'),
+        op('pose', joints=list(JOINTS), angles_deg=list(LAY_DOWN_ANGLES), reference='absolute', speed_pct=65),
+        op('pose', joints=list(JOINTS), angles_deg=list(DEAD_ANGLES), reference='absolute', speed_pct=65),
+        hold(1.4),
+        face('surprised'),
+        op('pose', joints=list(JOINTS), angles_deg=list(CROUCH_ANGLES), reference='absolute', speed_pct=80),
+        stand_pose(85),
+    ]
+    if ending == 'stretch':
+        seq.extend(prog_full_body_stretch(55, 1.2))
+    elif ending == 'wave':
+        seq.extend(prog_wave_hand('right', 2, 80, quick=True))
+    else:
+        seq.extend([
+            face('celebrate'),
+            op('pose', joints=list(JOINTS), angles_deg=[0.0, 12.0, -14.0] * 4, reference='absolute', speed_pct=85),
+            hold(0.4),
+            stand_pose(70),
+            face('happy'),
+        ])
+    return seq
+
+
+def prog_posture_transition_chain(first: str = 'bow', final_pose: str = 'sit'):
+    seq = []
+    if first == 'bow':
+        seq.extend(prog_polite_bow(55, 0.8)[:-1])
+    elif first == 'stretch':
+        seq.extend(prog_full_body_stretch(55, 1.2)[:-1])
+    elif first == 'wave':
+        seq.extend(prog_wave_hand('right', 2, 75, quick=True)[:-1])
+    else:
+        seq.extend(prog_salsa_dance(2, 80)[:-1])
+    seq.extend(prog_posture_hold(final_pose, 55, 0.8))
+    return seq
 
 
 # ---------------------------------------------------------------------------
@@ -2160,27 +2555,53 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     ], ('Act like you have an itchy ear and scratch it with your right hind leg.', prog_scratch_ear('right', 4, 80))))
 
     specs.append(('direct_joint_control', [
-        ('Abduct your front right shoulder outward by 25 degrees and return.',
-         [op('move', joint='front_right_shoulder', angle_deg=-25, reference='current', speed_pct=50),
+        ('Lift and abduct your front right shoulder outward by 25 degrees, then return to stand.',
+         [stand_pose(speed_pct=60),
+          weight_shift_for('front_right', 60)[0],
+          op('feet', legs=['front_right'], offsets_mm=[[14, -10, 32]], speed_pct=60),
+          op('move', joint='front_right_shoulder', angle_deg=-25, reference='current', speed_pct=50),
           hold(0.4),
-          op('move', joint='front_right_shoulder', angle_deg=25, reference='current', speed_pct=50)]),
-        ('Abduct your front left shoulder outward by 25 degrees and return.',
-         [op('move', joint='front_left_shoulder', angle_deg=-25, reference='current', speed_pct=50),
+          op('move', joint='front_right_shoulder', angle_deg=25, reference='current', speed_pct=50),
+          stand_pose(speed_pct=60)]),
+        ('Lift and abduct your front left shoulder outward by 25 degrees, then return to stand.',
+         [stand_pose(speed_pct=60),
+          weight_shift_for('front_left', 60)[0],
+          op('feet', legs=['front_left'], offsets_mm=[[14, 10, 32]], speed_pct=60),
+          op('move', joint='front_left_shoulder', angle_deg=-25, reference='current', speed_pct=50),
           hold(0.4),
-          op('move', joint='front_left_shoulder', angle_deg=25, reference='current', speed_pct=50)]),
+          op('move', joint='front_left_shoulder', angle_deg=25, reference='current', speed_pct=50),
+          stand_pose(speed_pct=60)]),
         ('Oscillate the front right crank 3 times by 15 degrees at 70 percent speed.',
-         [op('oscillate', joint='front_right_crank', amplitude_deg=15, cycles=3, speed_pct=70)]),
-        ('Oscillate the rear left shoulder twice by 12 degrees.',
-         [op('oscillate', joint='rear_left_shoulder', amplitude_deg=12, cycles=2, speed_pct=50)]),
-        ('Wiggle both front shoulders outward and back together.',
-         [op('pose', joints=['front_left_shoulder', 'front_right_shoulder'], angles_deg=[-22.0, -22.0], reference='absolute', speed_pct=65),
-          op('pose', joints=['front_left_shoulder', 'front_right_shoulder'], angles_deg=[0.0, 0.0], reference='absolute', speed_pct=65)]),
-        ('Flex both front cranks forward by 18 degrees at 80 percent speed, hold half a second, then bring them back.',
-         [op('pose', joints=['front_left_crank', 'front_right_crank'], angles_deg=[18.0, 18.0], reference='current', speed_pct=80),
+         [stand_pose(speed_pct=65),
+          weight_shift_for('front_right', 65)[0],
+          op('feet', legs=['front_right'], offsets_mm=[[14, -10, 32]], speed_pct=65),
+          op('oscillate', joint='front_right_crank', amplitude_deg=15, cycles=3, speed_pct=70),
+          stand_pose(speed_pct=65)]),
+        ('Unload your rear left leg and oscillate the rear left shoulder twice by 12 degrees.',
+         [stand_pose(speed_pct=60),
+          weight_shift_for('rear_left', 60)[0],
+          op('feet', legs=['rear_left'], offsets_mm=[[12, 10, 28]], speed_pct=60),
+          op('oscillate', joint='rear_left_shoulder', amplitude_deg=12, cycles=2, speed_pct=50),
+          stand_pose(speed_pct=60)]),
+        ('Sit back and wiggle both front shoulders outward and back together.',
+         [stand_pose(speed_pct=65),
+          *sit_brace_enter(65),
+          op('pose', joints=front_joints(), angles_deg=[-42.0, 36.0, 14.0, -42.0, 36.0, 14.0], reference='absolute', speed_pct=65),
+          op('pose', joints=front_joints(), angles_deg=[-12.0, 36.0, 14.0, -12.0, 36.0, 14.0], reference='absolute', speed_pct=65),
+          *sit_brace_exit(65)]),
+        ('Sit back, flex both front cranks forward by 18 degrees at 80 percent speed, hold half a second, then return.',
+         [stand_pose(speed_pct=65),
+          *sit_brace_enter(65),
+          op('pose', joints=['front_left_crank', 'front_right_crank'], angles_deg=[18.0, 18.0], reference='current', speed_pct=80),
           hold(0.5),
-          op('pose', joints=['front_left_crank', 'front_right_crank'], angles_deg=[-18.0, -18.0], reference='current', speed_pct=80)]),
-    ], ('Oscillate your front left crank 2 times by 14 degrees at 60 percent speed.',
-        [op('oscillate', joint='front_left_crank', amplitude_deg=14, cycles=2, speed_pct=60)])))
+          op('pose', joints=['front_left_crank', 'front_right_crank'], angles_deg=[-18.0, -18.0], reference='current', speed_pct=80),
+          *sit_brace_exit(65)]),
+    ], ('Unload your front left leg and oscillate the front left crank 2 times by 14 degrees at 60 percent speed.',
+        [stand_pose(speed_pct=60),
+         weight_shift_for('front_left', 60)[0],
+         op('feet', legs=['front_left'], offsets_mm=[[14, 10, 32]], speed_pct=60),
+         op('oscillate', joint='front_left_crank', amplitude_deg=14, cycles=2, speed_pct=60),
+         stand_pose(speed_pct=60)])))
 
     # --- Pillar 2: Attitude, Gaze, Postures & Emotional Reactions (11 families) ---
     specs.append(('look_directions', [
@@ -2706,6 +3127,97 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     ], ('Lift your front left leg, set it down, then lift your front right leg and finish standing.',
         prog_alternate_limbs(('front_left', 'front_right'), 0.45, 70))))
 
+    # --- Pillar 7: Stateful Postures, Origin-Preserving Gestures & Narrative Arcs ---
+    specs.append(('polite_bow', [
+        ('Take a bow.', prog_polite_bow(55, 1.0)),
+        ('Please bow.', prog_polite_bow(55, 1.0)),
+        ('Give a deep polite bow.', prog_polite_bow(50, 1.2)),
+        ('Bow respectfully to the audience.', prog_polite_bow(55, 1.0)),
+        ('Take a quick curtain-call bow!', prog_polite_bow(70, 0.7)),
+    ], ('Bow politely and return to your starting posture.', prog_polite_bow(55, 1.0))))
+
+    specs.append(('posture_sit_hold', [
+        ('Sit down.', prog_posture_hold('sit', 55, 0.8)),
+        ('Please sit.', prog_posture_hold('sit', 55, 0.8)),
+        ('Take a seat and stay sitting.', prog_posture_hold('sit', 55, 1.0)),
+        ('Sit nicely and hold that pose.', prog_posture_hold('sit', 55, 1.0)),
+        ('Go into a seated posture.', prog_posture_hold('sit', 55, 0.8)),
+        ('Sit!', prog_posture_hold('sit', 65, 0.8)),
+    ], ('Have a seat and stay seated.', prog_posture_hold('sit', 55, 0.8))))
+
+    specs.append(('posture_lay_down_hold', [
+        ('Lie down.', prog_posture_hold('lay_down', 55, 0.9)),
+        ('Please lie down.', prog_posture_hold('lay_down', 55, 0.9)),
+        ('Lay down flat on the floor.', prog_posture_hold('lay_down', 55, 1.0)),
+        ('Go lie down and stay down.', prog_posture_hold('lay_down', 50, 1.0)),
+        ('Get down on your belly and rest there.', prog_posture_hold('lay_down', 50, 1.0)),
+        ('Lie flat on the ground.', prog_posture_hold('lay_down', 55, 0.9)),
+    ], ('Lower yourself flat onto the floor and stay lying down.', prog_posture_hold('lay_down', 55, 0.9))))
+
+    specs.append(('posture_play_dead_hold', [
+        ('Play dead!', prog_posture_hold('dead', 70, 1.0)),
+        ('Bang! You are dead!', prog_posture_hold('dead', 75, 1.0)),
+        ('Pretend to be dead and stay down.', prog_posture_hold('dead', 70, 1.2)),
+        ('Drop dead right now!', prog_posture_hold('dead', 80, 1.0)),
+        ('Do your play-dead act and hold still.', prog_posture_hold('dead', 70, 1.2)),
+        ('Act dead on the floor.', prog_posture_hold('dead', 65, 1.0)),
+    ], ('Dramatically play dead and remain still on the ground.', prog_posture_hold('dead', 70, 1.0))))
+
+    specs.append(('posture_crouch_rest_hold', [
+        ('Crouch down low and stay there.', prog_posture_hold('crouch', 55, 0.9)),
+        ('Get into a low crouch and hold it.', prog_posture_hold('crouch', 55, 0.9)),
+        ('Stay low in a crouch.', prog_posture_hold('crouch', 50, 0.9)),
+        ('Settle into your resting pose and stay.', prog_posture_hold('rest', 50, 1.0)),
+        ('Tuck into a quiet rest posture.', prog_posture_hold('rest', 50, 1.0)),
+    ], ('Drop into a low crouch and hold the position.', prog_posture_hold('crouch', 55, 0.9))))
+
+    specs.append(('seated_gesture_chains', [
+        ('Sit, then wave, then return to sit.', prog_seated_gesture_chain('wave', 'right', 'sit', 75)),
+        ('Sit down, wave hello with your right hand, and stay sitting.', prog_seated_gesture_chain('wave', 'right', 'sit', 75)),
+        ('Take a seat, wave with your left paw, and stay seated.', prog_seated_gesture_chain('wave', 'left', 'sit', 75)),
+        ('Sit down, point forward, then return to sitting.', prog_seated_gesture_chain('point', 'right', 'sit', 70)),
+        ('Sit, clap three times happily, and stay in your sit.', prog_seated_gesture_chain('clap', 'right', 'sit', 80)),
+        ('Sit down, give a salute, and then lie down flat.', prog_seated_gesture_chain('salute', 'right', 'lay_down', 70)),
+        ('Sit down, wave hello, and then stand back up.', prog_seated_gesture_chain('wave', 'right', 'stand', 75)),
+    ], ('Sit down, wave your left hand, and return to sitting.', prog_seated_gesture_chain('wave', 'left', 'sit', 75))))
+
+    specs.append(('party_and_collapse_arcs', [
+        ('Party till you fall down dead!', prog_party_collapse('dead', 'party', 85)),
+        ('Party until you fall down dead.', prog_party_collapse('dead', 'party', 85)),
+        ('Dance like crazy until you collapse and play dead!', prog_party_collapse('dead', 'party', 90)),
+        ('Celebrate wildly, get dizzy, and flop down dead!', prog_party_collapse('dead', 'party', 85)),
+        ('Boogie hard till you drop dead on the floor!', prog_party_collapse('dead', 'party', 90)),
+        ('Rock out and headbang until you pass out dead!', prog_party_collapse('dead', 'headbang', 90)),
+        ('Dance until you are completely exhausted and lie down flat.', prog_party_collapse('lay_down', 'party', 80)),
+        ('Party hard until you tire yourself out and go lie down.', prog_party_collapse('lay_down', 'party', 80)),
+    ], ('Dance and party wildly until you get dizzy and fall over dead!', prog_party_collapse('dead', 'party', 85))))
+
+    specs.append(('recovery_and_revival_arcs', [
+        ('Play dead for a moment, then suddenly pop back up and celebrate!', prog_dead_revive('celebrate')),
+        ('Pretend to die, pause, then spring back to life and wave!', prog_dead_revive('wave')),
+        ('Play dead, then wake up and do a big stretch!', prog_dead_revive('stretch')),
+        ('Act dead on the floor, then jump back up happily!', prog_dead_revive('celebrate')),
+    ], ('Play dead briefly, then pop back up onto your feet and wave hello!', prog_dead_revive('wave'))))
+
+    specs.append(('posture_transition_chains', [
+        ('Take a bow and then sit down.', prog_posture_transition_chain('bow', 'sit')),
+        ('Bow politely, then lie down flat.', prog_posture_transition_chain('bow', 'lay_down')),
+        ('Do a stretch and then lie back down to rest.', prog_posture_transition_chain('stretch', 'lay_down')),
+        ('Wave goodbye and then lie down to sleep.', prog_posture_transition_chain('wave', 'lay_down')),
+        ('Do a little salsa dance and finish sitting down.', prog_posture_transition_chain('dance', 'sit')),
+        ('Stretch your arms out and then take a seat.', prog_posture_transition_chain('stretch', 'sit')),
+    ], ('Give a polite bow and then settle into a seated posture.', prog_posture_transition_chain('bow', 'sit'))))
+
+    specs.append(('vehicle_cornering_and_banking', [
+        ('Please pretend that you are on a motorcycle riding through the mountain passes, leaning into the curves!', prog_cornering_ride('motorcycle', 3, 75)),
+        ('Act like a motorcycle racer banking left and right through winding canyon turns!', prog_cornering_ride('motorcycle', 4, 85)),
+        ('Pretend to ride a sportbike carving slowly and smoothly through mountain switchbacks.', prog_cornering_ride('motorcycle', 2, 45)),
+        ('Carve left and right like a skier weaving down a slalom course!', prog_cornering_ride('slalom', 3, 80)),
+        ('Pretend you are surfing a big wave and carving back and forth!', prog_cornering_ride('slalom', 3, 75)),
+        ('Lean into the turns like a racecar zooming through chicanes!', prog_cornering_ride('motorcycle', 3, 90)),
+    ], ('Mime riding a motorcycle leaning left and right through mountain turns, then return to level stand.',
+        prog_cornering_ride('motorcycle', 2, 75))))
+
     def casual_prompt(text: str) -> str:
         cleaned = text.strip().rstrip('.!?').replace('—', ' ').replace('-', ' ')
         return ' '.join(cleaned.lower().split())
@@ -2714,49 +3226,83 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     eval_rows = []
     seen_queries = set()
     seen_ids = set(discarded_ids)
+    program_bucket_counts: dict[tuple[str, str, str], int] = {}
 
-    obs_cycle = ('stand', 'sit', 'stand', 'crouch', 'stand', 'rest')
-    nonstand_cycle = ('sit', 'crouch', 'rest')
-    limb_posture_fams = {
-        'raise_right_hand', 'raise_left_hand', 'wave_right_hand', 'wave_left_hand',
+    obs_cycle = ('stand', 'splayed_stand', 'sit', 'crouch', 'rest', 'lay_down', 'splayed_stand')
+    nonstand_cycle = ('splayed_stand', 'sit', 'crouch', 'rest', 'lay_down')
+    origin_sensitive_fams = {
+        'raise_right_hand', 'raise_left_hand', 'raise_both_hands',
+        'wave_right_hand', 'wave_left_hand', 'wave_both_hands',
+        'point_right', 'point_left', 'salute_right_hand', 'salute_left_hand',
+        'clapping_applause', 'shake_hands', 'high_five', 'fist_bump', 'beckon_come_here',
+        'polite_bow', 'full_body_stretch', 'yes_and_no_gestures', 'laugh_and_sigh',
+        'head_tilt_curious', 'look_directions', 'vehicle_cornering_and_banking',
+        'moonwalk_dance', 'salsa_dance', 'macarena_dance', 'disco_dance',
         'lift_front_right_leg', 'lift_front_left_leg', 'lift_rear_right_leg', 'lift_rear_left_leg',
         'standing_right_hand', 'standing_left_hand', 'both_hands_reach_and_jazz',
         'leg_stretch_and_shake', 'alternate_legs_and_hands',
     }
+    multi_origin_stateful_fams = {
+        'posture_sit_hold', 'posture_lay_down_hold', 'posture_play_dead_hold',
+        'posture_crouch_rest_hold', 'seated_gesture_chains', 'party_and_collapse_arcs',
+        'recovery_and_revival_arcs', 'posture_transition_chains',
+    }
+    all_posture_starts = ('stand', 'splayed_stand', 'sit', 'crouch', 'rest', 'lay_down', 'dead')
+
     for fam_idx, (fam, train_items, eval_item) in enumerate(specs):
         for item_idx, (prompt, program) in enumerate(train_items):
             low = prompt.lower()
-            if item_idx == 0 or 'left' in low or 'right' in low or 'wave' in low or 'paw' in low:
-                modes = [None, 'stand']
-                if fam in limb_posture_fams and item_idx % 2 == 0:
-                    modes.append(nonstand_cycle[(fam_idx + item_idx) % len(nonstand_cycle)])
+            if fam in multi_origin_stateful_fams:
+                modes = [
+                    'stand',
+                    all_posture_starts[(fam_idx + item_idx) % len(all_posture_starts)],
+                    all_posture_starts[(fam_idx + item_idx + 2) % len(all_posture_starts)],
+                ]
+                if item_idx == 0:
+                    modes.insert(0, None)
+            elif fam in origin_sensitive_fams:
+                modes = ['stand', 'sit', nonstand_cycle[(fam_idx + item_idx) % len(nonstand_cycle)]]
+                if item_idx == 0:
+                    modes.insert(0, None)
+            elif item_idx == 0 or 'left' in low or 'right' in low or 'wave' in low or 'paw' in low:
+                modes = [None, 'stand', 'sit' if item_idx % 2 == 0 else nonstand_cycle[(fam_idx + item_idx) % len(nonstand_cycle)]]
             elif item_idx in (1, 2):
-                modes = [None, obs_cycle[(fam_idx + item_idx) % len(obs_cycle)]]
+                modes = ['stand', obs_cycle[(fam_idx + item_idx) % len(obs_cycle)]]
             else:
-                modes = [None if (fam_idx + item_idx) % 2 == 0 else obs_cycle[(fam_idx + item_idx) % len(obs_cycle)]]
+                modes = [None if (fam_idx + item_idx) % 4 == 0 else obs_cycle[(fam_idx + item_idx) % len(obs_cycle)]]
             req_variants = []
             for m_idx, mode in enumerate(modes):
                 use_casual = item_idx >= 2 and (fam_idx + item_idx + m_idx) % 2 == 1
                 req_text = casual_prompt(prompt) if use_casual else prompt
                 seed_val = 1 + fam_idx * 17 + item_idx * 3 + m_idx
                 req_variants.append((req_text, mode, seed_val))
-            if item_idx == 0 or (fam == 'wave_right_hand' and item_idx < 7):
-                req_variants.append((casual_prompt(prompt), 'stand', 2001 + fam_idx * 13 + item_idx))
+            if item_idx == 0:
+                req_variants.append((casual_prompt(prompt), 'splayed_stand', 2001 + fam_idx * 13 + item_idx))
+                req_variants.append((casual_prompt(prompt), 'sit', 3001 + fam_idx * 11 + item_idx))
                 if 'left' in fam or 'right' in fam:
                     req_variants.append((casual_prompt(prompt), None, 0))
-                    if fam in limb_posture_fams:
-                        req_variants.append((casual_prompt(prompt), nonstand_cycle[(fam_idx + item_idx) % 3], 3001 + fam_idx * 11 + item_idx))
             for req_text, mode, seed_val in req_variants:
                 row = make_entry(req_text, program, fam, with_observation=mode, seed=seed_val, split='train')
                 if row['query'] in seen_queries or row['id'] in seen_ids:
                     continue
+                bucket_key = (fam, str(mode), compact(row['answers']))
+                max_dup = 2 if mode is None else 3
+                if program_bucket_counts.get(bucket_key, 0) >= max_dup:
+                    continue
+                program_bucket_counts[bucket_key] = program_bucket_counts.get(bucket_key, 0) + 1
                 seen_queries.add(row['query'])
                 seen_ids.add(row['id'])
                 train_rows.append(row)
 
         eval_prompt, eval_prog = eval_item
         eval_req = casual_prompt(eval_prompt) if fam_idx % 3 == 1 else eval_prompt
-        erow = make_entry(eval_req, eval_prog, fam, with_observation='stand' if fam_idx % 2 else None, seed=901 + fam_idx, split='evaluation')
+        eval_mode = (
+            'sit' if (fam in origin_sensitive_fams and fam_idx % 2 == 0)
+            else ('stand' if fam_idx % 2 else 'sit')
+        )
+        if fam == 'stop_and_faces':
+            eval_mode = 'stand'
+        erow = make_entry(eval_req, eval_prog, fam, with_observation=eval_mode, seed=901 + fam_idx, split='evaluation')
         if erow['query'] not in seen_queries and erow['id'] not in seen_ids:
             seen_queries.add(erow['query'])
             seen_ids.add(erow['id'])

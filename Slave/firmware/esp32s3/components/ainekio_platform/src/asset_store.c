@@ -10,7 +10,7 @@
 #include "esp_littlefs.h"
 #include "esp_log.h"
 
-#define INDEX_JSON_MAX_BYTES 16384U
+#define INDEX_JSON_MAX_BYTES 32768U
 
 static const char *TAG = "ainekio_assets";
 static const char *const joint_labels[AINEKIO_SERVO_COUNT] = {

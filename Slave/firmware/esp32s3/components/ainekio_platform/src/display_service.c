@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "ainekio/platform/pin_map.h"
+#include "default_face_bitmap.h"
 #include "driver/i2c_master.h"
 #include "driver/uart.h"
 #include "esp_log.h"
@@ -175,23 +176,6 @@ static void set_pixel(uint8_t *buffer, uint8_t x, uint8_t y)
     }
 }
 
-static void compiled_default_face(uint8_t *buffer)
-{
-    memset(buffer, 0, AINEKIO_FACE_FRAME_BYTES);
-    for (uint8_t y = 18U; y < 31U; ++y) {
-        for (uint8_t x = 28U; x < 42U; ++x) {
-            set_pixel(buffer, x, y);
-            set_pixel(buffer, (uint8_t)(127U - x), y);
-        }
-    }
-    for (uint8_t x = 45U; x < 83U; ++x) {
-        const uint8_t distance = x < 64U ? (uint8_t)(64U - x)
-                                         : (uint8_t)(x - 64U);
-        set_pixel(buffer, x, (uint8_t)(49U - distance / 5U));
-        set_pixel(buffer, x, (uint8_t)(50U - distance / 5U));
-    }
-}
-
 static void convert_bitmap(
     const uint8_t source[AINEKIO_FACE_FRAME_BYTES],
     uint8_t output[AINEKIO_FACE_FRAME_BYTES]
@@ -206,6 +190,11 @@ static void convert_bitmap(
             }
         }
     }
+}
+
+static void compiled_default_face(uint8_t *buffer)
+{
+    convert_bitmap(ainekio_default_face_bitmap, buffer);
 }
 
 static const uint8_t *glyph(char character)
@@ -649,10 +638,14 @@ void ainekio_display_begin_listen(ainekio_display_service_t *service)
     if (service == NULL) {
         return;
     }
+    const char *listen_face =
+        ainekio_asset_store_face(service->assets, "listening") != NULL
+            ? "listening"
+            : "surprised";
     (void)ainekio_display_show_face(
         service,
-        "surprised",
-        AINEKIO_FACE_MODE_ONCE,
+        listen_face,
+        AINEKIO_FACE_MODE_LOOP,
         false,
         false
     );

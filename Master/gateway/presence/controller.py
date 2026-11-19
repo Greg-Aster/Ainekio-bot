@@ -1,9 +1,9 @@
 """20 Hz Host Controller for System 3 (Conversational Speech Presence, Gaze & Hardware Rest/Self-Righting).
 
 Arbitrates cleanly with System 1 (Locomotion) and System 2 (Freestyle / Motion Library):
-- Drives subtle 20 Hz foot/posture accompaniment ONLY while the robot is speaking (`speech_activity`),
-  staying completely silent while listening (so servo noise never holds P4's mic VAD gate open, letting
-  P4's built-in quiet `listen_frame` shoulder perk & listening face run undisturbed) and dormant when idle.
+- Drives subtle 20 Hz foot/posture accompaniment while the robot is speaking (`speech_activity`), plus a
+  crisp one-shot (~0.42s) attentive nose-up perk + `listening` face on `wake_word` that locks `stop(detach=False)`
+  completely silent while the user speaks (so servo noise never holds P4's mic VAD gate open), and stays dormant when idle.
 - Yields on the immediate command callback (<1 ms) whenever any external motion or Stop arrives.
 - Uses live TTS speech RMS envelope + optional YOLOE speaker gaze & 4th-wire compliance.
 - Releases servos into rest pose after configurable quiet inactivity (`servo_release_s`), and optionally handles
@@ -60,6 +60,8 @@ class RobotPresenceState:
     cmd_q_rad: torch.Tensor | None = None
     anchor_feet_mm: np.ndarray | None = None
     anchor_is_standing: bool = True
+    anchor_is_prone: bool = False
+    anchor_needs_step: bool = False
     settled_since: float | None = None
     last_tick_at: float = 0.0
     last_external_motion_at: float = 0.0
@@ -71,6 +73,10 @@ class RobotPresenceState:
     tip_detected_at: float | None = None
     probe_until: float = 0.0
     vad_listening_until: float = 0.0
+    wake_perk_until: float = 0.0
+    wake_perk_hold: bool = False
+    wake_perk_unsettled: bool = False
+    vad_closed_at: float = 0.0
     prev_vision_obs_at: float | None = None
     prev_vision_centers: dict[str, tuple[float, float]] = field(default_factory=dict)
     prev_vision_motion_mag: float = 0.0
@@ -218,10 +224,15 @@ class PresenceController:
         st.walk_seq = None
         st.last_sent_feet_mm = None
         st.anchor_feet_mm = None
+        st.anchor_is_prone = False
+        st.anchor_needs_step = False
         st.cmd_q_rad = None
         st.compliance_trim_mm = [0.0] * 12
         st.settled_since = None
         st.probe_until = 0.0
+        st.wake_perk_until = 0.0
+        st.wake_perk_hold = False
+        st.wake_perk_unsettled = False
         st.sympathy.reset()
 
     def _reset_for_connection(self, st: RobotPresenceState, now: float) -> None:
@@ -242,6 +253,7 @@ class PresenceController:
         st.prev_meas_deg = None
         st.prev_cmd_deg = None
         st.vad_listening_until = 0.0
+        st.vad_closed_at = 0.0
         st.walk_backoff_until = 0.0
         st.wake_yield_until = 0.0
         st.boot_stood = False
@@ -387,10 +399,19 @@ class PresenceController:
             now = self.gateway.clock()
             st.last_interaction_at = now
             st.last_release_reset_at = now
-            if ev_name in {"vad_open", "wake_word"}:
+            if ev_name == "wake_word":
                 st.vad_listening_until = now + 14.0
+                st.wake_perk_until = now + 0.42
+                st.wake_perk_hold = True
+                st.vad_closed_at = 0.0
+            elif ev_name == "vad_open":
+                st.vad_listening_until = now + 14.0
+                st.vad_closed_at = 0.0
             else:
                 st.vad_listening_until = 0.0
+                st.wake_perk_until = 0.0
+                st.wake_perk_hold = False
+                st.vad_closed_at = now
             wake = self._wake_events.get(robot_id)
             if wake is not None:
                 wake.set()
@@ -426,12 +447,30 @@ class PresenceController:
                 st.tip_detected_at = now
                 st.tip_still_since = None
             elif kind == "rapid_movement":
-                # Arm a short grounded-sympathy verification probe if active & grounded
-                if st.mode not in ("passive", "resting_released", "self_righting", "stopped"):
+                # Arm a short grounded-sympathy verification probe only when idle/grounded (never from own Freestyle or speech motion)
+                connection = self.gateway._connections.get(robot_id)
+                speaking_fn = getattr(self.gateway, "speech_activity", None)
+                speaking_now = bool(speaking_fn(robot_id)[0]) if callable(speaking_fn) else False
+                if (
+                    now >= st.walk_backoff_until
+                    and not speaking_now
+                    and connection is not None
+                    and not self._external_motion_busy(robot_id, connection, st, now)
+                    and st.mode not in ("passive", "resting_released", "self_righting", "stopped")
+                ):
                     st.probe_until = max(st.probe_until, now + 1.15)
                 st.last_interaction_at = now
-            elif kind == "servo_stall" and st.mode == "self_righting":
-                await self._enter_passive(robot_id, st, "righting_servo_stall")
+            elif kind == "servo_stall":
+                if st.mode == "self_righting":
+                    await self._enter_passive(robot_id, st, "righting_servo_stall")
+                elif st.mode == "active" or st.walk_seq is not None or bool(data.get("outputs_released")):
+                    connection = self.gateway._connections.get(robot_id)
+                    if connection is not None:
+                        await self._close_walk_stream(robot_id, connection, st, detach=False)
+                    self._reset_stance_tracking(st)
+                    st.mode = "standby"
+                    cooldown_s = 8.0 if data.get("outputs_released") else 2.5
+                    st.walk_backoff_until = max(st.walk_backoff_until, now + cooldown_s)
             wake = self._wake_events.get(robot_id)
             if wake is not None:
                 wake.set()
@@ -537,10 +576,41 @@ class PresenceController:
         known = 1.0 if ident.get("state") in ("face_match", "tracked") and ident.get("personId") else 0.0
         return person_yaw, person_pitch, person_conf, known, motion_mag
 
-    async def _close_walk_stream(self, robot_id: str, connection, st: RobotPresenceState, *, detach: bool = False) -> None:
+    async def _release_foreground_face(self, robot_id: str, connection, st: RobotPresenceState) -> None:
+        if not st.foreground_face_owned:
+            return
+        st.foreground_face_owned = False
+        st.active_expression = None
+        if "face_feedback_v1" in connection.features:
+            try:
+                await self._send_owned(
+                    self.gateway.queue_intent(
+                        "face",
+                        {
+                            "expr": "default",
+                            "token": st.face_token,
+                            "release": True,
+                        },
+                        robot_id=robot_id,
+                    ),
+                    st,
+                )
+            except Exception:
+                pass
+
+    async def _close_walk_stream(
+        self,
+        robot_id: str,
+        connection,
+        st: RobotPresenceState,
+        *,
+        detach: bool = False,
+        release_face: bool = True,
+    ) -> None:
         seq = st.walk_seq
         st.walk_seq = None
         st.settled_since = None
+        st.sympathy.reset()
         if detach or (seq is not None and connection._owns_walk(seq)):
             try:
                 await self._send_owned(
@@ -549,25 +619,8 @@ class PresenceController:
                 )
             except Exception:
                 pass
-        if st.foreground_face_owned:
-            st.foreground_face_owned = False
-            st.active_expression = None
-            if "face_feedback_v1" in connection.features:
-                try:
-                    await self._send_owned(
-                        self.gateway.queue_intent(
-                            "face",
-                            {
-                                "expr": "default",
-                                "token": st.face_token,
-                                "release": True,
-                            },
-                            robot_id=robot_id,
-                        ),
-                        st,
-                    )
-                except Exception:
-                    pass
+        if release_face:
+            await self._release_foreground_face(robot_id, connection, st)
 
     async def _set_background_face(
         self,
@@ -626,6 +679,7 @@ class PresenceController:
         st.passive_saw_handling = False
         st.passive_entry_tilt_deg = None
         st.pending_tip = False
+        st.probe_until = 0.0
         st.passive_entered_at = now
         st.upright_steady_since = None
         self._reset_stance_tracking(st)
@@ -639,7 +693,7 @@ class PresenceController:
                 targets_cd = [round(v * 100) for v in CALM_PASSIVE_DEG]
                 seq = await self._send_owned(
                     self.gateway.queue_motion_plan(
-                        [[18000, targets_cd]],
+                        [[12000, targets_cd]],
                         end="hold",
                         control="targets",
                         robot_id=robot_id,
@@ -648,7 +702,7 @@ class PresenceController:
                     robot_id=robot_id,
                 )
                 try:
-                    await self.gateway.wait_terminal(seq, robot_id=robot_id, epoch=connection.epoch, timeout=1.4)
+                    await self.gateway.wait_terminal(seq, robot_id=robot_id, epoch=connection.epoch, timeout=2.6)
                 except Exception:
                     pass
             if servos_armed and pmode in ("calm_then_release", "release"):
@@ -928,6 +982,8 @@ class PresenceController:
                 speech_rms = 0.55 if speaking_active_b else 0.0
             if speaking_active_b:
                 st.vad_listening_until = 0.0
+                st.wake_perk_until = 0.0
+                st.wake_perk_hold = False
             speaking_active = 1.0 if speaking_active_b else 0.0
 
             audio_in = connection.audio_input or {}
@@ -1035,20 +1091,56 @@ class PresenceController:
                 continue
 
             # 5. Measure 4th-wire angles, tracking error, and high-frequency servo chatter
+            fb_meta = sensor.get("feedback") or {}
+            cmd_mask = fb_meta.get("commanded_mask")
+            if st.walk_seq is not None and isinstance(cmd_mask, int) and 0 < cmd_mask < 4095:
+                # One or more joints thermally released PWM (`commanded_mask < 4095`); never sway on 3 powered legs
+                await self._close_walk_stream(robot_id, connection, st, detach=False)
+                self._reset_stance_tracking(st)
+                st.walk_backoff_until = max(st.walk_backoff_until, t_tick + 8.0)
+                st.mode = "standby"
+                await self._sleep_next(t_tick, wake_event)
+                continue
+
             measured_deg = [joints_map[j].get("filtered_model_deg") for j in JOINTS]
             usable_flags = [bool(joints_map[j].get("feedback_usable", False)) for j in JOINTS]
+            tracked_cmd_deg = (
+                (st.cmd_q_rad[0] * (180.0 / math.pi)).detach().cpu().tolist()
+                if st.cmd_q_rad is not None
+                else None
+            )
             commanded_deg = [
                 (
                     float(joints_map[j]["commanded_model_deg"])
                     if isinstance(joints_map[j].get("commanded_model_deg"), (int, float))
-                    else float(STAND_ANGLES_DEG[i])
+                    else (
+                        float(tracked_cmd_deg[i])
+                        if tracked_cmd_deg is not None
+                        else (
+                            float(st.prev_cmd_deg[i])
+                            if st.prev_cmd_deg is not None
+                            else (
+                                float(measured_deg[i])
+                                if (usable_flags[i] and isinstance(measured_deg[i], (int, float)))
+                                else float(STAND_ANGLES_DEG[i])
+                            )
+                        )
+                    )
                 )
                 for i, j in enumerate(JOINTS)
             ]
             velocity_deg_s = [float(joints_map[j].get("velocity_deg_s") or 0.0) for j in JOINTS]
 
             safe_meas = [
-                float(measured_deg[i]) if (usable_flags[i] and isinstance(measured_deg[i], (int, float))) else commanded_deg[i]
+                (
+                    float(measured_deg[i])
+                    if (usable_flags[i] and isinstance(measured_deg[i], (int, float)))
+                    else (
+                        float(st.prev_meas_deg[i])
+                        if (st.prev_meas_deg is not None and not isinstance(joints_map[JOINTS[i]].get("commanded_model_deg"), (int, float)))
+                        else commanded_deg[i]
+                    )
+                )
                 for i in range(12)
             ]
             if st.prev_meas_deg is not None and st.prev_cmd_deg is not None:
@@ -1079,11 +1171,23 @@ class PresenceController:
             cal_joints = (connection.last_calibration or {}).get("joints")
             live_body = manifold.body_for_calibration(cal_joints)
 
-            # Initialize compliant anchor from the robot's actual current posture (preserves symmetric Sit/Crouch,
-            # while smoothly re-centering twisted/stumbled postures back to symmetric STAND_ANGLES_DEG).
+            # Initialize compliant anchor from the robot's actual current posture:
+            # - Preserves Sit/Crouch/LieDown/Dead (`anchor_is_standing=False`).
+            # - Preserves relaxed post-`stand` resting sag (`4 < max_stand_diff <= 26 deg`, where firmware
+            #   relaxed `target_adjusted_joints` under chassis weight/friction) so conversational sway never
+            #   jacks a planted carrier back to +0.94 deg without stepping.
+            # - Flags large 3-leg standing stumbles (`not near_stand` with `legs_near_stand >= 2` and
+            #   `lr_asymmetry > 18 deg`) so active conversation steps cleanly to Stand before swaying.
             if st.anchor_feet_mm is None or st.cmd_q_rad is None:
                 proj_deg, _ = manifold.project_angles_deg(safe_meas, body=live_body)
-                near_stand = max(abs(proj_deg[i] - STAND_ANGLES_DEG[i]) for i in range(12)) <= 26.0
+                max_stand_diff = max(abs(proj_deg[i] - STAND_ANGLES_DEG[i]) for i in range(12))
+                near_stand = max_stand_diff <= 26.0
+                legs_near_stand = sum(
+                    1
+                    for leg in range(4)
+                    if max(abs(proj_deg[3 * leg + k] - STAND_ANGLES_DEG[3 * leg + k]) for k in range(3)) <= 22.0
+                )
+                prone_legs = sum(1 for leg in range(4) if proj_deg[3 * leg + 2] > 5.0)
                 lr_asymmetry = max(
                     abs(abs(proj_deg[0]) - abs(proj_deg[3])),
                     abs(abs(proj_deg[6]) - abs(proj_deg[9])),
@@ -1092,9 +1196,15 @@ class PresenceController:
                     abs(proj_deg[7] - proj_deg[10]),
                     abs(proj_deg[8] - proj_deg[11]),
                 )
-                use_stand_anchor = bool(near_stand or lr_asymmetry > 18.0)
-                base_deg = list(STAND_ANGLES_DEG) if use_stand_anchor else proj_deg
+                stumble_3leg = bool(not near_stand and legs_near_stand >= 2 and lr_asymmetry > 18.0)
+                use_stand_anchor = bool(near_stand or stumble_3leg)
+                if (near_stand and max_stand_diff <= 4.0) or stumble_3leg:
+                    base_deg = list(STAND_ANGLES_DEG)
+                else:
+                    base_deg = list(proj_deg)
                 st.anchor_is_standing = use_stand_anchor
+                st.anchor_is_prone = bool(not use_stand_anchor and prone_legs >= 3)
+                st.anchor_needs_step = stumble_3leg
                 base_q = torch.tensor(base_deg, dtype=torch.float64, device=live_body.device).reshape(1, 4, 3) * (
                     math.pi / 180.0
                 )
@@ -1105,44 +1215,125 @@ class PresenceController:
                 )
                 st.cmd_q_rad, _ = live_body.pwm(cur_q)
 
-            # Sympathetic grounded motion check on measured leg z differentials
-            meas_q_rad = torch.tensor(safe_meas, dtype=torch.float64, device=live_body.device).reshape(1, 4, 3) * (
-                math.pi / 180.0
+            wake_perk_active = bool(
+                not speaking_active_b
+                and not st.anchor_is_prone
+                and t_tick < st.wake_perk_until
+                and t_tick >= st.walk_backoff_until
             )
-            meas_pts, _ = live_body.forward(meas_q_rad)
-            meas_feet_mm = (meas_pts - live_body.origin.unsqueeze(0)).reshape(4, 3).detach().cpu().numpy()
-            unsympathetic, _, sym_reason = st.sympathy.observe_stance_motion(
-                now=t_tick,
-                measured_deg=safe_meas,
-                measured_feet_z_mm=meas_feet_mm[:, 2].tolist(),
-                orientation_wxyz=imu["orientation_wxyz"],
-                angular_rate_rad_s=imu["angular_rate_rad_s"],
-                acceleration_m_s2=imu["acceleration_m_s2"],
-            )
-            if unsympathetic and cfg["self_right_enabled"]:
-                await self._enter_passive(robot_id, st, sym_reason or "legs_moved_without_ground_reaction")
-                await self._sleep_next(t_tick, wake_event)
-                continue
 
-            # Keep servos completely silent while the microphone utterance/VAD gate is open so mechanical
-            # servo noise never couples into the P4 microphone and holds `vad_open` open.
-            if listening_b:
-                if st.walk_seq is not None:
-                    await self._close_walk_stream(robot_id, connection, st, detach=False)
+            # Keep servos completely silent while the microphone utterance/VAD gate is open (except during
+            # the brief 0.42s initial `wake_word` perk, after which `st.walk_seq` holds its last target
+            # silently at 0 Hz without sending `stop`, since P4 `stop` clears foreground/background faces
+            # and cancels audio) so mechanical servo noise never couples into the P4 microphone.
+            if listening_b and not wake_perk_active:
+                if st.walk_seq is not None and not st.wake_perk_hold:
+                    await self._close_walk_stream(
+                        robot_id,
+                        connection,
+                        st,
+                        detach=False,
+                        release_face=True,
+                    )
                 st.compliance_trim_mm = [0.0] * 12
                 st.settled_since = None
                 st.mode = "standby"
                 await self._sleep_next(t_tick, wake_event)
                 continue
 
-            conversational_active = bool(cfg["social_gaze_enabled"] and speaking_active_b)
+            conversational_active = bool(
+                cfg["social_gaze_enabled"] and speaking_active_b and not st.anchor_is_prone
+            )
             probe_active = bool(cfg["self_right_enabled"] and t_tick < st.probe_until)
 
-            # Stay completely dormant in standby when neither speaking nor finishing a stream return
-            if not conversational_active and not probe_active and st.walk_seq is None:
+            # Sympathetic grounded motion check runs only on 4-leg standing postures and never during
+            # ordinary conversational speech accompaniment or wake-word perks (prevents speech sway from
+            # false-triggering servo detach).
+            if (
+                cfg["self_right_enabled"]
+                and st.anchor_is_standing
+                and not wake_perk_active
+                and (not conversational_active or probe_active)
+            ):
+                meas_q_rad = torch.tensor(safe_meas, dtype=torch.float64, device=live_body.device).reshape(1, 4, 3) * (
+                    math.pi / 180.0
+                )
+                meas_pts, _ = live_body.forward(meas_q_rad)
+                meas_feet_mm = (meas_pts - live_body.origin.unsqueeze(0)).reshape(4, 3).detach().cpu().numpy()
+                unsympathetic, _, sym_reason = st.sympathy.observe_stance_motion(
+                    now=t_tick,
+                    measured_deg=safe_meas,
+                    measured_feet_z_mm=meas_feet_mm[:, 2].tolist(),
+                    orientation_wxyz=imu["orientation_wxyz"],
+                    angular_rate_rad_s=imu["angular_rate_rad_s"],
+                    acceleration_m_s2=imu["acceleration_m_s2"],
+                    commanded_deg=commanded_deg,
+                    usable_flags=usable_flags,
+                )
+                if unsympathetic:
+                    await self._enter_passive(robot_id, st, sym_reason or "legs_moved_without_ground_reaction")
+                    await self._sleep_next(t_tick, wake_event)
+                    continue
+            else:
+                st.sympathy.reset()
+            perk_return_due = bool(
+                st.wake_perk_unsettled
+                and not listening_b
+                and not conversational_active
+                and not probe_active
+                and st.vad_closed_at > 0.0
+                and (t_tick - st.vad_closed_at) >= 10.0
+            )
+            perk_thinking_hold = bool(
+                st.wake_perk_unsettled
+                and not listening_b
+                and not conversational_active
+                and not probe_active
+                and not perk_return_due
+            )
+
+            # Release lingering `listening` foreground face as soon as `vad_close` arrives so `thinking` shows
+            if (
+                not listening_b
+                and not conversational_active
+                and not wake_perk_active
+                and st.foreground_face_owned
+                and (st.walk_seq is None or perk_thinking_hold)
+            ):
+                await self._release_foreground_face(robot_id, connection, st)
+
+            # Hold the perked pose silently without sending `stop` while waiting for LLM/TTS reply (`perk_thinking_hold`),
+            # or stay completely dormant in standby when neither speaking, perking, nor finishing a stream return.
+            if perk_thinking_hold or (
+                not conversational_active
+                and not probe_active
+                and not wake_perk_active
+                and not perk_return_due
+                and st.walk_seq is None
+            ):
                 st.compliance_trim_mm = [0.0] * 12
                 st.settled_since = None
                 st.mode = "standby"
+                await self._sleep_next(t_tick, wake_event)
+                continue
+
+            # If a leg is twisted in a large 3-leg standing stumble (>26 deg off-stand), step cleanly via
+            # native `stand` before opening grounded `walk_target` sway so it lifts rather than drags on carpet.
+            if (conversational_active or wake_perk_active) and st.anchor_needs_step and t_tick >= st.walk_backoff_until:
+                st.anchor_needs_step = False
+                st.mode = "standby"
+                try:
+                    seq = await self._send_owned(
+                        self.gateway.queue_intent("stand", {}, robot_id=robot_id),
+                        st,
+                        robot_id=robot_id,
+                    )
+                    await self.gateway.wait_terminal(seq, robot_id=robot_id, epoch=connection.epoch, timeout=6.0)
+                except Exception:
+                    pass
+                now_after = self.gateway.clock()
+                st.last_external_motion_at = now_after
+                self._reset_stance_tracking(st)
                 await self._sleep_next(t_tick, wake_event)
                 continue
 
@@ -1150,8 +1341,8 @@ class PresenceController:
             expr_name = "idle"
             expr_conf = 0.0
 
-            if conversational_active or probe_active:
-                # 6. Run 20 Hz Neural Presence Actor only during active robot speech or pickup probe
+            if conversational_active or probe_active or wake_perk_active:
+                # 6. Run 20 Hz Neural Presence Actor during active robot speech, wake-word perk, or pickup probe
                 feat = assemble_presence_features(
                     measured_deg=safe_meas,
                     commanded_deg=commanded_deg,
@@ -1168,12 +1359,12 @@ class PresenceController:
                     person_conf=p_conf if cfg["social_gaze_enabled"] else 0.0,
                     known_face=p_known if cfg["social_gaze_enabled"] else 0.0,
                     motion_mag=motion_mag if cfg["social_gaze_enabled"] else 0.0,
-                    listening_active=0.0,
-                    mic_rms=0.0,
+                    listening_active=1.0 if wake_perk_active else 0.0,
+                    mic_rms=max(0.65, mic_rms) if wake_perk_active else 0.0,
                     speaking_active=speaking_active,
                     speech_rms=speech_rms,
                     boredom_level=0.0,
-                    phase_rad=t_tick * 2.2,
+                    phase_rad=0.5 * math.pi if wake_perk_active else t_tick * 2.2,
                     previous_foot_action=st.prev_foot_norm,
                 )
                 dev_us = (sensor.get("feedback") or {}).get("device_us")
@@ -1186,19 +1377,35 @@ class PresenceController:
                     comp_step_mm,
                     enabled=bool(cfg["chatter_relief_enabled"]),
                 )
-                delta_arr = (
-                    np.asarray(foot_delta_mm, dtype=np.float64)
-                    + np.asarray(st.compliance_trim_mm, dtype=np.float64)
-                ) * scale_factor
-                if probe_active and st.anchor_is_standing:
-                    probe_z = 8.0 * math.sin((st.probe_until - t_tick) * 3.0)
-                    delta_arr[2] += probe_z
-                    delta_arr[5] += probe_z
-                    delta_arr[8] -= probe_z
-                    delta_arr[11] -= probe_z
+                if wake_perk_active:
+                    st.wake_perk_unsettled = True
+                    yaw_dir = p_yaw if (cfg["social_gaze_enabled"] and p_conf >= 0.35 and abs(p_yaw) >= 0.12) else 0.65
+                    perk_arr = np.array(
+                        [
+                            1.8, 2.8 * yaw_dir, 4.5,
+                            1.8, 2.8 * yaw_dir, 3.5,
+                            1.2, -3.2 * yaw_dir, -6.0,
+                            1.2, -3.2 * yaw_dir, -5.0,
+                        ],
+                        dtype=np.float64,
+                    )
+                    delta_arr = (perk_arr + np.asarray(st.compliance_trim_mm, dtype=np.float64)) * scale_factor
+                else:
+                    if conversational_active:
+                        st.wake_perk_unsettled = False
+                    delta_arr = (
+                        np.asarray(foot_delta_mm, dtype=np.float64)
+                        + np.asarray(st.compliance_trim_mm, dtype=np.float64)
+                    ) * scale_factor
+                    if probe_active and st.anchor_is_standing:
+                        probe_z = 8.0 * math.sin((st.probe_until - t_tick) * 3.0)
+                        delta_arr[2] += probe_z
+                        delta_arr[5] += probe_z
+                        delta_arr[8] -= probe_z
+                        delta_arr[11] -= probe_z
                 desired_feet_mm = st.anchor_feet_mm + delta_arr
             else:
-                # Conversation ended: decay compliance trim and return smoothly to anchor before closing hold
+                # Conversation or idle wake-perk timeout ended: decay compliance trim and return smoothly to anchor
                 st.compliance_trim_mm = [v * 0.5 if abs(v) > 0.2 else 0.0 for v in st.compliance_trim_mm]
                 desired_feet_mm = (
                     st.anchor_feet_mm + np.asarray(st.compliance_trim_mm, dtype=np.float64) * scale_factor
@@ -1214,7 +1421,7 @@ class PresenceController:
             step_deg = float(
                 torch.amax(torch.abs(next_q_rad - st.cmd_q_rad)).item() * (180.0 / math.pi)
             )
-            returning_to_anchor = st.walk_seq is not None and (
+            returning_to_anchor = (st.walk_seq is not None or perk_return_due) and (
                 max(abs(v) for v in st.compliance_trim_mm) > 0.2
                 or max(abs(feet_mm[i] - float(st.anchor_feet_mm[i])) for i in range(12)) > 1.4
                 or (
@@ -1222,8 +1429,11 @@ class PresenceController:
                     and max(abs(st.last_sent_feet_mm[i] - float(st.anchor_feet_mm[i])) for i in range(12)) > 1.4
                 )
             )
+            if perk_return_due and not returning_to_anchor and step_deg < 0.65:
+                st.wake_perk_unsettled = False
             need_active_stream = (
                 conversational_active
+                or wake_perk_active
                 or probe_active
                 or returning_to_anchor
                 or (st.walk_seq is not None and step_deg >= 0.65)
@@ -1240,7 +1450,9 @@ class PresenceController:
                         else 999.0
                     )
                     dt_sent = t_tick - st.last_walk_target_at
-                    if (foot_diff_mm >= 1.2 and dt_sent >= 0.065) or dt_sent >= 0.28:
+                    min_dt = 0.045 if wake_perk_active else 0.065
+                    min_diff = 0.8 if wake_perk_active else 1.2
+                    if (foot_diff_mm >= min_diff and dt_sent >= min_dt) or dt_sent >= 0.28:
                         st.sample_idx += 1
                         try:
                             await self._send_owned(
@@ -1263,7 +1475,11 @@ class PresenceController:
                             st.last_error = str(err)
                             st.walk_seq = None
                             st.last_sent_feet_mm = None
-                    if conversational_active:
+                    if wake_perk_active:
+                        await self._set_background_face(
+                            robot_id, connection, st, "listening", t_tick, foreground=True
+                        )
+                    elif conversational_active:
                         await self._set_background_face(
                             robot_id, connection, st, "talk_happy", t_tick, foreground=True
                         )
@@ -1273,6 +1489,7 @@ class PresenceController:
                         st.settled_since = t_tick
                     elif t_tick - st.settled_since >= 0.35:
                         # Lock symmetric anchor cleanly in hold and release conversational face token
+                        st.wake_perk_unsettled = False
                         await self._close_walk_stream(robot_id, connection, st, detach=False)
                         st.mode = "standby"
                 else:

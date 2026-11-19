@@ -248,16 +248,47 @@ def build_presence_dataset(
     known_face[m_bored] = 0.0
     boredom[m_bored] = rng.uniform(0.20, 1.0, size=int(np.sum(m_bored)))
 
-    # Simulated servo load/chatter error (cmd - meas in deg): normal standing gravity sag is ~0.8-1.4 deg
+    # Simulated servo load/chatter/jam error (cmd - meas in deg):
+    # - Normal standing gravity droop or transient tracking lag is <= 2.0 deg (or actively moving with matching velocity).
+    # - Carpet friction / shear fight (2.4..14 deg) + single/dual-leg pinned carrier/shoulder/crank jams (8..34 deg,
+    #   e.g. rear_left_carrier pinned at -14..-33 deg while commanded near +1 deg during speech) have near-zero velocity.
     cmd_minus_meas_deg = rng.normal(0.0, 0.75, size=(n, 12))
     chatter_deg = np.abs(rng.normal(0.10, 0.12, size=(n, 12)))
-    m_chat = (regimes == 1) | (rng.random(n) < 0.34)
+    jam_pinned_mask = np.zeros((n, 12), dtype=bool)
+
+    m_chat = (regimes == 1) | (rng.random(n) < 0.30)
     n_chat = int(np.sum(m_chat))
-    # Inject realistic carpet friction / snag fight (>2 deg) on 1..8 joints
-    fight_mask = rng.random((n_chat, 12)) < 0.45
-    fight_err = rng.choice([-1.0, 1.0], size=(n_chat, 12)) * rng.uniform(2.4, 11.5, size=(n_chat, 12)) * fight_mask
+    fight_mask = rng.random((n_chat, 12)) < 0.42
+    fight_err = rng.choice([-1.0, 1.0], size=(n_chat, 12)) * rng.uniform(2.4, 13.5, size=(n_chat, 12)) * fight_mask
     cmd_minus_meas_deg[m_chat] += fight_err
-    chatter_deg[m_chat] += np.abs(fight_err) * rng.uniform(0.25, 0.65, size=(n_chat, 12))
+    chatter_deg[m_chat] += np.abs(fight_err) * rng.uniform(0.20, 0.60, size=(n_chat, 12))
+    jam_pinned_mask[m_chat] |= fight_mask
+
+    # Inject severe single-leg / dual-leg pinned jams across all regimes (especially talking & listening)
+    m_jam = rng.random(n) < 0.28
+    jam_indices = np.flatnonzero(m_jam)
+    for row_i in jam_indices:
+        n_legs_jammed = 1 if rng.random() < 0.78 else 2
+        chosen_legs = rng.choice(4, size=n_legs_jammed, replace=False)
+        for leg_id in chosen_legs:
+            # Bias heavily toward carrier sag/jam (axis 1, where cmd > meas -> positive tracking error), plus shoulder/crank jams
+            axis_choice = rng.choice([0, 1, 2], p=[0.22, 0.56, 0.22])
+            j_idx = int(leg_id * 3 + axis_choice)
+            if axis_choice == 1 and rng.random() < 0.75:
+                jam_deg = float(rng.uniform(9.0, 34.0))
+            else:
+                jam_deg = float(rng.choice([-1.0, 1.0]) * rng.uniform(8.0, 30.0))
+            cmd_minus_meas_deg[row_i, j_idx] = jam_deg
+            # Thermal/friction stall often has zero chatter (pinned silently against floor friction) or mild buzz
+            chatter_deg[row_i, j_idx] = float(rng.uniform(0.0, 0.35) if rng.random() < 0.65 else rng.uniform(0.8, 4.0))
+            jam_pinned_mask[row_i, j_idx] = True
+
+    # Also include free-moving transient lag (2..4.5 deg with high positive tracking velocity -> must NOT trigger jam yield)
+    m_free_lag = (~m_chat) & (~m_jam) & (rng.random(n) < 0.25)
+    n_free = int(np.sum(m_free_lag))
+    free_lag_deg = rng.normal(0.0, 2.2, size=(n_free, 12))
+    cmd_minus_meas_deg[m_free_lag] = free_lag_deg
+    chatter_deg[m_free_lag] = np.abs(rng.normal(0.08, 0.08, size=(n_free, 12)))
 
     # IMU state: nominal slight tilt + shove disturbance in regime 6
     body_roll_deg = rng.normal(0.0, 1.5, size=n)
@@ -279,18 +310,33 @@ def build_presence_dataset(
     scale_vec = np.array(PRESENCE_FOOT_SCALE_MM * 4, dtype=np.float64).reshape(1, 12)
     obs_windows = np.zeros((n, PRESENCE_OBS_SIZE), dtype=np.float32)
 
-    # Pre-compute per-tick compliance step in mm using exact Jacobian J * (-err_rad)
-    # Yields 45% of unmet servo fight (>2.0 deg deadband or active chatter) per 50 ms tick without gravity drift.
-    eff_err_rad = np.deg2rad(cmd_minus_meas_deg) * chatter_enabled[:, None]
-    deadband = (np.abs(cmd_minus_meas_deg) > 2.0) | (chatter_deg > 0.90)
-    yield_q_rad = -0.48 * eff_err_rad * deadband
-    comp_step_mm = np.einsum("lij,nlj->nli", jac_mm_per_rad, yield_q_rad.reshape(n, 4, 3))  # [N, 4, 3]
-    comp_step_mm[:, :, 2] -= np.mean(comp_step_mm[:, :, 2], axis=1, keepdims=True)
-    comp_step_mm[:, :, 0] -= 0.45 * np.mean(comp_step_mm[:, :, 0], axis=1, keepdims=True)
-    comp_step_mm[:, :, 1] -= 0.45 * np.mean(comp_step_mm[:, :, 1], axis=1, keepdims=True)
+    # Pre-compute per-tick compliance step in mm using exact per-leg Jacobian J * (-err_rad):
+    # - Horizontal XY shear/chatter (>2.2 deg error or >0.9 deg chatter) yields planar foot shear.
+    # - Vertical Z yield only activates on genuine jams (>6.5 deg pinned error) so normal 1..4 deg
+    #   standing gravity droop never causes rear-carrier pitch sink.
+    pinned_xy = jam_pinned_mask & ((np.abs(cmd_minus_meas_deg) > 2.2) | (chatter_deg > 0.90))
+    pinned_z = jam_pinned_mask & (np.abs(cmd_minus_meas_deg) > 6.5)
+    eff_err_rad = np.deg2rad(np.clip(cmd_minus_meas_deg, -34.4, 34.4)) * chatter_enabled[:, None]
+    yield_xy_rad = -0.50 * eff_err_rad * pinned_xy
+    yield_z_rad = -0.55 * eff_err_rad * pinned_z
+    comp_xy = np.einsum("lij,nlj->nli", jac_mm_per_rad[:, 0:2, :], yield_xy_rad.reshape(n, 4, 3))  # [N, 4, 2]
+    comp_z = np.einsum("lij,nlj->nli", jac_mm_per_rad[:, 2:3, :], yield_z_rad.reshape(n, 4, 3))   # [N, 4, 1]
+    comp_xy[:, :, 0] -= 0.45 * np.mean(comp_xy[:, :, 0], axis=1, keepdims=True)
+    comp_xy[:, :, 1] -= 0.45 * np.mean(comp_xy[:, :, 1], axis=1, keepdims=True)
+    z_vals = comp_z[:, :, 0]
+    z_lo = np.min(z_vals, axis=1, keepdims=True)
+    z_hi = np.max(z_vals, axis=1, keepdims=True)
+    z_common = np.where(z_lo > 0.0, z_lo, np.where(z_hi < 0.0, z_hi, 0.0))
+    comp_z[:, :, 0] = z_vals - z_common
+    comp_step_mm = np.concatenate([comp_xy, comp_z], axis=-1)  # [N, 4, 3]
     target_comp_norm = np.clip(
         comp_step_mm.reshape(n, 12) / PRESENCE_COMPLIANCE_STEP_MM, -1.0, 1.0
     ).astype(np.float32)
+
+    # Smoothly attenuate expressive 6-DoF torso sway when a severe jam (>8 deg pinned error) is active
+    # so the robot does not rock extra weight onto a stuck joint while yielding it.
+    max_pinned_jam_deg = np.max(np.abs(cmd_minus_meas_deg) * pinned_xy * chatter_enabled[:, None], axis=1)
+    jam_sway_atten = np.clip(1.0 - np.maximum(0.0, max_pinned_jam_deg - 8.0) / 20.0, 0.25, 1.0)
 
     # Sample broad initial `prev_action` and broad posture offsets (`q_delta` across full stand/off-stand/sit workspace)
     # so closed-loop rollouts contract cleanly to `target_foot_norm` without positive-feedback extrapolation.
@@ -384,6 +430,14 @@ def build_presence_dataset(
         # Couple nose-up pitch (< 0) with slight hindquarters shift so rear carriers stay centered
         tx += np.minimum(0.0, pitch) * 0.25
 
+        # Attenuate expressive sway smoothly when a severe pinned joint jam is active
+        tx *= jam_sway_atten
+        ty *= jam_sway_atten
+        tz *= jam_sway_atten
+        roll *= jam_sway_atten
+        pitch *= jam_sway_atten
+        yaw *= jam_sway_atten
+
         pose_mm = _body_pose_foot_deltas_mm(
             manifold,
             stand_pts_mm,
@@ -403,7 +457,13 @@ def build_presence_dataset(
         valid_ik = valid_ik_t.reshape(n, -1).all(axis=1)[:, None]
         cmd_deg = np.where(valid_ik, q_ik_deg, stand_deg_arr) + posture_offset_deg + rng.normal(0.0, 1.5, size=(n, 12))
         meas_deg = cmd_deg - cmd_minus_meas_deg
-        vel_deg_s = rng.normal(0.0, 8.0, size=(n, 12)) + chatter_deg * 6.0 * np.sin(ph[:, None] * 6.0)
+        free_vel = np.where(
+            m_free_lag[:, None],
+            cmd_minus_meas_deg * rng.uniform(9.0, 16.0, size=(n, 12)) + rng.normal(0.0, 4.0, size=(n, 12)),
+            rng.normal(0.0, 8.0, size=(n, 12)),
+        )
+        pinned_vel = rng.normal(0.0, 1.8, size=(n, 12)) + chatter_deg * 5.0 * np.sin(ph[:, None] * 6.0)
+        vel_deg_s = np.where(jam_pinned_mask, pinned_vel, free_vel)
 
         quats = _quat_wxyz_from_rpy_deg(step_roll_deg, step_pitch_deg, np.zeros(n))
         # Gravity in body frame for accelerometer
@@ -559,6 +619,7 @@ def qualify_in_mujoco(policy_path: Path, manifold: PoseManifold) -> dict:
         seconds: float,
         enable_presence: bool,
         shear_deg: float = 0.0,
+        pinned_carrier_deg: float | None = None,
         imu_enabled: bool = True,
         chatter_relief: bool = True,
         person_yaw: float = 0.0,
@@ -570,6 +631,14 @@ def qualify_in_mujoco(policy_path: Path, manifold: PoseManifold) -> dict:
         shove_at_s: float | None = None,
     ) -> dict:
         _reset_robot(shear_deg=shear_deg)
+        if pinned_carrier_deg is not None:
+            jam_init_deg = list(stand_deg)
+            jam_init_deg[1] = float(pinned_carrier_deg)
+            q43_jam = torch.tensor(jam_init_deg, dtype=torch.float64, device=manifold.body.device).reshape(1, 4, 3) * (
+                math.pi / 180.0
+            )
+            mj_data.qpos[7:27] = full_four_bar_qpos20(manifold.body, q43_jam)[0].detach().cpu().numpy()
+            mujoco.mj_forward(mj_model, mj_data)
         if shear_deg != 0.0:
             # Statue mode holds mismatched sheared target fighting ground friction
             sheared_cmd = list(stand_deg)
@@ -579,123 +648,169 @@ def qualify_in_mujoco(policy_path: Path, manifold: PoseManifold) -> dict:
         else:
             base_cmd_rad = np.deg2rad(stand_deg)
 
-        mj_data.ctrl[:12] = base_cmd_rad.copy()
-        for _ in range(100):
-            mujoco.mj_step(mj_model, mj_data)
-        standing_z = float(mj_data.qpos[2])
+        orig_jnt_range = mj_model.jnt_range.copy()
+        orig_jnt_limited = mj_model.jnt_limited.copy()
+        rl_carrier_jnt_id = int(mj_model.actuator_trnid[1, 0])
+        if pinned_carrier_deg is not None:
+            # Physically block rear_left_carrier (id=1) from rising above pinned_carrier_deg in MuJoCo physics
+            mj_model.jnt_limited[rl_carrier_jnt_id] = 1
+            mj_model.jnt_range[rl_carrier_jnt_id, 0] = math.radians(-80.0)
+            mj_model.jnt_range[rl_carrier_jnt_id, 1] = math.radians(float(pinned_carrier_deg))
 
-        hist = PresenceObservationHistory()
-        prev_foot_norm = [0.0] * 12
-        compliance_trim_mm = [0.0] * 12
-        cmd_q_rad = torch.from_numpy(base_cmd_rad.reshape(1, 12)).to(
-            dtype=torch.float64, device=manifold.body.device
-        )
-        base_pose_feet_mm, _ = manifold.body.forward(cmd_q_rad.reshape(1, 4, 3))
-        anchor_feet_mm = (base_pose_feet_mm - manifold.body.origin.unsqueeze(0)).reshape(12).detach().cpu().numpy()
-
-        steps_20hz = int(round(seconds / PRESENCE_INTERVAL_S))
-        substeps = max(1, int(round(PRESENCE_INTERVAL_S / mj_model.opt.timestep)))
-
-        torques = []
-        track_errs = []
-        pitches = []
-        yaws = []
-        tilts = []
-        expressions = []
-        shove_expressions = []
-        fell = False
-        shoved = False
-
-        for tick in range(steps_20hz):
-            t_s = tick * PRESENCE_INTERVAL_S
-            if shove_at_s is not None and not shoved and t_s >= shove_at_s:
-                mj_data.qvel[1] += 0.34  # lateral shove
-                mj_data.qvel[3] += 2.35  # sharp roll angular impulse
-                shoved = True
-
-            meas_rad = np.array([mj_data.qpos[idx] for idx in q_dof_idx], dtype=np.float64)
-            vel_rad_s = np.array([mj_data.qvel[idx] for idx in v_dof_idx], dtype=np.float64)
-            cmd_deg = np.rad2deg(mj_data.ctrl[:12]).tolist()
-            meas_deg = np.rad2deg(meas_rad).tolist()
-            vel_deg_s = np.rad2deg(vel_rad_s).tolist()
-            err_deg = [abs(c - m) for c, m in zip(cmd_deg, meas_deg)]
-            chat_deg = [e * 0.45 for e in err_deg]
-
-            quat = mj_data.qpos[3:7].tolist()
-            gyro = mj_data.qvel[3:6].tolist()
-            w, x, y, z = quat
-            up_z = max(-1.0, min(1.0, 1.0 - 2.0 * (x * x + y * y)))
-            tilt_deg = math.degrees(math.acos(up_z))
-            tilts.append(tilt_deg)
-            if tilt_deg > 52.0 or mj_data.qpos[2] < max(0.036, standing_z - 0.025):
-                fell = True
-
-            sp_rms = (0.55 + 0.40 * math.sin(t_s * 9.5)) if speaking > 0.5 else 0.0
-            mc_rms = (0.35 + 0.20 * math.cos(t_s * 6.0)) if listening > 0.5 else 0.0
-
-            if enable_presence:
-                feat = assemble_presence_features(
-                    measured_deg=meas_deg,
-                    commanded_deg=cmd_deg,
-                    velocity_deg_s=vel_deg_s,
-                    chatter_deg=chat_deg,
-                    usable_flags=[True] * 12,
-                    orientation_wxyz=quat,
-                    angular_rate_rad_s=gyro,
-                    acceleration_m_s2=[0.0, 0.0, 9.80665],
-                    imu_enabled=imu_enabled,
-                    chatter_relief_enabled=chatter_relief,
-                    person_yaw=person_yaw,
-                    person_pitch=person_pitch,
-                    person_conf=person_conf,
-                    known_face=1.0 if person_conf > 0.7 else 0.0,
-                    motion_mag=0.4 if person_conf > 0.0 else 0.0,
-                    listening_active=listening,
-                    mic_rms=mc_rms,
-                    speaking_active=speaking,
-                    speech_rms=sp_rms,
-                    boredom_level=boredom,
-                    phase_rad=t_s * 2.2,
-                    previous_foot_action=prev_foot_norm,
-                )
-                obs_vec = hist.push_and_project(t_s, feat)
-                foot_norm, foot_delta_mm, comp_step_mm, expr, _ = actor.infer(obs_vec)
-                prev_foot_norm = foot_norm
-                compliance_trim_mm = update_compliance_trim_mm(
-                    compliance_trim_mm,
-                    comp_step_mm,
-                    enabled=chatter_relief,
-                )
-                expressions.append(expr)
-                if shove_at_s is not None and shove_at_s <= t_s <= shove_at_s + 0.35:
-                    shove_expressions.append(expr)
-                desired_feet_mm = (
-                    anchor_feet_mm
-                    + np.asarray(foot_delta_mm, dtype=np.float64)
-                    + np.asarray(compliance_trim_mm, dtype=np.float64)
-                )
-                pose_act = np.clip(desired_feet_mm / pose_scale, -1.0, 1.0).tolist()
-                cmd_q_rad, _, _ = manifold.step_host_command(pose_act, cmd_q_rad, speed_scale=1.0)
-                mj_data.ctrl[:12] = cmd_q_rad[0].detach().cpu().numpy()
-
-            for _ in range(substeps):
+        try:
+            mj_data.ctrl[:12] = base_cmd_rad.copy()
+            for _ in range(100):
                 mujoco.mj_step(mj_model, mj_data)
+            standing_z = float(mj_data.qpos[2])
 
-            torques.append(float(np.linalg.norm(mj_data.actuator_force[:12])))
-            meas_after = np.rad2deg([mj_data.qpos[idx] for idx in q_dof_idx])
-            cmd_after = np.rad2deg(mj_data.ctrl[:12])
-            track_errs.append(float(np.mean(np.abs(cmd_after - meas_after))))
+            hist = PresenceObservationHistory()
+            prev_foot_norm = [0.0] * 12
+            compliance_trim_mm = [0.0] * 12
+            leg_pinned_ticks = [0, 0, 0, 0]
+            cmd_q_rad = torch.from_numpy(base_cmd_rad.reshape(1, 12)).to(
+                dtype=torch.float64, device=manifold.body.device
+            )
+            base_pose_feet_mm, _ = manifold.body.forward(cmd_q_rad.reshape(1, 4, 3))
+            anchor_feet_mm = (base_pose_feet_mm - manifold.body.origin.unsqueeze(0)).reshape(12).detach().cpu().numpy()
 
-            qw, qx, qy, qz = mj_data.qpos[3:7]
-            pitch_deg = math.degrees(math.asin(max(-1.0, min(1.0, 2.0 * (qw * qy - qz * qx)))))
-            yaw_deg = math.degrees(math.atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz)))
-            pitches.append(pitch_deg)
-            yaws.append(yaw_deg)
+            steps_20hz = int(round(seconds / PRESENCE_INTERVAL_S))
+            substeps = max(1, int(round(PRESENCE_INTERVAL_S / mj_model.opt.timestep)))
+
+            torques = []
+            rl_carrier_torques = []
+            track_errs = []
+            rl_carrier_errs = []
+            pitches = []
+            yaws = []
+            tilts = []
+            expressions = []
+            shove_expressions = []
+            fell = False
+            shoved = False
+
+            for tick in range(steps_20hz):
+                t_s = tick * PRESENCE_INTERVAL_S
+                if shove_at_s is not None and not shoved and t_s >= shove_at_s:
+                    mj_data.qvel[1] += 0.34  # lateral shove
+                    mj_data.qvel[3] += 2.35  # sharp roll angular impulse
+                    shoved = True
+
+                meas_rad = np.array([mj_data.qpos[idx] for idx in q_dof_idx], dtype=np.float64)
+                vel_rad_s = np.array([mj_data.qvel[idx] for idx in v_dof_idx], dtype=np.float64)
+                cmd_deg = np.rad2deg(mj_data.ctrl[:12]).tolist()
+                meas_deg = np.rad2deg(meas_rad).tolist()
+                vel_deg_s = np.rad2deg(vel_rad_s).tolist()
+                err_deg = [abs(c - m) for c, m in zip(cmd_deg, meas_deg)]
+                # Pinned joint against static stop has near-zero velocity/chatter; free shear has buzz
+                chat_deg = [0.08 if abs(v) < 3.0 else e * 0.45 for e, v in zip(err_deg, vel_deg_s)]
+
+                quat = mj_data.qpos[3:7].tolist()
+                gyro = mj_data.qvel[3:6].tolist()
+                w, x, y, z = quat
+                up_z = max(-1.0, min(1.0, 1.0 - 2.0 * (x * x + y * y)))
+                tilt_deg = math.degrees(math.acos(up_z))
+                tilts.append(tilt_deg)
+                if tilt_deg > 52.0 or mj_data.qpos[2] < max(0.036, standing_z - 0.025):
+                    fell = True
+
+                sp_rms = (0.55 + 0.40 * math.sin(t_s * 9.5)) if speaking > 0.5 else 0.0
+                mc_rms = (0.35 + 0.20 * math.cos(t_s * 6.0)) if listening > 0.5 else 0.0
+
+                if enable_presence:
+                    feat = assemble_presence_features(
+                        measured_deg=meas_deg,
+                        commanded_deg=cmd_deg,
+                        velocity_deg_s=vel_deg_s,
+                        chatter_deg=chat_deg,
+                        usable_flags=[True] * 12,
+                        orientation_wxyz=quat,
+                        angular_rate_rad_s=gyro,
+                        acceleration_m_s2=[0.0, 0.0, 9.80665],
+                        imu_enabled=imu_enabled,
+                        chatter_relief_enabled=chatter_relief,
+                        person_yaw=person_yaw,
+                        person_pitch=person_pitch,
+                        person_conf=person_conf,
+                        known_face=1.0 if person_conf > 0.7 else 0.0,
+                        motion_mag=0.4 if person_conf > 0.0 else 0.0,
+                        listening_active=listening,
+                        mic_rms=mc_rms,
+                        speaking_active=speaking,
+                        speech_rms=sp_rms,
+                        boredom_level=boredom,
+                        phase_rad=t_s * 2.2,
+                        previous_foot_action=prev_foot_norm,
+                    )
+                    obs_vec = hist.push_and_project(t_s, feat)
+                    foot_norm, foot_delta_mm, comp_step_mm, expr, _ = actor.infer(obs_vec)
+                    prev_foot_norm = foot_norm
+                    compliance_trim_mm = update_compliance_trim_mm(
+                        compliance_trim_mm,
+                        comp_step_mm,
+                        enabled=chatter_relief,
+                    )
+                    if chatter_relief:
+                        meas_q_t = torch.from_numpy(meas_rad.reshape(1, 4, 3)).to(
+                            dtype=torch.float64, device=manifold.body.device
+                        )
+                        meas_pts_t, _ = manifold.body.forward(meas_q_t)
+                        meas_feet = (
+                            (meas_pts_t - manifold.body.origin.unsqueeze(0)).reshape(12).detach().cpu().numpy()
+                        )
+                        for leg_i in range(4):
+                            leg_pinned = any(
+                                abs(cmd_deg[3 * leg_i + k] - meas_deg[3 * leg_i + k]) > 6.5
+                                and abs(vel_deg_s[3 * leg_i + k]) < 6.0
+                                for k in range(3)
+                            )
+                            if leg_pinned:
+                                leg_pinned_ticks[leg_i] += 1
+                                if leg_pinned_ticks[leg_i] >= 4:
+                                    sl = slice(3 * leg_i, 3 * leg_i + 3)
+                                    shift = 0.25 * (meas_feet[sl] - anchor_feet_mm[sl])
+                                    anchor_feet_mm[sl] = anchor_feet_mm[sl] + shift
+                                    for k in range(3):
+                                        idx_f = 3 * leg_i + k
+                                        compliance_trim_mm[idx_f] = float(compliance_trim_mm[idx_f] - shift[k])
+                            else:
+                                leg_pinned_ticks[leg_i] = 0
+                    expressions.append(expr)
+                    if shove_at_s is not None and shove_at_s <= t_s <= shove_at_s + 0.35:
+                        shove_expressions.append(expr)
+                    desired_feet_mm = (
+                        anchor_feet_mm
+                        + np.asarray(foot_delta_mm, dtype=np.float64)
+                        + np.asarray(compliance_trim_mm, dtype=np.float64)
+                    )
+                    pose_act = np.clip(desired_feet_mm / pose_scale, -1.0, 1.0).tolist()
+                    cmd_q_rad, _, _ = manifold.step_host_command(pose_act, cmd_q_rad, speed_scale=1.0)
+                    mj_data.ctrl[:12] = cmd_q_rad[0].detach().cpu().numpy()
+
+                for _ in range(substeps):
+                    mujoco.mj_step(mj_model, mj_data)
+
+                torques.append(float(np.linalg.norm(mj_data.actuator_force[:12])))
+                rl_carrier_torques.append(float(abs(mj_data.actuator_force[1])))
+                meas_after = np.rad2deg([mj_data.qpos[idx] for idx in q_dof_idx])
+                cmd_after = np.rad2deg(mj_data.ctrl[:12])
+                track_errs.append(float(np.mean(np.abs(cmd_after - meas_after))))
+                rl_carrier_errs.append(float(abs(cmd_after[1] - meas_after[1])))
+
+                qw, qx, qy, qz = mj_data.qpos[3:7]
+                pitch_deg = math.degrees(math.asin(max(-1.0, min(1.0, 2.0 * (qw * qy - qz * qx)))))
+                yaw_deg = math.degrees(math.atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz)))
+                pitches.append(pitch_deg)
+                yaws.append(yaw_deg)
+        finally:
+            mj_model.jnt_range[:] = orig_jnt_range
+            mj_model.jnt_limited[:] = orig_jnt_limited
 
         result = {
             "fell": fell,
             "mean_torque_nm": round(float(np.mean(torques[10:])), 4),
             "mean_tracking_error_deg": round(float(np.mean(track_errs[10:])), 3),
+            "rl_carrier_error_deg": round(float(np.mean(rl_carrier_errs[15:])), 3),
+            "rl_carrier_torque_nm": round(float(np.mean(rl_carrier_torques[15:])), 4),
             "peak_tilt_deg": round(float(np.max(tilts)), 2),
             "mean_yaw_deg": round(float(np.mean(yaws[-15:])), 2),
             "mean_pitch_deg": round(float(np.mean(pitches[-15:])), 2),
@@ -715,6 +830,21 @@ def qualify_in_mujoco(policy_path: Path, manifold: PoseManifold) -> dict:
         mj_model.pair_friction[:, 1] = 2.6
     statue_shear = _run_episode(seconds=2.5, enable_presence=False, shear_deg=9.0)
     compliant_shear = _run_episode(seconds=2.5, enable_presence=True, shear_deg=9.0, chatter_relief=True)
+    statue_carrier_jam = _run_episode(
+        seconds=3.5,
+        enable_presence=False,
+        pinned_carrier_deg=-16.0,
+        speaking=1.0,
+        person_conf=0.7,
+    )
+    compliant_carrier_jam = _run_episode(
+        seconds=3.5,
+        enable_presence=True,
+        pinned_carrier_deg=-16.0,
+        speaking=1.0,
+        person_conf=0.7,
+        chatter_relief=True,
+    )
     mj_model.geom_friction[:] = orig_friction
     if orig_pair is not None:
         mj_model.pair_friction[:] = orig_pair
@@ -799,6 +929,26 @@ def qualify_in_mujoco(policy_path: Path, manifold: PoseManifold) -> dict:
             100.0 * (1.0 - compliant_shear["mean_torque_nm"] / max(1e-6, statue_shear["mean_torque_nm"])),
             1,
         ),
+        "statue_carrier_jam": statue_carrier_jam,
+        "compliant_carrier_jam": compliant_carrier_jam,
+        "carrier_jam_error_reduction_pct": round(
+            100.0
+            * (
+                1.0
+                - compliant_carrier_jam["rl_carrier_error_deg"]
+                / max(1e-6, statue_carrier_jam["rl_carrier_error_deg"])
+            ),
+            1,
+        ),
+        "carrier_jam_torque_reduction_pct": round(
+            100.0
+            * (
+                1.0
+                - compliant_carrier_jam["rl_carrier_torque_nm"]
+                / max(1e-6, statue_carrier_jam["rl_carrier_torque_nm"])
+            ),
+            1,
+        ),
         "gaze_left": gaze_left,
         "gaze_right": gaze_right,
         "listening": listen_ep,
@@ -811,7 +961,17 @@ def qualify_in_mujoco(policy_path: Path, manifold: PoseManifold) -> dict:
         "closed_loop_imu_off_surprised_count": cl_exprs.count("surprised"),
         "all_upright": not any(
             ep["fell"]
-            for ep in (compliant_shear, gaze_left, gaze_right, listen_ep, listen_imu_off_ep, talk_ep, bored_ep, shove_ep)
+            for ep in (
+                compliant_shear,
+                compliant_carrier_jam,
+                gaze_left,
+                gaze_right,
+                listen_ep,
+                listen_imu_off_ep,
+                talk_ep,
+                bored_ep,
+                shove_ep,
+            )
         ),
     }
 

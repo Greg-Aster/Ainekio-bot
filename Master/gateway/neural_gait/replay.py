@@ -34,7 +34,7 @@ def versions(directory, progress, *, comparison=False):
     evaluation = json.loads((directory/'evaluation.json').read_text())['candidate']
     manifest_path = directory/'manifest.json'
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
-    policy = manifest.get('policy') or ('policy.json' if manifest.get('kind') == 'pupper-mjx' else 'policy.onnx')
+    policy = manifest.get('policy') or 'policy.onnx'
     selection = directory/'selection.json'
     if selection.exists():
         return [dict(json.loads(selection.read_text()), policy=policy, evaluation=evaluation)]
@@ -256,7 +256,7 @@ def render(directory, *, progress=False, comparison=False):
             return
         manifest = json.loads((directory/'manifest.json').read_text())
         if manifest.get('kind') not in SUPPORTED_KINDS:
-            raise ValueError('Replay supports MicroDuck and Pupper MJX runs only')
+            raise ValueError('Replay supports MicroDuck runs only')
         if (manifest.get('schema') not in SCHEMAS or
                 manifest.get('environment_version') not in POLICY_ENVIRONMENT_VERSIONS or
                 manifest.get('representation') != representation_identity()):

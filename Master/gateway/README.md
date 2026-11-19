@@ -10,18 +10,18 @@
 | `dashboard/server.py` & `dashboard/auth.py` | Operator cockpit HTTP server (`127.0.0.1:8791`), session authentication (`AINEKIO_DASHBOARD_NO_LOGIN=1` opt-out for local launchers), CSRF checks, and `/api/*` maintenance proxies. |
 | `environment_adapter/` | Loopback `/environment` WebSocket (`bridge.connect` control session and read-only `bridge.watch` availability), translating `requestMotion`, `move`, `stop`/`release`, `faceExpression`, `captureImage`, and `sendText` with correlated `action_receipts.py`. |
 | `body_capabilities.py` & `body_events.py` | Capability-filtered manual catalog and IMU/stall/feedback/wake event classification (`tipped`, `rapid_movement`, `servo_stall`, `servo_feedback_fault`, `wake`). |
-| `perception.py`, `yolo_backend.py`, & `person_identity.py` | Background camera recognition worker: Ultralytics YOLO / YOLOE open-vocabulary object detection plus OpenCV YuNet + SFace named-person enrollment and matching. |
+| `perception.py`, `detector_backend.py`, & `person_identity.py` | Background camera recognition worker: Apache-2.0 RT-DETRv2 ONNX object detection and OWLv2 open-vocabulary search/selection plus OpenCV YuNet + SFace named-person enrollment and matching. |
 | `depth_motion.py`, `depth_motion_worker.py`, & `ground_plane.py` | On-demand metric distance/odometry (`depthDemand`): calibrated ground-plane geometry or isolated MoGe-2 + IMU-constrained SIFT landmark odometry. |
 | `host_audio.py` & `environment_adapter/speech_transport.py` | Speech routing to either the robot's onboard speaker or host PulseAudio/PipeWire (`paplay` / Bluetooth) with heartbeat `external_speech` mic suppression. |
 | `hotspot.py` & `launch_connection.py` | Managed `ainekio-hotspot.target` (`hostapd`/`dnsmasq`) vs LAN Wi-Fi connection-mode control and startup mode prompts. |
-| `neural_gait/` | Independent host neural walking & MuJoCo/MJX simulation service (`127.0.0.1:8796`), MicroDuck `mjlab` PPO training/export, and Pupper MJX policy import/inference. |
+| `neural_gait/` | Independent host neural walking & MuJoCo simulation service (`127.0.0.1:8796`) and MicroDuck `mjlab` PPO training/export. |
 
 ## Body Control workspace
 
 The browser cockpit (`http://127.0.0.1:8791`) organizes live robot operation and diagnostics into a left-hand **Tools** drawer alongside the **Ainekio Cockpit** camera/telemetry split view:
 
-- **Operate**: *Ainekio Cockpit*, *Overview*, *Movement* (Walk / automatic Run / Crawl / Crab + live steering), *Neural gait* (virtual MuJoCo body, MicroDuck `mjlab`, and Pupper MJX policies), *Poses and emotes* (Freestyle prompt & manual library), *Faces and assets*, *Self-leveling* (`balance_control_v1` / `balance_tuning_v1` / gyro bias calibration), *Mode and power* (`idle_rest_v1` inactivity lay-down, sleep/restart), and *Motion speeds* (`joint_speed_limit_v1`).
-- **Perception**: *Camera settings* (stream/still resolutions, `AUTO` / `960P` / `FHD`, `max_exposure_us`, depth/odometry source), *Recognition* (YOLO/YOLOE prompts & enrolled people), *Audio and wake word* (mic gain, VAD/wake sensitivity, speaker volume, speech destination), *Body events* (tilt/shake thresholds & cooldowns), and *MetaHuman control* (`/environment` bridge status & handoff toggle).
+- **Operate**: *Ainekio Cockpit*, *Overview*, *Movement* (Walk / automatic Run / Crawl / Crab + live steering), *Neural gait* (virtual MuJoCo body and MicroDuck `mjlab` policies), *Poses and emotes* (Freestyle prompt & manual library), *Faces and assets*, *Self-leveling* (`balance_control_v1` / `balance_tuning_v1` / gyro bias calibration), *Mode and power* (`idle_rest_v1` inactivity lay-down, sleep/restart), and *Motion speeds* (`joint_speed_limit_v1`).
+- **Perception**: *Camera settings* (stream/still resolutions, `AUTO` / `960P` / `FHD`, `max_exposure_us`, depth/odometry source), *Recognition* (RT-DETRv2 / OWLv2 prompts & enrolled people), *Audio and wake word* (mic gain, VAD/wake sensitivity, speaker volume, speech destination), *Body events* (tilt/shake thresholds & cooldowns), and *MetaHuman control* (`/environment` bridge status & handoff toggle).
 - **Recordings & Maintenance**: *Video and SD card* (`storage_control_v1` rolling AVI clips), *Calibration* (`body_calibration_v2` 12-joint pulse/angle mapping & 4th-wire ADC calibration), and *Firmware & logs* (Wi-Fi OTA upload/activation).
 
 ## P4 recording and firmware in Body Control
@@ -81,7 +81,7 @@ When camera streaming or snapshots arrive from the body, `GatewayService` routes
 
 ## Configured recognition and Ainekio OS handoff
 
-Body Control's **Perception → Recognition** panel configures open-vocabulary or fixed-class Ultralytics YOLO / YOLOE detection (`yolo_backend.py`) and governs which structured observations cross `/environment` into Ainekio OS:
+Body Control's **Perception → Recognition** panel configures fixed-class Apache-2.0 RT-DETRv2 ONNX detection and OWLv2 open-vocabulary text/visual search (`detector_backend.py`) and governs which structured observations cross `/environment` into Ainekio OS:
 
 - **Detection handoff**: Recognized objects, bounding boxes, confidences, source frame resolution, and CSI `frame_completed_us` / `boot_id` metadata accompany camera stills (`origin: "audio" | "action" | "request"`) and live perception updates so Ainekio OS receives attributed visual context without re-running local vision models on every preview frame.
 - **Operator control toggle**: Disabling **MetaHuman control** in the cockpit header withholds autonomous `/environment` action admission while keeping manual Body Control and diagnostics live.
@@ -109,10 +109,10 @@ Body Control routes synthesized speech received over `/environment` (`sendText` 
 
 ## Neural walking simulation and policy service
 
-`Master/gateway/neural_gait/` runs as an independent local HTTP/simulation service (`127.0.0.1:8796`, started on demand or standalone via `python3 -m gateway.neural_gait.server`) owning virtual MuJoCo/MJX body simulation and the two supported locomotion policy families:
+`Master/gateway/neural_gait/` runs as an independent local HTTP/simulation service (`127.0.0.1:8796`, started on demand or standalone via `python3 -m gateway.neural_gait.server`) owning virtual MuJoCo body simulation and MicroDuck locomotion policies:
 
 - **MicroDuck `mjlab` PPO (`microduck.py`, `microduck_actor.py`, `microduck_mdp.py`, `requirements-microduck-training.txt`)**: Trains velocity-tracking quadruped policies in MuJoCo Warp (`vendor/microduck_rl`), serves live host `walk_nominal_v1` foot targets via ONNX Runtime, renders MuJoCo evaluation replays (`evaluation.py`, `replay.py`), and exports quantized `int8` weights (`Slave/software/models/v2-12servo/tools/compile_microduck.py`) for standalone 50 Hz on-chip ESP32-P4 execution.
-- **Pupper MJX & virtual body (`import_pupper_mjx.py`, `pupper_mjx_actor.py`, `jax_hardware.py`, `virtual.py`, `virtual_body.c`)**: Imports RTNeural JSON checkpoints trained with MJX/JAX kinematics, serves live host `walk_nominal_v1` joint targets, and runs the native C V2 linkage/controller loop inside MuJoCo for side-by-side virtual robot evaluation before physical floor trials.
+- **Virtual body (`jax_hardware.py`, `virtual.py`, `virtual_body.c`)**: Runs the native C V2 linkage/controller loop inside MuJoCo for side-by-side virtual robot evaluation before physical floor trials.
 
 ## Validation
 
