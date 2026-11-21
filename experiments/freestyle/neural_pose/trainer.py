@@ -86,8 +86,8 @@ POSE_RESIDUAL_SCALE = 0.43
 POSE_GOAL_FOOT_SLICE = slice(57, 69)
 MAX_CMD_DELAY_TICKS = 4
 MAX_OBS_DELAY_TICKS = 6
-DEFAULT_JAM_EPISODE_PROB = 0.24
-DEFAULT_STANCE_JAM_PROB = 0.52
+DEFAULT_JAM_EPISODE_PROB = 0.16
+DEFAULT_STANCE_JAM_PROB = 0.62
 
 
 @requires_model_fields("jnt_range")
@@ -196,11 +196,12 @@ def randomize_pose_actuators(env, env_ids):
     base_kp = float(pose_term.config.servo_kp)
     base_kd = float(pose_term.config.servo_kd)
 
-    # Physical Miuzei MG90S internal PID holds position stiffer than nominal 2.0 Nm/rad;
-    # spanning 0.85x..1.85x with proportional Kd keeps implicitfast integration unconditionally stable.
+    # Physical Miuzei MG90S internal PID + gearbox load: span Kp 0.85x..1.85x and independent Kd up to 2.25x
+    # so 40% of worlds exhibit slower loaded swing rates (135..210 deg/s), forcing closed-loop airborne hold
+    # until 4th-wire measured_deg actually arrives at goal rather than open-loop hop timing.
     kp_mult = 0.85 + 1.00 * torch.rand((n, 12), device=env.device)
-    kd_mult = kp_mult * (0.85 + 0.35 * torch.rand((n, 12), device=env.device))
-    effort_mult = 0.82 + 0.30 * torch.rand((n, 12), device=env.device)
+    kd_mult = 0.85 + 1.40 * torch.rand((n, 12), device=env.device)
+    effort_mult = 0.78 + 0.34 * torch.rand((n, 12), device=env.device)
 
     kp = base_kp * kp_mult
     kd = base_kd * kd_mult
@@ -265,6 +266,7 @@ class PoseAction(ActionTerm):
         self.manifold = PoseManifold(device=str(env.device))
         self.manifold.env_config = self.config
         self.manifold.body = TensorBody(json.loads(GEOMETRY.read_text()), self.config, device=env.device)
+        PoseManifold._apply_calibrated_carrier_floor(self.manifold.body)
         self.body = self.manifold.body
         self.sensors = TensorSensors(self.config, env.num_envs, env.device)
 
@@ -319,19 +321,23 @@ class PoseAction(ActionTerm):
         splay_base[:160] += (torch.rand((160, 4, 3), generator=splay_gen) * 2 - 1) * torch.tensor([8.0, 7.0, 5.0])
         splay_base[160:] += (torch.rand((96, 4, 3), generator=splay_gen) * 2 - 1) * torch.tensor([8.0, 12.0, 14.0])
         for row_i in range(256):
-            n_bad = 1 if (row_i % 3 != 0) else 2
+            n_bad = 1 if (row_i % 4 < 2) else (2 if row_i % 4 == 2 else (3 if row_i % 8 == 3 else 4))
             legs_picked = torch.randperm(4, generator=splay_gen)[:n_bad]
             for leg_i in legs_picked.tolist():
                 sh_sign = -1.0 if torch.rand((), generator=splay_gen).item() < 0.65 else 1.0
-                max_mag = 44.0 if sh_sign < 0.0 else 36.0
-                splay_base[row_i, leg_i, 0] = sh_sign * (8.0 + (max_mag - 8.0) * torch.rand((), generator=splay_gen).item())
-                if row_i < 160:
-                    # Keep splayed stance foot planted on the floor (models extreme carpet/floor friction splays)
-                    splay_base[row_i, leg_i, 1] = -4.0 + 13.0 * torch.rand((), generator=splay_gen).item()
-                    splay_base[row_i, leg_i, 2] = -24.0 + 8.0 * torch.rand((), generator=splay_gen).item()
+                if row_i < 96:
+                    # Dedicated 4.5..18 deg small/medium splays so policy steps crisply all the way into <2.5 deg
+                    splay_base[row_i, leg_i, 0] = sh_sign * (4.5 + 13.5 * torch.rand((), generator=splay_gen).item())
                 else:
-                    splay_base[row_i, leg_i, 1] += -24.0 + 46.0 * torch.rand((), generator=splay_gen).item()
-                    splay_base[row_i, leg_i, 2] += -18.0 + 48.0 * torch.rand((), generator=splay_gen).item()
+                    max_mag = 52.0 if sh_sign < 0.0 else 38.0
+                    splay_base[row_i, leg_i, 0] = sh_sign * (12.0 + (max_mag - 12.0) * torch.rand((), generator=splay_gen).item())
+                if row_i < 176:
+                    # Keep splayed stance foot planted on the floor (models carpet/floor friction splays)
+                    splay_base[row_i, leg_i, 1] = -6.0 + 15.0 * torch.rand((), generator=splay_gen).item()
+                    splay_base[row_i, leg_i, 2] = -25.0 + 10.0 * torch.rand((), generator=splay_gen).item()
+                else:
+                    splay_base[row_i, leg_i, 1] += -28.0 + 50.0 * torch.rand((), generator=splay_gen).item()
+                    splay_base[row_i, leg_i, 2] += -20.0 + 62.0 * torch.rand((), generator=splay_gen).item()
         live_splays = torch.tensor(
             [
                 [-40.77, 18.37, 13.27, 2.97, -25.05, -18.65, -3.55, 20.07, -12.97, -16.36, 0.14, -31.21],
@@ -342,6 +348,21 @@ class PoseAction(ActionTerm):
                 [-12.44, 7.71, -21.42, -40.91, 7.01, -19.84, -17.82, 5.15, -21.68, -12.37, -0.78, -20.25],
                 [-12.37, -0.78, -20.25, -17.82, 5.15, -21.68, -40.91, 7.01, -19.84, -12.44, 7.71, -21.42],
                 [-17.82, 5.15, -21.68, -12.37, -0.78, -20.25, -12.44, 7.71, -21.42, -40.91, 7.01, -19.84],
+                [-31.25, 1.09, -3.96, -9.87, -0.03, -19.67, -4.67, 2.46, -11.17, -8.62, -1.46, -23.74],
+                [-9.87, -0.03, -19.67, -31.25, 1.09, -3.96, -8.62, -1.46, -23.74, -4.67, 2.46, -11.17],
+                [-50.30, 35.00, 32.38, -33.18, 37.97, 22.25, -37.98, 32.21, 19.19, -33.42, 27.44, 20.05],
+                [-33.18, 37.97, 22.25, -50.30, 35.00, 32.38, -33.42, 27.44, 20.05, -37.98, 32.21, 19.19],
+                [-27.13, 1.13, 58.44, -13.64, -34.49, -14.37, -20.00, -21.86, 1.84, -30.14, -36.36, -27.89],
+                [-13.64, -34.49, -14.37, -27.13, 1.13, 58.44, -30.14, -36.36, -27.89, -20.00, -21.86, 1.84],
+                [-53.44, -27.26, -2.23, -21.91, -41.15, -34.95, -46.66, -13.00, -8.87, -47.66, -28.55, -34.11],
+                [-21.91, -41.15, -34.95, -53.44, -27.26, -2.23, -47.66, -28.55, -34.11, -46.66, -13.00, -8.87],
+                [-15.20, -12.80, -18.10, -6.60, -14.50, -30.50, -14.40, 26.40, -25.30, -19.30, 25.90, -35.80],
+                [-6.60, -14.50, -30.50, -15.20, -12.80, -18.10, -19.30, 25.90, -35.80, -14.40, 26.40, -25.30],
+                # Exact 15:56:55.98 overhead stretch return (rear crouched at -34 deg, front at +88/+47 deg) + mirror
+                [-5.80, -27.50, -21.40, 0.70, -27.50, -24.00, 13.30, 88.30, 58.60, 9.00, 47.40, 44.50],
+                [0.70, -27.50, -24.00, -5.80, -27.50, -21.40, 9.00, 47.40, 44.50, 13.30, 88.30, 58.60],
+                [-13.80, -22.00, -12.00, 2.70, -22.00, -16.00, -8.40, 0.94, -21.25, -1.60, 0.94, -21.25],
+                [2.70, -22.00, -16.00, -13.80, -22.00, -12.00, -1.60, 0.94, -21.25, -8.40, 0.94, -21.25],
             ],
             dtype=torch.float32,
         )
@@ -413,6 +434,7 @@ class PoseAction(ActionTerm):
         self.stance_jam_leg_mask = torch.zeros((env.num_envs, 4), dtype=torch.bool, device=env.device)
         self.stance_jam_unlocked = torch.zeros((env.num_envs, 4), dtype=torch.bool, device=env.device)
         self.stance_jam_airborne = torch.zeros((env.num_envs, 4), dtype=torch.bool, device=env.device)
+        self.stance_step_leg = torch.zeros((env.num_envs, 4), dtype=torch.bool, device=env.device)
         self.stance_jam_age = torch.zeros((env.num_envs, 4), dtype=torch.long, device=env.device)
         self.stance_jam_lock_rad = torch.zeros((env.num_envs, 4), dtype=torch.float32, device=env.device)
         self.stance_jam_dir = torch.zeros((env.num_envs, 4), dtype=torch.float32, device=env.device)
@@ -489,12 +511,13 @@ class PoseAction(ActionTerm):
         self.stance_jam_leg_mask[ids] = False
         self.stance_jam_unlocked[ids] = False
         self.stance_jam_airborne[ids] = False
+        self.stance_step_leg[ids] = False
         self.stance_jam_age[ids] = 0
         self.stance_jam_lock_rad[ids] = 0.0
         self.stance_jam_dir[ids] = 0.0
         self.stance_jam_floor_z[ids] = 1e6
 
-        # 1. Ground-contact unilateral shoulder friction jam (re-locks on touchdown until |q_sh - goal_sh| <= 2.6 deg!)
+        # 1. Ground-contact unilateral shoulder friction jam (1..4 locked shoulders; re-locks on early touchdown!)
         seg_sjam = self.stance_jam_episode[ids] & (~self.jam_episode[ids]) & (torch.rand(n, device=dev) < 0.88)
         if bool(seg_sjam.any()):
             sj_local = torch.nonzero(seg_sjam, as_tuple=False).squeeze(-1)
@@ -506,30 +529,58 @@ class PoseAction(ActionTerm):
             usable_sh = self.usable_mask[sj_ids].reshape(ms, 4, 3)[..., 0]
             sup_s = self.leg_support[sj_ids] > 0.5
             four_leg_stance = self.leg_support[sj_ids].sum(dim=-1, keepdim=True) > 3.5
-            valid_sj = four_leg_stance & sup_s & usable_sh & (d_sh.abs() > 0.095)
+            valid_sj = four_leg_stance & sup_s & usable_sh & (d_sh.abs() > 0.058)
             if bool(valid_sj.any()):
                 sj_ok = valid_sj.any(dim=-1)
                 sj_scores = torch.where(valid_sj, d_sh.abs() + 0.05 * torch.rand_like(d_sh), torch.full_like(d_sh, -1.0))
                 sj_sel = sj_scores.argmax(dim=-1)
                 sj_oh = torch.nn.functional.one_hot(sj_sel, num_classes=4).to(torch.bool) & sj_ok.unsqueeze(-1)
+                multi_lock = torch.rand((ms, 1), device=dev) < 0.55
+                sj_mask = torch.where(multi_lock, valid_sj, sj_oh) & sj_ok.unsqueeze(-1)
                 active_sj_ids = sj_ids[sj_ok]
                 self.osc_active[active_sj_ids] = False
                 self.osc_amp_rad[active_sj_ids] = 0.0
-                # Snag catches at 0%..16% of lateral shoulder drag while foot is planted on carpet
-                alpha_sj = 0.16 * torch.rand((ms, 1), device=dev)
+                multi_cnt = sj_mask.sum(dim=-1)
+                self.goal_timer[sj_ids] = torch.where(
+                    multi_cnt >= 2, torch.clamp(self.goal_timer[sj_ids], min=155), self.goal_timer[sj_ids]
+                )
+                # 55% snag immediately (0..20% travel -> large 10..42 deg splay),
+                # 25% snag mid-way (42..72% travel -> medium 7..18 deg splay),
+                # 20% settle near goal (2.6..6.2 deg residual inside the 6.5 deg non-stepping deadband!)
+                u_snag = torch.rand((ms, 1), device=dev)
+                alpha_sj = torch.where(
+                    u_snag < 0.55,
+                    0.20 * torch.rand((ms, 1), device=dev),
+                    torch.where(
+                        u_snag < 0.80,
+                        0.42 + 0.30 * torch.rand((ms, 1), device=dev),
+                        1.0 - (0.046 + 0.062 * torch.rand((ms, 1), device=dev)) / d_sh.abs().clamp_min(0.12),
+                    ),
+                ).clamp(0.0, 0.94)
                 lock_sh = qs_s[..., 0] + alpha_sj * d_sh
-                sj_dir = torch.where(sj_oh, torch.sign(d_sh), torch.zeros_like(d_sh))
+                rem_after_lock = (qg_s[..., 0] - lock_sh).abs()
+                sj_mask = sj_mask & (rem_after_lock > 0.045)
+                sj_ok = sj_mask.any(dim=-1)
+                sj_dir = torch.where(sj_mask, torch.sign(d_sh), torch.zeros_like(d_sh))
                 sh_jids = self.mj_joint_ids[0::3]
                 def_sh_lo = self.default_jnt_range[0::3, 0].unsqueeze(0).expand(ms, 4)
                 def_sh_hi = self.default_jnt_range[0::3, 1].unsqueeze(0).expand(ms, 4)
                 lo_sj = torch.where(sj_dir < -0.5, torch.clamp(lock_sh, def_sh_lo, def_sh_hi - 0.03), def_sh_lo)
                 hi_sj = torch.where(sj_dir > 0.5, torch.clamp(lock_sh, def_sh_lo + 0.03, def_sh_hi), def_sh_hi)
                 jnt_ranges[sj_ids.unsqueeze(1), sh_jids.unsqueeze(0), :] = torch.stack((lo_sj, hi_sj), dim=-1)
-                self.stance_jam_leg_mask[sj_ids] = sj_oh
+                self.stance_jam_leg_mask[sj_ids] = sj_mask
                 self.stance_jam_lock_rad[sj_ids] = lock_sh
                 self.stance_jam_dir[sj_ids] = sj_dir
+                # Schmitt-trigger initiation: only latch a step if residual shoulder splay > 6.5 deg (0.113 rad)
+                step_cand = sj_mask & (rem_after_lock > 0.113)
+                has_step_cand = step_cand.any(dim=-1)
+                init_sel = torch.where(step_cand, rem_after_lock, torch.full_like(d_sh, -1.0)).argmax(dim=-1)
+                self.stance_step_leg[sj_ids] = (
+                    torch.nn.functional.one_hot(init_sel, num_classes=4).to(torch.bool) & has_step_cand.unsqueeze(-1)
+                )
 
-        # 2. Rigid physical hard-stop on free/suspended limbs or carrier/crank (teaches compliant recoil)
+        # 2. Rigid physical hard-stop strictly on free/gesturing limbs (`leg_support < 0.5` ONLY;
+        #    NEVER on `leg_support >= 0.5` stance legs, where hover observations collide with grounded standing!)
         seg_jam = self.jam_episode[ids] & (torch.rand(n, device=dev) < 0.80)
         if not bool(seg_jam.any()):
             return
@@ -543,8 +594,7 @@ class PoseAction(ActionTerm):
         leg_travel = dq43.abs().amax(dim=-1)
         usable4 = self.usable_mask[sub_ids].reshape(m, 4, 3).all(dim=-1)
         sup4 = self.leg_support[sub_ids]
-        susp1 = self.is_suspended[sub_ids].unsqueeze(-1)
-        free_pref = (sup4 < 0.5) | susp1
+        free_pref = sup4 < 0.5
 
         valid_leg = (leg_travel > 0.40) & usable4 & free_pref
         use_leg = valid_leg
@@ -677,6 +727,7 @@ class PoseAction(ActionTerm):
         """
         active_locked = self.stance_jam_leg_mask & (~self.stance_jam_unlocked)
         if not bool(active_locked.any()):
+            self.stance_step_leg[:] = False
             return
         in_contact = self._env.scene["feet_ground_contact"].data.found > 0  # (N, 4)
         foot_z_w = self._entity.data.site_pos_w[:, self.foot_site_ids, 2]
@@ -685,13 +736,14 @@ class PoseAction(ActionTerm):
             torch.minimum(self.stance_jam_floor_z, foot_z_w),
             self.stance_jam_floor_z,
         )
-        q_sh = self._entity.data.joint_pos[:, self.joint_ids].reshape(-1, 4, 3)[..., 0]
+        q_all = self._entity.data.joint_pos[:, self.joint_ids].reshape(-1, 4, 3)
+        q_sh = q_all[..., 0]
         goal_sh = self.current_goal_rad.reshape(-1, 4, 3)[..., 0]
         d_rem = goal_sh - q_sh
         sh_err = d_rem.abs()
 
-        # Permanently unlock once the shoulder swings inside 2.6 deg (0.045 rad) of goal
-        arrived = active_locked & (sh_err <= 0.045)
+        # Permanently unlock once the shoulder swings inside 3.0 deg (0.052 rad) of goal
+        arrived = active_locked & (sh_err <= 0.052)
         if bool(arrived.any()):
             self.stance_jam_unlocked = self.stance_jam_unlocked | arrived
             self.stance_jam_airborne = self.stance_jam_airborne & (~arrived)
@@ -700,12 +752,13 @@ class PoseAction(ActionTerm):
             self._env.sim.model.jnt_range[env_a, sh_a, :] = self.default_jnt_range[leg_a * 3, :]
             active_locked = self.stance_jam_leg_mask & (~self.stance_jam_unlocked)
             if not bool(active_locked.any()):
+                self.stance_step_leg[:] = False
                 return
 
         floor_known = self.stance_jam_floor_z < 1e5
-        cleared_pile = (~in_contact) & floor_known & ((foot_z_w - self.stance_jam_floor_z) >= 0.008)
+        cleared_pile = (~in_contact) & floor_known & ((foot_z_w - self.stance_jam_floor_z) >= 0.0045)
 
-        # Newly lifted >= 8 mm clear of carpet -> free shoulder joint range while airborne
+        # Newly lifted >= 4.5 mm clear of floor (zero ground contact) -> free shoulder joint range while airborne
         newly_airborne = active_locked & (~self.stance_jam_airborne) & cleared_pile
         if bool(newly_airborne.any()):
             self.stance_jam_airborne = self.stance_jam_airborne | newly_airborne
@@ -713,10 +766,8 @@ class PoseAction(ActionTerm):
             sh_u = self.mj_joint_ids[leg_u * 3]
             self._env.sim.model.jnt_range[env_u, sh_u, :] = self.default_jnt_range[leg_u * 3, :]
 
-        # Touched back down (< 6 mm or ground contact) before reaching goal -> carpet re-locks at current q_sh
-        touched_down = active_locked & self.stance_jam_airborne & (
-            in_contact | ((~floor_known) | ((foot_z_w - self.stance_jam_floor_z) < 0.006))
-        )
+        # Touched back down (ground contact restored) before reaching goal -> carpet re-locks at current q_sh
+        touched_down = active_locked & self.stance_jam_airborne & in_contact
         if bool(touched_down.any()):
             self.stance_jam_airborne = self.stance_jam_airborne & (~touched_down)
             new_dir = torch.sign(d_rem)
@@ -735,6 +786,22 @@ class PoseAction(ActionTerm):
         dist_to_lock = self.stance_jam_dir * (self.stance_jam_lock_rad - q_sh)
         pinned = active_locked & (~self.stance_jam_airborne) & in_contact & (dist_to_lock <= 0.035)
         self.stance_jam_age = torch.where(pinned, self.stance_jam_age + 1, self.stance_jam_age)
+
+        # Schmitt-trigger single-leg sequencer with stand-before-step priority:
+        # - Do NOT initiate a shoulder micro-step while any stance leg's carrier is still deeply
+        #   crouched/folded (|ca_err| > 14 deg / 0.24 rad) — stand up on all 4 legs first!
+        # - Continue an already-latched step down to <= 3.0 deg (0.052 rad)
+        # - Initiate a NEW step strictly when shoulder error > 6.5 deg (0.113 rad)
+        ca_err = (self.current_goal_rad.reshape(-1, 4, 3)[..., 1] - q_all[..., 1]).abs()
+        stance_upright = (~((self.leg_support > 0.5) & (ca_err > 0.24))).all(dim=-1, keepdim=True)
+        keep_mask = self.stance_step_leg & active_locked & (sh_err > 0.052) & stance_upright
+        keep_cur = keep_mask.any(dim=-1)
+        start_mask = active_locked & (sh_err > 0.113) & stance_upright
+        next_scores = torch.where(start_mask, sh_err, torch.full_like(sh_err, -1.0))
+        next_oh = torch.nn.functional.one_hot(next_scores.argmax(dim=-1), num_classes=4).to(torch.bool) & start_mask.any(
+            dim=-1, keepdim=True
+        )
+        self.stance_step_leg = torch.where(keep_cur.unsqueeze(-1), keep_mask, next_oh)
 
     def _advance_goals_50hz(self, exclude_ids: torch.Tensor | None = None):
         active_env = torch.ones(self._env.num_envs, dtype=torch.bool, device=self._env.device)
@@ -1147,7 +1214,7 @@ def make_pose_env_cfg(config: EnvironmentConfig, num_envs: int = 1024, *, includ
         "foot_friction": EventTermCfg(
             func=gait_mdp.randomize_multisurface_friction,
             mode="reset",
-            params={"asset_cfg": SceneEntityCfg("robot", geom_names=foot_geoms), "ranges": (0.22, 1.85)},
+            params={"asset_cfg": SceneEntityCfg("robot", geom_names=foot_geoms), "ranges": (0.10, 2.05)},
         ),
         "push_grounded_robot": EventTermCfg(
             func=push_grounded_robot, mode="interval", interval_range_s=(2.0, 4.5)
@@ -1298,10 +1365,11 @@ def _kinematic_warmstart(runner, wrapped, env, device: str):
                     sup = pose_term.leg_support
                     partial = (sup.sum(dim=-1) < 3.5) & (~pose_term.is_suspended)
                     if bool(partial.any()):
-                        # Leg y signs in body frame: RL(+1), RR(-1), FL(+1), FR(-1)
+                        # Leg y signs in body frame: RL(+1=left), RR(-1=right), FL(+1=left), FR(-1=right);
+                        # shifting torso toward stance legs (`desired_feet = world_foot - trans`) moves stance feet inboard
                         free_left = ((sup[:, 0] < 0.5) | (sup[:, 2] < 0.5)) & partial
                         free_right = ((sup[:, 1] < 0.5) | (sup[:, 3] < 0.5)) & partial
-                        shift_u_y = torch.where(free_left, -stance_shift_u, torch.where(free_right, stance_shift_u, 0.0))
+                        shift_u_y = torch.where(free_left, stance_shift_u, torch.where(free_right, -stance_shift_u, 0.0))
                         for leg_i in range(4):
                             stance_i = (sup[:, leg_i] > 0.5) & partial
                             u_kin[:, leg_i * 3 + 1] = torch.where(
@@ -1393,48 +1461,86 @@ def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: floa
         u_out = u_teacher
         sample_w = torch.ones_like(u_teacher)
 
-        # 1. Ground-contact friction jam ONLY: unload snagged stance foot vertically (+Z) + tripod CoM shift
+        # 1. Ground-contact friction jam ONLY: Schmitt-trigger single-leg step (>6.5 deg start, <=3.0 deg release)
+        #    gated by stand-before-step (all stance carriers within 14 deg of goal before lifting any paw).
+        active_locked = pose_term.stance_jam_leg_mask & (~pose_term.stance_jam_unlocked)
+        ca_err = (pose_term.current_goal_rad - q_true).abs().reshape(-1, 4, 3)[..., 1]
+        stance_upright = (~((pose_term.leg_support > 0.5) & (ca_err > 0.24))).all(dim=-1, keepdim=True)
         sjam_ready = (
-            pose_term.stance_jam_leg_mask
+            active_locked
+            & stance_upright
             & (pose_term.stance_jam_age >= delay_gate)
             & (~ready_leg.any(dim=-1, keepdim=True))
         )
         sh_err = (pose_term.current_goal_rad - q_true).abs().reshape(-1, 4, 3)[..., 0]
-        cand_step = sjam_ready & ((~pose_term.stance_jam_unlocked) | (sh_err > 0.038))
-        if bool(cand_step.any()):
-            has_step = cand_step.any(dim=-1)
-            step_leg_oh = cand_step
+        latched_ready = pose_term.stance_step_leg & sjam_ready & (sh_err > 0.052)
+        has_latched = latched_ready.any(dim=-1, keepdim=True)
+        start_cand = sjam_ready & (sh_err > 0.113)
+        has_start = start_cand.any(dim=-1, keepdim=True)
+        fb_scores = torch.where(start_cand, sh_err, torch.full_like(sh_err, -1.0))
+        fb_oh = torch.nn.functional.one_hot(fb_scores.argmax(dim=-1), num_classes=4).to(torch.bool) & has_start
+        step_leg_oh = torch.where(has_latched, latched_ready, fb_oh)
+        has_step = step_leg_oh.any(dim=-1)
 
+        # Sub-6.5 deg locked carpet splays OR deeply crouched stance legs hold calm zero-lift goal tracking
+        hold_or_stand = active_locked.any(dim=-1) & (~has_step) & (~ready_leg.any(dim=-1))
+        u_out = torch.where(hold_or_stand.unsqueeze(-1), torch.zeros_like(u_out), u_out)
+        sample_w = torch.where(hold_or_stand.unsqueeze(-1), torch.full_like(sample_w, 6.0), sample_w)
+
+        if bool(has_step.any()):
             _, curr_foot = pose_term.manifold.project_batch_rad(q_true)
             curr_f43 = curr_foot.reshape(-1, 4, 3)
             goal_f43 = pose_term.current_goal_foot.reshape(-1, 4, 3)
             in_contact = env.scene["feet_ground_contact"].data.found > 0  # (N, 4)
             airborne = getattr(pose_term, "stance_jam_airborne", ~in_contact)
 
-            xy_contact = 0.80 * curr_f43[..., :2] + 0.20 * goal_f43[..., :2]
-            # Relative +61 mm lift above curr_f43[..., 2] ensures even -41 deg splays clear 8 mm carpet pile cleanly
-            z_contact = (curr_f43[..., 2] + 0.34).clamp(-1.0, 0.88)
+            # Full calibrated carpet-clearing lift (z_norm +0.18 -> ~22 mm real clearance, bounded
+            # strictly inside the -27.87 deg calibrated carrier floor by PoseManifold).
+            xy_contact = 0.50 * curr_f43[..., :2] + 0.50 * goal_f43[..., :2]
+            z_contact = (curr_f43[..., 2] + 0.18).clamp(-1.0, 0.85)
             xy_air = goal_f43[..., :2]
-            z_air = (torch.maximum(curr_f43[..., 2], goal_f43[..., 2]) + 0.20).clamp(-1.0, 0.86)
+            z_air = (torch.maximum(curr_f43[..., 2], goal_f43[..., 2]) + 0.15).clamp(-1.0, 0.84)
 
             step_xy = torch.where((~airborne).unsqueeze(-1), xy_contact, xy_air)
             step_z = torch.where(~airborne, z_contact, z_air).unsqueeze(-1)
             step_f43 = torch.cat((step_xy, step_z), dim=-1)
 
             teach_f43 = (pose_term.current_goal_foot + float(POSE_RESIDUAL_SCALE) * u_teacher).clamp(-1.0, 1.0).reshape(-1, 4, 3)
-            left_single = (step_leg_oh[:, 0] | step_leg_oh[:, 2]) & (~(step_leg_oh[:, 1] | step_leg_oh[:, 3]))
-            right_single = (step_leg_oh[:, 1] | step_leg_oh[:, 3]) & (~(step_leg_oh[:, 0] | step_leg_oh[:, 2]))
-            com_shift_y = torch.where(left_single, -14.0 / 155.0, torch.where(right_single, 14.0 / 155.0, 0.0))
+            other_locked = active_locked & (~step_leg_oh)
+            base_sup_xy = torch.where(other_locked.unsqueeze(-1), curr_f43[..., :2], teach_f43[..., :2])
+
+            left_single = step_leg_oh[:, 0] | step_leg_oh[:, 2]
+            right_single = step_leg_oh[:, 1] | step_leg_oh[:, 3]
+            rear_single = step_leg_oh[:, 0] | step_leg_oh[:, 1]
+            front_single = step_leg_oh[:, 2] | step_leg_oh[:, 3]
+            shift_y = 14.0 / 155.0
+            shift_x = 9.0 / 155.0
+            brace_z = torch.full((env.num_envs,), -8.0 / 180.0, device=device)
+            com_shift_y = torch.where(left_single, shift_y, torch.where(right_single, -shift_y, 0.0))
+            com_shift_x = torch.where(rear_single, -shift_x, torch.where(front_single, shift_x, 0.0))
+
             support_tripod = (~step_leg_oh) & (pose_term.leg_support > 0.5) & has_step.unsqueeze(-1)
-            teach_y = (teach_f43[..., 1] + torch.where(support_tripod, com_shift_y.unsqueeze(-1), 0.0)).clamp(-1.0, 1.0)
-            teach_shifted = torch.stack((teach_f43[..., 0], teach_y, teach_f43[..., 2]), dim=-1)
+            step_diag_03 = step_leg_oh[:, 0] | step_leg_oh[:, 3]
+            step_diag_12 = step_leg_oh[:, 1] | step_leg_oh[:, 2]
+            diag_mask_12 = torch.tensor([False, True, True, False], device=device).unsqueeze(0)
+            diag_mask_03 = torch.tensor([True, False, False, True], device=device).unsqueeze(0)
+            brace_leg = support_tripod & (
+                (step_diag_03.unsqueeze(-1) & diag_mask_12) | (step_diag_12.unsqueeze(-1) & diag_mask_03)
+            )
+
+            teach_x = (base_sup_xy[..., 0] + torch.where(support_tripod, com_shift_x.unsqueeze(-1), 0.0)).clamp(-1.0, 1.0)
+            teach_y = (
+                base_sup_xy[..., 1] + torch.where(support_tripod & (~other_locked), com_shift_y.unsqueeze(-1), 0.0)
+            ).clamp(-1.0, 1.0)
+            teach_z = (teach_f43[..., 2] + torch.where(brace_leg, brace_z.unsqueeze(-1), 0.0)).clamp(-1.0, 1.0)
+            teach_shifted = torch.stack((teach_x, teach_y, teach_z), dim=-1)
 
             target_f43 = torch.where(step_leg_oh.unsqueeze(-1), step_f43, teach_shifted)
             u_step = ((target_f43.reshape(-1, 12) - pose_term.current_goal_foot) / float(POSE_RESIDUAL_SCALE)).clamp(-0.96, 0.96)
             step_j = step_leg_oh.repeat_interleave(3, dim=-1)
             sup_j = support_tripod.repeat_interleave(3, dim=-1)
             u_out = torch.where(has_step.unsqueeze(-1), u_step, u_out)
-            sample_w = torch.where(step_j, torch.full_like(sample_w, 14.0), torch.where(sup_j, torch.full_like(sample_w, 3.0), sample_w))
+            sample_w = torch.where(step_j, torch.full_like(sample_w, 14.0), torch.where(sup_j, torch.full_like(sample_w, 4.5), sample_w))
 
         # 2. Rigid physical obstacle (`jam_contacted`): compliant recoil onto q_true + 3.15 deg feeler preload
         if bool(ready_leg.any()):
@@ -1447,9 +1553,15 @@ def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: floa
 
         return u_out, sample_w
 
+    def _equivariant_logits(raw_x: torch.Tensor) -> torch.Tensor:
+        mir_x = raw_x[:, actor.obs_mirror_perm] * actor.obs_mirror_sign
+        f_out = mlp(actor.obs_normalizer(raw_x))
+        m_out = mlp(actor.obs_normalizer(mir_x))[:, actor.act_mirror_perm] * actor.act_mirror_sign
+        return 0.5 * (f_out + m_out)
+
     saved_jam_prob = DEFAULT_JAM_EPISODE_PROB
     try:
-        globals()["DEFAULT_JAM_EPISODE_PROB"] = 0.42
+        globals()["DEFAULT_JAM_EPISODE_PROB"] = 0.20
         # Refresh observation normalizers on splayed + carpet-snag + rigid-jam distribution
         actor.obs_normalizer.train(True)
         critic.obs_normalizer.train(True)
@@ -1474,14 +1586,13 @@ def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: floa
                 for _ in range(rollout_steps):
                     obs_td = wrapped.get_observations()
                     obs_actor = obs_td["actor"]
-                    norm_obs = actor.obs_normalizer(obs_actor)
                     u_exp, w_exp = _compute_expert_u(obs_actor)
                     y_logit = torch.atanh(u_exp.clamp(-0.97, 0.97))
-                    xs.append(norm_obs.detach())
+                    xs.append(obs_actor.detach())
                     ys.append(y_logit.detach())
                     ws.append(w_exp.detach())
                     if student_prob > 0.0 and torch.rand((), device=device).item() < student_prob:
-                        act = mlp(norm_obs).clamp(-8.0, 8.0).tanh()
+                        act = _equivariant_logits(obs_actor).clamp(-8.0, 8.0).tanh()
                     else:
                         act = u_exp
                     wrapped.step(act)
@@ -1495,7 +1606,7 @@ def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: floa
                 perm = torch.randperm(n_s, device=device)
                 for start in range(0, n_s, 4096):
                     idx = perm[start : start + 4096]
-                    pred = mlp(x_all[idx])
+                    pred = _equivariant_logits(x_all[idx])
                     wb = w_all[idx]
                     loss = (
                         wb * (0.20 * (pred - y_all[idx]).square() + 3.0 * (pred.tanh() - y_tanh[idx]).square())
@@ -1508,12 +1619,20 @@ def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: floa
                 g["lr"] *= 0.72
             with torch.no_grad():
                 jam_mask = w_all > 5.0
-                dagger_mae = float((mlp(x_all[:8192]).tanh() - y_tanh[:8192]).abs().mean().item())
-                jam_dagger_mae = (
-                    float((mlp(x_all).tanh()[jam_mask] - y_tanh[jam_mask]).abs().mean().item())
-                    if bool(jam_mask.any())
-                    else 0.0
-                )
+                pred_sample = _equivariant_logits(x_all[:8192]).tanh()
+                dagger_mae = float((pred_sample - y_tanh[:8192]).abs().mean().item())
+                if bool(jam_mask.any()):
+                    # Evaluate in chunks to keep GPU VRAM minimal
+                    jm_errs = []
+                    for start in range(0, n_s, 8192):
+                        sl = slice(start, min(start + 8192, n_s))
+                        m_sl = jam_mask[sl]
+                        if bool(m_sl.any()):
+                            p_sl = _equivariant_logits(x_all[sl]).tanh()
+                            jm_errs.append((p_sl[m_sl] - y_tanh[sl][m_sl]).abs())
+                    jam_dagger_mae = float(torch.cat(jm_errs).mean().item()) if jm_errs else 0.0
+                else:
+                    jam_dagger_mae = 0.0
     finally:
         globals()["DEFAULT_JAM_EPISODE_PROB"] = saved_jam_prob
         actor.obs_normalizer.train(True)

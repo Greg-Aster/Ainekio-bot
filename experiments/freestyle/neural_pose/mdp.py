@@ -177,12 +177,13 @@ def pose_tracking_reward(env) -> torch.Tensor:
     # Stance balance & friction-jam micro-step slack:
     # - Zero slack on unobstructed 4-leg stances so static postures settle tightly (<1.5 deg MAE).
     # - During 3-leg/2-paw gestures (sum(support) < 3.5) OR while an actual ground-contact friction jam
-    #   is being unloaded (`stance_jam_stepping`), grant CoM slack on supporting legs and carrier/crank
-    #   vertical lift slack on the jammed leg until its shoulder swings within 8 deg of goal.
+    #   is being unloaded (`stance_jam_stepping`, Schmitt-trigger latched: initiates > 6.5 deg / 0.113 rad,
+    #   releases <= 3.0 deg / 0.052 rad), grant CoM slack on supporting legs and proportional lift slack
+    #   strictly on the single latched stepping leg. Sub-6.5 deg splays receive zero lift slack.
     sjam_mask = getattr(pose_term, "stance_jam_leg_mask", None)
     if sjam_mask is not None:
-        sjam_unlocked = pose_term.stance_jam_unlocked
-        stance_jam_stepping = sjam_mask & ((~sjam_unlocked) | (abs_err[..., 0] > 0.045))
+        step_latched = getattr(pose_term, "stance_step_leg", torch.zeros_like(support, dtype=torch.bool))
+        stance_jam_stepping = sjam_mask & (~pose_term.stance_jam_unlocked) & step_latched & (abs_err[..., 0] > 0.052)
     else:
         stance_jam_stepping = torch.zeros_like(support, dtype=torch.bool)
 
@@ -191,15 +192,15 @@ def pose_tracking_reward(env) -> torch.Tensor:
     stance_leg = (support > 0.5) & (~stance_jam_stepping) & partial_support.unsqueeze(-1)
 
     slack = torch.zeros_like(abs_err)
-    slack = torch.where(stance_leg.unsqueeze(-1), torch.full_like(slack, 0.10), slack)
-    lift_slack = torch.tensor([0.0, 0.42, 0.46], device=abs_err.device, dtype=abs_err.dtype).reshape(1, 1, 3)
+    slack = torch.where(stance_leg.unsqueeze(-1), torch.full_like(slack, 0.09), slack)
+    lift_slack = torch.tensor([0.0, 0.50, 0.50], device=abs_err.device, dtype=abs_err.dtype).reshape(1, 1, 3)
     slack = torch.where(stance_jam_stepping.unsqueeze(-1), lift_slack, slack)
     eff_err = (abs_err - slack).clamp_min(0.0)
 
     leg_sq = eff_err.square().mean(dim=-1)  # (N, 4)
     coarse = torch.exp(-leg_sq / (0.18 ** 2))
-    fine = torch.exp(-leg_sq / (0.055 ** 2))
-    per_leg = 0.65 * coarse + 0.35 * fine
+    fine = torch.exp(-leg_sq / (0.045 ** 2))
+    per_leg = 0.55 * coarse + 0.45 * fine
 
     # Weight lifted/gesturing legs slightly higher so single-leg waves are crisp
     leg_w = torch.where((support < 0.5) & (~suspended.unsqueeze(-1)), 1.6, 1.0)
@@ -286,7 +287,10 @@ def action_smoothness_cost(env) -> torch.Tensor:
     if sjam_mask is not None:
         q_true = pose_term._entity.data.joint_pos[:, pose_term.joint_ids]
         sh_err = (q_true - pose_term.current_goal_rad).abs().reshape(-1, 4, 3)[..., 0]
-        active_special = active_special | (sjam_mask & ((~pose_term.stance_jam_unlocked) | (sh_err > 0.045)))
+        step_latched = getattr(pose_term, "stance_step_leg", torch.zeros_like(sjam_mask))
+        active_special = active_special | (
+            sjam_mask & (~pose_term.stance_jam_unlocked) & step_latched & (sh_err > 0.052)
+        )
     unobstructed_f = (~active_special.repeat_interleave(3, dim=-1)).to(u.dtype)
     return (
         2.10 * du.square().sum(dim=-1)
@@ -313,20 +317,29 @@ def stance_step_clearance_reward(env, sensor_name: str = "feet_ground_contact") 
     delay_gate = pose_term.obs_delay_ticks.unsqueeze(-1) + 2
     q_true = pose_term._entity.data.joint_pos[:, pose_term.joint_ids]
     sh_err = (q_true - pose_term.current_goal_rad).abs().reshape(-1, 4, 3)[..., 0]
+    step_leg = getattr(pose_term, "stance_step_leg", torch.zeros_like(sjam_mask))
     need_unload = (
         sjam_mask
+        & (~pose_term.stance_jam_unlocked)
+        & step_leg
         & (pose_term.stance_jam_age >= delay_gate)
-        & ((~pose_term.stance_jam_unlocked) | (sh_err > 0.045))
+        & (sh_err > 0.052)
     )
+    active_step = need_unload
     unloaded = need_unload & (~in_contact)
     lift_progress = torch.where(
-        need_unload,
-        0.60 * (wz_lift / 0.010).clamp(max=1.3) + 0.40 * (~in_contact).float(),
+        active_step,
+        0.60 * (wz_lift / 0.008).clamp(max=1.3) + 0.40 * (~in_contact).float(),
         torch.zeros_like(wz_lift),
     )
+    unlocked_frac = (
+        (sjam_mask & pose_term.stance_jam_unlocked).float().sum(dim=-1)
+        / sjam_mask.float().sum(dim=-1).clamp_min(1.0)
+    )
     grav = env.scene["robot"].data.projected_gravity_b
-    stable_base = (contact_count >= 2.5) & ((-grav[:, 2]) > 0.75) & (unloaded.float().sum(dim=-1) <= 1.5)
-    step_bonus = lift_progress.sum(dim=-1).clamp(max=1.1) * stable_base.float()
+    # Strict 3-leg tripod requirement: >= 3 feet in ground contact and at most 1 jammed foot airborne at once
+    stable_base = (contact_count >= 2.8) & ((-grav[:, 2]) > 0.78) & (unloaded.float().sum(dim=-1) <= 1.2)
+    step_bonus = (0.65 * lift_progress.sum(dim=-1).clamp(max=1.1) + 0.55 * unlocked_frac) * stable_base.float()
     env.extras["log"]["Pose/microstep_unload_frac"] = (
         pose_term.stance_jam_unlocked[sjam_mask].float().mean()
         if bool(sjam_mask.any())
@@ -358,7 +371,7 @@ def settle_damping_cost(env) -> torch.Tensor:
     sjam_mask = getattr(pose_term, "stance_jam_leg_mask", None)
     if sjam_mask is not None:
         sh_err = (q_true - pose_term.current_goal_rad).abs().reshape(-1, 4, 3)[..., 0]
-        sjam_stepping_3 = (sjam_mask & ((~pose_term.stance_jam_unlocked) | (sh_err > 0.14))).repeat_interleave(3, dim=-1)
+        sjam_stepping_3 = (sjam_mask & ((~pose_term.stance_jam_unlocked) | (sh_err > 0.038))).repeat_interleave(3, dim=-1)
         near = near & (~sjam_stepping_3)
 
     osc_active = pose_term.osc_active

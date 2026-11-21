@@ -147,7 +147,28 @@ def library():
     lib.virtual_body_hello.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint64, *text_output]
     lib.virtual_body_receive.argtypes = [ctypes.c_char_p, ctypes.c_uint64, ctypes.c_uint64, *text_output]
     lib.virtual_body_events.argtypes = text_output
-    for name in ("telemetry", "hello", "receive", "events", "feedback"):
+    lib.virtual_body_set_full_parity.argtypes = [ctypes.c_int]
+    lib.virtual_body_set_full_parity.restype = None
+    lib.virtual_body_set_media_state.argtypes = [
+        ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+        ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_float, ctypes.c_float,
+        ctypes.c_float,
+    ]
+    lib.virtual_body_set_media_state.restype = None
+    lib.virtual_body_status.argtypes = [ctypes.c_uint64, *text_output]
+    lib.virtual_body_heartbeat.argtypes = [ctypes.c_uint64, ctypes.c_int, *text_output]
+    lib.virtual_body_feedback_health.argtypes = [ctypes.c_uint64, *text_output]
+    lib.virtual_body_media_actions.argtypes = text_output
+    lib.virtual_body_face_frame.argtypes = [
+        ctypes.c_uint64, ctypes.c_int, ctypes.c_int,
+        ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t,
+        ctypes.c_void_p, ctypes.c_size_t,
+    ]
+    lib.virtual_body_face_frame.restype = ctypes.c_int
+    for name in (
+        "telemetry", "hello", "receive", "events", "feedback",
+        "status", "heartbeat", "feedback_health", "media_actions",
+    ):
         getattr(lib, "virtual_body_" + name).restype = ctypes.c_size_t
     return lib
 
@@ -733,7 +754,8 @@ class VirtualBody:
     def __init__(self, body_model, reference_angles, *, joint_speed_deg_s,
                  motion_rate=1., balance=True, heading_feedback=True,
                  balance_tuning=(1., 1., 0., 0.), idle_rest_seconds=0,
-                 oscillator_hz=25000000, frequency_hz=50, now_us=0):
+                 oscillator_hz=25000000, frequency_hz=50, now_us=0,
+                 full_parity=False):
         if VirtualBody._active is not None:
             raise RuntimeError("The production P4 executor is a process singleton")
         if "stand_enabled" not in body_model.robot["feedback"]:
@@ -741,6 +763,7 @@ class VirtualBody:
         self.body_model = body_model
         self.lib = body_model.lib
         self.closed = True
+        self.full_parity = bool(full_parity)
         self.reference = finite_array(reference_angles, 12)
         self.settings = finite_array([joint_speed_deg_s, motion_rate, balance,
                                      heading_feedback, *balance_tuning,
@@ -748,6 +771,8 @@ class VirtualBody:
         if not self.lib.virtual_body_reset(body_model.state, self.reference, self.settings, int(now_us)):
             self.lib.virtual_body_close()
             raise ValueError("The P4 executor rejected its initial calibration/pose/settings")
+        if self.full_parity:
+            self.lib.virtual_body_set_full_parity(1)
         self.closed = False
         self.now_us = now_us
         VirtualBody._active = self
@@ -840,3 +865,85 @@ class VirtualBody:
         value = self._packet(self.lib.virtual_body_feedback, int(now_us))
         self.now_us = now_us
         return value
+
+    def set_media_state(
+        self,
+        *,
+        camera_ready=True,
+        microphone_ready=True,
+        speaker_ready=True,
+        wake_ready=True,
+        display_ready=True,
+        capturing=False,
+        speaker_busy=False,
+        external_speech=False,
+        mic_rms=0.0,
+        mic_peak=0.0,
+        battery_voltage=8.15,
+    ):
+        self._live()
+        self.lib.virtual_body_set_media_state(
+            int(bool(camera_ready)),
+            int(bool(microphone_ready)),
+            int(bool(speaker_ready)),
+            int(bool(wake_ready)),
+            int(bool(display_ready)),
+            int(bool(capturing)),
+            int(bool(speaker_busy)),
+            int(bool(external_speech)),
+            float(mic_rms),
+            float(mic_peak),
+            float(battery_voltage),
+        )
+
+    def status(self, now_us):
+        self._live()
+        if now_us < self.now_us:
+            raise ValueError("Virtual device time must be monotonic")
+        packet = self._packet(self.lib.virtual_body_status, int(now_us))
+        self.now_us = now_us
+        return packet
+
+    def heartbeat(self, now_us, *, pong=True):
+        self._live()
+        if now_us < self.now_us:
+            raise ValueError("Virtual device time must be monotonic")
+        packet = self._packet(self.lib.virtual_body_heartbeat, int(now_us), int(bool(pong)))
+        self.now_us = now_us
+        return packet
+
+    def feedback_health(self, now_us):
+        self._live()
+        if now_us < self.now_us:
+            raise ValueError("Virtual device time must be monotonic")
+        packet = self._packet(self.lib.virtual_body_feedback_health, int(now_us), optional=True)
+        self.now_us = now_us
+        return packet
+
+    def media_actions(self):
+        self._live()
+        return self._packet(self.lib.virtual_body_media_actions)
+
+    def face_frame(self, now_ms, *, talking=False, capturing=False, render_rgba=True):
+        """Render the exact P4 ST7789 320x170 face via Slave/software/faces/face.c."""
+        self._live()
+        rgba = np.empty((170, 320, 4), dtype=np.uint8) if render_rgba else None
+        name_buf = ctypes.create_string_buffer(64)
+        token_buf = ctypes.create_string_buffer(64)
+        ok = self.lib.virtual_body_face_frame(
+            int(now_ms),
+            int(bool(talking)),
+            int(bool(capturing)),
+            rgba.ctypes.data if rgba is not None else 0,
+            name_buf,
+            len(name_buf),
+            token_buf,
+            len(token_buf),
+        )
+        if not ok:
+            raise RuntimeError("Production P4 face renderer returned no frame")
+        return {
+            "name": name_buf.value.decode("utf-8"),
+            "token": token_buf.value.decode("utf-8"),
+            "rgba": rgba,
+        }

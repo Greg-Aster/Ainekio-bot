@@ -1389,7 +1389,6 @@ class GatewayService:
         self.freestyle_motion: Callable[..., Awaitable[dict[str, object]]] | None = None
         self.freestyle_result: Callable[..., Awaitable[dict[str, object]]] | None = None
         self.freestyle_cancel: Callable[..., Awaitable[dict[str, object]]] | None = None
-        self.freestyle_recovery_state = None
 
     async def handler(
         self,
@@ -2232,8 +2231,6 @@ class GatewayService:
                     if feedback[name + "_mask"] & (1 << index)],
             }
         events = self.body_events.observation(robot_id,connection.epoch,imu)
-        events['recovering'] = (bool(self.freestyle_recovery_state(robot_id,connection.epoch))
-                                if self.freestyle_recovery_state is not None else False)
         return {"epoch": connection.epoch, "model": "v2-12servo", "joints": joints,
                 "events":events,
                 "imu": {key: value for key, value in imu.items() if key != "joint_feedback"},

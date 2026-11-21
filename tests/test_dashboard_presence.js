@@ -43,23 +43,8 @@ function fixture() {
   }
   const defaults = {
     enabled: true,
-    self_right_enabled: true,
-    chatter_relief_enabled: true,
-    social_gaze_enabled: true,
     expressions_enabled: true,
-    servo_release_s: 180,
-    presence_defers_release: true,
-    passive_mode: 'calm_then_release',
   };
-  const elements = Object.entries(defaults).map(([name, value]) => ({
-    name,
-    type: typeof value === 'boolean' ? 'checkbox' : typeof value === 'number' ? 'number' : 'select-one',
-    value: String(value),
-    checked: value === true,
-    disabled: false,
-  }));
-  elements.namedItem = name => elements.find(item => item.name === name);
-  node('presence-form').elements = elements;
 
   const context = {
     console, URL, Headers,
@@ -94,22 +79,14 @@ function fixture() {
     presence: {
       defaults,
       policy_loaded: true,
-      model_footprint: { parameter_count: 56382, int8_bytes: 56382, fp32_bytes: 225528, p4_internal_sram_fit: true },
+      policy_path: '/tmp/neural-pose-active/policy.onnx',
       robots: {
         p4: {
           settings: defaults,
-          mode: 'active',
-          passive_reason: null,
-          imu_fed_to_policy: true,
-          active_expression: 'curious',
-          idle_seconds: 8.2,
-          release_idle_seconds: 8.2,
-          sympathy_score: 0.92,
-          chatter_max_deg: 0.3,
-          tracking_error_max_deg: 0.9,
-          compliance_trim_max_mm: 4.2,
-          person_confidence: 0.88,
-          speech_rms: 0.0,
+          mode: 'speaking',
+          active_expression: 'talk_happy',
+          speech_rms: 0.62,
+          stalled_released: false,
           last_error: null,
         },
       },
@@ -120,48 +97,18 @@ function fixture() {
   return { node, requests, api: context.presenceTest, payload, entry };
 }
 
-test('living presence GUI preserves drafts on poll and saves servo release, passive & gyro settings', async () => {
+test('cockpit talking presence toggle saves enabled state and reflects speaking and calibration modes', async () => {
   const f = fixture();
-  assert.equal(f.node('presence-form').elements.namedItem('servo_release_s').value, '180');
   assert.equal(f.node('cockpit-presence-toggle').checked, true);
-  assert.equal(f.node('cockpit-self-right-toggle').checked, true);
-  assert.equal(f.node('presence-quick-enabled').checked, true);
-  assert.equal(f.node('presence-quick-self-right').checked, true);
-  assert.equal(f.node('presence-quick-badge').textContent, 'active · curious');
-  assert.equal(f.node('summary-system2-mode').textContent, 'Freestyle neural actor');
+  assert.equal(f.node('cockpit-presence-state').textContent, 'On · mode: speaking');
 
-  f.node('presence-form').elements.namedItem('servo_release_s').value = '300';
-  f.node('presence-form').elements.namedItem('passive_mode').value = 'release';
-  await f.node('presence-form').fire('input');
-
-  f.api.render(f.payload, f.entry);
-  assert.equal(f.node('presence-form').elements.namedItem('servo_release_s').value, '300', 'Polling preserves unsaved edits');
-
-  await f.node('presence-form').fire('submit');
+  f.node('cockpit-presence-toggle').checked = false;
+  await f.node('cockpit-presence-toggle').fire('change');
   assert.equal(f.requests.length, 1);
   assert.equal(f.requests[0].url, '/api/presence');
-  assert.equal(f.requests[0].body.op, 'configure');
-  assert.equal(f.requests[0].body.robot_id, 'p4');
-  assert.equal(f.requests[0].body.settings.servo_release_s, 300);
-  assert.equal(f.requests[0].body.settings.passive_mode, 'release');
-  assert.equal('boredom_interval_s' in f.requests[0].body.settings, false);
-});
-
-test('cockpit self-right toggle turns off gyro feed to System 3 immediately and resume clears passive state', async () => {
-  const f = fixture();
-  f.node('cockpit-self-right-toggle').checked = false;
-  await f.node('cockpit-self-right-toggle').fire('change');
-  assert.equal(f.requests.length, 1);
-  assert.equal(f.requests[0].url, '/api/presence');
-  assert.equal(f.requests[0].body.op, 'configure');
-  assert.equal(f.requests[0].body.settings.self_right_enabled, false);
-
-  await f.node('presence-resume-button').fire('click');
-  assert.equal(f.requests.length, 2);
-  assert.deepEqual(f.requests[1].body, { op: 'resume', robot_id: 'p4', stand: true });
+  assert.deepEqual(f.requests[0].body, { op: 'configure', robot_id: 'p4', settings: { enabled: false } });
 
   f.api.render(f.payload, { connection_state: 'online', mode: 'calibrate', status: {} });
-  assert.equal(f.node('presence-quick-badge').textContent, 'paused · calibration');
   assert.match(f.node('cockpit-presence-state').textContent, /paused · calibration/);
 });
 

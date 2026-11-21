@@ -5,13 +5,15 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_subdirectory("${ROOT}/Slave/software/models/v2-12servo" motion)
 set(P4 "${ROOT}/Slave/firmware/esp32p4-wifi6/main")
 set(IMU "${ROOT}/Slave/software/imu")
+set(FACES "${ROOT}/Slave/software/faces")
 set(PCA "${P4}/../components/ainekio_pca9685")
 set(JSON "${P4}/../managed_components/espressif__cjson/cJSON")
 add_library(gait_native SHARED native.c virtual_body.c "${PCA}/pca9685.c" "${P4}/joint_calibration.c"
   "${P4}/servo_feedback_model.c" "${P4}/servo_feedback_position.c"
-  "${P4}/controller_motion.c" "${P4}/body_readings.c" "${P4}/trajectory_program.c" "${P4}/imu_telemetry.c" "${JSON}/cJSON.c"
+  "${P4}/controller_motion.c" "${P4}/body_readings.c" "${P4}/trajectory_program.c" "${P4}/imu_telemetry.c"
+  "${P4}/face_timeline.c" "${FACES}/face.c" "${JSON}/cJSON.c"
   "${IMU}/imu.c" "${IMU}/vendor/Fusion/Fusion/FusionAhrs.c")
-target_include_directories(gait_native PRIVATE "${PCA}/include" "${P4}" "${IMU}/include"
+target_include_directories(gait_native PRIVATE "${PCA}/include" "${P4}" "${IMU}/include" "${FACES}/include"
   "${CMAKE_CURRENT_BINARY_DIR}/motion/walk"
   "${IMU}/vendor/Fusion/Fusion" "${P4}/../tests/body_shim"
   "${P4}/../tests/imu_shim" "${P4}/../tests/ota_shim" "${PCA}/../ainekio_p4_media/include" "${JSON}")

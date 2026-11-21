@@ -132,20 +132,20 @@ class DashboardHttpServer(ThreadingHTTPServer):
         self.presence = None
 
     def start_presence(self):
-        if self.presence is not None:
+        if self.presence is not None or not (FREESTYLE_ROOT / "neural_pose" / "presence.py").is_file():
             return
-        from gateway.presence import PresenceController
-        self.presence = PresenceController(
+        presence_mod = freestyle_module("neural_pose.presence")
+        shared_runtime = getattr(self.freestyle, "neural_pose", None) if self.freestyle is not None else None
+        self.presence = presence_mod.NeuralPosePresence(
             self.gateway,
+            runtime=shared_runtime,
             initial_settings=self.control_settings.get("presence", {}),
             freestyle_active_fn=lambda rid: bool(
                 self.freestyle is not None and self.freestyle.active.get(rid) in (self.freestyle.tasks or {})
             ),
-            camera_analysis_fn=lambda rid: (
-                self.camera_recognition.current_analysis(rid) if self.camera_recognition is not None else None
-            ),
+            stop_latched_fn=lambda: bool(self.stop_latched),
         )
-        threading.Thread(target=self.presence.runtime.load, name="presence-warmup", daemon=True).start()
+        threading.Thread(target=self.presence.runtime.load, name="neural-pose-warmup", daemon=True).start()
 
     async def close_presence(self):
         if self.presence is not None:
@@ -238,36 +238,29 @@ class DashboardHttpServer(ThreadingHTTPServer):
     async def presence_status(self):
         if self.presence is not None:
             return self.presence.status()
-        from gateway.presence import DEFAULTS as PRESENCE_DEFAULTS, presence_model_footprint, validate_presence_settings
+        presence_mod = freestyle_module("neural_pose.presence")
         saved = self.control_settings.get("presence", {})
         return {
-            "defaults": dict(PRESENCE_DEFAULTS),
+            "defaults": dict(presence_mod.PRESENCE_DEFAULTS),
             "policy_loaded": False,
-            "model_footprint": presence_model_footprint(),
+            "policy_path": None,
             "robots": {
-                rid: {"settings": validate_presence_settings(cfg), "mode": "standby"}
+                rid: {"settings": presence_mod.validate_presence_settings(cfg), "mode": "standby"}
                 for rid, cfg in saved.items()
             },
         }
 
     async def handle_presence(self, payload):
-        from gateway.presence import validate_presence_settings
+        presence_mod = freestyle_module("neural_pose.presence")
         robot_id = _required_string(payload, "robot_id")
         op = _optional_string(payload, "op") or "configure"
-        if op == "resume":
-            self.stop_latched = False
-            if self.presence is None:
-                self.start_presence()
-            state = await self.presence.clear_passive(robot_id, stand_up=bool(payload.get("stand", True)))
-            self.audit_log.record("presence_resumed", robot_id=robot_id)
-            return {"robot_id": robot_id, "presence": state}
         if op != "configure":
-            raise ValueError("op must be configure or resume")
+            raise ValueError("op must be configure")
         raw_settings = payload.get("settings")
         if self.presence is not None:
             settings = self.presence.configure(robot_id, raw_settings)
         else:
-            settings = validate_presence_settings(raw_settings)
+            settings = presence_mod.validate_presence_settings(raw_settings)
         saved = {**self.control_settings, "presence": {
             **self.control_settings.get("presence", {}), robot_id: settings}}
         _atomic_secure_json(self.control_settings_path, saved)
@@ -369,8 +362,7 @@ class DashboardHttpServer(ThreadingHTTPServer):
         if payload.get("operation") == "test-correction":
             return await self.freestyle.test_correction(robot, _required_string(payload, "review_id"))
         if payload.get("operation") == "configure":
-            return await self.freestyle.configure(robot, _required_string(payload, "endpoint"),
-                                                  _required_bool(payload, "recover_events"))
+            return await self.freestyle.configure(robot, _required_string(payload, "endpoint"))
         if payload.get("operation") == "trial":
             return self.freestyle.trial(robot, _required_string(payload, "job_id"))
         if payload.get("operation") == "review":
@@ -932,6 +924,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if camera is None:
                 raise GatewayError("Recognition is not configured")
             return self.server.call_gateway(camera.configure_vision({**payload, "requestId": str(uuid4())}), timeout=None)
+        if path == "/api/environment/robot":
+            adapter = self.server.environment_adapter
+            if adapter is None:
+                return {"ok": True, "robotId": None, "connected": False}
+            target_robot = _optional_string(payload, "robot_id")
+            result = self.server.call_gateway(adapter.select_robot(target_robot))
+            return {"ok": True, **result}
         if path == "/api/behavior-control":
             adapter = self.server.environment_adapter
             if adapter is None:

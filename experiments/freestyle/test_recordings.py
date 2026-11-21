@@ -251,8 +251,8 @@ class RecordedBridgeTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'settings.json'
             bridge=Bridge(FakeGateway(),FakeTransport(),settings_path=path)
-            await bridge.configure('robot','http://example',True)
+            await bridge.configure('robot','http://example')
             await bridge.close()
             restored=Bridge(FakeGateway(),FakeTransport(),settings_path=path)
-            self.assertEqual(restored.settings['robot'],{'endpoint':'http://example','recover_events':True})
+            self.assertEqual(restored.settings['robot'],{'endpoint':'http://example'})
             await restored.close()

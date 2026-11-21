@@ -240,96 +240,50 @@ class VirtualGatewayTests(unittest.IsolatedAsyncioTestCase):
                       "A producer failure must not manufacture physical completion")
 
 
-    async def test_fall_event_uses_existing_recovery_bridge_and_real_target_execution(self):
+    async def test_fall_event_does_not_invoke_freestyle_or_hijack_active_walk(self):
         import asyncio
-        from gateway.neural_gait.virtual import VirtualWalkEnded
+        from experiments.freestyle.bridge import Bridge
+
+        class _NoopTransport:
+            async def request(self, robot, endpoint, payload):
+                return self.executor.feedback(self.now)
+            async def close(self):
+                pass
+
+        transport = _NoopTransport()
+        transport.executor = self.executor
         generated = []
-        recovery_states=[]
         async def generate(endpoint, request):
             generated.append(request)
-            recovery_states.append(self.session.gateway.body_sensor_observation(self.session.robot_id)["events"])
-            return {"program":[{"name":"move", "arguments":{
-                "joint":"front_right_shoulder", "angle_deg":8,
-                "reference":"current", "speed_pct":50}}]}
-        self.assertIsNone(self.session.recovery)
-        recovery = await self.session.enable_recovery("test-generator-boundary", generate=generate)
-        await self.begin()
-        original = self.session.walk
-        initial = self.executor.tick(self.now)
-        calibration = await self.session.gateway.body_calibration("get",robot_id=self.session.robot_id)
-        speed = await self.session.gateway.body_motion_speed("get",robot_id=self.session.robot_id)
-        feedback = self.executor.feedback(self.now)
-        self.assertEqual(len(calibration["joints"]),12)
-        self.assertAlmostEqual(speed["joint_speed_limit_deg_s"],60/.11,places=3)
-        self.assertEqual(len(feedback["joints"]),12)
-        self.assertTrue(feedback["stand_enabled"])
-        self.np.testing.assert_array_equal(initial["logical_pwm_us"],self.executor.tick(self.now)["logical_pwm_us"])
-        # Real estimator and BodyEvents receive a sustained sideways gravity
-        # measurement. Ideal joint following here validates the recovery
-        # handoff/arrival contract, not physical self-righting or ground contact.
-        deadline = asyncio.get_running_loop().time()+12
-        while asyncio.get_running_loop().time()<deadline:
-            output = self.executor.tick(self.now)
-            self.now += 20000
-            self.measured = self.np.where(output["joint_enabled"],output["logical_angles"],self.measured)
-            self.body.feedback_sample(self.body.raw_samples(self.measured),output["logical_angles"],
-                self.body.sample_times(self.now/1e6)*1e6)
-            self.body.imu_sample(self.now,[0,9.80665,0],[0,0,0])
-            await self.session.publish(output["messages"])
-            await self.session.telemetry()
-            await asyncio.sleep(.001)
-            jobs = list(recovery.jobs.values())
-            if jobs and jobs[-1]["state"] in ("completed","error","superseded"):
-                break
-        self.assertEqual(len(generated),1, recovery.status())
-        self.assertTrue(recovery_states[0]['tipped'])
-        self.assertTrue(recovery_states[0]['recovering'])
-        self.assertIsNone(recovery_states[0]['slip'])
-        self.assertEqual(generated[0]["event"]["type"],"tipped")
-        self.assertEqual(generated[0]["observation"]["action"]["seq"],original)
-        job = list(recovery.jobs.values())[-1]
-        self.assertEqual(job["state"],"completed",job.get("error"))
-        self.assertTrue(job["receipts"])
-        self.assertTrue(all(receipt["t"]=="done" and receipt.get("position_verified") is True
-                            for receipt in job["receipts"]))
-        self.assertEqual(self.session.connection.completed[original]["t"],"cancelled")
-        self.assertIsNone(self.session.connection.neural_walk)
-        with self.assertRaises(VirtualWalkEnded):
-            await self.session.observation()
-        self.assertGreater(self.measured[9],initial["logical_angles"][9]+5)
-        self.assertTrue(self.executor.tick(self.now)["armed"])
-
-    async def test_operator_stop_retires_inflight_real_recovery_generation(self):
-        import asyncio
-        entered, release = asyncio.Event(), asyncio.Event()
-        async def generate(endpoint, request):
-            self.assertEqual(request["event"]["type"],"tipped")
-            entered.set()
-            await release.wait()
-            return {"program":[{"name":"move","arguments":{
-                "joint":"front_right_shoulder","angle_deg":8,"reference":"current","speed_pct":50}}]}
-        bridge = await self.session.enable_recovery("test-generator-boundary",generate=generate)
-        commands = []
-        async def record(command): commands.append(command)
-        self.session.gateway.subscribe_commands(record)
-        await self.begin()
-        for _ in range(300):
-            output = self.executor.tick(self.now)
-            self.now += 20000
-            self.body.feedback_sample(self.body.raw_samples(self.pose),output["logical_angles"],
-                self.body.sample_times(self.now/1e6)*1e6)
-            self.body.imu_sample(self.now,[0,9.80665,0],[0,0,0])
-            await self.session.publish(output["messages"])
-            await self.session.telemetry()
-            if entered.is_set(): break
-        self.assertTrue(entered.is_set(),bridge.status())
-        sequence = await self.session.stop(release=True)
-        await self.session.connection.wait_acknowledged(sequence,timeout=None)
-        release.set()
-        for _ in range(5): await self.advance()
-        self.assertFalse(any(command["t"]=="motion_plan" for command in commands))
-        self.assertEqual(list(bridge.jobs.values())[-1]["state"],"superseded")
-        self.assertFalse(self.executor.tick(self.now)["joint_enabled"].any())
+            return {"program": []}
+        bridge = Bridge(self.session.gateway, transport, generate=generate)
+        try:
+            await bridge.configure(self.session.robot_id, "test-generator-boundary")
+            await self.begin()
+            original = self.session.walk
+            tipped_seen = False
+            for _ in range(40):
+                transport.now = self.now
+                output = self.executor.tick(self.now)
+                self.now += 20000
+                self.measured = self.np.where(output["joint_enabled"], output["logical_angles"], self.measured)
+                self.body.feedback_sample(self.body.raw_samples(self.measured), output["logical_angles"],
+                    self.body.sample_times(self.now / 1e6) * 1e6)
+                self.body.imu_sample(self.now, [0, 9.80665, 0], [0, 0, 0])
+                await self.session.publish(output["messages"])
+                await self.session.telemetry()
+                await asyncio.sleep(0.001)
+                ev = self.session.gateway.body_sensor_observation(self.session.robot_id)["events"]
+                if ev.get("tipped"):
+                    tipped_seen = True
+                    break
+            self.assertTrue(tipped_seen)
+            self.assertEqual(generated, [])
+            self.assertEqual(bridge.jobs, {})
+            self.assertIsNotNone(self.session.connection.neural_walk)
+            self.assertIn(original, self.session.connection.pending)
+        finally:
+            await bridge.close()
 
 
 class ObservationTests(unittest.TestCase):

@@ -102,9 +102,7 @@ class SemanticTeacherTests(unittest.TestCase):
         from .compact_wire import ProgramEncoding
         dataset=Path(__file__).with_name('training-data')
         rows=[json.loads(line) for line in (dataset/'train.jsonl').read_text().splitlines() if line]
-        recovery=[row for row in rows if row.get('recovery_evidence')]
-        self.assertEqual({json.loads(row['query'])['event']['type'] for row in recovery},
-                         {'servo_stall','servo_feedback_fault','tipped','rapid_movement','slip'})
+        self.assertEqual([row for row in rows if json.loads(row['query']).get('event') is not None], [])
         rows=[row for row in rows if row.get('reference_motion')]
         counts=Counter(row['reference_motion'] for row in rows)
         self.assertEqual(len(rows),72)

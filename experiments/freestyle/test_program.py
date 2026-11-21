@@ -137,7 +137,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             from experiments.freestyle import bridge
             return await asyncio.to_thread(bridge.compile_motion,*args)
         self.bridge=Bridge(self.gateway,FakeTransport(),self.generate,compiler=compiler)
-        await self.bridge.configure('robot','http://unused',False)
+        await self.bridge.configure('robot','http://unused')
     def generate(self,endpoint,request):
         self.generated.append(request)
         return {'program':[call('oscillate',joint=JOINTS[0],amplitude_deg=20,cycles=12,speed_pct=50)]}
@@ -629,7 +629,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
             return {'joints':[{'id':i,'model_deg':angle,'command_us':1500,'calibrated':True} for i in range(12)]}
         self.bridge.generate=generate
         self.bridge.transport.request=feedback
-        await self.bridge.configure('robot','http://unused',True)
+        await self.bridge.configure('robot','http://unused')
         submitted=await self.bridge.submit('robot','move',True)
         await self.bridge.tasks[submitted['job_id']]
         self.assertEqual(len(calls),1)
@@ -642,7 +642,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.bridge.jobs),1)
         self.assertEqual(completed['state'],'completed')
 
-    async def test_recovery_preserves_an_unfinished_action_and_its_remaining_plan(self):
+    async def test_active_execution_never_reinvokes_generator_on_mid_motion_body_events(self):
         first=move(JOINTS[0],20,'current',50)
         second=move(JOINTS[0],-20,'current',50)
         calls=[]
@@ -661,18 +661,15 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         submitted=await self.bridge.submit('robot','move out and back',True)
         try:
             await entered.wait()
-            preview=await self.bridge.submit('robot','move out and back',False,
-                {'name':'body_event','data':{'kind':'rapid_movement'}})
-            await self.bridge.tasks[preview['job_id']]
-            context=calls[-1]['history'][0]
-            self.assertEqual(context['program_state'],'executing')
-            self.assertEqual(context['interrupted_action'],first)
-            self.assertEqual(context['remaining_program'],[second])
-            self.assertNotIn('completed_action',context)
-            self.assertEqual(len(self.gateway.sent),1)
+            for kind in ('servo_stall','servo_feedback_fault','tipped','rapid_movement','slip'):
+                await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
+                    'data':{'kind':kind,'outputs_released':False,'joints':[{'id':0},{'id':1}]}})
+            self.assertEqual(len(calls),1)
+            self.assertEqual(len(self.bridge.jobs),1)
         finally:
             release.set()
             await self.bridge.tasks[submitted['job_id']]
+        self.assertEqual(self.bridge.jobs[submitted['job_id']]['state'],'completed')
 
     async def test_unverified_target_completes_remaining_program_without_recursive_submit(self):
         first=move(JOINTS[0],5,'current',50)
@@ -687,7 +684,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         async def terminal(seq,**kwargs):
             return copy.deepcopy(unverified) if seq==2 else {'t':'done','seq':seq,'position_verified':True}
         self.gateway.wait_terminal=terminal
-        await self.bridge.configure('robot','http://unused',True)
+        await self.bridge.configure('robot','http://unused')
         submitted=await self.bridge.submit('robot','move all three joints',True)
         await self.bridge.tasks[submitted['job_id']]
         self.assertEqual(len(calls),1)
@@ -699,45 +696,11 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(job['receipts'][1],unverified)
 
     async def test_continue_authored_motion_events_do_not_interrupt_active_motion(self):
-        await self.bridge.configure('robot','http://unused',True)
+        await self.bridge.configure('robot','http://unused')
         await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
             'data':{'kind':'servo_feedback_fault','motion_policy':'continue_authored_motion'}})
         self.assertFalse(self.bridge.jobs)
         self.assertFalse(self.generated)
-
-    async def test_completed_target_is_not_interrupted_while_refreshing_its_measurements(self):
-        first=move(JOINTS[0],20,'current',50)
-        second=move(JOINTS[0],-20,'current',50)
-        calls=[]
-        def generate(endpoint,request):
-            calls.append(copy.deepcopy(request))
-            return {'program':[first,second]}
-        self.bridge.generate=generate
-        entered=asyncio.Event();release=asyncio.Event()
-        observation=self.bridge.connected_observation
-        count=0
-        async def refreshing(job):
-            nonlocal count
-            count+=1
-            if count==3:
-                entered.set()
-                await release.wait()
-            return await observation(job)
-        self.bridge.connected_observation=refreshing
-        submitted=await self.bridge.submit('robot','move out and back',True)
-        try:
-            await entered.wait()
-            preview=await self.bridge.submit('robot','move out and back',False,
-                {'name':'body_event','data':{'kind':'rapid_movement'}})
-            await self.bridge.tasks[preview['job_id']]
-            context=calls[-1]['history'][0]
-            self.assertEqual(context['program_state'],'executing')
-            self.assertEqual(context['completed_action'],first)
-            self.assertNotIn('interrupted_action',context)
-            self.assertEqual(context['remaining_program'],[second])
-        finally:
-            release.set()
-            await self.bridge.tasks[submitted['job_id']]
 
     async def test_stop_discards_speculative_motion_without_delaying_command(self):
         prepared=threading.Event();release=threading.Event();sent=asyncio.Event()
@@ -775,7 +738,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.gateway.sent[0][0],[5000,[3000]+[1000]*11])
         self.assertEqual(sum(map(len,self.gateway.sent)),48)
     async def test_body_events_never_auto_submit_llm_recovery_even_when_configured(self):
-        await self.bridge.configure('robot','http://unused',True)
+        await self.bridge.configure('robot','http://unused')
         for kind in ('servo_stall','servo_feedback_fault','tipped','rapid_movement','slip'):
             await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
                 'data':{'kind':kind,'outputs_released':False,'joints':[{'id':0}]}})
@@ -940,7 +903,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.gateway.sent,[])
 
     async def test_released_stall_cannot_start_another_model_correction(self):
-        await self.bridge.configure('robot','http://unused',True)
+        await self.bridge.configure('robot','http://unused')
         await self.bridge.event({'t':'event','name':'body_event','robot_id':'robot','epoch':1,
             'data':{'kind':'servo_stall','outputs_released':True,'command_sequence':1}})
         self.assertEqual(self.generated,[])
@@ -1016,7 +979,7 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.gateway.intents,[('stand',{})])
 
     async def test_old_motion_event_does_not_override_replacement_command(self):
-        await self.bridge.configure('robot','http://unused',True)
+        await self.bridge.configure('robot','http://unused')
         await self.bridge.event({'robot_id':'robot','epoch':1,'name':'body_event',
             'data':{'kind':'servo_stall','command_sequence':99}})
         self.assertFalse(self.bridge.jobs)

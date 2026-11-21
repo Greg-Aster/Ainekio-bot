@@ -36,7 +36,6 @@
     </details>
     <details class="freestyle-folder"><summary>Freestyle settings</summary>
       <label>Generator address <input data-field="endpoint" value="http://127.0.0.1:8794"></label>
-      <label class="freestyle-recovery"><input data-field="recovery" type="checkbox"> Respond to body events</label>
       <p data-field="settings-status" role="status"></p>
     </details>`;
   document.querySelector('[data-workspace-panel="poses"]').append(panel);
@@ -47,10 +46,10 @@
   let settingsEdited = false;
   let displayedSettings = null;
   panel.addEventListener("input", event => {
-    if (["endpoint", "recovery"].includes(event.target.dataset.field)) settingsEdited = true;
+    if (event.target.dataset.field === "endpoint") settingsEdited = true;
   });
   panel.addEventListener("change", async event => {
-    if (!["endpoint", "recovery"].includes(event.target.dataset.field)) return;
+    if (event.target.dataset.field !== "endpoint") return;
     settingsEdited = true;
     const robot = document.getElementById("robot-select").value;
     try { await saveSettings(robot); }
@@ -68,7 +67,6 @@
     const serialized = JSON.stringify(settings);
     if (displayedRobot !== robot || (!settingsEdited && displayedSettings !== serialized)) {
       field("endpoint").value = settings.endpoint || "http://127.0.0.1:8794";
-      field("recovery").checked = settings.recover_events === true;
       settingsEdited = false;
       displayedSettings = serialized;
     }
@@ -95,11 +93,10 @@
     return result;
   }
   async function saveSettings(robot) {
-    const endpoint = field("endpoint").value, recovery = field("recovery").checked;
+    const endpoint = field("endpoint").value;
     field("settings-status").textContent = "Saving settings…";
-    const result = await post({operation:"configure",robot_id:robot,endpoint,recover_events:recovery});
-    if (robot === document.getElementById("robot-select").value &&
-        endpoint === field("endpoint").value && recovery === field("recovery").checked) {
+    const result = await post({operation:"configure",robot_id:robot,endpoint});
+    if (robot === document.getElementById("robot-select").value && endpoint === field("endpoint").value) {
       settingsEdited = false;
       displayedSettings = null;
       field("settings-status").textContent = "Settings saved.";

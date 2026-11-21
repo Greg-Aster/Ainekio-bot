@@ -30,13 +30,13 @@ def prepare(dataset, trainer_path, base, revision):
               "num_train_epochs": 4, "per_device_train_batch_size": 1,
               "per_device_eval_batch_size": 1, "gradient_accumulation_steps": 8,
               "learning_rate": .00012, "optimizer": "paged_adamw_8bit", "seed": 42,
-              "loss_weighting": "example", "category_balance": "ordinary_vs_recovery",
+              "loss_weighting": "example", "category_balance": "none",
               "save_total_limit": 1, "gguf_conversion": {"enabled": False}}
     if base != manifest["baseModel"]:
         raise ValueError("Base must match the frozen dataset manifest")
     measurements = []
     splits = [name for name in ('train', 'evaluation', 'test', 'regression-evaluation',
-                                'recovery-probe', 'stand-evaluation', 'stand-test')
+                                'stand-evaluation', 'stand-test')
               if (dataset/(name+'.jsonl')).exists() and
                                 (dataset/(name+'.jsonl')).read_text().strip()]
     for split in splits:

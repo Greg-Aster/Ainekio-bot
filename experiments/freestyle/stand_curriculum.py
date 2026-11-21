@@ -186,7 +186,7 @@ def build(geometry, base, output, overlays=()):
         selected = [row for row in rows if row.get('split', 'train') == split]
         write_rows(output / (split+'.jsonl'), selected)
         manifest['splits'][split] = len(selected)
-    for split in ('evaluation', 'test', 'regression-evaluation', 'recovery-probe'):
+    for split in ('evaluation', 'test', 'regression-evaluation'):
         source = base / (split+'.jsonl')
         if source.exists():
             (output / source.name).write_bytes(source.read_bytes())

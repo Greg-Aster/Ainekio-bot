@@ -23,6 +23,7 @@ class RobotTokenStore:
         self.path = Path(path)
         self._lock = threading.RLock()
         self._pending: dict[str, str] = {}
+        self._mtime_ns: int = -1
         self._tokens = self._load()
 
     def snapshot(self) -> dict[str, str]:
@@ -63,10 +64,19 @@ class RobotTokenStore:
 
     def _load(self) -> dict[str, str]:
         if not self.path.exists():
+            self._mtime_ns = -1
             return {}
+        self._mtime_ns = self.path.stat().st_mtime_ns
         value = _read_json(self.path)
         result, self._pending = self._parse_configuration(value)
         return result
+
+    def _reload_if_changed(self) -> None:
+        if not self.path.exists():
+            return
+        mtime_ns = self.path.stat().st_mtime_ns
+        if mtime_ns != self._mtime_ns:
+            self._tokens = self._load()
 
     @staticmethod
     def _parse_configuration(value: object) -> tuple[dict[str, str], dict[str, str]]:
@@ -112,10 +122,16 @@ class RobotTokenStore:
 
     def matches(self, robot_id: str, token: str) -> bool:
         with self._lock:
+            if robot_id not in self._tokens and robot_id not in self._pending:
+                self._reload_if_changed()
             pending = self._pending.get(robot_id)
             if pending is not None and hmac.compare_digest(pending.encode(), token.encode()):
                 self.set(robot_id, token)
                 return True
+            current = self._tokens.get(robot_id)
+            if current is not None and hmac.compare_digest(current.encode(), token.encode()):
+                return True
+            self._reload_if_changed()
             current = self._tokens.get(robot_id)
             return current is not None and hmac.compare_digest(current.encode(), token.encode())
 

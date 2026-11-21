@@ -400,6 +400,7 @@ async def execute_neural_pose_program(
                         shoulder_errs: list[float] = []
                         active_errs: list[float] = []
                         active_steps: list[float] = []
+                        all_usable_steps: list[float] = []
                         for i, j in enumerate(JOINTS):
                             jd = sensor_now["joints"][j]
                             if jd.get("feedback_usable") and isinstance(jd.get("filtered_model_deg"), (int, float)):
@@ -407,6 +408,8 @@ async def execute_neural_pose_program(
                                 curr_usable_deg[i] = val
                                 err_i = abs(val - goal_deg[i])
                                 usable_errs.append(err_i)
+                                if i in prev_usable_deg:
+                                    all_usable_steps.append(abs(val - prev_usable_deg[i]))
                                 if i % 3 == 0:
                                     shoulder_errs.append(err_i)
                                 if support[i // 3] < 0.5:
@@ -419,6 +422,11 @@ async def execute_neural_pose_program(
                                         active_steps.append(abs(val - prev_usable_deg[i]))
                         had_prev = bool(prev_usable_deg)
                         prev_usable_deg = curr_usable_deg
+                        max_cmd_meas_gap = max(
+                            (abs(cmd_deg_now[i] - val) for i, val in curr_usable_deg.items()),
+                            default=0.0,
+                        )
+                        step_rates = all_usable_steps if tight_terminal_stance else active_steps
                         if elapsed >= min_settle_s and had_prev and len(usable_errs) >= 6:
                             ang_rate = (sensor_now.get("imu") or {}).get("angular_rate_rad_s")
                             gyro_ok = True
@@ -437,12 +445,14 @@ async def execute_neural_pose_program(
                                     and max(abs(cmd_deg_now[i] - goal_deg[i]) for i in (0, 3, 6, 9)) <= 3.5
                                     and (not shoulder_errs or max(shoulder_errs) <= 3.5)
                                 )
-                            cmd_steady_ok = (not tight_terminal_stance) or (cmd_step_max <= max_step_tol)
+                            cmd_steady_ok = (not tight_terminal_stance) or (
+                                cmd_step_max <= max_step_tol and max_cmd_meas_gap <= 4.5
+                            )
                             settled_now = (
                                 (not free_errs or max(free_errs) <= 5.5)
                                 and (not stance_errs or max(stance_errs) <= max_stance_tol)
                                 and mean_err <= mean_tol
-                                and (not active_steps or max(active_steps) <= max_step_tol)
+                                and (not step_rates or max(step_rates) <= max_step_tol)
                                 and stand_cmd_ok
                                 and cmd_steady_ok
                                 and gyro_ok
@@ -456,14 +466,31 @@ async def execute_neural_pose_program(
                         else:
                             settled_frames = 0
                         if elapsed >= duration_s:
-                            # On grounded terminal / stand segments, allow the 50 Hz neural policy to finish
-                            # unloading any >5.5 deg stance bind (safely inside firmware's 7 deg thermal deadband)
-                            # before closing the host stream.
+                            # On grounded terminal / stand segments, never sever the stream while
+                            # `NeuralPose` itself is still commanding a lifted/in-transit foot
+                            # (`max_cmd_goal_err > 5.5 deg`) or an active step is planting.
+                            max_cmd_goal_err = max(abs(cmd_deg_now[i] - goal_deg[i]) for i in range(12))
+                            mid_step_active = tight_terminal_stance and (
+                                max_cmd_goal_err > 5.5
+                                or (
+                                    max_cmd_meas_gap > 4.5
+                                    and (
+                                        cmd_step_max > 0.35
+                                        or (bool(all_usable_steps) and max(all_usable_steps) > 0.35)
+                                    )
+                                )
+                            )
+                            effective_budget_s = (
+                                max_settle_budget_s + 2.6 if mid_step_active else max_settle_budget_s
+                            )
                             if (
                                 not tight_terminal_stance
-                                or not stance_errs
-                                or max(stance_errs) <= 5.5
-                                or elapsed >= max_settle_budget_s
+                                or (
+                                    (not stance_errs or max(stance_errs) <= 5.5)
+                                    and max_cmd_meas_gap <= 4.5
+                                    and max_cmd_goal_err <= 5.5
+                                )
+                                or elapsed >= effective_budget_s
                             ):
                                 break
                         await _wait_next_tick(now)

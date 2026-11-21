@@ -157,7 +157,7 @@ class MotionLibrary:
             db.execute('INSERT OR IGNORE INTO metadata VALUES (?,?)', ('tools', compact(tools)))
             # Preserve held-out rows as frozen references, never as editable training examples.
             for name in ('system.txt', 'wire.json', 'evaluation.jsonl', 'test.jsonl',
-                         'recovery-probe.jsonl', 'regression-evaluation.jsonl'):
+                         'regression-evaluation.jsonl'):
                 if (dataset/name).exists():
                     db.execute('INSERT OR IGNORE INTO metadata VALUES (?,?)',
                                ('file:'+name, (dataset/name).read_text()))

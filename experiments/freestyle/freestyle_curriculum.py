@@ -372,6 +372,7 @@ def validate_program(program: list[dict], start_pose_name: str = 'stand', *, obs
 STATEFUL_OR_EXPLICIT_END_FAMILIES = {
     'stop_and_faces',
     'direct_joint_control',
+    'posture_stand_hold',
     'posture_sit_hold',
     'posture_lay_down_hold',
     'posture_play_dead_hold',
@@ -421,7 +422,7 @@ def _seated_front_paw_adaptation(curriculum_family: str, prog: list[dict], origi
     side = 'left' if 'left' in curriculum_family else 'right'
     leg = f'front_{side}'
     lead_face = prog[0] if prog and prog[0]['name'] == 'face' else face('happy')
-    return_pose = op('pose', joints=list(JOINTS), angles_deg=origin_deg, reference='absolute', speed_pct=65)
+    return_pose = op('pose', joints=list(JOINTS), angles_deg=list(SIT_ANGLES), reference='absolute', speed_pct=65)
     if curriculum_family in ('wave_right_hand', 'wave_left_hand'):
         osc = next((a for a in prog if a['name'] == 'oscillate'), None)
         cyc = osc['arguments'].get('cycles', 3) if osc else 3
@@ -515,27 +516,23 @@ def adapt_program_for_start_pose(
             full_program.insert(insert_at, stand_pose(speed_pct=65))
         return full_program
 
-    origin_deg = [round(float(obs['joints'][j]['commanded_model_deg']), 2) for j in JOINTS]
-    return_pose = op('pose', joints=list(JOINTS), angles_deg=origin_deg, reference='absolute', speed_pct=60)
-    return_face = face(POSTURE_FACES.get(start_pose, 'stand'))
-
-    # Seated-native front-arm / head gestures stay seated and return directly to the seated observation!
-    if start_pose == 'sit':
+    # Seated-native front-arm gestures when starting from an intentional sit stay seated and return
+    # to canonical SIT_ANGLES (never echoing noisy/splayed observation angles).
+    if start_pose == 'sit' and not explicit_stand_ending:
+        sit_return = op('pose', joints=list(JOINTS), angles_deg=list(SIT_ANGLES), reference='absolute', speed_pct=60)
         if _starts_with_sit_brace_enter(full_program) and _ends_with_sit_brace_exit(full_program):
             core = full_program[6:-7]
             if core:
-                return [full_program[0], *core, return_pose, return_face]
+                return [full_program[0], *core, sit_return, face('sit')]
         if curriculum_family in SEATED_FRONT_PAW_FAMILIES and not _starts_with_sit_brace_enter(full_program):
-            return _seated_front_paw_adaptation(curriculum_family, full_program, origin_deg)
+            return _seated_front_paw_adaptation(curriculum_family, full_program, list(SIT_ANGLES))
 
-    # Whole-body transient actions (bow, dance, stretch, walks, rear-leg lifts, or starting from crouch/rest/lay_down):
-    # rise cleanly to Stand to execute the whole-body motion, then return to the exact starting posture from obs!
+    # Whole-body transient actions (stretch, pushups, dance, bow, walks, rear-leg lifts, or starting from
+    # splayed_stand/crouch/rest/lay_down) square up cleanly to Stand and finish in canonical Stand —
+    # never echoing crooked starting joint angles back at the end of the program.
     if not already_stands:
         insert_at = 1 if full_program and full_program[0]['name'] == 'face' else 0
         full_program.insert(insert_at, stand_pose(speed_pct=65))
-    if full_program and full_program[-1]['name'] == 'face':
-        full_program.pop()
-    full_program.extend([return_pose, return_face])
     return full_program
 
 
@@ -2216,6 +2213,11 @@ def prog_polite_bow(speed: int = 55, hold_s: float = 1.0):
 
 
 def prog_posture_hold(target: str = 'sit', speed: int = 55, hold_s: float = 0.8):
+    if target == 'stand':
+        return [
+            face('stand'),
+            op('stand'),
+        ]
     if target == 'sit':
         return [
             face('sit'),
@@ -2366,6 +2368,40 @@ def prog_dead_revive(ending: str = 'celebrate'):
             face('happy'),
         ])
     return seq
+
+
+def prog_pushups(reps: int = 3, speed: int = 70):
+    """Symmetric 4-leg push-ups matching V2 pushup kinematics (sh=0, zero shoulder scrub), ending in Stand."""
+    plank = [0.0, -17.66, -21.02, 0.0, -17.66, -21.02, 0.0, 23.81, -32.8, 0.0, 23.81, -32.8]
+    dip = [0.0, -6.8, 30.23, 0.0, -6.8, 30.23, 0.0, -8.63, 31.57, 0.0, -8.63, 31.57]
+    press_spd = min(95, speed + 5)
+    return [
+        face('pushup'),
+        stand_pose(speed_pct=speed),
+        op('pose', joints=list(JOINTS), angles_deg=plank, reference='absolute', speed_pct=speed),
+        *[a for _ in range(reps) for a in (
+            op('pose', joints=list(JOINTS), angles_deg=dip, reference='absolute', speed_pct=speed, taper_deg=2),
+            hold(0.2),
+            op('pose', joints=list(JOINTS), angles_deg=plank, reference='absolute', speed_pct=press_spd, taper_deg=2),
+        )],
+        stand_pose(speed_pct=speed),
+        face('stand'),
+    ]
+
+
+def prog_squats(reps: int = 3, speed: int = 70):
+    """Symmetric 4-leg squats using DEEP_SQUAT_ANGLES (sh=0, zero shoulder scrub), ending in Stand."""
+    press_spd = min(95, speed + 5)
+    return [
+        face('pushup'),
+        stand_pose(speed_pct=speed),
+        *[a for _ in range(reps) for a in (
+            op('pose', joints=list(JOINTS), angles_deg=list(DEEP_SQUAT_ANGLES), reference='absolute', speed_pct=speed, taper_deg=2),
+            hold(0.2),
+            stand_pose(speed_pct=press_spd, taper_deg=2),
+        )],
+        face('stand'),
+    ]
 
 
 def prog_posture_transition_chain(first: str = 'bow', final_pose: str = 'sit'):
@@ -2631,6 +2667,7 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
         ('Lean back in surprise!', prog_lean_attitude('back', 80)),
         ('Whoa! Recoil backward like something startled you.', prog_lean_attitude('back', 90)),
         ('Sway your body weight left and right.', prog_lean_attitude('side_to_side', 60)),
+        ('wiggle', prog_lean_attitude('side_to_side', 75)),
     ], ('Lean closer toward me attentively, then return to center.', prog_lean_attitude('forward', 55))))
 
     specs.append(('tiptoe_and_sneak', [
@@ -2642,6 +2679,7 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
 
     specs.append(('full_body_stretch', [
         ('Perform a whole-body stretch.', prog_full_body_stretch(50, 1.5)),
+        ('stretch', prog_full_body_stretch(50, 1.5)),
         ('Show me your stretch.', prog_full_body_stretch(50, 1.5)),
         ('Please stretch.', prog_full_body_stretch(50, 1.5)),
         ('Stand up, stretch, and finish standing.', prog_full_body_stretch(50, 1.5)),
@@ -2650,8 +2688,24 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     ], ('Extend both front arms forward, stretch them to full reach, and finish standing.',
         prog_full_body_stretch(50, 1.5))))
 
+    specs.append(('pushups_and_squats', [
+        ('pushup', prog_pushups(2, 70)),
+        ('pushups', prog_pushups(3, 70)),
+        ('push-up', prog_pushups(1, 70)),
+        ('push-ups', prog_pushups(3, 70)),
+        ('Do a push-up.', prog_pushups(1, 70)),
+        ('Can you do a couple of push-ups?', prog_pushups(2, 70)),
+        ('Do a couple of push-ups.', prog_pushups(2, 70)),
+        ('Do two push-ups!', prog_pushups(2, 75)),
+        ('Please do a few push-ups.', prog_pushups(3, 70)),
+        ('Give me five push-ups!', prog_pushups(5, 75)),
+        ('squat', prog_squats(2, 70)),
+        ('Do some squats.', prog_squats(3, 70)),
+    ], ('Do three crisp push-ups and finish standing.', prog_pushups(3, 70))))
+
     specs.append(('yes_and_no_gestures', [
         ('Say yes without speaking.', prog_yes_no('yes', 3, 75)),
+        ('nod', prog_yes_no('yes', 3, 75)),
         ('Nod enthusiastically three times!', prog_yes_no('yes', 3, 85)),
         ('Shake your head no.', prog_yes_no('no', 3, 75)),
         ('Refuse emphatically—no way!', prog_yes_no('no', 4, 90)),
@@ -2723,6 +2777,9 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     ], ('Perform a two-cycle backward moonwalk and stand.', prog_moonwalk(2, 75))))
 
     specs.append(('salsa_dance', [
+        ('dance', prog_salsa_dance(3, 80)),
+        ('Please dance.', prog_salsa_dance(3, 80)),
+        ('Do a little dance.', prog_salsa_dance(3, 80)),
         ('Dance salsa!', prog_salsa_dance(3, 80)),
         ('Do a spicy Latin salsa dance step.', prog_salsa_dance(3, 85)),
         ('Sway your hips and tap your feet to a salsa rhythm.', prog_salsa_dance(2, 75)),
@@ -3128,7 +3185,17 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
         prog_alternate_limbs(('front_left', 'front_right'), 0.45, 70))))
 
     # --- Pillar 7: Stateful Postures, Origin-Preserving Gestures & Narrative Arcs ---
+    specs.append(('posture_stand_hold', [
+        ('stand', prog_posture_hold('stand')),
+        ('Stand up.', prog_posture_hold('stand')),
+        ('Please stand.', prog_posture_hold('stand')),
+        ('Stand up straight.', prog_posture_hold('stand')),
+        ('Get back up onto your feet.', prog_posture_hold('stand')),
+        ('Return to standing.', prog_posture_hold('stand')),
+    ], ('Rise back up into your neutral standing posture.', prog_posture_hold('stand'))))
+
     specs.append(('polite_bow', [
+        ('bow', prog_polite_bow(55, 1.0)),
         ('Take a bow.', prog_polite_bow(55, 1.0)),
         ('Please bow.', prog_polite_bow(55, 1.0)),
         ('Give a deep polite bow.', prog_polite_bow(50, 1.2)),
@@ -3137,6 +3204,7 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     ], ('Bow politely and return to your starting posture.', prog_polite_bow(55, 1.0))))
 
     specs.append(('posture_sit_hold', [
+        ('sit', prog_posture_hold('sit', 55, 0.8)),
         ('Sit down.', prog_posture_hold('sit', 55, 0.8)),
         ('Please sit.', prog_posture_hold('sit', 55, 0.8)),
         ('Take a seat and stay sitting.', prog_posture_hold('sit', 55, 1.0)),
@@ -3146,6 +3214,7 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     ], ('Have a seat and stay seated.', prog_posture_hold('sit', 55, 0.8))))
 
     specs.append(('posture_lay_down_hold', [
+        ('lie down', prog_posture_hold('lay_down', 55, 0.9)),
         ('Lie down.', prog_posture_hold('lay_down', 55, 0.9)),
         ('Please lie down.', prog_posture_hold('lay_down', 55, 0.9)),
         ('Lay down flat on the floor.', prog_posture_hold('lay_down', 55, 1.0)),
@@ -3155,6 +3224,7 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     ], ('Lower yourself flat onto the floor and stay lying down.', prog_posture_hold('lay_down', 55, 0.9))))
 
     specs.append(('posture_play_dead_hold', [
+        ('play dead', prog_posture_hold('dead', 70, 1.0)),
         ('Play dead!', prog_posture_hold('dead', 70, 1.0)),
         ('Bang! You are dead!', prog_posture_hold('dead', 75, 1.0)),
         ('Pretend to be dead and stay down.', prog_posture_hold('dead', 70, 1.2)),
@@ -3164,6 +3234,8 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     ], ('Dramatically play dead and remain still on the ground.', prog_posture_hold('dead', 70, 1.0))))
 
     specs.append(('posture_crouch_rest_hold', [
+        ('crouch', prog_posture_hold('crouch', 55, 0.9)),
+        ('rest', prog_posture_hold('rest', 50, 1.0)),
         ('Crouch down low and stay there.', prog_posture_hold('crouch', 55, 0.9)),
         ('Get into a low crouch and hold it.', prog_posture_hold('crouch', 55, 0.9)),
         ('Stay low in a crouch.', prog_posture_hold('crouch', 50, 0.9)),
@@ -3235,7 +3307,7 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
         'wave_right_hand', 'wave_left_hand', 'wave_both_hands',
         'point_right', 'point_left', 'salute_right_hand', 'salute_left_hand',
         'clapping_applause', 'shake_hands', 'high_five', 'fist_bump', 'beckon_come_here',
-        'polite_bow', 'full_body_stretch', 'yes_and_no_gestures', 'laugh_and_sigh',
+        'polite_bow', 'full_body_stretch', 'pushups_and_squats', 'yes_and_no_gestures', 'laugh_and_sigh',
         'head_tilt_curious', 'look_directions', 'vehicle_cornering_and_banking',
         'moonwalk_dance', 'salsa_dance', 'macarena_dance', 'disco_dance',
         'lift_front_right_leg', 'lift_front_left_leg', 'lift_rear_right_leg', 'lift_rear_left_leg',
@@ -3243,7 +3315,7 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
         'leg_stretch_and_shake', 'alternate_legs_and_hands',
     }
     multi_origin_stateful_fams = {
-        'posture_sit_hold', 'posture_lay_down_hold', 'posture_play_dead_hold',
+        'posture_stand_hold', 'posture_sit_hold', 'posture_lay_down_hold', 'posture_play_dead_hold',
         'posture_crouch_rest_hold', 'seated_gesture_chains', 'party_and_collapse_arcs',
         'recovery_and_revival_arcs', 'posture_transition_chains',
     }

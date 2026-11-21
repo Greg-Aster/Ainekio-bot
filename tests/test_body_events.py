@@ -398,7 +398,7 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
             else:
                 adapter._send_observation.assert_not_awaited()
 
-    async def test_failed_correction_reaches_environment_even_when_release_failed(self):
+    async def test_unreleased_stall_never_reaches_environment_even_with_legacy_fields(self):
         event=BodyEvents().event("p4",17,"servo_stall",{
             "joints":[{"id":4,"name":"rear_right_carrier"}],"command_sequence":941,
             "clock_us":1200000,"outputs_released":False,"correction_failed":True,
@@ -407,8 +407,7 @@ class MotionEventRoutingTests(unittest.IsolatedAsyncioTestCase):
         adapter._selected_robot=lambda:("p4",17)
         adapter._send_observation=AsyncMock()
         await adapter._handle_gateway_event(event)
-        adapter._send_observation.assert_awaited_once_with(
-            body_event=event,metadata={"perceptionEvent":"body_event"})
+        adapter._send_observation.assert_not_awaited()
 
     async def test_reaction_face_does_not_hide_imu_or_fall_recovery_events(self):
         connection = object.__new__(GatewayConnection)

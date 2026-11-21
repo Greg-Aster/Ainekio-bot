@@ -884,9 +884,9 @@ class GaitEnvironment(gym.Env):
                 extent=np.abs(self.data.geom_xmat[gid].reshape(3,3))@self.model.geom_size[gid]
                 height=max(height,self.data.geom_xpos[gid,2]+extent[2])
         start=np.array([x,y,height+.001]);direction=np.array([0.,0.,-1.])
-        distance=min(value for gid in terrain if (value:=mujoco.mju_rayGeom(
+        distance=min((value for gid in terrain if (value:=mujoco.mju_rayGeom(
             self.data.geom_xpos[gid],self.data.geom_xmat[gid],self.model.geom_size[gid],
-            start,direction,self.model.geom_type[gid]))>=0)
+            start,direction,self.model.geom_type[gid]))>=0),default=.001)
         return float(start[2]-distance)
 
     def _terrain_clearances(self, bodies):
@@ -1304,7 +1304,7 @@ class GaitEnvironment(gym.Env):
             frequency_hz=self.config.pwm_frequency_hz,
             now_us=round(self.device_time_us()) if self.config.imu_prehistory_s else 0)
 
-    def advance_body(self, executor, action=None):
+    def advance_body(self, executor, action=None, *, substep_hook=None):
         """Advance physics from actual PCA output; never fit a policy target here.
 
         Receipts belong to the body executor. The caller publishes those and a
@@ -1315,7 +1315,7 @@ class GaitEnvironment(gym.Env):
         self.last_target = np.asarray(output["logical_angles"]).copy()
         self.target_rejected = any(message.get("t") == "nak" for message in output["messages"])
         output["enabled"] = output["joint_enabled"]
-        result = (self._advance_physics(output, executor=executor) if action is None
+        result = (self._advance_physics(output, executor=executor, substep_hook=substep_hook) if action is None
                   else self._advance(action, output, executor=executor))
         return result, output
 
@@ -1416,7 +1416,7 @@ class GaitEnvironment(gym.Env):
         body_weight = mujoco.mj_getTotalmass(self.model) * np.linalg.norm(self.model.opt.gravity)
         return weighted_speed_squared / body_weight
 
-    def _advance_physics(self, output=None, *, executor=None):
+    def _advance_physics(self, output=None, *, executor=None, substep_hook=None):
         before = self.data.qpos[:3].copy()
         self.pwm = output if output is not None else self.body_model.pwm_output(self.last_target,
             oscillator_hz=self.config.pwm_oscillator_hz, frequency_hz=self.config.pwm_frequency_hz)
@@ -1453,6 +1453,8 @@ class GaitEnvironment(gym.Env):
             self.model.actuator_forcerange[:, 1] = upper*enabled
             if self.scenario is not None:
                 self._apply_scenario_pushes()
+            if substep_hook is not None:
+                substep_hook()
             mujoco.mj_step(self.model, self.data)
             self._sample_sensors()
             slip_speed_squared += self._contact_slip_speed_squared()

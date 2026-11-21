@@ -167,6 +167,7 @@ class EnvironmentAdapter:
         ] = {}
         self._walk_update_task: asyncio.Task[None] | None = None
         self._bridge_ready = False
+        self._preferred_robot_id: str | None = None
         self._settings_requests: dict[str, asyncio.Future[dict[str, object]]] = {}
         self._audio_utterances = AudioUtterancePlugin(
             gateway,
@@ -1213,10 +1214,9 @@ class EnvironmentAdapter:
         if event.get("name") == "body_event":
             data=event.get("data") or {}
             if data.get("kind")=="servo_stall":
-                if not (data.get("correction_failed") or data.get("outputs_released")):
+                if data.get("outputs_released") is not True:
                     return
-                if data.get("outputs_released") is True:
-                    self._abort_released_stall_waiters(event)
+                self._abort_released_stall_waiters(event)
         if event.get("name") == "body_event" and (event.get("data") or {}).get("kind") == "wake":
             self._track_action(f"wake:{event['event_id']}", self._process_wake(event, self._websocket))
             return
@@ -1999,6 +1999,19 @@ class EnvironmentAdapter:
             observation["feedback"] = feedback
         return observation
 
+    async def select_robot(self, robot_id: str | None) -> dict[str, object]:
+        normalized = robot_id.strip() if isinstance(robot_id, str) and robot_id.strip() else None
+        self._preferred_robot_id = normalized
+        await self._publish_availability()
+        if self._bridge_ready and self._websocket is not None:
+            await self._send_observation()
+        active_id, active_robot = self._selected_robot()
+        return {
+            "robotId": active_id,
+            "connected": active_robot is not None,
+            "preferredRobotId": self._preferred_robot_id,
+        }
+
     def _selected_robot(
         self,
         gateway_status: Mapping[str, object] | None = None,
@@ -2015,9 +2028,15 @@ class EnvironmentAdapter:
             )
         connected = [(robot_id, robot) for robot_id, robot in robots.items()
                      if isinstance(robot_id, str) and isinstance(robot, Mapping) and robot.get("connected") is True]
-        if len(connected) != 1:
+        if not connected:
             return None, None
-        return connected[0]
+        if len(connected) == 1:
+            return connected[0]
+        if self._preferred_robot_id is not None:
+            for robot_id, robot in connected:
+                if robot_id == self._preferred_robot_id:
+                    return robot_id, robot
+        return None, None
 
     def _camera_ready(self) -> bool:
         _, robot = self._selected_robot()

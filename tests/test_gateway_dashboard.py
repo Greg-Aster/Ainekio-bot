@@ -488,9 +488,9 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         cookie,csrf=await self._login()
         code,result,_=await self._request('POST','/api/freestyle',{
             'operation':'configure','robot_id':'ainekio-test-01',
-            'endpoint':'http://127.0.0.1:8794','recover_events':False},cookie=cookie,csrf=csrf)
+            'endpoint':'http://127.0.0.1:8794'},cookie=cookie,csrf=csrf)
         self.assertEqual(code,200)
-        self.assertFalse(result['settings']['ainekio-test-01']['recover_events'])
+        self.assertEqual(result['settings']['ainekio-test-01'],{'endpoint':'http://127.0.0.1:8794'})
         self.assertEqual(self.gateway.calls,[])
         self.assertEqual((len(events),len(commands),len(diagnostics)),(2,2,1))
         self.assertTrue(result['recording']['enabled'])

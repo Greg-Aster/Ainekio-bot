@@ -54,22 +54,19 @@ vm.runInNewContext(fs.readFileSync('experiments/freestyle/body_control.js','utf8
   await panel.listeners.click({target:{dataset:{action:'test-correction'}}});
   assert.deepEqual(calls.at(-1).payload,{operation:'test-correction',robot_id:'another-body',review_id:'review-1'});
   const count=calls.length;
-  context.window.renderFreestyleStatus({settings:{p4:{endpoint:'http://localhost:8794',recover_events:true}},jobs:{one:{id:'one',robot_id:'p4',state:'generated',request:'Raise right hand',latest_generation:{program:[{name:'face',arguments:{expr:'wave'}}]}},
+  context.window.renderFreestyleStatus({settings:{p4:{endpoint:'http://localhost:8794'}},jobs:{one:{id:'one',robot_id:'p4',state:'generated',request:'Raise right hand',latest_generation:{program:[{name:'face',arguments:{expr:'wave'}}]}},
     two:{id:'two',robot_id:'another-body',state:'executing'}}},'p4');
   assert.equal(JSON.parse(node('[data-field="result"]').textContent).id,'one');
-  assert.equal(node('[data-field="recovery"]').checked,true);
+  assert.doesNotMatch(panel.innerHTML,/data-field="recovery"/,'Legacy event recalculation toggle must be absent');
   node('[data-field="endpoint"]').value='http://localhost:9000';
   panel.listeners.input({target:{dataset:{field:'endpoint'}}});
-  context.window.renderFreestyleStatus({settings:{p4:{endpoint:'http://localhost:8794',recover_events:true}},jobs:{}},'p4');
+  context.window.renderFreestyleStatus({settings:{p4:{endpoint:'http://localhost:8794'}},jobs:{}},'p4');
   assert.equal(node('[data-field="endpoint"]').value,'http://localhost:9000','Polling must preserve unsaved edits');
   assert.equal(calls.length,count,'Status rendering uses the existing dashboard update without extra requests');
   node('robot-select').value='p4';
   await panel.listeners.change({target:{dataset:{field:'endpoint'}}});
-  assert.deepEqual(calls.at(-1).payload,{operation:'configure',robot_id:'p4',endpoint:'http://localhost:9000',recover_events:true});
+  assert.deepEqual(calls.at(-1).payload,{operation:'configure',robot_id:'p4',endpoint:'http://localhost:9000'});
   assert.equal(node('[data-field="settings-status"]').textContent,'Settings saved.');
-  node('[data-field="recovery"]').checked=false;
-  await panel.listeners.change({target:{dataset:{field:'recovery'}}});
-  assert.deepEqual(calls.at(-1).payload,{operation:'configure',robot_id:'p4',endpoint:'http://localhost:9000',recover_events:false});
   assert.equal(calls.slice(count).filter(call=>call.payload).every(call=>call.payload.operation==='configure'),true,
     'Changing settings saves configuration without generating or executing motion');
   let openedDraft=null;
@@ -79,6 +76,6 @@ vm.runInNewContext(fs.readFileSync('experiments/freestyle/body_control.js','utf8
   assert.doesNotMatch(panel.innerHTML,/data-action="configure"/,'Settings need no Apply button');
   context.window.renderFreestyleStatus({jobs:{}},'third-body');
   assert.equal(node('[data-field="result"]').textContent,'');
-  assert.equal(node('[data-field="recovery"]').checked,false,'Settings follow the selected robot');
+  assert.equal(node('[data-field="endpoint"]').value,'http://127.0.0.1:8794','Settings follow the selected robot');
   console.log('Freestyle UI: inert startup, explicit execution and selected-robot routing passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});

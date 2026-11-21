@@ -383,6 +383,7 @@ class PoseManifold:
         self.geometry = json.loads(GEOMETRY_PATH.read_text())
         self.device = device
         self.body = TensorBody(self.geometry, self.env_config, device=device)
+        self._apply_calibrated_carrier_floor(self.body)
         self._cal_cache: dict[tuple, object] = {
             self._calibration_key(self.env_config.robot["calibration"]): self.body
         }
@@ -390,6 +391,18 @@ class PoseManifold:
         self.geometry_id = json.loads(
             (ROOT / "Slave/software/models/v2-12servo/motions/walk/manifest.json").read_text()
         )["geometry_id"]
+
+    CARRIER_HOME_MARGIN_DEG = 3.0
+
+    @classmethod
+    def _apply_calibrated_carrier_floor(cls, body) -> None:
+        """Keep every carrier strictly inside its calibrated mechanical home (home_cd + 3 deg).
+
+        Prevents 2950 us pulse limits from driving inverted carriers (e.g. front_left home_us=2740
+        at -30.87 deg) past their 4th-wire calibration ceiling (`above_calibration`).
+        """
+        floor_rad = (body.home[:, 1] + cls.CARRIER_HOME_MARGIN_DEG) * (math.pi / 180.0)
+        body.low[:, 1] = torch.maximum(body.low[:, 1], floor_rad)
 
     @staticmethod
     def _calibration_key(cal_joints: list[dict]) -> tuple:
@@ -419,6 +432,7 @@ class PoseManifold:
         cfg_dict["robot"] = {**dict(self.env_config.robot), "calibration": [dict(j) for j in cal_joints]}
         try:
             live_body = TensorBody(self.geometry, SimpleNamespace(**cfg_dict), device=self.device)
+            self._apply_calibrated_carrier_floor(live_body)
         except Exception:
             live_body = self.body
         self._cal_cache[key] = live_body
