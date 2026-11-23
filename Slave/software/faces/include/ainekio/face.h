@@ -26,3 +26,5 @@ bool ainekio_face_find(const char *name, size_t *index);
 uint32_t ainekio_face_period_ms(size_t index);
 void ainekio_face_render(size_t index, uint64_t elapsed_ms, bool talking,
                         uint16_t pixels[AINEKIO_FACE_WIDTH * AINEKIO_FACE_HEIGHT]);
+void ainekio_face_cyclops_render(size_t index, uint64_t elapsed_ms, bool talking,
+                                 uint16_t pixels[AINEKIO_FACE_WIDTH * AINEKIO_FACE_HEIGHT]);

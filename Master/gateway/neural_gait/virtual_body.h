@@ -27,6 +27,7 @@ size_t virtual_body_feedback(uint64_t now_us, char *text, size_t capacity);
 /* Full-parity P4 simulator extensions: preserve minimal training contract by
  * default until virtual_body_set_full_parity(1) is enabled. */
 void virtual_body_set_full_parity(int enabled);
+void virtual_body_set_face_style(int style);
 void virtual_body_set_media_state(int camera_ready, int microphone_ready,
     int speaker_ready, int wake_ready, int display_ready, int capturing,
     int speaker_busy, int external_speech, float mic_rms, float mic_peak,

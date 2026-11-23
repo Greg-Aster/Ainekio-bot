@@ -34,6 +34,7 @@ static ainekio_p4_calibration_t calibration;
 
 /* Full-parity simulator peripheral & face state (inert when full_parity=false). */
 static bool full_parity;
+static int sim_face_style;
 static ainekio_p4_media_status_t sim_media;
 static ainekio_body_state_t sim_system_state=AINEKIO_STATE_IDLE;
 static float sim_battery_voltage=8.15F;
@@ -295,6 +296,11 @@ void virtual_body_set_full_parity(int enabled)
     full_parity=enabled!=0;
 }
 
+void virtual_body_set_face_style(int style)
+{
+    sim_face_style=style==1 ? 1 : 0;
+}
+
 void virtual_body_set_media_state(int camera_ready,int microphone_ready,
     int speaker_ready,int wake_ready,int display_ready,int capturing,
     int speaker_busy,int external_speech,float mic_rms,float mic_peak,
@@ -535,8 +541,13 @@ int virtual_body_face_frame(uint64_t now_ms,int talking,int capturing,
         snprintf(token_out,token_cap,"%s",tok?tok:"");
     }
     if(rgba_out) {
-        ainekio_face_render(sample.face,talking?now_ms:sample.elapsed_ms,
-            talking!=0,sim_face_rgb565);
+        if(sim_face_style==1) {
+            ainekio_face_cyclops_render(sample.face,talking?now_ms:sample.elapsed_ms,
+                talking!=0,sim_face_rgb565);
+        } else {
+            ainekio_face_render(sample.face,talking?now_ms:sample.elapsed_ms,
+                talking!=0,sim_face_rgb565);
+        }
         for(size_t i=0;i<AINEKIO_FACE_WIDTH*AINEKIO_FACE_HEIGHT;++i) {
             const uint16_t p=sim_face_rgb565[i];
             const unsigned r5=(p>>11)&31U;
