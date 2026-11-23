@@ -7,6 +7,7 @@ build/
 /Slave/firmware/esp32p4-wifi6/sdkconfig
 /Slave/firmware/esp32p4-wifi6/sdkconfig.old
 .svelte-kit/
+.astro/
 .vite/
 .turbo/
 .cache/

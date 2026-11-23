@@ -1,0 +1,65 @@
+name: Deploy Ainekio Simulator to Cloudflare Pages
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "apps/simulator/**"
+      - ".github/workflows/deploy-simulator.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-ainekio-simulator-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "9.14.4"
+
+jobs:
+  deploy-simulator:
+    name: Build & Deploy simulator.ainek.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: apps/simulator/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: apps/simulator
+        run: pnpm install --frozen-lockfile
+
+      - name: Run contract tests & lint
+        working-directory: apps/simulator
+        run: pnpm test:contracts && pnpm lint
+
+      - name: Build static site
+        working-directory: apps/simulator
+        env:
+          SITE_URL: https://simulator.ainek.io
+          SITE_BASE: /
+        run: pnpm build
+
+      - name: Deploy to Cloudflare Pages
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'workflow_dispatch'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DEPLOY_BRANCH: main
+        run: bash ./apps/simulator/scripts/deploy-pages-with-retry.sh apps/simulator/dist merkin-ainekio-simulator

@@ -1,0 +1,24 @@
+---
+import AinekioCockpit from "../ui/AinekioCockpit.svelte";
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+		/>
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" href="/favicon.ico" sizes="32x32" />
+		<title>Ainekio Simulator — V1 / V2 / V3 MuJoCo WASM</title>
+		<meta
+			name="description"
+			content="Standalone static-web MuJoCo WASM quadruped simulator running compiled Ainekio V2 ESP32-P4 C firmware with built-in Body Control cockpit and direct WebSocket Body Control linking."
+		/>
+	</head>
+	<body>
+		<AinekioCockpit client:only="svelte" />
+	</body>
+</html>

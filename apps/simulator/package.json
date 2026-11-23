@@ -1,0 +1,33 @@
+{
+	"name": "@ainekio/simulator",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"packageManager": "pnpm@9.14.4",
+	"dependencies": {
+		"@ainekio/engine": "github:Greg-Aster/ainekio-engine#v0.2.1",
+		"@astrojs/svelte": "7.2.5",
+		"astro": "5.18.0",
+		"mujoco-js": "0.0.7",
+		"peerjs": "^1.5.5",
+		"svelte": "5.26.2",
+		"three": "0.178.0"
+	},
+	"scripts": {
+		"dev": "astro dev --port 4330",
+		"build": "pnpm type-check && astro build",
+		"preview": "astro preview --port 4330",
+		"type-check": "astro check && tsc --noEmit",
+		"test:contracts": "tsx ./scripts/test-simulator-contracts.ts",
+		"lint": "biome check ./src ./scripts",
+		"format": "biome format --write ./src ./scripts"
+	},
+	"devDependencies": {
+		"@astrojs/check": "^0.9.4",
+		"@biomejs/biome": "1.8.3",
+		"@types/node": "25.3.0",
+		"@types/three": "0.176.0",
+		"tsx": "4.21.0",
+		"typescript": "^5.7.3"
+	}
+}
