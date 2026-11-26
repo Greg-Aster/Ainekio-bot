@@ -46,6 +46,8 @@ import {
 	type V3NeuralPoseManifest,
 	V3NeuralPosePolicy,
 	V3PoseObservationHistory,
+	V3ProprioSensorFilter,
+	bodyLinearVelocityFromWxyz,
 	projectedGravityFromWxyz,
 	relativeOrientationWxyz,
 	sampleV1NativePostureDeg,
@@ -174,6 +176,36 @@ type FirmwareWasm = {
 		cap: number,
 	): number;
 	_virtual_body_media_actions(buf: number, cap: number): number;
+	_virtual_body_mic_gate(
+		nowUs: bigint,
+		open: number,
+		wakeWord: number,
+		buf: number,
+		cap: number,
+	): number;
+	_virtual_body_mic_frame(
+		nowUs: bigint,
+		pcm: number,
+		pcmLen: number,
+		packetOut: number,
+		packetCap: number,
+	): number;
+	_virtual_body_camera_frame(
+		nowUs: bigint,
+		origin: number,
+		originId: number,
+		resName: number,
+		frameCompletedUs: bigint,
+		bootId: number,
+		jpeg: number,
+		jpegLen: number,
+		metaOut: number,
+		metaCap: number,
+		packetOut: number,
+		packetCap: number,
+		doneOut: number,
+		doneCap: number,
+	): number;
 	_virtual_body_face_frame(
 		nowMs: bigint,
 		talking: number,
@@ -253,8 +285,11 @@ let v3PosePolicy: V3NeuralPosePolicy | undefined;
 let v3PosePolicyLoadPromise:
 	| Promise<V3NeuralPosePolicy | undefined>
 	| undefined;
-const v3GaitHistory = new V3GaitObservationHistory();
+let v3GaitHistory = new V3GaitObservationHistory();
 const v3PoseHistory = new V3PoseObservationHistory();
+const v3Sensors = new V3ProprioSensorFilter();
+const v3QTrueBuf = new Float64Array(12);
+const v3DelayQueue: Float64Array[] = [];
 let v3ActiveRole: "idle" | "gait" | "pose" | "native" = "idle";
 let v3Twist: [number, number, number] = [0, 0, 0];
 let v3PhaseRad = 0;
@@ -295,6 +330,8 @@ let fbOutPtr = 0;
 let faceRgbaPtr = 0;
 let faceNamePtr = 0;
 let faceTokenPtr = 0;
+let micPcmPtr = 0;
+let micPktPtr = 0;
 
 let activeConnectionId = 0n;
 let simTimeOffsetS = 0;
@@ -338,6 +375,7 @@ const poseHistory = new NeuralPoseObservationHistory();
 let standaloneSeq = 1;
 const standaloneSeqRemap = new Map<number, number>();
 let standaloneEpoch = 1;
+let lastStandalonePingUs = 0n;
 
 // Active 50 Hz neural stream state
 let activeNeuralRole: "idle" | "gait" | "pose" | "native" = "idle";
@@ -380,11 +418,40 @@ let mediaMicRms = 0;
 let mediaMicPeak = 0;
 let mediaCameraReady = true;
 
-// Camera runtime state
-let cameraEnabled = true;
-let cameraFps = 5;
-let cameraRes = "QVGA";
-let cameraSnapshotRes = "VGA";
+// Camera runtime state (boots disabled matching P4 camera.c until configured)
+let cameraEnabled = false;
+let cameraFps = 0;
+let cameraRes = "VGA";
+let cameraSnapshotRes = "AUTO";
+let lastCameraStreamMs = 0;
+
+function maybeEmitCameraStreamTick(nowWallMs: number): void {
+	if (!mediaCameraReady) {
+		return;
+	}
+	if (emitProtocolTx) {
+		if (!cameraEnabled || cameraFps <= 0) {
+			return;
+		}
+		const targetFps = Math.min(15, cameraFps);
+		const intervalMs = Math.max(66, Math.round(1000 / targetFps));
+		if (nowWallMs - lastCameraStreamMs >= intervalMs) {
+			lastCameraStreamMs = nowWallMs;
+			post({
+				type: "media-action",
+				action: { kind: "stream_frame", res: cameraRes },
+			});
+		}
+		return;
+	}
+	if (nowWallMs - lastCameraStreamMs >= 500) {
+		lastCameraStreamMs = nowWallMs;
+		post({
+			type: "media-action",
+			action: { kind: "stream_frame", res: "QVGA" },
+		});
+	}
+}
 
 // External interactions (wrenches + pinned joints)
 const activeWrench = new Float64Array(6);
@@ -792,6 +859,11 @@ async function ensureV3AssetsLoaded(): Promise<void> {
 		gaitManifest,
 		new Float32Array(gaitBuf),
 	);
+	v3GaitHistory = new V3GaitObservationHistory(
+		gaitManifest.featureDim,
+		gaitManifest.historySamples,
+		false,
+	);
 	v3PoseManifest = loadedPoseManifest;
 }
 
@@ -865,7 +937,8 @@ async function handleSetRobot(
 	post({
 		type: "robot-ready",
 		robotModel: "v2",
-		neuralGaitModelId: gaitPolicy?.manifest.modelId ?? "microduck-v19-snag-p4",
+		neuralGaitModelId:
+			gaitPolicy?.manifest.modelId ?? "microduck-v20-studya-p4",
 		neuralPoseModelId:
 			posePolicy?.manifest.modelId ??
 			poseManifest?.modelId ??
@@ -1607,9 +1680,13 @@ function resetRobotPose(spawnMj?: readonly [number, number, number]): void {
 		mjData.qpos[6] = 0;
 		for (let j = 0; j < 12; j += 1) {
 			const refDeg = v3Config.referenceJointDeg[j] ?? 0;
-			mjData.ctrl[j] = refDeg * DEG2RAD;
+			const refRad = refDeg * DEG2RAD;
+			mjData.ctrl[j] = refRad;
 			v3TargetDeg[j] = refDeg;
+			v3QTrueBuf[j] = refRad;
 		}
+		v3Sensors.reset(v3QTrueBuf);
+		resetV3DelayQueue(v3QTrueBuf);
 		mujoco.mj_forward(mjModel, mjData);
 		return;
 	}
@@ -2471,6 +2548,18 @@ function stepV1ControlFrame(): void {
 	post({ type: "state", state });
 }
 
+function resetV3DelayQueue(seedRad: ArrayLike<number>): void {
+	const delayLen = (v3GaitPolicy?.manifest.actuatorDelaySubsteps ?? 15) + 1;
+	v3DelayQueue.length = 0;
+	for (let k = 0; k < delayLen; k += 1) {
+		const slot = new Float64Array(12);
+		for (let j = 0; j < 12; j += 1) {
+			slot[j] = seedRad[j] ?? 0;
+		}
+		v3DelayQueue.push(slot);
+	}
+}
+
 function startOrUpdateV3NeuralWalk(
 	forward: number,
 	lateral: number,
@@ -2496,6 +2585,18 @@ function startOrUpdateV3NeuralWalk(
 		v3GaitHistory.reset();
 		v3PrevGaitAction.fill(0);
 		v3PhaseRad = 0;
+		for (let j = 0; j < 12; j += 1) {
+			v3QTrueBuf[j] =
+				mjData && v3Config
+					? mjData.qpos[v3Config.qadr[j] ?? 0] ?? 0
+					: (v3TargetDeg[j] ?? 0) * DEG2RAD;
+		}
+		v3Sensors.reset(v3QTrueBuf);
+		const seedCtrl = new Float64Array(12);
+		for (let j = 0; j < 12; j += 1) {
+			seedCtrl[j] = (v3TargetDeg[j] ?? 0) * DEG2RAD;
+		}
+		resetV3DelayQueue(seedCtrl);
 		v3ActiveRole = "gait";
 	}
 }
@@ -2583,26 +2684,24 @@ function stepV3ControlFrame(): void {
 		if (v3ActiveRole === "gait" && v3GaitPolicy) {
 			const inferStart = performance.now();
 			for (let j = 0; j < 12; j += 1) {
-				v3GaitFrameBuf[j] = mjData.qpos[v3Config.qadr[j] ?? 0] ?? 0;
-				v3GaitFrameBuf[12 + j] = mjData.qvel[v3Config.vadr[j] ?? 0] ?? 0;
-				v3GaitFrameBuf[36 + j] = v3PrevGaitAction[j] ?? 0;
+				v3QTrueBuf[j] = mjData.qpos[v3Config.qadr[j] ?? 0] ?? 0;
 			}
-			v3GaitFrameBuf[24] = gyroX;
-			v3GaitFrameBuf[25] = gyroY;
-			v3GaitFrameBuf[26] = gyroZ;
-			v3GaitFrameBuf[27] = Math.max(-4, Math.min(4, accX / 9.81));
-			v3GaitFrameBuf[28] = Math.max(-4, Math.min(4, accY / 9.81));
-			v3GaitFrameBuf[29] = Math.max(-4, Math.min(4, accZ / 9.81));
-			v3GaitFrameBuf[30] = projGrav[0];
-			v3GaitFrameBuf[31] = projGrav[1];
-			v3GaitFrameBuf[32] = projGrav[2];
-			v3GaitFrameBuf[33] = v3Twist[0];
-			v3GaitFrameBuf[34] = v3Twist[1];
-			v3GaitFrameBuf[35] = v3Twist[2];
-			const moving =
-				Math.hypot(v3Twist[0], v3Twist[1]) + 0.18 * Math.abs(v3Twist[2]) > 0.02;
-			v3GaitFrameBuf[48] = moving ? Math.sin(v3PhaseRad) : 0;
-			v3GaitFrameBuf[49] = moving ? Math.cos(v3PhaseRad) : 0;
+			const linVelB = bodyLinearVelocityFromWxyz(
+				[w0, x0, y0, z0],
+				[mjData.qvel[0] ?? 0, mjData.qvel[1] ?? 0, mjData.qvel[2] ?? 0],
+			);
+			const gyroBody: readonly [number, number, number] = [
+				mjData.qvel[3] ?? gyroX,
+				mjData.qvel[4] ?? gyroY,
+				mjData.qvel[5] ?? gyroZ,
+			];
+			v3Sensors.update50Hz(v3QTrueBuf, gyroBody, linVelB, projGrav, dtCtrl);
+			v3Sensors.writeFeatures(
+				v3Twist,
+				v3PrevGaitAction,
+				v3PhaseRad,
+				v3GaitFrameBuf,
+			);
 
 			const obs = v3GaitHistory.push(v3GaitFrameBuf);
 			const action = v3GaitPolicy.predictAction(obs);
@@ -2611,9 +2710,12 @@ function stepV3ControlFrame(): void {
 				v3PrevGaitAction[j] = action[j] ?? 0;
 				v3TargetDeg[j] = targets[j] ?? 0;
 			}
-			v3PhaseRad =
-				(v3PhaseRad + 2 * Math.PI * v3GaitPolicy.manifest.gaitHz * dtCtrl) %
-				(2 * Math.PI);
+			const hz = v3GaitPolicy.computeGaitHz(v3Twist);
+			const moving =
+				Math.hypot(v3Twist[0], v3Twist[1]) + 0.18 * Math.abs(v3Twist[2]) > 0.02;
+			if (moving || v3GaitPolicy.manifest.gaitHzMin === undefined) {
+				v3PhaseRad = (v3PhaseRad + 2 * Math.PI * hz * dtCtrl) % (2 * Math.PI);
+			}
 			v3LastInferMs = Math.round((performance.now() - inferStart) * 100) / 100;
 			hostSamplesSent += 1;
 		} else if (v3ActiveRole === "pose" && v3PosePolicy) {
@@ -2708,9 +2810,23 @@ function stepV3ControlFrame(): void {
 	const en = v3Armed ? 1 : 0;
 	const torsoBase = v3Config.torsoBodyId * 6;
 
+	const useGaitDelay = v3ActiveRole === "gait" && v3DelayQueue.length > 1;
 	for (let s = 0; s < substeps; s += 1) {
+		let delayedCtrl: Float64Array | undefined;
+		if (useGaitDelay) {
+			const recycled = v3DelayQueue.shift();
+			if (recycled) {
+				delayedCtrl = v3DelayQueue[0] ?? recycled;
+				for (let j = 0; j < 12; j += 1) {
+					recycled[j] = (v3TargetDeg[j] ?? 0) * DEG2RAD;
+				}
+				v3DelayQueue.push(recycled);
+			}
+		}
 		for (let j = 0; j < 12; j += 1) {
-			mjData.ctrl[j] = (v3TargetDeg[j] ?? 0) * DEG2RAD;
+			mjData.ctrl[j] = delayedCtrl
+				? delayedCtrl[j] ?? 0
+				: (v3TargetDeg[j] ?? 0) * DEG2RAD;
 			const vel = mjData.qvel[v3Config.vadr[j] ?? 0] ?? 0;
 			const lower =
 				-stallTorque * Math.max(0, Math.min(1, 1 + vel / maxSpeed)) * en;
@@ -2943,10 +3059,12 @@ function stepV3ControlFrame(): void {
 function stepControlFrame(): void {
 	if (activeRobotModel === "v1") {
 		stepV1ControlFrame();
+		maybeEmitCameraStreamTick(performance.now());
 		return;
 	}
 	if (activeRobotModel === "v3") {
 		stepV3ControlFrame();
+		maybeEmitCameraStreamTick(performance.now());
 		return;
 	}
 	if (!mujoco || !mjModel || !mjData || !fw || !config) {
@@ -2977,6 +3095,24 @@ function stepControlFrame(): void {
 		false,
 		false,
 	];
+
+	// Keep standalone virtual_body.c admission fresh in worker device time even if
+	// the main thread stalls during WebGL shader compilation or tab backgrounding.
+	if (!emitProtocolTx && activeConnectionId > 0n) {
+		const pingNowUs = nowDeviceUs();
+		if (pingNowUs - lastStandalonePingUs >= 1_000_000n) {
+			lastStandalonePingUs = pingNowUs;
+			const pingPtr = writeCString('{"t":"ping"}');
+			fw._virtual_body_receive(
+				pingPtr,
+				activeConnectionId,
+				pingNowUs,
+				textBufPtr,
+				TEXT_BUF_CAP,
+			);
+			fw._free(pingPtr);
+		}
+	}
 
 	for (let s = 0; s < substeps; s += 1) {
 		const nowUs = nowDeviceUs();
@@ -3288,6 +3424,7 @@ function stepControlFrame(): void {
 	}
 
 	post({ type: "state", state });
+	maybeEmitCameraStreamTick(nowWallMs);
 }
 
 function startFirmwareSession(epoch: number, welcomeJson?: string): void {
@@ -3295,12 +3432,16 @@ function startFirmwareSession(epoch: number, welcomeJson?: string): void {
 		return;
 	}
 	clearNeuralControllers();
+	cameraEnabled = false;
+	cameraFps = 0;
+	lastCameraStreamMs = 0;
 	emitProtocolTx = welcomeJson !== undefined;
 	standaloneEpoch = epoch;
 	standaloneSeq = 1;
 	standaloneSeqRemap.clear();
 	activeConnectionId += 1n;
 	const nowUs = nowDeviceUs();
+	lastStandalonePingUs = nowUs;
 	fw._virtual_body_open(activeConnectionId, nowUs);
 	const wire =
 		welcomeJson ??
@@ -3322,6 +3463,15 @@ function startFirmwareSession(epoch: number, welcomeJson?: string): void {
 	fw._free(wirePtr);
 	if (n > 0) {
 		post({ type: "protocol-tx", messages: [fw.UTF8ToString(textBufPtr, n)] });
+	}
+	if (emitProtocolTx) {
+		const stLen = fw._virtual_body_status(nowUs, textBufPtr, TEXT_BUF_CAP);
+		if (stLen > 0) {
+			post({
+				type: "protocol-tx",
+				messages: [fw.UTF8ToString(textBufPtr, stLen)],
+			});
+		}
 	}
 	drainMediaActions();
 }
@@ -3432,6 +3582,8 @@ async function handleInit(
 	faceRgbaPtr = fw._malloc(FACE_RGBA_BYTES);
 	faceNamePtr = fw._malloc(64);
 	faceTokenPtr = fw._malloc(96);
+	micPcmPtr = fw._malloc(640);
+	micPktPtr = fw._malloc(660);
 
 	// Initialize native C sensor state (exact calibration + 4th-wire feedback curve)
 	const flatMapping = new Float64Array(60);
@@ -3887,6 +4039,108 @@ self.addEventListener(
 				if (msg.micPeak !== undefined) mediaMicPeak = msg.micPeak;
 				if (msg.cameraReady !== undefined) mediaCameraReady = msg.cameraReady;
 				return;
+			case "mic-gate": {
+				mediaCapturing = msg.open;
+				if (!msg.open) {
+					mediaMicRms = 0;
+					mediaMicPeak = 0;
+				}
+				const nowUs = nowDeviceUs();
+				const n = fw._virtual_body_mic_gate(
+					nowUs,
+					msg.open ? 1 : 0,
+					msg.wakeWord ? 1 : 0,
+					textBufPtr,
+					TEXT_BUF_CAP,
+				);
+				if (n > 0 && emitProtocolTx) {
+					post({
+						type: "protocol-tx",
+						messages: [fw.UTF8ToString(textBufPtr, n)],
+					});
+				}
+				drainMediaActions();
+				return;
+			}
+			case "mic-frame": {
+				if (msg.pcm.byteLength !== 640 || !micPcmPtr || !micPktPtr) {
+					return;
+				}
+				fw.HEAPU8.set(new Uint8Array(msg.pcm), micPcmPtr);
+				const encoded = fw._virtual_body_mic_frame(
+					nowDeviceUs(),
+					micPcmPtr,
+					640,
+					micPktPtr,
+					660,
+				);
+				if (encoded > 0 && emitProtocolTx) {
+					const pkt = fw.HEAPU8.slice(micPktPtr, micPktPtr + encoded).buffer;
+					post({ type: "protocol-packet", binary: pkt }, [pkt]);
+				}
+				return;
+			}
+			case "camera-frame": {
+				if (!emitProtocolTx) {
+					return;
+				}
+				const jpegBytes = new Uint8Array(msg.jpeg);
+				if (jpegBytes.byteLength === 0) {
+					return;
+				}
+				const jpegPtr = fw._malloc(jpegBytes.byteLength);
+				const pktCap = jpegBytes.byteLength + 16;
+				const pktPtr = fw._malloc(pktCap);
+				const metaCap = 512;
+				const metaPtr = fw._malloc(metaCap);
+				const doneCap = 256;
+				const donePtr = fw._malloc(doneCap);
+				const resPtr = writeCString(msg.res);
+				try {
+					fw.HEAPU8.set(jpegBytes, jpegPtr);
+					const originCode =
+						msg.origin === "request" ? 1 : msg.origin === "audio" ? 3 : 0;
+					const encoded = fw._virtual_body_camera_frame(
+						nowDeviceUs(),
+						originCode,
+						msg.originId >>> 0,
+						resPtr,
+						BigInt(Math.max(0, Math.round(msg.frameCompletedUs))),
+						msg.bootId >>> 0,
+						jpegPtr,
+						jpegBytes.byteLength,
+						metaPtr,
+						metaCap,
+						pktPtr,
+						pktCap,
+						donePtr,
+						doneCap,
+					);
+					const doneJson = fw.UTF8ToString(donePtr, doneCap);
+					if (encoded > 0) {
+						const metaJson = fw.UTF8ToString(metaPtr, metaCap);
+						const pkt = fw.HEAPU8.slice(pktPtr, pktPtr + encoded).buffer;
+						post(
+							{
+								type: "protocol-packet",
+								...(metaJson ? { preText: metaJson } : {}),
+								binary: pkt,
+								...(doneJson ? { postText: doneJson } : {}),
+							},
+							[pkt],
+						);
+					} else if (doneJson) {
+						post({ type: "protocol-tx", messages: [doneJson] });
+					}
+				} finally {
+					fw._free(resPtr);
+					fw._free(donePtr);
+					fw._free(metaPtr);
+					fw._free(pktPtr);
+					fw._free(jpegPtr);
+				}
+				return;
+			}
 			case "wrench":
 				activeWrench[0] = msg.forceMj[0];
 				activeWrench[1] = msg.forceMj[1];

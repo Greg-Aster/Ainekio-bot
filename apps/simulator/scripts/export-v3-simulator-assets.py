@@ -256,15 +256,8 @@ idx = 0
 for obj in sorted(vis_objs, key=lambda o: o.name):
     if obj.type != "MESH" or should_skip(obj.name):
         continue
-    # Ensure it is part of V3 | Robot Origin hierarchy (or unparented V3 fender liner)
-    cur = obj
-    under_orig = False
-    while cur is not None:
-        if cur == orig:
-            under_orig = True
-            break
-        cur = cur.parent
-    if not under_orig and not (obj.parent is None and obj.name.startswith("V3 | ")):
+    # Ensure it is under the V3 | DSSERVO Robot collection (includes V3 | Robot Origin hierarchy & unparented V3 parts)
+    if obj not in vis_objs:
         continue
 
     eval_obj = obj.evaluated_get(deps)
@@ -688,11 +681,215 @@ def _elu(x: np.ndarray) -> np.ndarray:
     return np.where(x > 0.0, x, np.expm1(x))
 
 
-def export_v3_gait_policy(policies_dir: Path) -> None:
-    onnx_path = V3_GAIT_DIR / "policy.onnx"
-    manifest_src = json.loads((V3_GAIT_DIR / "manifest.json").read_text())
+def _decode_v3_foot_offsets_deg(
+    action: np.ndarray,
+    geo: dict[str, Any],
+    foot_scale_mm: list[float],
+) -> np.ndarray:
+    """Exact closed-form Option A-1 4-bar IK + 13-step binary-fraction backoff (matches V3TensorBody.decode)."""
+    lk = geo["linkage_mm"]
+    L_car = float(lk["carrier"])
+    L_crk = float(lk["crank"])
+    L_pk = float(lk["pickup"])
+    L_rod = float(lk["rod"])
+    a0 = float(lk["alpha_zero_rad"])
+    t0 = float(lk["theta_zero_rad"])
+    b_off = float(lk["beta_offset_rad"])
+
+    def wrap_pi(r: float) -> float:
+        return math.atan2(math.sin(r), math.cos(r))
+
+    def fk_leg(lg: dict[str, Any], h_deg: float, alpha_deg: float, theta_deg: float):
+        a = a0 + math.radians(alpha_deg)
+        t = t0 + math.radians(theta_deg)
+        ox, oy, oz = [float(v) for v in lg["carrier_in_shoulder_mm"]]
+        cx, _, cz = [float(v) for v in lg["crank_in_shoulder_mm"]]
+        dx = ox + L_car * math.cos(a)
+        dz = oz + L_car * math.sin(a)
+        px = cx + L_crk * math.cos(t)
+        pz = cz + L_crk * math.sin(t)
+        wx, wz = px - dx, pz - dz
+        d = math.hypot(wx, wz)
+        if d <= 10.5 or d >= 101.5:
+            return None
+        along = (L_pk * L_pk - L_rod * L_rod + d * d) / (2.0 * d)
+        h2 = L_pk * L_pk - along * along
+        if h2 <= 0.0:
+            return None
+        hh = math.sqrt(h2)
+        ex = dx + (along * wx - hh * wz) / d
+        ez = dz + (along * wz + hh * wx) / d
+        ux, uz = (ex - dx) / L_pk, (ez - dz) / L_pk
+        vx_r, vz_r = (ex - px) / L_rod, (ez - pz) / L_rod
+        sin_mu = abs(ux * vz_r - uz * vx_r)
+        beta = math.atan2(ez - dz, ex - dx)
+        knee_rot_y = -wrap_pi(beta - b_off)
+        cy, sy = math.cos(knee_rot_y), math.sin(knee_rot_y)
+        sx, sy_lat, sz = [float(v) for v in lg["sole_center_in_knee_mm"]]
+        fx_sh = dx + cy * sx + sy * sz
+        fy_sh = oy + sy_lat
+        fz_sh = dz - sy * sx + cy * sz
+        rx = float(lg["shoulder_roll_sign"]) * math.radians(h_deg)
+        cr, sr = math.cos(rx), math.sin(rx)
+        shx, shy, shz = [float(v) for v in lg["shoulder_in_robot_mm"]]
+        return (shx + fx_sh, shy + cr * fy_sh - sr * fz_sh, shz + sr * fy_sh + cr * fz_sh), sin_mu
+
+    def ik_offset(lg: dict[str, Any], dx_mm: float, dy_mm: float, dz_mm: float):
+        fk0 = fk_leg(lg, 0.0, 0.0, 0.0)
+        ns = list(fk0[0]) if fk0 is not None else [float(v) for v in lg["sole_center_in_robot_mm"]]
+        sh = [float(v) for v in lg["shoulder_in_robot_mm"]]
+        ox, oy, oz = [float(v) for v in lg["carrier_in_shoulder_mm"]]
+        cx, _, cz = [float(v) for v in lg["crank_in_shoulder_mm"]]
+        sx, sy_lat, sz = [float(v) for v in lg["sole_center_in_knee_mm"]]
+        roll_sign = float(lg["shoulder_roll_sign"])
+
+        tx = ns[0] + dx_mm - sh[0]
+        ty = ns[1] + dy_mm - sh[1]
+        tz = ns[2] + dz_mm - sh[2]
+        yc = oy + sy_lat
+        r2 = ty * ty + tz * tz
+        if r2 <= yc * yc + 1e-4:
+            return None
+        z_sh = -math.sqrt(r2 - yc * yc)
+        cr = (yc * ty + z_sh * tz) / r2
+        sr = (yc * tz - z_sh * ty) / r2
+        h_deg = max(-30.0, min(30.0, math.degrees(math.atan2(sr, cr)) / roll_sign))
+
+        L_foot = math.hypot(sx, sz)
+        vx, vz = tx - ox, z_sh - oz
+        dist = math.hypot(vx, vz)
+        if dist < abs(L_car - L_foot) + 1e-3 or dist > L_car + L_foot - 1e-3:
+            return None
+        f2 = L_foot * L_foot
+        along = (L_car * L_car - f2 + dist * dist) / (2.0 * dist)
+        h2 = L_car * L_car - along * along
+        if h2 < 0.0:
+            return None
+        hh = math.sqrt(h2)
+        ax, az = ox + (along * vx - hh * vz) / dist, oz + (along * vz + hh * vx) / dist
+        bx, bz = ox + (along * vx + hh * vz) / dist, oz + (along * vz - hh * vx) / dist
+        nkx, nkz = ox + L_car * math.cos(a0), oz + L_car * math.sin(a0)
+        da = (ax - nkx) ** 2 + (az - nkz) ** 2
+        db = (bx - nkx) ** 2 + (bz - nkz) ** 2
+        kx, kz = (ax, az) if da <= db else (bx, bz)
+        alpha_deg = max(-40.0, min(50.0, math.degrees(wrap_pi(math.atan2(kz - oz, kx - ox) - a0))))
+
+        lx, lz = tx - kx, z_sh - kz
+        cy = (lx * sx + lz * sz) / f2
+        sy = (lx * sz - lz * sx) / f2
+        beta = b_off - math.atan2(sy, cy)
+        ex, ez = kx + L_pk * math.cos(beta), kz + L_pk * math.sin(beta)
+
+        ex_c, ez_c = ex - cx, ez - cz
+        dc = math.hypot(ex_c, ez_c)
+        if dc < abs(L_crk - L_rod) + 1e-3 or dc > L_crk + L_rod - 1e-3:
+            return None
+        ca = (L_crk * L_crk - L_rod * L_rod + dc * dc) / (2.0 * dc)
+        ch2 = L_crk * L_crk - ca * ca
+        if ch2 < 0.0:
+            return None
+        ch = math.sqrt(ch2)
+
+        best_theta = 0.0
+        best_score = 1e9
+        found = False
+        for s in (-1.0, 1.0):
+            px = cx + (ca * ex_c - s * ch * ez_c) / dc
+            pz = cz + (ca * ez_c + s * ch * ex_c) / dc
+            td = math.degrees(wrap_pi(math.atan2(pz - cz, px - cx) - t0))
+            if td < -51.0 or td > 51.0:
+                continue
+            tc = max(-50.0, min(50.0, td))
+            fk_res = fk_leg(lg, h_deg, alpha_deg, tc)
+            if fk_res is None:
+                continue
+            fk_pos, sin_mu = fk_res
+            if sin_mu < 0.15:
+                continue
+            err = math.hypot(fk_pos[0] - (ns[0] + dx_mm), fk_pos[2] - (ns[2] + dz_mm))
+            if err > 5.0:
+                continue
+            score = err + 0.005 * abs(tc)
+            if score < best_score:
+                best_score = score
+                best_theta = tc
+                found = True
+        if not found:
+            return None
+        return (h_deg, alpha_deg, best_theta)
+
+    out = np.zeros(12, dtype=np.float64)
+    for li, leg_name in enumerate(V3_LEGS):
+        lg = geo["legs"][leg_name]
+        dx = float(np.clip(action[li * 3 + 0], -1.0, 1.0)) * float(foot_scale_mm[0])
+        dy = float(np.clip(action[li * 3 + 1], -1.0, 1.0)) * float(foot_scale_mm[1])
+        dz = float(np.clip(action[li * 3 + 2], -1.0, 1.0)) * float(foot_scale_mm[2])
+        solved = ik_offset(lg, dx, dy, dz)
+        if solved is None:
+            z_ref = max(0.0, min(14.0, dz))
+            ref_sol = ik_offset(lg, dx, dy, z_ref)
+            if ref_sol is not None:
+                lo, hi = 0.0, 1.0
+                solved = ref_sol
+                for _ in range(6):
+                    mid = 0.5 * (lo + hi)
+                    zm = z_ref + (dz - z_ref) * mid
+                    cand = ik_offset(lg, dx, dy, zm)
+                    if cand is not None:
+                        lo = mid
+                        solved = cand
+                    else:
+                        hi = mid
+            else:
+                lo, hi = 0.0, 1.0
+                solved = (0.0, 0.0, 0.0)
+                for _ in range(7):
+                    mid = 0.5 * (lo + hi)
+                    cand = ik_offset(lg, dx * mid, dy * mid, dz * mid)
+                    if cand is not None:
+                        lo = mid
+                        solved = cand
+                    else:
+                        hi = mid
+        if solved is not None:
+            out[li * 3 + 0] = solved[0]
+            out[li * 3 + 1] = solved[1]
+            out[li * 3 + 2] = solved[2]
+    return out
+
+
+def export_v3_gait_policy(policies_dir: Path, geo: dict[str, Any]) -> None:
+    gait_dir = V3_GAIT_DIR
+    if not (gait_dir / "policy.onnx").exists():
+        # While a resumed training pass is actively running in v3-microduck-p4/,
+        # export the latest completed baseline checkpoint.
+        backups = sorted(
+            V3_GAIT_DIR.parent.glob("v3-microduck-p4-*"),
+            key=lambda p: (p / "policy.onnx").stat().st_mtime if (p / "policy.onnx").exists() else 0.0,
+            reverse=True,
+        )
+        gait_dir = next((b for b in backups if (b / "policy.onnx").exists()), V3_GAIT_DIR)
+        print(f"  [V3 Gait] Active training in {V3_GAIT_DIR.name}; using completed checkpoint {gait_dir.name}")
+    onnx_path = gait_dir / "policy.onnx"
+    manifest_src = json.loads((gait_dir / "manifest.json").read_text())
     model = onnx.load(str(onnx_path))
+    onnx_meta = {p.key: p.value for p in model.metadata_props}
     inits = {t.name: numpy_helper.to_array(t) for t in model.graph.initializer}
+
+    obs_dim = int(manifest_src.get("obs_size", 600))
+    feature_dim = int(manifest_src.get("features", 50))
+    history_samples = int(manifest_src.get("samples", obs_dim // feature_dim))
+    action_space = str(onnx_meta.get("ainekio_action", manifest_src.get("action_space", "normalized-foot-offsets-v3-ik")))
+    foot_scale_mm = list(
+        json.loads(onnx_meta["ainekio_foot_action_scale_mm"])
+        if "ainekio_foot_action_scale_mm" in onnx_meta
+        else manifest_src.get("foot_action_scale_mm", [55.0, 22.0, 32.0])
+    )
+    gait_hz = float(manifest_src.get("gait_hz", 1.65))
+    # Pass 14+ ([78, 28, 36] mm) uses speed-adaptive 1.30..2.00 Hz cadence matching v3_microduck.c
+    is_adaptive_hz = "gait_hz_min" in manifest_src or (len(foot_scale_mm) == 3 and float(foot_scale_mm[0]) >= 70.0)
+    gait_hz_min = float(manifest_src.get("gait_hz_min", 1.30)) if is_adaptive_hz else None
+    gait_hz_max = float(manifest_src.get("gait_hz_max", 2.00)) if is_adaptive_hz else None
 
     mean = inits["obs_normalizer._mean"].reshape(-1).astype(np.float32)
     div_key = next(k for k in inits if "Div" in k or "_std" in k)
@@ -705,6 +902,9 @@ def export_v3_gait_policy(policies_dir: Path) -> None:
     b2 = inits["mlp.4.bias"].astype(np.float32)
     w3 = inits["mlp.6.weight"].astype(np.float32)
     b3 = inits["mlp.6.bias"].astype(np.float32)
+
+    if mean.size != obs_dim:
+        raise RuntimeError(f"Expected V3 gait obs_dim={obs_dim}, got mean.size={mean.size}")
 
     packed, layout = _pack_tensors(
         {
@@ -725,9 +925,13 @@ def export_v3_gait_policy(policies_dir: Path) -> None:
     in_name = sess.get_inputs()[0].name
     golden = []
     max_err = 0.0
-    for seed in range(3):
+    for seed in range(4):
         rng = np.random.default_rng(300 + seed)
-        obs = np.zeros((1, 400), dtype=np.float32) if seed == 0 else rng.normal(0.0, 0.35, size=(1, 400)).astype(np.float32)
+        obs = (
+            np.zeros((1, obs_dim), dtype=np.float32)
+            if seed == 0
+            else rng.normal(0.0, 0.35, size=(1, obs_dim)).astype(np.float32)
+        )
         ort_out = sess.run(None, {in_name: obs})[0][0]
         x = (obs[0] - mean) / std
         x = _elu(w0 @ x + b0)
@@ -736,11 +940,14 @@ def export_v3_gait_policy(policies_dir: Path) -> None:
         y = np.tanh(w3 @ x + b3)
         err = float(np.max(np.abs(y - ort_out)))
         max_err = max(max_err, err)
+        clipped = np.clip(ort_out, -1.0, 1.0).astype(np.float32)
+        decoded_deg = _decode_v3_foot_offsets_deg(clipped, geo, foot_scale_mm)
         golden.append(
             {
                 "seed": seed,
                 "obs": [round(float(v), 6) for v in obs[0]],
-                "action": [round(float(v), 7) for v in ort_out],
+                "action": [round(float(v), 7) for v in clipped],
+                "decodedJointDeg": [round(float(v), 5) for v in decoded_deg],
             }
         )
     if max_err > 1e-5:
@@ -750,23 +957,31 @@ def export_v3_gait_policy(policies_dir: Path) -> None:
     out_json = policies_dir / "v3-neural-gait.json"
     out_bin.write_bytes(packed)
     manifest = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "kind": "v3-microduck-mjlab",
         "modelId": "v3-microduck-p4",
         "observationSchema": manifest_src["schema"],
         "geometryId": manifest_src["geometry_id"],
         "controlHz": 50,
-        "gaitHz": float(manifest_src.get("gait_hz", 2.2)),
-        "obsDim": 400,
-        "featureDim": 50,
-        "historySamples": 8,
-        "actionScaleDeg": list(manifest_src.get("action_scale_deg", [25.0, 45.0, 45.0])),
+        "gaitHz": gait_hz,
+        **(
+            {"gaitHzMin": gait_hz_min, "gaitHzMax": gait_hz_max}
+            if gait_hz_min is not None and gait_hz_max is not None
+            else {}
+        ),
+        "obsDim": obs_dim,
+        "featureDim": feature_dim,
+        "historySamples": history_samples,
+        "actionSpace": action_space,
+        "footActionScaleMm": [float(v) for v in foot_scale_mm],
+        "actionScaleDeg": [30.0, 45.0, 50.0],
+        "actuatorDelaySubsteps": 15,
         "jointMinDeg": list(V3_JOINT_LO_DEG),
         "jointMaxDeg": list(V3_JOINT_HI_DEG),
         "defaultProfile": {
             "forwardMS": 0.35,
             "lateralMS": 0.20,
-            "yawRadS": 1.50,
+            "yawRadS": 1.30,
         },
         "weightsFile": "/sim/policies/v3-neural-gait.bin",
         "layers": [
@@ -780,7 +995,7 @@ def export_v3_gait_policy(policies_dir: Path) -> None:
         "goldenTests": golden,
     }
     out_json.write_text(json.dumps(manifest, separators=(",", ":")), encoding="utf-8")
-    print(f"Exported V3 Neural Gait ({len(packed) / 1024:.1f} KB, ONNX max_err={max_err:.2e})")
+    print(f"Exported V3 Neural Gait ({len(packed) / 1024:.1f} KB, obs={obs_dim}, scale_mm={foot_scale_mm}, ONNX max_err={max_err:.2e})")
 
 
 def export_v3_pose_policy(policies_dir: Path) -> None:
@@ -918,11 +1133,12 @@ def export_v3_pose_policy(policies_dir: Path) -> None:
 
 def main() -> None:
     geo = load_v3_geometry()
-    export_v3_glb(SIM_ROOT / "public/assets/robots/ainekio-v3.glb", geo)
-    export_v3_mujoco_and_config(SIM_ROOT / "public/sim", geo)
+    if "--policies-only" not in sys.argv:
+        export_v3_glb(SIM_ROOT / "public/assets/robots/ainekio-v3.glb", geo)
+        export_v3_mujoco_and_config(SIM_ROOT / "public/sim", geo)
     policies_dir = SIM_ROOT / "public/sim/policies"
     policies_dir.mkdir(parents=True, exist_ok=True)
-    export_v3_gait_policy(policies_dir)
+    export_v3_gait_policy(policies_dir, geo)
     export_v3_pose_policy(policies_dir)
     print("All Ainekio V3 static-web simulator assets exported & verified!")
 

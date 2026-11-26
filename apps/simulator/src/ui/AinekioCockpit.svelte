@@ -57,8 +57,8 @@ const ui = $state<{
 		levelId: "v2_lab",
 		cameraMode: "orbit",
 		engineMode: "neural",
-		neuralGaitModelId: "microduck-v19-snag-p4",
-		neuralPoseModelId: "neural-pose-v7-hysteresis",
+		neuralGaitModelId: "microduck-v20-studya-p4",
+		neuralPoseModelId: "neural-pose-v8-calibrated",
 		neuralMotions: [],
 		control: {
 			mode: "standalone",

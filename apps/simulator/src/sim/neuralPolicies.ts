@@ -33,6 +33,7 @@ export type GoldenPolicyTest = {
 	readonly seed: number;
 	readonly obs: readonly number[];
 	readonly action: readonly number[];
+	readonly decodedJointDeg?: readonly number[];
 };
 
 export type NeuralGaitManifest = {
@@ -561,6 +562,8 @@ export type V1NeuralGaitManifest = {
 	readonly geometryId: string;
 	readonly controlHz: number;
 	readonly gaitHz: number;
+	readonly gaitHzMin?: number;
+	readonly gaitHzMax?: number;
 	readonly obsDim: number;
 	readonly featureDim: number;
 	readonly historySamples: number;
@@ -929,10 +932,15 @@ export type V3NeuralGaitManifest = {
 	readonly geometryId: string;
 	readonly controlHz: number;
 	readonly gaitHz: number;
+	readonly gaitHzMin?: number;
+	readonly gaitHzMax?: number;
 	readonly obsDim: number;
 	readonly featureDim: number;
 	readonly historySamples: number;
-	readonly actionScaleDeg: readonly [number, number, number];
+	readonly actionSpace?: "normalized-foot-offsets-v3-ik" | "scaled-joint-deg";
+	readonly footActionScaleMm?: readonly [number, number, number];
+	readonly actionScaleDeg?: readonly [number, number, number];
+	readonly actuatorDelaySubsteps?: number;
 	readonly jointMinDeg: readonly number[];
 	readonly jointMaxDeg: readonly number[];
 	readonly defaultProfile: {
@@ -985,12 +993,14 @@ export type V3NeuralPoseManifest = {
 export class V3GaitObservationHistory {
 	readonly #featureDim: number;
 	readonly #samples: number;
+	readonly #seedFirstFrame: boolean;
 	readonly #buf: Float32Array;
 	#seeded = false;
 
-	constructor(featureDim = 50, samples = 8) {
+	constructor(featureDim = 50, samples = 12, seedFirstFrame = false) {
 		this.#featureDim = featureDim;
 		this.#samples = samples;
+		this.#seedFirstFrame = seedFirstFrame;
 		this.#buf = new Float32Array(featureDim * samples);
 	}
 
@@ -1001,7 +1011,7 @@ export class V3GaitObservationHistory {
 
 	push(frame: ArrayLike<number>): Float32Array {
 		const f = this.#featureDim;
-		if (!this.#seeded) {
+		if (this.#seedFirstFrame && !this.#seeded) {
 			for (let s = 0; s < this.#samples; s += 1) {
 				for (let i = 0; i < f; i += 1) {
 					this.#buf[s * f + i] = frame[i] ?? 0;
@@ -1010,12 +1020,154 @@ export class V3GaitObservationHistory {
 			this.#seeded = true;
 			return this.#buf;
 		}
+		this.#seeded = true;
 		this.#buf.copyWithin(f, 0, (this.#samples - 1) * f);
 		for (let i = 0; i < f; i += 1) {
 			this.#buf[i] = frame[i] ?? 0;
 		}
 		return this.#buf;
 	}
+}
+
+/**
+ * Exact TypeScript translation of `V3TensorSensors` (`Master/gateway/neural_gait/v3_microduck.py`):
+ * 50 Hz One-Euro filtered joint angles/velocities + body gyro, proper acceleration in g,
+ * projected gravity, twist command, previous raw action, and gated 1.65 Hz CPG phase.
+ */
+export class V3ProprioSensorFilter {
+	readonly #qRaw = new Float64Array(12);
+	readonly #qFilt = new Float64Array(12);
+	readonly #deriv = new Float64Array(12);
+	readonly #dqFilt = new Float64Array(12);
+	readonly #gyro = new Float64Array(3);
+	readonly #accelG = new Float64Array([0, 0, 1]);
+	readonly #grav = new Float64Array([0, 0, -1]);
+	readonly #prevLinVelB = new Float64Array(3);
+	#feedbackInit = false;
+
+	reset(q0Rad?: ArrayLike<number>): void {
+		for (let j = 0; j < 12; j += 1) {
+			const v = q0Rad?.[j] ?? 0;
+			const clean = Number.isFinite(v) ? v : 0;
+			this.#qRaw[j] = clean;
+			this.#qFilt[j] = clean;
+			this.#deriv[j] = 0;
+			this.#dqFilt[j] = 0;
+		}
+		this.#gyro[0] = 0;
+		this.#gyro[1] = 0;
+		this.#gyro[2] = 0;
+		this.#accelG[0] = 0;
+		this.#accelG[1] = 0;
+		this.#accelG[2] = 1;
+		this.#grav[0] = 0;
+		this.#grav[1] = 0;
+		this.#grav[2] = -1;
+		this.#prevLinVelB[0] = 0;
+		this.#prevLinVelB[1] = 0;
+		this.#prevLinVelB[2] = 0;
+		this.#feedbackInit = true;
+	}
+
+	update50Hz(
+		qTrueRad: ArrayLike<number>,
+		gyroB: readonly [number, number, number],
+		linVelB: readonly [number, number, number],
+		gravB: readonly [number, number, number],
+		dt = 0.02,
+	): void {
+		const alpha = 1 / (1 + 1 / (2 * Math.PI * 5 * dt));
+		for (let j = 0; j < 12; j += 1) {
+			const raw = qTrueRad[j] ?? 0;
+			const qMeas = Number.isFinite(raw) ? raw : 0;
+			const qPrevRaw = this.#qRaw[j] ?? 0;
+			const prevDeriv = this.#deriv[j] ?? 0;
+			const derivNew =
+				prevDeriv + alpha * ((qMeas - qPrevRaw) / dt - prevDeriv);
+			const cutoff = 1.5 + 1.43 * Math.abs(derivNew);
+			const gain = 1 / (1 + 1 / (2 * Math.PI * cutoff * dt));
+			const prevQFilt = this.#qFilt[j] ?? 0;
+			const qFiltNew = prevQFilt + gain * (qMeas - prevQFilt);
+			const prevDqFilt = this.#dqFilt[j] ?? 0;
+			const dqFiltNew =
+				prevDqFilt + alpha * ((qFiltNew - prevQFilt) / dt - prevDqFilt);
+			if (this.#feedbackInit) {
+				this.#qFilt[j] = qFiltNew;
+				this.#deriv[j] = derivNew;
+				this.#dqFilt[j] = dqFiltNew;
+			} else {
+				this.#qFilt[j] = qMeas;
+				this.#deriv[j] = 0;
+				this.#dqFilt[j] = 0;
+			}
+			this.#qRaw[j] = qMeas;
+		}
+		this.#feedbackInit = true;
+
+		for (let a = 0; a < 3; a += 1) {
+			const lv = Number.isFinite(linVelB[a]) ? linVelB[a] ?? 0 : 0;
+			const gv = Number.isFinite(gravB[a]) ? gravB[a] ?? 0 : 0;
+			const accB = (lv - (this.#prevLinVelB[a] ?? 0)) / dt - 9.81 * gv;
+			this.#prevLinVelB[a] = lv;
+			this.#accelG[a] = clamp(accB / 9.81, -4, 4);
+			this.#gyro[a] = Number.isFinite(gyroB[a]) ? gyroB[a] ?? 0 : 0;
+			this.#grav[a] = gv;
+		}
+	}
+
+	writeFeatures(
+		commandTwist: readonly [number, number, number],
+		prevAction: ArrayLike<number>,
+		phaseRad: number,
+		out: Float32Array,
+	): void {
+		for (let j = 0; j < 12; j += 1) {
+			out[j] = this.#qFilt[j] ?? 0;
+			out[12 + j] = this.#dqFilt[j] ?? 0;
+			out[36 + j] = prevAction[j] ?? 0;
+		}
+		out[24] = this.#gyro[0] ?? 0;
+		out[25] = this.#gyro[1] ?? 0;
+		out[26] = this.#gyro[2] ?? 0;
+		out[27] = this.#accelG[0] ?? 0;
+		out[28] = this.#accelG[1] ?? 0;
+		out[29] = this.#accelG[2] ?? 1;
+		out[30] = this.#grav[0] ?? 0;
+		out[31] = this.#grav[1] ?? 0;
+		out[32] = this.#grav[2] ?? -1;
+		out[33] = commandTwist[0];
+		out[34] = commandTwist[1];
+		out[35] = commandTwist[2];
+		const moving =
+			Math.hypot(commandTwist[0], commandTwist[1]) +
+				0.18 * Math.abs(commandTwist[2]) >
+			0.02;
+		out[48] = moving ? Math.sin(phaseRad) : 0;
+		out[49] = moving ? Math.cos(phaseRad) : 0;
+	}
+}
+
+/** Rotate world-frame linear velocity into body frame using MuJoCo quaternion [w, x, y, z]. */
+export function bodyLinearVelocityFromWxyz(
+	quatWxyz: readonly [number, number, number, number],
+	velWorld: readonly [number, number, number],
+): [number, number, number] {
+	const [w, x, y, z] = quatWxyz;
+	const [vx, vy, vz] = velWorld;
+	const r00 = 1 - 2 * (y * y + z * z);
+	const r10 = 2 * (x * y + w * z);
+	const r20 = 2 * (x * z - w * y);
+	const r01 = 2 * (x * y - w * z);
+	const r11 = 1 - 2 * (x * x + z * z);
+	const r21 = 2 * (y * z + w * x);
+	const r02 = 2 * (x * z + w * y);
+	const r12 = 2 * (y * z - w * x);
+	const r22 = 1 - 2 * (x * x + y * y);
+	return [
+		r00 * vx + r10 * vy + r20 * vz,
+		r01 * vx + r11 * vy + r21 * vz,
+		r02 * vx + r12 * vy + r22 * vz,
+	];
 }
 
 export class V3NeuralGaitPolicy {
@@ -1048,8 +1200,34 @@ export class V3NeuralGaitPolicy {
 		return action;
 	}
 
+	computeGaitHz(commandTwist: readonly [number, number, number]): number {
+		const lo = this.manifest.gaitHzMin;
+		const hi = this.manifest.gaitHzMax;
+		if (lo !== undefined && hi !== undefined) {
+			const lin = Math.hypot(commandTwist[0], commandTwist[1]);
+			const eff = clamp(
+				lin / 0.38 + (0.45 * Math.abs(commandTwist[2])) / 1.3,
+				0,
+				1,
+			);
+			return lo + (hi - lo) * eff;
+		}
+		return this.manifest.gaitHz;
+	}
+
 	actionToJointDeg(action: ArrayLike<number>): number[] {
-		const scales = this.manifest.actionScaleDeg;
+		if (
+			this.manifest.actionSpace === "normalized-foot-offsets-v3-ik" ||
+			this.manifest.footActionScaleMm
+		) {
+			return decodeV3FootOffsetsToJointDeg(
+				action,
+				this.manifest.footActionScaleMm ?? [55, 22, 32],
+				this.manifest.jointMinDeg,
+				this.manifest.jointMaxDeg,
+			);
+		}
+		const scales = this.manifest.actionScaleDeg ?? [25, 45, 45];
 		const out: number[] = new Array(12);
 		for (let i = 0; i < 12; i += 1) {
 			const scale = scales[i % 3] ?? 30;
@@ -1252,12 +1430,17 @@ function wrapPi(rad: number): number {
 	return Math.atan2(Math.sin(rad), Math.cos(rad));
 }
 
+type V3FkCheck = {
+	readonly footMm: readonly [number, number, number];
+	readonly sinTransmission: number;
+};
+
 function solveV3LegFkFoot(
 	leg: V3LegKinSpec,
 	hDeg: number,
 	alphaDeg: number,
 	thetaDeg: number,
-): readonly [number, number, number] | undefined {
+): V3FkCheck | undefined {
 	const a = V3_ALPHA_ZERO_RAD + alphaDeg * DEG2RAD;
 	const t = V3_THETA_ZERO_RAD + thetaDeg * DEG2RAD;
 	const dx = leg.carrierMm[0] + V3_CARRIER_MM * Math.cos(a);
@@ -1276,6 +1459,11 @@ function solveV3LegFkFoot(
 	const hh = Math.sqrt(h2);
 	const ex = dx + (along * wx - hh * wz) / d;
 	const ez = dz + (along * wz + hh * wx) / d;
+	const ux = (ex - dx) / V3_PICKUP_MM;
+	const uz = (ez - dz) / V3_PICKUP_MM;
+	const vxRod = (ex - px) / V3_ROD_MM;
+	const vzRod = (ez - pz) / V3_ROD_MM;
+	const sinTransmission = Math.abs(ux * vzRod - uz * vxRod);
 	const beta = Math.atan2(ez - dz, ex - dx);
 	const kneeRotY = -wrapPi(beta - V3_BETA_OFFSET_RAD);
 	const cy = Math.cos(kneeRotY);
@@ -1287,11 +1475,14 @@ function solveV3LegFkFoot(
 	const rx = leg.rollSign * hDeg * DEG2RAD;
 	const cr = Math.cos(rx);
 	const sr = Math.sin(rx);
-	return [
-		leg.shoulderMm[0] + fxSh,
-		leg.shoulderMm[1] + cr * fySh - sr * fzSh,
-		leg.shoulderMm[2] + sr * fySh + cr * fzSh,
-	];
+	return {
+		footMm: [
+			leg.shoulderMm[0] + fxSh,
+			leg.shoulderMm[1] + cr * fySh - sr * fzSh,
+			leg.shoulderMm[2] + sr * fySh + cr * fzSh,
+		],
+		sinTransmission,
+	};
 }
 
 function solveV3LegIkOffset(
@@ -1377,7 +1568,7 @@ function solveV3LegIkOffset(
 	const ch = Math.sqrt(ch2);
 
 	let bestTheta = 0;
-	let bestErr = 1e9;
+	let bestScore = 1e9;
 	let found = false;
 	for (const s of [-1, 1]) {
 		const px = cx + (ca * exc - s * ch * ezc) / dc;
@@ -1387,19 +1578,98 @@ function solveV3LegIkOffset(
 		if (td < -51 || td > 51) continue;
 		const tc = clamp(td, -50, 50);
 		const fk = solveV3LegFkFoot(leg, hDeg, alphaDeg, tc);
-		if (!fk) continue;
+		if (!fk || fk.sinTransmission < 0.15) continue;
 		const err = Math.hypot(
-			fk[0] - (leg.neutralSoleRobotMm[0] + dxMm),
-			fk[2] - (leg.neutralSoleRobotMm[2] + dzMm),
+			fk.footMm[0] - (leg.neutralSoleRobotMm[0] + dxMm),
+			fk.footMm[2] - (leg.neutralSoleRobotMm[2] + dzMm),
 		);
-		if (err < bestErr) {
-			bestErr = err;
+		if (err > 5.0) continue;
+		const score = err + 0.005 * Math.abs(tc);
+		if (score < bestScore) {
+			bestScore = score;
 			bestTheta = tc;
 			found = true;
 		}
 	}
-	if (!found || bestErr > 5.0) return undefined;
+	if (!found) return undefined;
 	return [hDeg, alphaDeg, bestTheta];
+}
+
+/**
+ * Exact TypeScript translation of `V3TensorBody.decode` (`v3_microduck.py`) and
+ * `ainekio_v3_microduck_predict` (`Slave/software/models/v3-12servo/v3_microduck.c`):
+ * scales normalized [-1, 1] foot offsets by `footScaleMm` and runs 2-stage smooth
+ * boundary bisection (Stage 1: 6-step vertical z bisection from clamp(dz, 0, 14) -> dz
+ * preserving 100% horizontal stride; Stage 2: 7-step radial bisection from neutral).
+ */
+export function decodeV3FootOffsetsToJointDeg(
+	action: ArrayLike<number>,
+	footScaleMm: readonly [number, number, number] = [78, 28, 36],
+	jointMinDeg?: readonly number[],
+	jointMaxDeg?: readonly number[],
+): number[] {
+	const out: number[] = new Array(12);
+	const sx = footScaleMm[0] ?? 78;
+	const sy = footScaleMm[1] ?? 28;
+	const sz = footScaleMm[2] ?? 36;
+	for (let l = 0; l < 4; l += 1) {
+		const base = l * 3;
+		const dx = clamp(action[base] ?? 0, -1, 1) * sx;
+		const dy = clamp(action[base + 1] ?? 0, -1, 1) * sy;
+		const dz = clamp(action[base + 2] ?? 0, -1, 1) * sz;
+		let solved = solveV3LegIkOffset(l, dx, dy, dz);
+		if (!solved) {
+			const zRef = clamp(dz, 0, 14);
+			const refSol = solveV3LegIkOffset(l, dx, dy, zRef);
+			if (refSol) {
+				let lo = 0;
+				let hi = 1;
+				solved = refSol;
+				for (let k = 0; k < 6; k += 1) {
+					const mid = 0.5 * (lo + hi);
+					const zm = zRef + (dz - zRef) * mid;
+					const cand = solveV3LegIkOffset(l, dx, dy, zm);
+					if (cand) {
+						lo = mid;
+						solved = cand;
+					} else {
+						hi = mid;
+					}
+				}
+			} else {
+				let lo = 0;
+				let hi = 1;
+				solved = [0, 0, 0];
+				for (let k = 0; k < 7; k += 1) {
+					const mid = 0.5 * (lo + hi);
+					const cand = solveV3LegIkOffset(l, dx * mid, dy * mid, dz * mid);
+					if (cand) {
+						lo = mid;
+						solved = cand;
+					} else {
+						hi = mid;
+					}
+				}
+			}
+		}
+		const [hDeg, aDeg, tDeg] = solved ?? [0, 0, 0];
+		out[base] = clamp(
+			hDeg,
+			jointMinDeg?.[base] ?? -30,
+			jointMaxDeg?.[base] ?? 30,
+		);
+		out[base + 1] = clamp(
+			aDeg,
+			jointMinDeg?.[base + 1] ?? -40,
+			jointMaxDeg?.[base + 1] ?? 50,
+		);
+		out[base + 2] = clamp(
+			tDeg,
+			jointMinDeg?.[base + 2] ?? -50,
+			jointMaxDeg?.[base + 2] ?? 50,
+		);
+	}
+	return out;
 }
 
 /** Exact TypeScript translation of `Slave/software/models/v3-12servo/v3_motion.c` `ainekio_v3_posture_angles`. */

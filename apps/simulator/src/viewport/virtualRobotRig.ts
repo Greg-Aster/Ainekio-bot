@@ -2,7 +2,7 @@
  * Three.js articulated Ainekio V2 GLB robot rig.
  *
  * Loads /assets/robots/ainekio-v2.glb (Meshopt compressed), solves the exact
- * 35/20/28/38 mm four-bar leg linkages from 12 live MuJoCo joint angles,
+ * 28/16/31/37 mm Study A four-bar leg linkages from 12 live MuJoCo joint angles,
  * binds the live 320x170 ST7789 face CanvasTexture onto Ext_Tex_RobotRoot_01,
  * and mounts a virtual OV5647 chin PerspectiveCamera for live JPEG capture
  * and Robot POV rendering.
@@ -19,15 +19,15 @@ import {
 
 const DEG2RAD = Math.PI / 180;
 
-// Exact V2 35-20-28-38 four-bar linkage constants matching Blender Wireless CAD.
+// Exact V2 Study A 28-16-31-37 four-bar linkage constants matching Blender Scene 'v2'.
 const V2_A0 = -2.589563330529253;
 const V2_T0 = -3.7982594562326515;
-const V2_DX0 = 32.78664016723633;
-const V2_DZ0 = 51.35725402832031;
-const V2_BETA0 = 2.615800380706787;
-const V2_PX0 = 34.24711227416992;
-const V2_PZ0 = 93.42145538330078;
-const V2_PHI0 = -2.312775135040283;
+const V2_DX0 = 38.74687556847751;
+const V2_DZ0 = 55.02816812469001;
+const V2_BETA0 = 2.484875110627394;
+const V2_PX0 = 37.41523755796805;
+const V2_PZ0 = 90.97953218263883;
+const V2_PHI0 = -2.695952349746787;
 
 // Neutral torso height in MuJoCo when the robot rests above Z = 0.
 const V2_GLB_BASE_HEIGHT_M = 0.065;
@@ -517,11 +517,12 @@ export class ThreeVirtualRobotV2Rig {
 				obj.material = new THREE.MeshBasicMaterial({
 					map: this.#faceTexture,
 					toneMapped: false,
+					side: THREE.DoubleSide,
 				});
 			}
 		});
 
-		this.#chinCamera.position.set(0, 0.055, 0.115);
+		this.#chinCamera.position.set(0, 0.056, 0.119);
 		this.#chinCamera.rotation.set(-0.08, Math.PI, 0, "YXZ");
 		root.add(this.#chinCamera);
 		this.#container.add(group);
@@ -632,15 +633,15 @@ export class ThreeVirtualRobotV2Rig {
 
 			const a = V2_A0 + aDeg * DEG2RAD;
 			const t = V2_T0 + tDeg * DEG2RAD;
-			const dx = 62.58781342006688 + 35 * Math.cos(a);
-			const dz = 69.71182170125783 + 35 * Math.sin(a);
-			const px = 50.08774121717073 + 20 * Math.cos(t);
-			const pz = 81.2118481681196 + 20 * Math.sin(t);
+			const dx = 62.58781342006688 + 28 * Math.cos(a);
+			const dz = 69.71182170125783 + 28 * Math.sin(a);
+			const px = 50.08774121717073 + 16 * Math.cos(t);
+			const pz = 81.2118481681196 + 16 * Math.sin(t);
 			const wx = px - dx;
 			const wz = pz - dz;
 			const d = Math.max(1e-9, Math.hypot(wx, wz));
-			const along = Math.min(28, Math.max(-28, (784 - 1444 + d * d) / (2 * d)));
-			const height = Math.sqrt(Math.max(0, 784 - along * along));
+			const along = Math.min(37, Math.max(-37, (1369 - 961 + d * d) / (2 * d)));
+			const height = Math.sqrt(Math.max(0, 1369 - along * along));
 			const ex = dx + (along * wx - height * wz) / d;
 			const ez = dz + (along * wz + height * wx) / d;
 			const beta = Math.atan2(ez - dz, ex - dx);
@@ -746,6 +747,7 @@ export class ThreeVirtualRobotV2Rig {
 
 		this.#chinCamera.aspect = width / height;
 		this.#chinCamera.updateProjectionMatrix();
+		this.#scene.updateMatrixWorld(true);
 		this.#chinCamera.updateMatrixWorld(true);
 
 		const previousTarget = this.#renderer.getRenderTarget();
@@ -979,6 +981,7 @@ export function bindArticulatedRobotClone(
 			obj.material = new THREE.MeshBasicMaterial({
 				map: faceTexture,
 				toneMapped: false,
+				side: THREE.DoubleSide,
 			});
 		}
 	});
@@ -1076,15 +1079,15 @@ export function applyArticulatedRobotThreePose(
 			leg.shoulder.rotation.set(0, 0, leg.rollSign * hDeg * DEG2RAD);
 			const a = V2_A0 + aDeg * DEG2RAD;
 			const t = V2_T0 + tDeg * DEG2RAD;
-			const dx = 62.58781342006688 + 35 * Math.cos(a);
-			const dz = 69.71182170125783 + 35 * Math.sin(a);
-			const px = 50.08774121717073 + 20 * Math.cos(t);
-			const pz = 81.2118481681196 + 20 * Math.sin(t);
+			const dx = 62.58781342006688 + 28 * Math.cos(a);
+			const dz = 69.71182170125783 + 28 * Math.sin(a);
+			const px = 50.08774121717073 + 16 * Math.cos(t);
+			const pz = 81.2118481681196 + 16 * Math.sin(t);
 			const wx = px - dx;
 			const wz = pz - dz;
 			const d = Math.max(1e-9, Math.hypot(wx, wz));
-			const along = Math.min(28, Math.max(-28, (784 - 1444 + d * d) / (2 * d)));
-			const height = Math.sqrt(Math.max(0, 784 - along * along));
+			const along = Math.min(37, Math.max(-37, (1369 - 961 + d * d) / (2 * d)));
+			const height = Math.sqrt(Math.max(0, 1369 - along * along));
 			const ex = dx + (along * wx - height * wz) / d;
 			const ez = dz + (along * wz + height * wx) / d;
 			const beta = Math.atan2(ez - dz, ex - dx);

@@ -569,7 +569,25 @@ export type WorkerInboundMessage =
 			readonly speed: number;
 	  }
 	| { readonly type: "neural-pose"; readonly motionId: string }
-	| { readonly type: "neural-stop"; readonly detach?: boolean };
+	| { readonly type: "neural-stop"; readonly detach?: boolean }
+	| {
+			readonly type: "mic-gate";
+			readonly open: boolean;
+			readonly wakeWord?: boolean;
+	  }
+	| {
+			readonly type: "mic-frame";
+			readonly pcm: ArrayBuffer;
+	  }
+	| {
+			readonly type: "camera-frame";
+			readonly origin: "stream" | "request" | "audio";
+			readonly originId: number;
+			readonly res: string;
+			readonly frameCompletedUs: number;
+			readonly bootId: number;
+			readonly jpeg: ArrayBuffer;
+	  };
 
 export type WorkerOutboundMessage =
 	| {
@@ -609,6 +627,12 @@ export type WorkerOutboundMessage =
 	| {
 			readonly type: "protocol-tx";
 			readonly messages: readonly string[];
+	  }
+	| {
+			readonly type: "protocol-packet";
+			readonly preText?: string;
+			readonly binary: ArrayBuffer;
+			readonly postText?: string;
 	  }
 	| {
 			readonly type: "media-action";
@@ -739,6 +763,10 @@ export function cameraResolutionDimensions(resName: string): {
 			return { width: 800, height: 600 };
 		case "XGA":
 			return { width: 1024, height: 768 };
+		case "960P":
+			return { width: 1280, height: 960 };
+		case "FHD":
+			return { width: 1920, height: 1080 };
 		default:
 			return { width: 320, height: 240 };
 	}

@@ -47,6 +47,13 @@ import {
 	type PoseManifoldConfig,
 	PoseManifoldRuntime,
 } from "../src/sim/poseManifold";
+import {
+	type StorageLike,
+	clearBodyControlSessionToken,
+	loadSavedBodyControlSettings,
+	saveBodyControlSessionToken,
+	saveBodyControlSettings,
+} from "../src/sim/simulatorController";
 import { WORLD_SFX_CATALOG } from "../src/viewport/worldAudio";
 
 const APP_ROOT = path.resolve(import.meta.dirname, "..");
@@ -308,6 +315,16 @@ function testNeuralPoliciesAndManifoldParity(): void {
 			"utf8",
 		),
 	) as PoseManifoldConfig;
+	assert.equal(
+		manifoldCfg.geometryId,
+		gaitManifest.geometryId,
+		"PoseManifold geometryId must match V2 Neural Gait geometryId so firmware WASM accepts both",
+	);
+	assert.equal(
+		poseManifest.geometryId,
+		gaitManifest.geometryId,
+		"Neural Pose geometryId must match V2 Neural Gait geometryId",
+	);
 	const manifold = new PoseManifoldRuntime(manifoldCfg);
 	assert.ok((manifoldCfg.goldenTests?.length ?? 0) >= 3);
 	for (const tc of manifoldCfg.goldenTests ?? []) {
@@ -395,13 +412,23 @@ function testNeuralPoliciesAndManifoldParity(): void {
 		}
 	}
 
-	// Verify Ainekio V3 (12-Servo Komatsu Option A-1) Neural Gait & Neural Pose ONNX parity (< 1e-5)
+	// Verify Ainekio V3 (12-Servo Komatsu Option A-1) Neural Gait & Neural Pose ONNX + IK parity (< 1e-5)
 	const v3GaitManifest = JSON.parse(
 		fs.readFileSync(
 			path.join(APP_ROOT, "public/sim/policies/v3-neural-gait.json"),
 			"utf8",
 		),
 	) as V3NeuralGaitManifest;
+	assert.equal(
+		v3GaitManifest.observationSchema,
+		"ainekio-v3-neural-gait-v2-proprio",
+	);
+	assert.equal(v3GaitManifest.obsDim, 600);
+	assert.equal(v3GaitManifest.featureDim, 50);
+	assert.equal(v3GaitManifest.historySamples, 12);
+	assert.equal(v3GaitManifest.actionSpace, "normalized-foot-offsets-v3-ik");
+	assert.equal(v3GaitManifest.footActionScaleMm?.length, 3);
+	assert.ok((v3GaitManifest.footActionScaleMm?.[0] ?? 0) > 0);
 	const v3GaitPolicy = new V3NeuralGaitPolicy(
 		v3GaitManifest,
 		readFloat32File("public/sim/policies/v3-neural-gait.bin"),
@@ -416,6 +443,17 @@ function testNeuralPoliciesAndManifoldParity(): void {
 				diff < 1e-5,
 				`V3 Neural Gait golden test seed=${tc.seed} idx=${i} diff=${diff}`,
 			);
+		}
+		if (tc.decodedJointDeg) {
+			const decoded = v3GaitPolicy.actionToJointDeg(got);
+			assert.equal(decoded.length, 12);
+			for (let i = 0; i < 12; i += 1) {
+				const dDeg = Math.abs((decoded[i] ?? 0) - (tc.decodedJointDeg[i] ?? 0));
+				assert.ok(
+					dDeg < 1e-3,
+					`V3 Foot-Offset IK decode seed=${tc.seed} idx=${i} diff=${dDeg} deg (got=${decoded[i]}, expected=${tc.decodedJointDeg[i]})`,
+				);
+			}
 		}
 	}
 
@@ -815,6 +853,56 @@ function testBodyControlLaunchAndPairingContracts(): void {
 	assert.equal(isNonRetryableBodyControlCloseCode(1008), true);
 	assert.equal(isNonRetryableBodyControlCloseCode(1001), false);
 	assert.equal(isNonRetryableBodyControlCloseCode(1006), false);
+
+	const makeMemStore = (): StorageLike => {
+		const map = new Map<string, string>();
+		return {
+			getItem: (k) => map.get(k) ?? null,
+			setItem: (k, v) => {
+				map.set(k, v);
+			},
+			removeItem: (k) => {
+				map.delete(k);
+			},
+		};
+	};
+	const localStore = makeMemStore();
+	const sessionStore = makeMemStore();
+	saveBodyControlSettings(
+		{
+			url: "ws://127.0.0.1:8790/robot",
+			robotId: "ainekio-v2-sim",
+			autoReconnect: true,
+		},
+		localStore,
+	);
+	saveBodyControlSessionToken("reload-tok-42", sessionStore);
+
+	// Reload after #hash scrub retains tab-scoped sessionStorage token while keeping localStorage clean of secrets
+	const reloaded = loadSavedBodyControlSettings({
+		localStore,
+		sessionStore,
+		locationSearch: "",
+	});
+	assert.deepEqual(reloaded, {
+		url: "ws://127.0.0.1:8790/robot",
+		robotId: "ainekio-v2-sim",
+		autoReconnect: true,
+		token: "reload-tok-42",
+	});
+	assert.equal(
+		localStore.getItem("ainekio.sim.bodyControl.v1")?.includes("reload-tok-42"),
+		false,
+	);
+
+	// Explicit disconnect / 4001 auth rejection clears sessionStorage token
+	clearBodyControlSessionToken(sessionStore);
+	const afterClear = loadSavedBodyControlSettings({
+		localStore,
+		sessionStore,
+		locationSearch: "",
+	});
+	assert.equal(afterClear.token, "");
 }
 
 testCoordinateTransforms();

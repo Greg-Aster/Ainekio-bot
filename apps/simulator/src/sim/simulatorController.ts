@@ -24,8 +24,6 @@ import {
 	type BodyControlLaunchBundle,
 	type LocomotionEngineMode,
 	type NeuralMotionCatalogItem,
-	PROTOCOL_BIN_CAMERA_JPEG,
-	PROTOCOL_BIN_MIC_PCM,
 	PROTOCOL_BIN_SPEAKER_PCM,
 	type RobotModelId,
 	type RobotTelemetryState,
@@ -40,7 +38,6 @@ import {
 	type WorldSfxId,
 	cameraResolutionDimensions,
 	decodeProtocolBinaryFrame,
-	encodeProtocolBinaryFrame,
 	getRobotModelDescriptor,
 	isNonRetryableBodyControlCloseCode,
 	mujocoPositionToThree,
@@ -66,6 +63,7 @@ export type SimulatorControllerCallbacks = {
 };
 
 const BC_STORAGE_KEY = "ainekio.sim.bodyControl.v1";
+const BC_SESSION_TOKEN_KEY = "ainekio.sim.bodyControlToken.v1";
 const BC_RECONNECT_DELAYS_MS = [1500, 3000, 6000, 10000] as const;
 
 export type SavedBodyControlSettings = {
@@ -74,13 +72,39 @@ export type SavedBodyControlSettings = {
 	readonly autoReconnect: boolean;
 };
 
-function loadSavedBodyControlSettings(): SavedBodyControlSettings {
+export type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+export function loadSavedBodyControlSettings(options?: {
+	readonly localStore?: StorageLike | null;
+	readonly sessionStore?: StorageLike | null;
+	readonly locationSearch?: string;
+}): SavedBodyControlSettings & { readonly token: string } {
 	let url = DEFAULT_BODY_CONTROL_URL;
 	let robotId = DEFAULT_ROBOT_ID;
 	let autoReconnect = true;
-	if (typeof window !== "undefined") {
+	let token = "";
+	const localStore =
+		options && "localStore" in options
+			? options.localStore
+			: typeof window !== "undefined"
+				? window.localStorage
+				: null;
+	const sessionStore =
+		options && "sessionStore" in options
+			? options.sessionStore
+			: typeof window !== "undefined"
+				? window.sessionStorage
+				: null;
+	const locationSearch =
+		options && "locationSearch" in options
+			? options.locationSearch
+			: typeof window !== "undefined"
+				? window.location.search
+				: "";
+
+	if (localStore) {
 		try {
-			const raw = window.localStorage.getItem(BC_STORAGE_KEY);
+			const raw = localStore.getItem(BC_STORAGE_KEY);
 			if (raw) {
 				const parsed = JSON.parse(raw) as Partial<SavedBodyControlSettings>;
 				if (typeof parsed.url === "string" && parsed.url.trim()) {
@@ -96,8 +120,20 @@ function loadSavedBodyControlSettings(): SavedBodyControlSettings {
 		} catch {
 			// Ignore storage restrictions
 		}
+	}
+	if (sessionStore) {
 		try {
-			const params = new URLSearchParams(window.location.search);
+			const savedToken = sessionStore.getItem(BC_SESSION_TOKEN_KEY)?.trim();
+			if (savedToken) {
+				token = savedToken;
+			}
+		} catch {
+			// Ignore storage restrictions
+		}
+	}
+	if (locationSearch) {
+		try {
+			const params = new URLSearchParams(locationSearch);
 			const qUrl = params.get("bc")?.trim();
 			const qId = params.get("robotId")?.trim();
 			if (qUrl && (qUrl.startsWith("ws://") || qUrl.startsWith("wss://"))) {
@@ -110,18 +146,58 @@ function loadSavedBodyControlSettings(): SavedBodyControlSettings {
 			// Ignore invalid URL query
 		}
 	}
-	return { url, robotId, autoReconnect };
+	return { url, robotId, autoReconnect, token };
 }
 
-function saveBodyControlSettings(settings: SavedBodyControlSettings): void {
-	if (typeof window === "undefined") {
+export function saveBodyControlSettings(
+	settings: SavedBodyControlSettings,
+	localStore?: StorageLike | null,
+): void {
+	const store =
+		localStore !== undefined
+			? localStore
+			: typeof window !== "undefined"
+				? window.localStorage
+				: null;
+	if (!store) {
 		return;
 	}
 	try {
-		window.localStorage.setItem(BC_STORAGE_KEY, JSON.stringify(settings));
+		store.setItem(BC_STORAGE_KEY, JSON.stringify(settings));
 	} catch {
 		// Ignore storage quota / private mode restrictions
 	}
+}
+
+export function saveBodyControlSessionToken(
+	token: string,
+	sessionStore?: StorageLike | null,
+): void {
+	const store =
+		sessionStore !== undefined
+			? sessionStore
+			: typeof window !== "undefined"
+				? window.sessionStorage
+				: null;
+	if (!store) {
+		return;
+	}
+	try {
+		const trimmed = token.trim();
+		if (trimmed) {
+			store.setItem(BC_SESSION_TOKEN_KEY, trimmed);
+		} else {
+			store.removeItem(BC_SESSION_TOKEN_KEY);
+		}
+	} catch {
+		// Ignore storage quota / private mode restrictions
+	}
+}
+
+export function clearBodyControlSessionToken(
+	sessionStore?: StorageLike | null,
+): void {
+	saveBodyControlSessionToken("", sessionStore);
 }
 
 export class AinekioSimulatorController {
@@ -142,8 +218,8 @@ export class AinekioSimulatorController {
 	#levelId: SimulatorLevelId = "v2_lab";
 	#cameraMode: SimulatorCameraMode = "orbit";
 	#engineMode: LocomotionEngineMode = "neural";
-	#neuralGaitModelId = "microduck-v19-snag-p4";
-	#neuralPoseModelId = "neural-pose-v7-hysteresis";
+	#neuralGaitModelId = "microduck-v20-studya-p4";
+	#neuralPoseModelId = "neural-pose-v8-calibrated";
 	#neuralMotions: readonly NeuralMotionCatalogItem[] = [];
 	#controlMode: "standalone" | "body-control" = "standalone";
 	#bcUrl = DEFAULT_BODY_CONTROL_URL;
@@ -178,9 +254,9 @@ export class AinekioSimulatorController {
 		| "side_r"
 		| null = null;
 	#activeWalkGait: WalkGaitMode | null = null;
-	#cameraStreamTimer?: number;
-	#cameraFrameCounter = 1;
 	#cameraCaptureBusy = false;
+	#lastImuBootId = 1;
+	#lastImuTimestampUs = 0;
 	#speakerVolume = 85;
 	#speakerTalkingTimer?: number;
 	#lastFaceWidth = 0;
@@ -194,6 +270,7 @@ export class AinekioSimulatorController {
 	#wasMpConnected = false;
 	#launchAutoConnected = false;
 	#disposed = false;
+	readonly #onVisibilityChange: (() => void) | undefined;
 
 	constructor(
 		viewportContainer: HTMLElement,
@@ -204,6 +281,7 @@ export class AinekioSimulatorController {
 		this.#bcUrl = saved.url;
 		this.#bcRobotId = saved.robotId;
 		this.#bcAutoReconnect = saved.autoReconnect;
+		this.#bcToken = saved.token;
 
 		if (typeof window !== "undefined") {
 			const launch = parseSimulatorLaunchParams(
@@ -236,6 +314,26 @@ export class AinekioSimulatorController {
 			}
 			if (launch.token) {
 				this.#bcToken = launch.token;
+				saveBodyControlSessionToken(launch.token);
+				saveBodyControlSettings({
+					url: this.#bcUrl,
+					robotId: this.#bcRobotId,
+					autoReconnect: this.#bcAutoReconnect,
+				});
+			}
+			if (typeof document !== "undefined") {
+				this.#onVisibilityChange = () => {
+					if (
+						document.visibilityState === "visible" &&
+						!this.#disposed &&
+						this.#controlMode === "body-control" &&
+						this.#bcReconnecting &&
+						!this.#bcConnected
+					) {
+						this.#openBodyControlSocket();
+					}
+				};
+				document.addEventListener("visibilitychange", this.#onVisibilityChange);
 			}
 		}
 
@@ -355,37 +453,14 @@ export class AinekioSimulatorController {
 			void this.joinMultiplayerRoom(launchRoom, launchDisplayName);
 		}
 
-		// Keep standalone admission alive with 1 Hz protocol-v1 heartbeat
+		// Keep standalone admission alive with 1 Hz protocol-v1 heartbeat.
+		// Camera frame cadence is driven by the unthrottled 50 Hz firmware Web Worker
+		// (matching ESP32-P4 controller.c even when this browser tab is backgrounded).
 		this.#standalonePingTimer = window.setInterval(() => {
 			if (this.#ready && this.#controlMode === "standalone") {
 				this.#sendStandaloneWire({ t: "ping" });
 			}
 		}, 1000);
-
-		// Self-throttling OV5647 preview loop (waits after each capture finishes so
-		// software/mobile GPUs never stall the main thread)
-		const scheduleCameraTick = () => {
-			if (this.#disposed) {
-				return;
-			}
-			const cam = this.#state?.camera;
-			const targetFps =
-				this.#controlMode === "body-control" && cam && cam.fps > 0
-					? Math.min(10, cam.fps)
-					: 2;
-			const intervalMs = Math.max(180, Math.round(1000 / targetFps));
-			this.#cameraStreamTimer = window.setTimeout(async () => {
-				if (this.#disposed) {
-					return;
-				}
-				const activeCam = this.#state?.camera;
-				if (this.#ready && activeCam?.enabled && activeCam.fps > 0) {
-					await this.#captureAndPublishCameraFrame(activeCam.res, "stream");
-				}
-				scheduleCameraTick();
-			}, intervalMs);
-		};
-		scheduleCameraTick();
 	}
 
 	getLastFaceFrame():
@@ -600,7 +675,7 @@ export class AinekioSimulatorController {
 				id,
 				room: mpConnected ? this.#multiplayerSnapshot.roomName ?? "" : "",
 				sender_id: this.#multiplayerSnapshot.localPeerId ?? "operator",
-				sender: this.#multiplayerSnapshot.displayName || "Operator",
+				sender: this.#multiplayerSnapshot.displayName || "",
 				text,
 			});
 			this.#lastCommandLog = "Sent message to Ainekio OS";
@@ -897,11 +972,16 @@ export class AinekioSimulatorController {
 			return;
 		}
 		this.#worldAudio.playSfx("portal-reveal");
-		const res = this.#state?.camera.snapshotRes ?? "VGA";
-		await this.#captureAndPublishCameraFrame(
-			res === "AUTO" ? "VGA" : res,
-			"request",
-		);
+		const res = this.#state?.camera.snapshotRes ?? "960P";
+		if (this.#controlMode === "standalone") {
+			this.#sendStandaloneWire({ t: "snap", seq: this.#nextSeq() });
+		} else {
+			await this.#captureAndPublishCameraFrame(
+				res === "AUTO" ? "960P" : res,
+				"stream",
+				0,
+			);
+		}
 		this.#lastCommandLog = `OV5647 snapshot (${res})`;
 		this.#emitSnapshot();
 	}
@@ -975,13 +1055,7 @@ export class AinekioSimulatorController {
 			return;
 		}
 		this.#audio.stopMicrophone();
-		this.#postWorker({
-			type: "set-media",
-			capturing: false,
-			micRms: 0,
-			micPeak: 0,
-		});
-		this.#sendBodyControlJson({ t: "event", name: "vad_close" });
+		this.#postWorker({ type: "mic-gate", open: false });
 		this.#lastCommandLog = "Utterance sent to Ainekio OS (microphone closed)";
 		this.#emitSnapshot();
 	}
@@ -1003,34 +1077,19 @@ export class AinekioSimulatorController {
 			return;
 		}
 		try {
-			let vadOpened = false;
-			const ok = await this.#audio.startMicrophone(
-				(counter, pcm, rms, peak) => {
-					if (!vadOpened) {
-						vadOpened = true;
-						this.#sendBodyControlJson({ t: "event", name: "vad_open" });
-					}
-					this.#postWorker({
-						type: "set-media",
-						capturing: true,
-						micRms: rms,
-						micPeak: peak,
-					});
-					if (this.#bcWs && this.#bcWs.readyState === WebSocket.OPEN) {
-						this.#bcWs.send(
-							encodeProtocolBinaryFrame(PROTOCOL_BIN_MIC_PCM, counter, pcm),
-						);
-					}
-				},
-			);
-			if (ok) {
-				if (!vadOpened) {
-					vadOpened = true;
-					this.#sendBodyControlJson({ t: "event", name: "vad_open" });
+			let gateOpened = false;
+			const ok = await this.#audio.startMicrophone((_counter, pcm) => {
+				if (!gateOpened) {
+					gateOpened = true;
+					this.#postWorker({ type: "mic-gate", open: true });
 				}
-				this.#postWorker({ type: "set-media", capturing: true });
-				if (this.#bcConnected) {
-					void this.#captureAndPublishCameraFrame("QVGA", "audio");
+				const pcmCopy = pcm.slice().buffer;
+				this.#postWorker({ type: "mic-frame", pcm: pcmCopy }, [pcmCopy]);
+			});
+			if (ok) {
+				if (!gateOpened) {
+					gateOpened = true;
+					this.#postWorker({ type: "mic-gate", open: true });
 				}
 				this.#lastCommandLog = "Listening (16 kHz mic live) — tap Done to send";
 			} else {
@@ -1090,6 +1149,7 @@ export class AinekioSimulatorController {
 			this.#emitSnapshot();
 			return;
 		}
+		saveBodyControlSessionToken(trimmedToken);
 		this.#openBodyControlSocket();
 	}
 
@@ -1140,6 +1200,15 @@ export class AinekioSimulatorController {
 				launch.robotId || DEFAULT_ROBOT_ID,
 				launch.token,
 				true,
+			);
+			return;
+		}
+		if (this.#bcAutoReconnect && this.#bcUrl && this.#bcToken) {
+			this.connectBodyControl(
+				this.#bcUrl,
+				this.#bcRobotId || DEFAULT_ROBOT_ID,
+				this.#bcToken,
+				this.#bcAutoReconnect,
 			);
 		}
 	}
@@ -1223,6 +1292,9 @@ export class AinekioSimulatorController {
 				return;
 			}
 			const sessionReplaced = event.code === 4000;
+			if (event.code === 4001) {
+				clearBodyControlSessionToken();
+			}
 			const fatalHandshake = isNonRetryableBodyControlCloseCode(event.code);
 			this.#bcError =
 				this.#bcError ??
@@ -1272,6 +1344,7 @@ export class AinekioSimulatorController {
 		this.#bcConnected = false;
 		this.#bcEpoch = null;
 		if (restoreStandalone) {
+			clearBodyControlSessionToken();
 			this.#bcError = undefined;
 			this.#restoreStandaloneSession();
 			this.#lastCommandLog = "Returned to Standalone Cockpit mode";
@@ -1513,9 +1586,43 @@ export class AinekioSimulatorController {
 				break;
 			}
 			case "protocol-tx": {
-				if (this.#controlMode === "body-control" && this.#bcConnected) {
-					for (const wire of msg.messages) {
+				for (const wire of msg.messages) {
+					if (wire.includes('"name":"imu"')) {
+						try {
+							const ev = JSON.parse(wire) as {
+								data?: { boot_id?: unknown; timestamp_us?: unknown };
+							};
+							const bootId = Number(ev.data?.boot_id);
+							const tsUs = Number(ev.data?.timestamp_us);
+							if (Number.isInteger(bootId) && bootId >= 0) {
+								this.#lastImuBootId = bootId;
+							}
+							if (Number.isInteger(tsUs) && tsUs > 0) {
+								this.#lastImuTimestampUs = tsUs;
+							}
+						} catch {
+							// ignore
+						}
+					}
+					if (this.#controlMode === "body-control" && this.#bcConnected) {
 						this.#sendBodyControlRaw(wire);
+					}
+				}
+				break;
+			}
+			case "protocol-packet": {
+				if (
+					this.#controlMode === "body-control" &&
+					this.#bcConnected &&
+					this.#bcWs &&
+					this.#bcWs.readyState === WebSocket.OPEN
+				) {
+					if (msg.preText) {
+						this.#bcWs.send(msg.preText);
+					}
+					this.#bcWs.send(msg.binary);
+					if (msg.postText) {
+						this.#bcWs.send(msg.postText);
 					}
 				}
 				break;
@@ -1536,13 +1643,23 @@ export class AinekioSimulatorController {
 	#handleMediaAction(action: Record<string, unknown>): void {
 		const kind = String(action.kind ?? "");
 		if (kind === "snapshot") {
-			const res = String(action.res ?? "VGA");
-			const seq = Number(action.seq ?? 0);
+			const res = String(action.res ?? "960P");
+			const origin = action.origin === "audio" ? "audio" : "request";
+			const originId = Number(action.origin_id ?? action.seq ?? 0);
 			void this.#captureAndPublishCameraFrame(
-				res === "AUTO" ? "VGA" : res,
-				"request",
-				seq > 0 ? seq : undefined,
+				res === "AUTO" ? "960P" : res,
+				origin,
+				originId,
 			);
+		} else if (kind === "stream_frame") {
+			if (!this.#ready) {
+				return;
+			}
+			const res =
+				this.#controlMode === "body-control"
+					? String(action.res ?? this.#state?.camera.res ?? "VGA")
+					: "QVGA";
+			void this.#captureAndPublishCameraFrame(res, "stream", 0);
 		} else if (kind === "speaker") {
 			const vol = Number(action.volume ?? 85);
 			if (Number.isFinite(vol)) {
@@ -1558,7 +1675,7 @@ export class AinekioSimulatorController {
 	async #captureAndPublishCameraFrame(
 		resName: string,
 		origin: "stream" | "request" | "audio",
-		seq?: number,
+		originId: number,
 	): Promise<void> {
 		if (this.#cameraCaptureBusy || this.#disposed) {
 			return;
@@ -1569,7 +1686,7 @@ export class AinekioSimulatorController {
 			const capture = await this.#viewport.captureChinCameraJpeg(
 				dims.width,
 				dims.height,
-				origin === "request" ? 0.85 : 0.72,
+				origin === "stream" ? 0.72 : 0.85,
 			);
 			if (!capture) {
 				return;
@@ -1578,43 +1695,24 @@ export class AinekioSimulatorController {
 			this.#emitSnapshot();
 
 			if (
+				this.#controlMode === "body-control" &&
+				this.#bcConnected &&
 				this.#bcWs &&
-				this.#bcWs.readyState === WebSocket.OPEN &&
-				this.#bcConnected
+				this.#bcWs.readyState === WebSocket.OPEN
 			) {
-				const frameId = this.#cameraFrameCounter;
-				this.#cameraFrameCounter = (this.#cameraFrameCounter + 1) >>> 0;
-				const meta: Record<string, unknown> = {
-					t: "cam_meta",
-					res: resName.toUpperCase() === "VGA" ? "VGA" : "QVGA",
-					fps:
-						origin === "stream"
-							? Math.max(
-									1,
-									Math.min(15, Math.round(this.#state?.camera.fps ?? 5)),
-								)
-							: 0,
-					counter_base: frameId,
-					boot_id: 1,
-				};
-				if (origin === "request" && seq !== undefined) {
-					meta.origin = "request";
-					meta.origin_id = seq;
-				} else if (origin === "audio") {
-					meta.origin = "audio";
-					meta.origin_id = 0;
-				}
-				this.#sendBodyControlJson(meta);
-				this.#bcWs.send(
-					encodeProtocolBinaryFrame(
-						PROTOCOL_BIN_CAMERA_JPEG,
-						frameId,
-						capture.jpeg,
-					),
+				const jpegCopy = capture.jpeg.slice().buffer;
+				this.#postWorker(
+					{
+						type: "camera-frame",
+						origin,
+						originId,
+						res: resName.toUpperCase(),
+						frameCompletedUs: this.#lastImuTimestampUs,
+						bootId: this.#lastImuBootId,
+						jpeg: jpegCopy,
+					},
+					[jpegCopy],
 				);
-				if (origin === "request" && seq !== undefined) {
-					this.#sendBodyControlJson({ t: "done", seq });
-				}
 			}
 		} finally {
 			this.#cameraCaptureBusy = false;
@@ -1658,8 +1756,12 @@ export class AinekioSimulatorController {
 		}
 	}
 
-	#postWorker(msg: WorkerInboundMessage): void {
-		this.#worker?.postMessage(msg);
+	#postWorker(msg: WorkerInboundMessage, transfer?: Transferable[]): void {
+		if (transfer && transfer.length > 0) {
+			this.#worker?.postMessage(msg, transfer);
+		} else {
+			this.#worker?.postMessage(msg);
+		}
 	}
 
 	#emitSnapshot(): void {
@@ -1701,11 +1803,14 @@ export class AinekioSimulatorController {
 			return;
 		}
 		this.#disposed = true;
+		if (this.#onVisibilityChange && typeof document !== "undefined") {
+			document.removeEventListener(
+				"visibilitychange",
+				this.#onVisibilityChange,
+			);
+		}
 		if (this.#standalonePingTimer !== undefined) {
 			window.clearInterval(this.#standalonePingTimer);
-		}
-		if (this.#cameraStreamTimer !== undefined) {
-			window.clearTimeout(this.#cameraStreamTimer);
 		}
 		if (this.#speakerTalkingTimer !== undefined) {
 			window.clearTimeout(this.#speakerTalkingTimer);
