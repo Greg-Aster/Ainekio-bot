@@ -136,6 +136,9 @@ detached = {
     "REFERENCE | LCD default face - centered preview | Concept fit",
     "Active_area_22p695x42p72",
     "Concept LCD | Active_area_22p695x42p72",
+    "Concept LCD | Viewing_window_23p695x43p72",
+    "Concept LCD | Glass_border",
+    "Concept LCD | LCD_package_base_representative_25p8x49p72",
 }
 for side in ("Left", "Right"):
     for end in ("front", "rear"):
@@ -545,10 +548,54 @@ for group_name, info in sorted(buckets.items()):
 # Add exact Int_Tex_RobotRoot_00 (Mat_Tex_000) ST7789 320x170 live face display quad
 face_mat = bpy.data.materials.new(name="Mat_Tex_000")
 face_mat.use_nodes = True
-f_bsdf = next(n for n in face_mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+face_mat.use_backface_culling = False
+f_nt = face_mat.node_tree
+f_bsdf = next(n for n in f_nt.nodes if n.type == "BSDF_PRINCIPLED")
 f_bsdf.inputs["Base Color"].default_value = (0.02, 0.025, 0.035, 1.0)
 f_bsdf.inputs["Metallic"].default_value = 0.0
 f_bsdf.inputs["Roughness"].default_value = 0.75
+def make_default_eye_image() -> bpy.types.Image:
+    if Path("/tmp/ainekio-face-default.png").exists():
+        img = bpy.data.images.load("/tmp/ainekio-face-default.png")
+        img.pack()
+        return img
+    ref = bpy.data.images.get("REFERENCE | Default face - native Ainekio renderer")
+    if ref is not None and int(ref.size[0]) > 0 and int(ref.size[1]) > 0:
+        if not ref.packed_file:
+            ref.pack()
+        return ref
+    w, h = 320, 170
+    px = [0.0] * (w * h * 4)
+    for y in range(h):
+        for x in range(w):
+            i = (y * w + x) * 4
+            px[i : i + 4] = [0.008, 0.012, 0.020, 1.0]
+            for cx in (96.0, 224.0):
+                d_pupil = math.hypot(x - cx, y - 85.0)
+                if d_pupil <= 11.5:
+                    t = max(0.0, min(1.0, (11.5 - d_pupil) / 2.0))
+                    px[i : i + 3] = [0.45 * t, 0.94 * t, 1.0 * t]
+            dx_arc = abs(x - 160.0)
+            r_arc = math.hypot((x - (62.0 if x < 160 else 258.0)) * 0.95, y - 85.0)
+            if dx_arc > 112.0 and 46.0 <= r_arc <= 54.0 and 38 <= y <= 132:
+                px[i : i + 3] = [0.35, 0.90, 1.0]
+    gen = bpy.data.images.new(name="Default_Ainekio_Eyes", width=w, height=h, alpha=False, float_buffer=False)
+    gen.colorspace_settings.name = "sRGB"
+    gen.pixels[:] = px
+    tmp_e = Path(tempfile.gettempdir()) / f"ainekio_v2_eyes_{os.getpid()}.png"
+    gen.filepath_raw = str(tmp_e)
+    gen.file_format = "PNG"
+    gen.save()
+    gen.pack()
+    tmp_e.unlink(missing_ok=True)
+    return gen
+
+eye_img = make_default_eye_image()
+if eye_img is not None:
+    f_tex = f_nt.nodes.new("ShaderNodeTexImage")
+    f_tex.image = eye_img
+    f_nt.links.new(f_tex.outputs["Color"], f_bsdf.inputs["Emission Color"])
+    f_bsdf.inputs["Emission Strength"].default_value = 1.0
 
 lcd_ref = sc.objects.get("REFERENCE | LCD default face - centered preview | Concept fit")
 if lcd_ref is not None:
@@ -560,19 +607,18 @@ if lcd_ref is not None:
     f_uvs = {}
     for idx, li in enumerate(poly0.loop_indices):
         vi = ev_lcd.data.loops[li].vertex_index
-        wco_mm = (ev_lcd.matrix_world @ ev_lcd.data.vertices[vi].co) + (0.18 * wnrm)
+        wco_mm = (ev_lcd.matrix_world @ ev_lcd.data.vertices[vi].co) + (0.45 * wnrm)
         v_bl = cad_pt_to_bl_m(wco_mm)
-        f_verts_local.append(tuple(v_bl - ROOT_LOC_BL))
+        f_verts_local.append(tuple(v_bl))
         f_uvs[idx] = (float(uv_src[li].uv[0]), float(uv_src[li].uv[1]))
     f_faces = [(0, 1, 2), (0, 2, 3)]
 else:
-    f_verts_world = [
-        mathutils.Vector((-0.02136, -0.10681, 0.06844)),
-        mathutils.Vector(( 0.02136, -0.10681, 0.06844)),
-        mathutils.Vector(( 0.02136, -0.09758, 0.08917)),
-        mathutils.Vector((-0.02136, -0.09758, 0.08917)),
+    f_verts_local = [
+        (-0.02136, -0.10681, 0.06844),
+        ( 0.02136, -0.10681, 0.06844),
+        ( 0.02136, -0.09758, 0.08917),
+        (-0.02136, -0.09758, 0.08917),
     ]
-    f_verts_local = [tuple(v - ROOT_LOC_BL) for v in f_verts_world]
     f_faces = [(0, 1, 2), (0, 2, 3)]
     f_uvs = {
         0: (0.0161, 0.1083),
