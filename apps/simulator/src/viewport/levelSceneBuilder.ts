@@ -18,6 +18,7 @@ import {
 	type LevelDefinition,
 	type ScenePrimitiveSpec,
 	mujocoPositionToThree,
+	versionedAssetUrl,
 } from "../sim/contracts";
 
 function buildGrassPlainTexture(): THREE.CanvasTexture | undefined {
@@ -470,7 +471,7 @@ function buildLabGraphicTexture(
 async function buildHeightfieldTerrainMesh(
 	hfield: ArenaHeightfield,
 ): Promise<THREE.Mesh> {
-	const resp = await fetch(hfield.url);
+	const resp = await fetch(versionedAssetUrl(hfield.url));
 	if (!resp.ok) {
 		throw new Error(
 			`Failed to load terrain heightfield ${hfield.url} (${resp.status})`,

@@ -8,6 +8,7 @@ import {
 	SIM_FACE_WIDTH,
 	type SimulatorLevelId,
 	getRobotModelDescriptor,
+	versionedAssetUrl,
 } from "../sim/contracts";
 import {
 	type ArticulatedRemoteRobotHandle,
@@ -434,7 +435,7 @@ export class RemotePeerManager {
 		}
 		const desc = getRobotModelDescriptor(modelId);
 		const promise = this.#gltfLoader
-			.loadAsync(desc.glbUrl)
+			.loadAsync(versionedAssetUrl(desc.glbUrl))
 			.then((gltf) => gltf.scene)
 			.catch((err) => {
 				this.#templateCache.delete(modelId);

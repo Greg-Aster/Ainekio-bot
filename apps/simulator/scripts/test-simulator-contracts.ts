@@ -26,6 +26,7 @@ import {
 	normalizeBodyControlUrl,
 	parseSimulatorLaunchParams,
 	threePositionToMujoco,
+	versionedAssetUrl,
 } from "../src/sim/contracts";
 import { SIMULATOR_LEVELS, getSimulatorLevel } from "../src/sim/levels";
 import {
@@ -905,6 +906,51 @@ function testBodyControlLaunchAndPairingContracts(): void {
 	assert.equal(afterClear.token, "");
 }
 
+function testVersionedAssetUrls(): void {
+	const hashes = {
+		"/sim/ainekio-v2-firmware.wasm": "ae53b7deb894",
+		"/sim/policies/neural-gait.bin": "7c6e2375e030",
+		"/assets/robots/ainekio-v2.glb": "a4c883bf2501",
+	} as const;
+
+	assert.equal(
+		versionedAssetUrl("/sim/ainekio-v2-firmware.wasm", "", hashes),
+		"/sim/ainekio-v2-firmware.wasm?v=ae53b7deb894",
+	);
+	assert.equal(
+		versionedAssetUrl(
+			"/sim/policies/neural-gait.bin",
+			"https://simulator.ainek.io/",
+			hashes,
+		),
+		"https://simulator.ainek.io/sim/policies/neural-gait.bin?v=7c6e2375e030",
+	);
+	assert.equal(
+		versionedAssetUrl(
+			"https://simulator.ainek.io/assets/robots/ainekio-v2.glb",
+			"",
+			hashes,
+		),
+		"https://simulator.ainek.io/assets/robots/ainekio-v2.glb?v=a4c883bf2501",
+	);
+	assert.equal(
+		versionedAssetUrl(
+			"/sim/ainekio-v2-firmware.wasm?v=already",
+			"https://simulator.ainek.io",
+			hashes,
+		),
+		"https://simulator.ainek.io/sim/ainekio-v2-firmware.wasm?v=already",
+	);
+	assert.equal(
+		versionedAssetUrl("/sim/unknown.bin", "https://simulator.ainek.io", hashes),
+		"https://simulator.ainek.io/sim/unknown.bin",
+	);
+	assert.equal(
+		versionedAssetUrl("/sim/ainekio-v2-firmware.wasm"),
+		"/sim/ainekio-v2-firmware.wasm",
+	);
+}
+
 testCoordinateTransforms();
 testOrbitCameraLookUpAndContinuity();
 testProtocolBinaryCodecs();
@@ -913,6 +959,7 @@ testDetachedLevelsAndAssets();
 testNeuralPoliciesAndManifoldParity();
 testMultiplayerSessionAndGameCompat();
 testBodyControlLaunchAndPairingContracts();
+testVersionedAssetUrls();
 console.log(
 	"All simulator.ainek.io contract, asset, multiplayer, Body Control launch/pairing, Neural Gait, Neural Pose, and PoseManifold parity checks passed.",
 );

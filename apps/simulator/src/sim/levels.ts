@@ -1,7 +1,8 @@
-import type {
-	LazyLevelBundle,
-	LevelDefinition,
-	SimulatorLevelId,
+import {
+	type LazyLevelBundle,
+	type LevelDefinition,
+	type SimulatorLevelId,
+	versionedAssetUrl,
 } from "./contracts.js";
 
 /**
@@ -248,7 +249,7 @@ export async function loadSimulatorLevel(
 	if (!base.lazyBundleUrl) {
 		return base;
 	}
-	const resp = await fetch(base.lazyBundleUrl);
+	const resp = await fetch(versionedAssetUrl(base.lazyBundleUrl));
 	if (!resp.ok) {
 		throw new Error(
 			`Failed to load level bundle ${base.lazyBundleUrl} (${resp.status})`,

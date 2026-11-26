@@ -15,6 +15,7 @@ import {
 	type RobotModelId,
 	SIM_FACE_HEIGHT,
 	SIM_FACE_WIDTH,
+	versionedAssetUrl,
 } from "../sim/contracts";
 
 const DEG2RAD = Math.PI / 180;
@@ -332,7 +333,7 @@ export class ThreeVirtualRobotV2Rig {
 		const gen = ++this.#loadGen;
 		const loader = new GLTFLoader();
 		loader.setMeshoptDecoder(MeshoptDecoder);
-		const gltf = await loader.loadAsync(modelUrl);
+		const gltf = await loader.loadAsync(versionedAssetUrl(modelUrl));
 		if (this.#disposed || gen !== this.#loadGen) {
 			return;
 		}

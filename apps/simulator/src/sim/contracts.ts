@@ -1090,6 +1090,61 @@ export function parseSimulatorLaunchParams(
 	};
 }
 
+declare const __SIM_ASSET_HASHES__:
+	| Readonly<Record<string, string>>
+	| undefined;
+
+/**
+ * Append a build-time per-file content hash (`?v=<sha256>`) to static
+ * `/sim/*` and `/assets/robots/*` URLs so browsers and Cloudflare CDN keep
+ * long cache lifetimes for unchanged files while invalidating immediately
+ * whenever a WASM, policy binary, XML, level bundle, or GLB changes.
+ */
+export function versionedAssetUrl(
+	assetPath: string,
+	baseUrl = "",
+	hashes?: Readonly<Record<string, string>>,
+): string {
+	const map =
+		hashes ??
+		(typeof __SIM_ASSET_HASHES__ !== "undefined"
+			? __SIM_ASSET_HASHES__
+			: undefined);
+	const isAbsolute = /^https?:\/\//i.test(assetPath);
+	const normalizedPrefix = baseUrl.endsWith("/")
+		? baseUrl.slice(0, -1)
+		: baseUrl;
+	const fullUrl = isAbsolute
+		? assetPath
+		: `${normalizedPrefix}${assetPath.startsWith("/") ? "" : "/"}${assetPath}`;
+
+	if (!map) {
+		return fullUrl;
+	}
+
+	let lookupPath: string;
+	if (isAbsolute) {
+		try {
+			lookupPath = new URL(assetPath).pathname;
+		} catch {
+			return fullUrl;
+		}
+	} else {
+		const pathOnly = assetPath.split(/[?#]/, 1)[0] ?? assetPath;
+		lookupPath = pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}`;
+	}
+
+	const hash = map[lookupPath];
+	if (!hash || /[?&]v=/.test(fullUrl)) {
+		return fullUrl;
+	}
+	const hashIdx = fullUrl.indexOf("#");
+	const basePart = hashIdx >= 0 ? fullUrl.slice(0, hashIdx) : fullUrl;
+	const fragPart = hashIdx >= 0 ? fullUrl.slice(hashIdx) : "";
+	const sep = basePart.includes("?") ? "&" : "?";
+	return `${basePart}${sep}v=${hash}${fragPart}`;
+}
+
 /**
  * Returns true when a `/robot` WebSocket close code represents an intentional
  * session takeover (`4000`) or non-recoverable protocol/auth error (`4001`,

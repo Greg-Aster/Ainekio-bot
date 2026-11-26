@@ -23,6 +23,7 @@ import {
 	type V3PhysicsConfig,
 	type WorkerInboundMessage,
 	type WorkerOutboundMessage,
+	versionedAssetUrl,
 } from "./contracts.js";
 import {
 	type CompiledNeuralPoseMotion,
@@ -591,14 +592,16 @@ function buildLevelXml(
 	return `${xml.slice(0, idx)}${geoms.join("")}${xml.slice(idx)}`;
 }
 
+function simAssetUrl(assetPath: string): string {
+	return versionedAssetUrl(assetPath, workerBaseUrl);
+}
+
 async function fetchHfieldBytes(url: string): Promise<Uint8Array> {
 	const cached = hfieldCache.get(url);
 	if (cached) {
 		return cached;
 	}
-	const fullUrl = url.startsWith("http")
-		? url
-		: `${workerBaseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+	const fullUrl = simAssetUrl(url);
 	const resp = await fetch(fullUrl);
 	if (!resp.ok) {
 		throw new Error(
@@ -656,18 +659,17 @@ async function ensureV2PosePolicyLoaded(): Promise<
 	if (posePolicyLoadPromise) {
 		return posePolicyLoadPromise;
 	}
-	const prefix = workerBaseUrl;
 	posePolicyLoadPromise = (async () => {
 		const [manifest, binResp] = await Promise.all([
 			poseManifest
 				? Promise.resolve(poseManifest)
-				: fetch(`${prefix}/sim/policies/neural-pose.json`).then((r) => {
+				: fetch(simAssetUrl("/sim/policies/neural-pose.json")).then((r) => {
 						if (!r.ok) {
 							throw new Error(`Failed to fetch neural-pose.json (${r.status})`);
 						}
 						return r.json() as Promise<NeuralPoseManifest>;
 					}),
-			fetch(`${prefix}/sim/policies/neural-pose.bin`),
+			fetch(simAssetUrl("/sim/policies/neural-pose.bin")),
 		]);
 		if (!binResp.ok) {
 			throw new Error(`Failed to fetch neural-pose.bin (${binResp.status})`);
@@ -699,12 +701,11 @@ async function ensureV1PosePolicyLoaded(): Promise<
 	if (v1PosePolicyLoadPromise) {
 		return v1PosePolicyLoadPromise;
 	}
-	const prefix = workerBaseUrl;
 	v1PosePolicyLoadPromise = (async () => {
 		const [manifest, binResp] = await Promise.all([
 			v1PoseManifest
 				? Promise.resolve(v1PoseManifest)
-				: fetch(`${prefix}/sim/policies/v1-neural-pose.json`).then((r) => {
+				: fetch(simAssetUrl("/sim/policies/v1-neural-pose.json")).then((r) => {
 						if (!r.ok) {
 							throw new Error(
 								`Failed to fetch v1-neural-pose.json (${r.status})`,
@@ -712,7 +713,7 @@ async function ensureV1PosePolicyLoaded(): Promise<
 						}
 						return r.json() as Promise<V1NeuralPoseManifest>;
 					}),
-			fetch(`${prefix}/sim/policies/v1-neural-pose.bin`),
+			fetch(simAssetUrl("/sim/policies/v1-neural-pose.bin")),
 		]);
 		if (!binResp.ok) {
 			throw new Error(`Failed to fetch v1-neural-pose.bin (${binResp.status})`);
@@ -744,12 +745,11 @@ async function ensureV3PosePolicyLoaded(): Promise<
 	if (v3PosePolicyLoadPromise) {
 		return v3PosePolicyLoadPromise;
 	}
-	const prefix = workerBaseUrl;
 	v3PosePolicyLoadPromise = (async () => {
 		const [manifest, binResp] = await Promise.all([
 			v3PoseManifest
 				? Promise.resolve(v3PoseManifest)
-				: fetch(`${prefix}/sim/policies/v3-neural-pose.json`).then((r) => {
+				: fetch(simAssetUrl("/sim/policies/v3-neural-pose.json")).then((r) => {
 						if (!r.ok) {
 							throw new Error(
 								`Failed to fetch v3-neural-pose.json (${r.status})`,
@@ -757,7 +757,7 @@ async function ensureV3PosePolicyLoaded(): Promise<
 						}
 						return r.json() as Promise<V3NeuralPoseManifest>;
 					}),
-			fetch(`${prefix}/sim/policies/v3-neural-pose.bin`),
+			fetch(simAssetUrl("/sim/policies/v3-neural-pose.bin")),
 		]);
 		if (!binResp.ok) {
 			throw new Error(`Failed to fetch v3-neural-pose.bin (${binResp.status})`);
@@ -784,14 +784,13 @@ async function ensureV1AssetsLoaded(): Promise<void> {
 	if (v1Config && v1BaseXml && v1GaitPolicy && v1PoseManifest) {
 		return;
 	}
-	const prefix = workerBaseUrl;
 	const [cfgResp, xmlResp, gaitJsonResp, gaitBinResp, poseJsonResp] =
 		await Promise.all([
-			fetch(`${prefix}/sim/v1-physics-config.json`),
-			fetch(`${prefix}/sim/ainekio-v1-locomotion.xml`),
-			fetch(`${prefix}/sim/policies/v1-neural-gait.json`),
-			fetch(`${prefix}/sim/policies/v1-neural-gait.bin`),
-			fetch(`${prefix}/sim/policies/v1-neural-pose.json`),
+			fetch(simAssetUrl("/sim/v1-physics-config.json")),
+			fetch(simAssetUrl("/sim/ainekio-v1-locomotion.xml")),
+			fetch(simAssetUrl("/sim/policies/v1-neural-gait.json")),
+			fetch(simAssetUrl("/sim/policies/v1-neural-gait.bin")),
+			fetch(simAssetUrl("/sim/policies/v1-neural-pose.json")),
 		]);
 	if (
 		!cfgResp.ok ||
@@ -825,14 +824,13 @@ async function ensureV3AssetsLoaded(): Promise<void> {
 	if (v3Config && v3BaseXml && v3GaitPolicy && v3PoseManifest) {
 		return;
 	}
-	const prefix = workerBaseUrl;
 	const [cfgResp, xmlResp, gaitJsonResp, gaitBinResp, poseJsonResp] =
 		await Promise.all([
-			fetch(`${prefix}/sim/v3-physics-config.json`),
-			fetch(`${prefix}/sim/ainekio-v3-locomotion.xml`),
-			fetch(`${prefix}/sim/policies/v3-neural-gait.json`),
-			fetch(`${prefix}/sim/policies/v3-neural-gait.bin`),
-			fetch(`${prefix}/sim/policies/v3-neural-pose.json`),
+			fetch(simAssetUrl("/sim/v3-physics-config.json")),
+			fetch(simAssetUrl("/sim/ainekio-v3-locomotion.xml")),
+			fetch(simAssetUrl("/sim/policies/v3-neural-gait.json")),
+			fetch(simAssetUrl("/sim/policies/v3-neural-gait.bin")),
+			fetch(simAssetUrl("/sim/policies/v3-neural-pose.json")),
 		]);
 	if (
 		!cfgResp.ok ||
@@ -3498,15 +3496,15 @@ async function handleInit(
 		manifoldResp,
 		poseLibResp,
 	] = await Promise.all([
-		fetch(`${prefix}/sim/v2-physics-config.json`),
-		fetch(`${prefix}/sim/ainekio-v2-locomotion.xml`),
-		import(/* @vite-ignore */ `${prefix}/sim/mujoco_wasm.js`),
-		import(/* @vite-ignore */ `${prefix}/sim/ainekio-v2-firmware.mjs`),
-		fetch(`${prefix}/sim/policies/neural-gait.json`),
-		fetch(`${prefix}/sim/policies/neural-gait.bin`),
-		fetch(`${prefix}/sim/policies/neural-pose.json`),
-		fetch(`${prefix}/sim/policies/pose-manifold.json`),
-		fetch(`${prefix}/sim/policies/neural-pose-library.json`),
+		fetch(simAssetUrl("/sim/v2-physics-config.json")),
+		fetch(simAssetUrl("/sim/ainekio-v2-locomotion.xml")),
+		import(/* @vite-ignore */ simAssetUrl("/sim/mujoco_wasm.js")),
+		import(/* @vite-ignore */ simAssetUrl("/sim/ainekio-v2-firmware.mjs")),
+		fetch(simAssetUrl("/sim/policies/neural-gait.json")),
+		fetch(simAssetUrl("/sim/policies/neural-gait.bin")),
+		fetch(simAssetUrl("/sim/policies/neural-pose.json")),
+		fetch(simAssetUrl("/sim/policies/pose-manifold.json")),
+		fetch(simAssetUrl("/sim/policies/neural-pose-library.json")),
 	]);
 	if (!cfgResp.ok) {
 		throw new Error(
@@ -3563,7 +3561,7 @@ async function handleInit(
 	const [mjInstance, fwInstance] = await Promise.all([
 		loadMujoco(),
 		loadFirmware({
-			locateFile: (file: string) => `${prefix}/sim/${file}`,
+			locateFile: (file: string) => simAssetUrl(`/sim/${file}`),
 		}),
 	]);
 	mujoco = mjInstance;
