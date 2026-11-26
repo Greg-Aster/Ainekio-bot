@@ -76,14 +76,14 @@
   },
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "e117471c079df2cd697a30b769e96138a374f9ce42e17980bb69720b1233e61e",
-  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
-  "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
+  "source_sha256": "00c07f10ea0e6886e2d3458fb67404348eee029b71e2398905a97947430909df",
+  "geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
+  "sole_hulls_sha256": "f10589aff3dcd1b72b04b1e226cc11a19987e9c0c9113c90a235b68780121e5f",
   "face_sha256": {
     "wave": "670ca1479f4bff8c38b90077774c32ca3aa78a3c65013defa00f86f605fc36c1",
     "stand": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
   },
-  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124",
   "entry_actuator_angles_rad": [
     [
       -7.045373451895712e-09,
@@ -181,7 +181,7 @@
     "path": "docs/gait-research/wave-seated-20260916/source.json",
     "sha256": "d00be551216d082d2f20b0f94d469affac54d8ffd5d164c0ba0d6d9757bdef6f"
   },
-  "posture_sha256": "ff888a7f6e447be6033f478c213e07d8228a2f05827e29635cd5a2677eb09960",
+  "posture_sha256": "8e107c6405bf92ba655634c27866a594900825e4b63261c06c62120b2f750f63",
   "posture_hulls_sha256": "3c0f3b912f38ff177c6f29f70bd5572367c757e377491816dd57bc857396f283",
   "retargeting_notes": "Seated bare-Part027 Wave: sequential seating, quick front-left lift, three broad shoulder waves, foot replacement and standing recovery.",
   "choreography_source": "docs/gait-research/wave-seated-20260916/manifest.json",

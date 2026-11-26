@@ -1,0 +1,2158 @@
+{
+  "model": "v1-8servo",
+  "geometry_id": "v1-p4-clockspring-20261121",
+  "source_file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/v3-2.blend",
+  "scene": "v1",
+  "units": "mm",
+  "coordinate_frame": "Robot Root body frame (+X forward, +Y left, +Z up)",
+  "mass_kg": 0.376,
+  "mass_measured": false,
+  "frames": {
+    "front_right_hip": [
+      [
+        0.7071067094802856,
+        0.7071067094802856,
+        0.0,
+        48.349998474121094
+      ],
+      [
+        -0.7071067094802856,
+        0.7071067094802856,
+        0.0,
+        -38.5
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        3.47503662109375
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "front_right_knee": [
+      [
+        0.7071067094802856,
+        0.7071067094802856,
+        1.3484542193964444e-07,
+        72.91798400878906
+      ],
+      [
+        -0.7071067094802856,
+        0.7071067094802856,
+        -1.34845393517935e-07,
+        -53.529998779296875
+      ],
+      [
+        -1.9070023427048e-07,
+        -2.1316282072803006e-14,
+        1.0,
+        9.575042724609375
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "rear_right_hip": [
+      [
+        -0.7071067094802856,
+        0.7071067094802856,
+        0.0,
+        -48.349998474121094
+      ],
+      [
+        -0.7071067094802856,
+        -0.7071067094802856,
+        0.0,
+        -38.5
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        3.47503662109375
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "rear_right_knee": [
+      [
+        -0.7071067690849304,
+        0.7071067690849304,
+        -7.524077716425381e-08,
+        -72.91771697998047
+      ],
+      [
+        -0.7071067690849304,
+        -0.7071067690849304,
+        -7.52407629533991e-08,
+        -53.5302619934082
+      ],
+      [
+        -1.064065244804624e-07,
+        7.105427357601002e-15,
+        1.0,
+        9.575035095214844
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "front_left_hip": [
+      [
+        0.7071067094802856,
+        -0.7071067094802856,
+        0.0,
+        48.349998474121094
+      ],
+      [
+        0.7071067094802856,
+        0.7071067094802856,
+        0.0,
+        38.5
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        3.47503662109375
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "front_left_knee": [
+      [
+        0.7071067094802856,
+        -0.7071067094802856,
+        1.3484542193964444e-07,
+        72.91771697998047
+      ],
+      [
+        0.7071067094802856,
+        0.7071067094802856,
+        1.34845393517935e-07,
+        53.5302734375
+      ],
+      [
+        -1.9070023427048e-07,
+        2.1316282072803006e-14,
+        1.0,
+        9.575042724609375
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "rear_left_hip": [
+      [
+        -0.7071067094802856,
+        -0.7071067094802856,
+        0.0,
+        -48.349998474121094
+      ],
+      [
+        0.7071067094802856,
+        -0.7071067094802856,
+        0.0,
+        38.5
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        3.47503662109375
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "rear_left_knee": [
+      [
+        -0.7071067690849304,
+        -0.7071067690849304,
+        -7.524077716425381e-08,
+        -72.91771697998047
+      ],
+      [
+        0.7071067690849304,
+        -0.7071067690849304,
+        7.52407629533991e-08,
+        53.5302619934082
+      ],
+      [
+        -1.064065244804624e-07,
+        -7.105427357601002e-15,
+        1.0,
+        9.575035095214844
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "objects": [
+    {
+      "key": "mesh_000",
+      "name": "V1 | Audio - Speaker (20x30x6.66mm)",
+      "body": "torso",
+      "rgba": [
+        0.699999988079071,
+        0.2800000011920929,
+        0.04500000178813934,
+        1.0
+      ],
+      "vertices": 8,
+      "triangles": 12
+    },
+    {
+      "key": "mesh_001",
+      "name": "V1 | Battery - Pack 1 - Left 2S 1000mAh (2x 14500)",
+      "body": "torso",
+      "rgba": [
+        0.05999999865889549,
+        0.3199999928474426,
+        0.7200000286102295,
+        1.0
+      ],
+      "vertices": 320,
+      "triangles": 600
+    },
+    {
+      "key": "mesh_002",
+      "name": "V1 | Battery - Pack 2 - Right 2S 1000mAh (2x 14500)",
+      "body": "torso",
+      "rgba": [
+        0.05999999865889549,
+        0.3199999928474426,
+        0.7200000286102295,
+        1.0
+      ],
+      "vertices": 320,
+      "triangles": 600
+    },
+    {
+      "key": "mesh_003",
+      "name": "V1 | Board - Adafruit PCA9685",
+      "body": "torso",
+      "rgba": [
+        0.02500000037252903,
+        0.10000000149011612,
+        0.27000001072883606,
+        1.0
+      ],
+      "vertices": 232331,
+      "triangles": 464646
+    },
+    {
+      "key": "mesh_004",
+      "name": "V1 | Board - ESP32-P4-WIFI6",
+      "body": "torso",
+      "rgba": [
+        0.0,
+        0.2158605009317398,
+        0.0,
+        1.0
+      ],
+      "vertices": 393554,
+      "triangles": 784296
+    },
+    {
+      "key": "mesh_005",
+      "name": "V1 | Bottom Chassis (Frame7 New-Frame)",
+      "body": "torso",
+      "rgba": [
+        0.10199999809265137,
+        0.10199999809265137,
+        0.10199999809265137,
+        1.0
+      ],
+      "vertices": 3718,
+      "triangles": 7532
+    },
+    {
+      "key": "mesh_006",
+      "name": "V1 | Camera - Arducam B0066",
+      "body": "torso",
+      "rgba": [
+        0.5600000023841858,
+        0.25,
+        0.02800000086426735,
+        1.0
+      ],
+      "vertices": 136,
+      "triangles": 268
+    },
+    {
+      "key": "mesh_007",
+      "name": "V1 | Camera - Arducam B0066 Circuit",
+      "body": "torso",
+      "rgba": [
+        0.5600000023841858,
+        0.25,
+        0.02800000086426735,
+        1.0
+      ],
+      "vertices": 416,
+      "triangles": 664
+    },
+    {
+      "key": "mesh_008",
+      "name": "V1 | Camera - Arducam B0066 Flex Cable",
+      "body": "torso",
+      "rgba": [
+        0.5600000023841858,
+        0.25,
+        0.02800000086426735,
+        1.0
+      ],
+      "vertices": 68,
+      "triangles": 132
+    },
+    {
+      "key": "mesh_009",
+      "name": "V1 | Display - 0.96in SSD1306 OLED",
+      "body": "torso",
+      "rgba": [
+        0.029999999329447746,
+        0.1599999964237213,
+        0.41999998688697815,
+        1.0
+      ],
+      "vertices": 456,
+      "triangles": 684
+    },
+    {
+      "key": "mesh_010",
+      "name": "V1 | FL (L1) | Upper Leg (R2V10)",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.10199999809265137,
+        0.10199999809265137,
+        0.10199999809265137,
+        1.0
+      ],
+      "vertices": 1756,
+      "triangles": 3548
+    },
+    {
+      "key": "mesh_011",
+      "name": "V1 | FL | Clockspring Rotor Cap (Under-Arm)",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.18000000715255737,
+        0.1899999976158142,
+        0.20999999344348907,
+        1.0
+      ],
+      "vertices": 369,
+      "triangles": 742
+    },
+    {
+      "key": "mesh_012",
+      "name": "V1 | FL | Clockspring Rotor Cup (Under-Arm)",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.10199999809265137,
+        0.10199999809265137,
+        0.10199999809265137,
+        1.0
+      ],
+      "vertices": 971,
+      "triangles": 1958
+    },
+    {
+      "key": "mesh_013",
+      "name": "V1 | FL | Hip Bearing (683ZZ)",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.7400000095367432,
+        0.7599999904632568,
+        0.7900000214576721,
+        1.0
+      ],
+      "vertices": 450,
+      "triangles": 900
+    },
+    {
+      "key": "mesh_014",
+      "name": "V1 | FL | Lower Leg (L3)",
+      "body": "front_left_lower_leg",
+      "rgba": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "vertices": 21216,
+      "triangles": 42472
+    },
+    {
+      "key": "mesh_015",
+      "name": "V1 | FR (R1) | Upper Leg (R2V10)",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.10199999809265137,
+        0.10199999809265137,
+        0.10199999809265137,
+        1.0
+      ],
+      "vertices": 1756,
+      "triangles": 3548
+    },
+    {
+      "key": "mesh_016",
+      "name": "V1 | FR | Clockspring Rotor Cap (Under-Arm)",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.18000000715255737,
+        0.1899999976158142,
+        0.20999999344348907,
+        1.0
+      ],
+      "vertices": 369,
+      "triangles": 742
+    },
+    {
+      "key": "mesh_017",
+      "name": "V1 | FR | Hip Bearing (683ZZ)",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.7400000095367432,
+        0.7599999904632568,
+        0.7900000214576721,
+        1.0
+      ],
+      "vertices": 450,
+      "triangles": 900
+    },
+    {
+      "key": "mesh_018",
+      "name": "V1 | FR | Lower Leg (R3)",
+      "body": "front_right_lower_leg",
+      "rgba": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "vertices": 21216,
+      "triangles": 42472
+    },
+    {
+      "key": "mesh_019",
+      "name": "V1 | IMU - GY-LSM6DS3",
+      "body": "torso",
+      "rgba": [
+        0.07323895394802094,
+        0.0134117491543293,
+        0.1259673833847046,
+        1.0
+      ],
+      "vertices": 66944,
+      "triangles": 63968
+    },
+    {
+      "key": "mesh_020",
+      "name": "V1 | Mount - Retainer Clip (Mini560 5A Buck)",
+      "body": "torso",
+      "rgba": [
+        0.07000000029802322,
+        0.11999999731779099,
+        0.17000000178813934,
+        1.0
+      ],
+      "vertices": 68,
+      "triangles": 132
+    },
+    {
+      "key": "mesh_021",
+      "name": "V1 | Mount - Speaker Bridge Cradle (20x30)",
+      "body": "torso",
+      "rgba": [
+        0.07000000029802322,
+        0.11999999731779099,
+        0.17000000178813934,
+        1.0
+      ],
+      "vertices": 62,
+      "triangles": 124
+    },
+    {
+      "key": "mesh_022",
+      "name": "V1 | PCA9685 - 1x6 Right-Angle Header",
+      "body": "torso",
+      "rgba": [
+        0.03500000014901161,
+        0.03999999910593033,
+        0.04500000178813934,
+        1.0
+      ],
+      "vertices": 356,
+      "triangles": 708
+    },
+    {
+      "key": "mesh_023",
+      "name": "V1 | Power - Master Rocker Switch (19x12mm)",
+      "body": "torso",
+      "rgba": [
+        0.023000000044703484,
+        0.027000000700354576,
+        0.03200000151991844,
+        1.0
+      ],
+      "vertices": 240,
+      "triangles": 456
+    },
+    {
+      "key": "mesh_024",
+      "name": "V1 | Power - Mini560 (5V 5A Buck)",
+      "body": "torso",
+      "rgba": [
+        0.03999999910593033,
+        0.2800000011920929,
+        0.12999999523162842,
+        1.0
+      ],
+      "vertices": 5616,
+      "triangles": 5436
+    },
+    {
+      "key": "mesh_025",
+      "name": "V1 | Power - Mini560 Header Pins",
+      "body": "torso",
+      "rgba": [
+        0.02500000037252903,
+        0.02500000037252903,
+        0.029999999329447746,
+        1.0
+      ],
+      "vertices": 96,
+      "triangles": 144
+    },
+    {
+      "key": "mesh_026",
+      "name": "V1 | RL (L2) | Upper Leg (R2V10)",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.10199999809265137,
+        0.10199999809265137,
+        0.10199999809265137,
+        1.0
+      ],
+      "vertices": 1756,
+      "triangles": 3548
+    },
+    {
+      "key": "mesh_027",
+      "name": "V1 | RL | Clockspring Rotor Cap (Under-Arm)",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.18000000715255737,
+        0.1899999976158142,
+        0.20999999344348907,
+        1.0
+      ],
+      "vertices": 369,
+      "triangles": 742
+    },
+    {
+      "key": "mesh_028",
+      "name": "V1 | RL | Clockspring Rotor Cup (Under-Arm)",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.10199999809265137,
+        0.10199999809265137,
+        0.10199999809265137,
+        1.0
+      ],
+      "vertices": 971,
+      "triangles": 1958
+    },
+    {
+      "key": "mesh_029",
+      "name": "V1 | RL | Hip Bearing (683ZZ)",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.7400000095367432,
+        0.7599999904632568,
+        0.7900000214576721,
+        1.0
+      ],
+      "vertices": 450,
+      "triangles": 900
+    },
+    {
+      "key": "mesh_030",
+      "name": "V1 | RL | Lower Leg (L4)",
+      "body": "rear_left_lower_leg",
+      "rgba": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "vertices": 21216,
+      "triangles": 42472
+    },
+    {
+      "key": "mesh_031",
+      "name": "V1 | RR (R2) | Upper Leg (R2V10)",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.10199999809265137,
+        0.10199999809265137,
+        0.10199999809265137,
+        1.0
+      ],
+      "vertices": 1756,
+      "triangles": 3548
+    },
+    {
+      "key": "mesh_032",
+      "name": "V1 | RR | Clockspring Rotor Cap (Under-Arm)",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.18000000715255737,
+        0.1899999976158142,
+        0.20999999344348907,
+        1.0
+      ],
+      "vertices": 369,
+      "triangles": 742
+    },
+    {
+      "key": "mesh_033",
+      "name": "V1 | RR | Clockspring Rotor Cup (Under-Arm)",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.10199999809265137,
+        0.10199999809265137,
+        0.10199999809265137,
+        1.0
+      ],
+      "vertices": 971,
+      "triangles": 1958
+    },
+    {
+      "key": "mesh_034",
+      "name": "V1 | RR | Hip Bearing (683ZZ)",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.7400000095367432,
+        0.7599999904632568,
+        0.7900000214576721,
+        1.0
+      ],
+      "vertices": 450,
+      "triangles": 900
+    },
+    {
+      "key": "mesh_035",
+      "name": "V1 | RR | Lower Leg (R4)",
+      "body": "rear_right_lower_leg",
+      "rgba": [
+        0.800000011920929,
+        0.800000011920929,
+        0.800000011920929,
+        1.0
+      ],
+      "vertices": 21216,
+      "triangles": 42472
+    },
+    {
+      "key": "mesh_036",
+      "name": "V1 | Servo L1 (FL Hip) | Bearing Mount",
+      "body": "torso",
+      "rgba": [
+        0.12999999523162842,
+        0.15000000596046448,
+        0.18000000715255737,
+        1.0
+      ],
+      "vertices": 206,
+      "triangles": 408
+    },
+    {
+      "key": "mesh_037",
+      "name": "V1 | Servo L1 (FL Hip) | Horn Center Screw",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.5,
+        0.550000011920929,
+        0.6000000238418579,
+        1.0
+      ],
+      "vertices": 128,
+      "triangles": 252
+    },
+    {
+      "key": "mesh_038",
+      "name": "V1 | Servo L1 (FL Hip) | Lead stubs - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7411999702453613,
+        0.1607999950647354,
+        0.12160000205039978,
+        1.0
+      ],
+      "vertices": 472,
+      "triangles": 700
+    },
+    {
+      "key": "mesh_039",
+      "name": "V1 | Servo L1 (FL Hip) | Lower housing",
+      "body": "torso",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 1608,
+      "triangles": 3244
+    },
+    {
+      "key": "mesh_040",
+      "name": "V1 | Servo L1 (FL Hip) | Middle housing and label - reference surface",
+      "body": "torso",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "vertices": 4650,
+      "triangles": 9172
+    },
+    {
+      "key": "mesh_041",
+      "name": "V1 | Servo L1 (FL Hip) | Output spline - exposed surfaces",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 7308,
+      "triangles": 14556
+    },
+    {
+      "key": "mesh_042",
+      "name": "V1 | Servo L1 (FL Hip) | Screw head left front - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_043",
+      "name": "V1 | Servo L1 (FL Hip) | Screw head left rear - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_044",
+      "name": "V1 | Servo L1 (FL Hip) | Screw head right front - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_045",
+      "name": "V1 | Servo L1 (FL Hip) | Screw head right rear - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_046",
+      "name": "V1 | Servo L1 (FL Hip) | Servo Horn",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.9200000166893005,
+        0.9100000262260437,
+        0.8799999952316284,
+        1.0
+      ],
+      "vertices": 3352,
+      "triangles": 6732
+    },
+    {
+      "key": "mesh_047",
+      "name": "V1 | Servo L1 (FL Hip) | Upper gear cover - reference surface",
+      "body": "torso",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 9549,
+      "triangles": 18976
+    },
+    {
+      "key": "mesh_048",
+      "name": "V1 | Servo L2 (RL Hip) | Bearing Mount",
+      "body": "torso",
+      "rgba": [
+        0.12999999523162842,
+        0.15000000596046448,
+        0.18000000715255737,
+        1.0
+      ],
+      "vertices": 206,
+      "triangles": 408
+    },
+    {
+      "key": "mesh_049",
+      "name": "V1 | Servo L2 (RL Hip) | Horn Center Screw",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.5,
+        0.550000011920929,
+        0.6000000238418579,
+        1.0
+      ],
+      "vertices": 128,
+      "triangles": 252
+    },
+    {
+      "key": "mesh_050",
+      "name": "V1 | Servo L2 (RL Hip) | Lead stubs - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7411999702453613,
+        0.1607999950647354,
+        0.12160000205039978,
+        1.0
+      ],
+      "vertices": 472,
+      "triangles": 700
+    },
+    {
+      "key": "mesh_051",
+      "name": "V1 | Servo L2 (RL Hip) | Lower housing",
+      "body": "torso",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 1608,
+      "triangles": 3244
+    },
+    {
+      "key": "mesh_052",
+      "name": "V1 | Servo L2 (RL Hip) | Middle housing and label - reference surface",
+      "body": "torso",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "vertices": 4650,
+      "triangles": 9172
+    },
+    {
+      "key": "mesh_053",
+      "name": "V1 | Servo L2 (RL Hip) | Output spline - exposed surfaces",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 7308,
+      "triangles": 14556
+    },
+    {
+      "key": "mesh_054",
+      "name": "V1 | Servo L2 (RL Hip) | Screw head left front - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_055",
+      "name": "V1 | Servo L2 (RL Hip) | Screw head left rear - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_056",
+      "name": "V1 | Servo L2 (RL Hip) | Screw head right front - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_057",
+      "name": "V1 | Servo L2 (RL Hip) | Screw head right rear - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_058",
+      "name": "V1 | Servo L2 (RL Hip) | Servo Horn",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.9200000166893005,
+        0.9100000262260437,
+        0.8799999952316284,
+        1.0
+      ],
+      "vertices": 3352,
+      "triangles": 6732
+    },
+    {
+      "key": "mesh_059",
+      "name": "V1 | Servo L2 (RL Hip) | Upper gear cover - reference surface",
+      "body": "torso",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 9549,
+      "triangles": 18976
+    },
+    {
+      "key": "mesh_060",
+      "name": "V1 | Servo L3 (FL Knee) | Horn Center Screw",
+      "body": "front_left_lower_leg",
+      "rgba": [
+        0.5,
+        0.550000011920929,
+        0.6000000238418579,
+        1.0
+      ],
+      "vertices": 128,
+      "triangles": 252
+    },
+    {
+      "key": "mesh_061",
+      "name": "V1 | Servo L3 (FL Knee) | Lead stubs - exposed surfaces",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.7411999702453613,
+        0.1607999950647354,
+        0.12160000205039978,
+        1.0
+      ],
+      "vertices": 472,
+      "triangles": 700
+    },
+    {
+      "key": "mesh_062",
+      "name": "V1 | Servo L3 (FL Knee) | Lower housing",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 1608,
+      "triangles": 3244
+    },
+    {
+      "key": "mesh_063",
+      "name": "V1 | Servo L3 (FL Knee) | Middle housing and label - reference surface",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "vertices": 4650,
+      "triangles": 9172
+    },
+    {
+      "key": "mesh_064",
+      "name": "V1 | Servo L3 (FL Knee) | Output spline - exposed surfaces",
+      "body": "front_left_lower_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 7308,
+      "triangles": 14556
+    },
+    {
+      "key": "mesh_065",
+      "name": "V1 | Servo L3 (FL Knee) | Screw head left front - exposed surfaces",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_066",
+      "name": "V1 | Servo L3 (FL Knee) | Screw head left rear - exposed surfaces",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_067",
+      "name": "V1 | Servo L3 (FL Knee) | Screw head right front - exposed surfaces",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_068",
+      "name": "V1 | Servo L3 (FL Knee) | Screw head right rear - exposed surfaces",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_069",
+      "name": "V1 | Servo L3 (FL Knee) | Servo Horn",
+      "body": "front_left_lower_leg",
+      "rgba": [
+        0.9200000166893005,
+        0.9100000262260437,
+        0.8799999952316284,
+        1.0
+      ],
+      "vertices": 3352,
+      "triangles": 6732
+    },
+    {
+      "key": "mesh_070",
+      "name": "V1 | Servo L3 (FL Knee) | Upper gear cover - reference surface",
+      "body": "front_left_upper_leg",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 9549,
+      "triangles": 18976
+    },
+    {
+      "key": "mesh_071",
+      "name": "V1 | Servo L4 (RL Knee) | Horn Center Screw",
+      "body": "rear_left_lower_leg",
+      "rgba": [
+        0.5,
+        0.550000011920929,
+        0.6000000238418579,
+        1.0
+      ],
+      "vertices": 128,
+      "triangles": 252
+    },
+    {
+      "key": "mesh_072",
+      "name": "V1 | Servo L4 (RL Knee) | Lead stubs - exposed surfaces",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.7411999702453613,
+        0.1607999950647354,
+        0.12160000205039978,
+        1.0
+      ],
+      "vertices": 472,
+      "triangles": 700
+    },
+    {
+      "key": "mesh_073",
+      "name": "V1 | Servo L4 (RL Knee) | Lower housing",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 1608,
+      "triangles": 3244
+    },
+    {
+      "key": "mesh_074",
+      "name": "V1 | Servo L4 (RL Knee) | Middle housing and label - reference surface",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "vertices": 4650,
+      "triangles": 9172
+    },
+    {
+      "key": "mesh_075",
+      "name": "V1 | Servo L4 (RL Knee) | Output spline - exposed surfaces",
+      "body": "rear_left_lower_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 7308,
+      "triangles": 14556
+    },
+    {
+      "key": "mesh_076",
+      "name": "V1 | Servo L4 (RL Knee) | Screw head left front - exposed surfaces",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_077",
+      "name": "V1 | Servo L4 (RL Knee) | Screw head left rear - exposed surfaces",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_078",
+      "name": "V1 | Servo L4 (RL Knee) | Screw head right front - exposed surfaces",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_079",
+      "name": "V1 | Servo L4 (RL Knee) | Screw head right rear - exposed surfaces",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_080",
+      "name": "V1 | Servo L4 (RL Knee) | Servo Horn",
+      "body": "rear_left_lower_leg",
+      "rgba": [
+        0.9200000166893005,
+        0.9100000262260437,
+        0.8799999952316284,
+        1.0
+      ],
+      "vertices": 3352,
+      "triangles": 6732
+    },
+    {
+      "key": "mesh_081",
+      "name": "V1 | Servo L4 (RL Knee) | Upper gear cover - reference surface",
+      "body": "rear_left_upper_leg",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 9549,
+      "triangles": 18976
+    },
+    {
+      "key": "mesh_082",
+      "name": "V1 | Servo R1 (FR Hip) | Bearing Mount",
+      "body": "torso",
+      "rgba": [
+        0.12999999523162842,
+        0.15000000596046448,
+        0.18000000715255737,
+        1.0
+      ],
+      "vertices": 206,
+      "triangles": 408
+    },
+    {
+      "key": "mesh_083",
+      "name": "V1 | Servo R1 (FR Hip) | Horn Center Screw",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.5,
+        0.550000011920929,
+        0.6000000238418579,
+        1.0
+      ],
+      "vertices": 128,
+      "triangles": 252
+    },
+    {
+      "key": "mesh_084",
+      "name": "V1 | Servo R1 (FR Hip) | Lead stubs - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7411999702453613,
+        0.1607999950647354,
+        0.12160000205039978,
+        1.0
+      ],
+      "vertices": 472,
+      "triangles": 700
+    },
+    {
+      "key": "mesh_085",
+      "name": "V1 | Servo R1 (FR Hip) | Lower housing",
+      "body": "torso",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 1608,
+      "triangles": 3244
+    },
+    {
+      "key": "mesh_086",
+      "name": "V1 | Servo R1 (FR Hip) | Middle housing and label - reference surface",
+      "body": "torso",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "vertices": 4650,
+      "triangles": 9172
+    },
+    {
+      "key": "mesh_087",
+      "name": "V1 | Servo R1 (FR Hip) | Output spline - exposed surfaces",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 7308,
+      "triangles": 14556
+    },
+    {
+      "key": "mesh_088",
+      "name": "V1 | Servo R1 (FR Hip) | Screw head left front - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_089",
+      "name": "V1 | Servo R1 (FR Hip) | Screw head left rear - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_090",
+      "name": "V1 | Servo R1 (FR Hip) | Screw head right front - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_091",
+      "name": "V1 | Servo R1 (FR Hip) | Screw head right rear - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_092",
+      "name": "V1 | Servo R1 (FR Hip) | Servo Horn",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.9200000166893005,
+        0.9100000262260437,
+        0.8799999952316284,
+        1.0
+      ],
+      "vertices": 3352,
+      "triangles": 6732
+    },
+    {
+      "key": "mesh_093",
+      "name": "V1 | Servo R1 (FR Hip) | Upper gear cover - reference surface",
+      "body": "torso",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 9549,
+      "triangles": 18976
+    },
+    {
+      "key": "mesh_094",
+      "name": "V1 | Servo R2 (RR Hip) | Bearing Mount",
+      "body": "torso",
+      "rgba": [
+        0.12999999523162842,
+        0.15000000596046448,
+        0.18000000715255737,
+        1.0
+      ],
+      "vertices": 206,
+      "triangles": 408
+    },
+    {
+      "key": "mesh_095",
+      "name": "V1 | Servo R2 (RR Hip) | Horn Center Screw",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.5,
+        0.550000011920929,
+        0.6000000238418579,
+        1.0
+      ],
+      "vertices": 128,
+      "triangles": 252
+    },
+    {
+      "key": "mesh_096",
+      "name": "V1 | Servo R2 (RR Hip) | Lead stubs - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7411999702453613,
+        0.1607999950647354,
+        0.12160000205039978,
+        1.0
+      ],
+      "vertices": 472,
+      "triangles": 700
+    },
+    {
+      "key": "mesh_097",
+      "name": "V1 | Servo R2 (RR Hip) | Lower housing",
+      "body": "torso",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 1608,
+      "triangles": 3244
+    },
+    {
+      "key": "mesh_098",
+      "name": "V1 | Servo R2 (RR Hip) | Middle housing and label - reference surface",
+      "body": "torso",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "vertices": 4650,
+      "triangles": 9172
+    },
+    {
+      "key": "mesh_099",
+      "name": "V1 | Servo R2 (RR Hip) | Output spline - exposed surfaces",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 7308,
+      "triangles": 14556
+    },
+    {
+      "key": "mesh_100",
+      "name": "V1 | Servo R2 (RR Hip) | Screw head left front - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_101",
+      "name": "V1 | Servo R2 (RR Hip) | Screw head left rear - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_102",
+      "name": "V1 | Servo R2 (RR Hip) | Screw head right front - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_103",
+      "name": "V1 | Servo R2 (RR Hip) | Screw head right rear - exposed surfaces",
+      "body": "torso",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_104",
+      "name": "V1 | Servo R2 (RR Hip) | Servo Horn",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.9200000166893005,
+        0.9100000262260437,
+        0.8799999952316284,
+        1.0
+      ],
+      "vertices": 3352,
+      "triangles": 6732
+    },
+    {
+      "key": "mesh_105",
+      "name": "V1 | Servo R2 (RR Hip) | Upper gear cover - reference surface",
+      "body": "torso",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 9549,
+      "triangles": 18976
+    },
+    {
+      "key": "mesh_106",
+      "name": "V1 | Servo R3 (FR Knee) | Horn Center Screw",
+      "body": "front_right_lower_leg",
+      "rgba": [
+        0.5,
+        0.550000011920929,
+        0.6000000238418579,
+        1.0
+      ],
+      "vertices": 128,
+      "triangles": 252
+    },
+    {
+      "key": "mesh_107",
+      "name": "V1 | Servo R3 (FR Knee) | Lead stubs - exposed surfaces",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.7411999702453613,
+        0.1607999950647354,
+        0.12160000205039978,
+        1.0
+      ],
+      "vertices": 472,
+      "triangles": 700
+    },
+    {
+      "key": "mesh_108",
+      "name": "V1 | Servo R3 (FR Knee) | Lower housing",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 1608,
+      "triangles": 3244
+    },
+    {
+      "key": "mesh_109",
+      "name": "V1 | Servo R3 (FR Knee) | Middle housing and label - reference surface",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "vertices": 4650,
+      "triangles": 9172
+    },
+    {
+      "key": "mesh_110",
+      "name": "V1 | Servo R3 (FR Knee) | Output spline - exposed surfaces",
+      "body": "front_right_lower_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 7308,
+      "triangles": 14556
+    },
+    {
+      "key": "mesh_111",
+      "name": "V1 | Servo R3 (FR Knee) | Screw head left front - exposed surfaces",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_112",
+      "name": "V1 | Servo R3 (FR Knee) | Screw head left rear - exposed surfaces",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_113",
+      "name": "V1 | Servo R3 (FR Knee) | Screw head right front - exposed surfaces",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_114",
+      "name": "V1 | Servo R3 (FR Knee) | Screw head right rear - exposed surfaces",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_115",
+      "name": "V1 | Servo R3 (FR Knee) | Servo Horn",
+      "body": "front_right_lower_leg",
+      "rgba": [
+        0.9200000166893005,
+        0.9100000262260437,
+        0.8799999952316284,
+        1.0
+      ],
+      "vertices": 3352,
+      "triangles": 6732
+    },
+    {
+      "key": "mesh_116",
+      "name": "V1 | Servo R3 (FR Knee) | Upper gear cover - reference surface",
+      "body": "front_right_upper_leg",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 9549,
+      "triangles": 18976
+    },
+    {
+      "key": "mesh_117",
+      "name": "V1 | Servo R4 (RR Knee) | Horn Center Screw",
+      "body": "rear_right_lower_leg",
+      "rgba": [
+        0.5,
+        0.550000011920929,
+        0.6000000238418579,
+        1.0
+      ],
+      "vertices": 128,
+      "triangles": 252
+    },
+    {
+      "key": "mesh_118",
+      "name": "V1 | Servo R4 (RR Knee) | Lead stubs - exposed surfaces",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.7411999702453613,
+        0.1607999950647354,
+        0.12160000205039978,
+        1.0
+      ],
+      "vertices": 472,
+      "triangles": 700
+    },
+    {
+      "key": "mesh_119",
+      "name": "V1 | Servo R4 (RR Knee) | Lower housing",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 1608,
+      "triangles": 3244
+    },
+    {
+      "key": "mesh_120",
+      "name": "V1 | Servo R4 (RR Knee) | Middle housing and label - reference surface",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "vertices": 4650,
+      "triangles": 9172
+    },
+    {
+      "key": "mesh_121",
+      "name": "V1 | Servo R4 (RR Knee) | Output spline - exposed surfaces",
+      "body": "rear_right_lower_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 7308,
+      "triangles": 14556
+    },
+    {
+      "key": "mesh_122",
+      "name": "V1 | Servo R4 (RR Knee) | Screw head left front - exposed surfaces",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_123",
+      "name": "V1 | Servo R4 (RR Knee) | Screw head left rear - exposed surfaces",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_124",
+      "name": "V1 | Servo R4 (RR Knee) | Screw head right front - exposed surfaces",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_125",
+      "name": "V1 | Servo R4 (RR Knee) | Screw head right rear - exposed surfaces",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.7803999781608582,
+        0.7608000040054321,
+        0.7411999702453613,
+        1.0
+      ],
+      "vertices": 1146,
+      "triangles": 2232
+    },
+    {
+      "key": "mesh_126",
+      "name": "V1 | Servo R4 (RR Knee) | Servo Horn",
+      "body": "rear_right_lower_leg",
+      "rgba": [
+        0.9200000166893005,
+        0.9100000262260437,
+        0.8799999952316284,
+        1.0
+      ],
+      "vertices": 3352,
+      "triangles": 6732
+    },
+    {
+      "key": "mesh_127",
+      "name": "V1 | Servo R4 (RR Knee) | Upper gear cover - reference surface",
+      "body": "rear_right_upper_leg",
+      "rgba": [
+        0.14900000393390656,
+        0.14900000393390656,
+        0.14900000393390656,
+        1.0
+      ],
+      "vertices": 9549,
+      "triangles": 18976
+    },
+    {
+      "key": "mesh_128",
+      "name": "V1 | Top Enclosure (Frame8 Cap)",
+      "body": "torso",
+      "rgba": [
+        0.10199999809265137,
+        0.10199999809265137,
+        0.10199999809265137,
+        1.0
+      ],
+      "vertices": 1221,
+      "triangles": 2470
+    }
+  ],
+  "excluded": [
+    {
+      "name": "V1 | ESP32-P4 - Mount 1",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | ESP32-P4 - Mount 2",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | ESP32-P4 - Mount 3",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | ESP32-P4 - Mount 4",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | FL (L1) | Upper Bracket Group",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | FR (R1) | Upper Bracket Group",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | FR | Clockspring Rotor Cup (Under-Arm)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Joint L1 (FL Hip)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Joint L2 (RL Hip)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Joint L3 (FL Knee)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Joint L4 (RL Knee)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Joint R1 (FR Hip)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Joint R2 (RR Hip)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Joint R3 (FR Knee)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Joint R4 (RR Knee)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | PCA9685 - Mount 1 (2.5mm)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | PCA9685 - Mount 2 (2.5mm)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | PCA9685 - Mount 3 (2.5mm)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | PCA9685 - Mount 4 (2.5mm)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | RL (L2) | Upper Bracket Group",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | RR (R2) | Upper Bracket Group",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Robot Root",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Servo L1 (FL Hip)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Servo L2 (RL Hip)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Servo L3 (FL Knee)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Servo L4 (RL Knee)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Servo R1 (FR Hip)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Servo R2 (RR Hip)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Servo R3 (FR Knee)",
+      "reason": "non-mesh, hidden, or parked"
+    },
+    {
+      "name": "V1 | Servo R4 (RR Knee)",
+      "reason": "non-mesh, hidden, or parked"
+    }
+  ],
+  "sensor_references": {
+    "V1 | IMU - GY-LSM6DS3": {
+      "bounds_body_mm": [
+        [
+          36.5875,
+          -25.093,
+          -8.536
+        ],
+        [
+          49.5875,
+          -7.093,
+          -5.769
+        ]
+      ],
+      "center_body_mm": [
+        43.8977,
+        -15.3098,
+        -7.4715
+      ],
+      "matrix_body": [
+        [
+          7.549790126404332e-08,
+          -7.549790126404332e-08,
+          -1.0,
+          43.1142463684082
+        ],
+        [
+          1.0,
+          5.6999328827277325e-15,
+          7.549790126404332e-08,
+          -14.5
+        ],
+        [
+          0.0,
+          -1.0,
+          7.549790126404332e-08,
+          -8.490001678466797
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    "V1 | Camera - Arducam B0066": {
+      "bounds_body_mm": [
+        [
+          55.2002,
+          -4.325,
+          -10.7403
+        ],
+        [
+          60.8002,
+          4.325,
+          -2.0903
+        ]
+      ],
+      "center_body_mm": [
+        59.5855,
+        0.0,
+        -6.4153
+      ],
+      "matrix_body": [
+        [
+          6.55551986028513e-08,
+          6.555518439199659e-08,
+          0.8683047294616699,
+          55.20000076293945
+        ],
+        [
+          -0.8683049082756042,
+          -1.2685980687292134e-15,
+          6.555518439199659e-08,
+          0.0
+        ],
+        [
+          6.217877859864213e-15,
+          -0.8683047294616699,
+          6.555518439199659e-08,
+          -10.200000762939453
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    },
+    "V1 | Display - 0.96in SSD1306 OLED": {
+      "bounds_body_mm": [
+        [
+          33.8475,
+          -13.65,
+          8.06
+        ],
+        [
+          56.5335,
+          13.65,
+          25.4908
+        ]
+      ],
+      "center_body_mm": [
+        48.3006,
+        0.0,
+        17.6277
+      ],
+      "matrix_body": [
+        [
+          0.6667947769165039,
+          0.0,
+          -0.7452414035797119,
+          46.89238739013672
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.7452414035797119,
+          0.0,
+          0.6667947769165039,
+          16.77539825439453
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ]
+    }
+  }
+}

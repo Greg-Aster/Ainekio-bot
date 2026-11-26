@@ -393,16 +393,38 @@ class PoseManifold:
         )["geometry_id"]
 
     CARRIER_HOME_MARGIN_DEG = 3.0
+    # Measured V2 chassis shoulder mechanical travel envelope (deg, outward < 0 < inward)
+    # with ~3 deg safety margin inside physical hard stops (RL/RR: -31.5..+13.5 deg from 1650 us;
+    # FL: -45..+27 deg; FR: -54..+36 deg).
+    SHOULDER_MECHANICAL_LIMITS_DEG = (
+        (-28.0, 10.0),  # rear_left
+        (-28.0, 10.0),  # rear_right
+        (-30.0, 20.0),  # front_left
+        (-30.0, 20.0),  # front_right
+    )
 
     @classmethod
     def _apply_calibrated_carrier_floor(cls, body) -> None:
-        """Keep every carrier strictly inside its calibrated mechanical home (home_cd + 3 deg).
+        """Keep carriers inside calibrated home (+3 deg) and shoulders inside mechanical chassis stops.
 
-        Prevents 2950 us pulse limits from driving inverted carriers (e.g. front_left home_us=2740
-        at -30.87 deg) past their 4th-wire calibration ceiling (`above_calibration`).
+        Prevents 2950 us pulse limits from driving inverted carriers past their 4th-wire
+        calibration ceiling (`above_calibration`) and prevents shoulders from commanding
+        into rear/front chassis hard stops (`servo_stall: no_position_progress`).
         """
         floor_rad = (body.home[:, 1] + cls.CARRIER_HOME_MARGIN_DEG) * (math.pi / 180.0)
         body.low[:, 1] = torch.maximum(body.low[:, 1], floor_rad)
+        sh_lo = torch.tensor(
+            [lo for lo, _ in cls.SHOULDER_MECHANICAL_LIMITS_DEG],
+            dtype=body.low.dtype,
+            device=body.low.device,
+        ) * (math.pi / 180.0)
+        sh_hi = torch.tensor(
+            [hi for _, hi in cls.SHOULDER_MECHANICAL_LIMITS_DEG],
+            dtype=body.high.dtype,
+            device=body.high.device,
+        ) * (math.pi / 180.0)
+        body.low[:, 0] = torch.maximum(body.low[:, 0], sh_lo)
+        body.high[:, 0] = torch.minimum(body.high[:, 0], sh_hi)
 
     @staticmethod
     def _calibration_key(cal_joints: list[dict]) -> tuple:

@@ -28,7 +28,7 @@ class VirtualGatewayTests(unittest.IsolatedAsyncioTestCase):
         from gateway.neural_gait.virtual import VirtualGatewaySession
         self.np = np
         self.now = 1000000
-        self.pose = np.array([0, 3.46, -21.63]*4)
+        self.pose = np.array([0, -5.46, -62.08]*4)
         self.body = BodyModel(robot_fixture())
         self.executor = VirtualBody(self.body, self.pose, joint_speed_deg_s=60/.11,
             motion_rate=1., balance=False, heading_feedback=False,
@@ -1017,7 +1017,7 @@ class PhysicsTests(unittest.TestCase):
         mechanism = reference()
         try:
             env.reset(seed=7)
-            for pose in ([0, 0, 0], [10, 3.46, -21.63], [-15, -10, -50]):
+            for pose in ([0, 0, 0], [10, -5.46, -62.08], [-15, -20.6, -59.28]):
                 env.data.qpos[:3] = [0, 0, 0.065]
                 env.set_pose(np.deg2rad(pose * 4))
                 for leg, cad in zip(LEGS, ("FL", "FR", "RL", "RR")):
@@ -1184,8 +1184,8 @@ class PhysicsTests(unittest.TestCase):
                 obs = {
                     "schema": PROPRIO_SCHEMA,
                     "proprio_history": [[0.0] * PROPRIO_FEATURES for _ in range(PROPRIO_SAMPLES)],
-                    "joint_deg": [0.0, 3.46, -21.63] * 4,
-                    "target_deg": [0.0, 3.46, -21.63] * 4,
+                    "joint_deg": [0.0, -5.46, -62.08] * 4,
+                    "target_deg": [0.0, -5.46, -62.08] * 4,
                     "joint_velocity_deg_s": [0.0] * 12,
                     "joint_usable": [True] * 12,
                     "target_limits_deg": config.target_limits_deg,

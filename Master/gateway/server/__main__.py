@@ -146,10 +146,12 @@ def _parser() -> argparse.ArgumentParser:
                         help="Optional IoU continuity tracker ('iou' or local .json config)")
     parser.add_argument("--vision-open-vocab-model", default=os.environ.get("AINEKIO_VISION_OPEN_VOCAB_MODEL"),
                         help="Existing local Apache-2.0 OWLv2 directory for prompted text search and visual region selection")
+    parser.add_argument("--vision-open-vocab-device", default=os.environ.get("AINEKIO_VISION_OPEN_VOCAB_DEVICE"),
+                        help="Optional PyTorch device for open-vocabulary OWLv2 when ONNX detector uses CPU")
     parser.add_argument("--vision-face-detector", default=os.environ.get("AINEKIO_VISION_FACE_DETECTOR"), help="Local YuNet ONNX file for enrolled people")
     parser.add_argument("--vision-face-recognizer", default=os.environ.get("AINEKIO_VISION_FACE_RECOGNIZER"), help="Local SFace ONNX file; no automatic downloads")
     parser.add_argument("--vision-timeout-s", type=float, default=2.0)
-    parser.add_argument("--vision-max-frame-age-s", type=float, default=1.0)
+    parser.add_argument("--vision-max-frame-age-s", type=float, default=float(os.environ.get("AINEKIO_VISION_MAX_FRAME_AGE_S", "1.0")))
     parser.add_argument(
         "--environment-session-id",
         default=os.environ.get("AINEKIO_ENVIRONMENT_SESSION_ID", "ainekio-01"),
@@ -223,6 +225,7 @@ async def _run_production(args: argparse.Namespace) -> None:
         backend = DetectorBackend(
             detector_weights,
             device=args.vision_detector_device,
+            open_vocab_device=getattr(args, "vision_open_vocab_device", None),
             image_size=args.vision_detector_image_size,
             tracker=args.vision_detector_tracker,
             open_vocab_model=args.vision_open_vocab_model,

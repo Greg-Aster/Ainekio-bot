@@ -52,9 +52,71 @@ from .native import motor_force_range
 
 RECIPE = "microduck-mjlab-v1"
 UPSTREAM = Path(__file__).with_name("vendor") / "microduck_rl" / "UPSTREAM.json"
-TASK_REVISION = 19
+TASK_REVISION = 21
 DEFAULT_ACTOR_HIDDEN_DIMS = (128, 64, 32)
 DEFAULT_SNAG_PROB = 0.28
+_MIRROR_CACHE: dict[tuple[str, torch.dtype], tuple[torch.Tensor, ...]] = {}
+
+
+def _mirror_tables(device: torch.device, dtype: torch.dtype):
+    key = (str(device), dtype)
+    cached = _MIRROR_CACHE.get(key)
+    if cached is not None:
+        return cached
+    act_perm = [3, 4, 5, 0, 1, 2, 9, 10, 11, 6, 7, 8]
+    act_sign = [1., -1., 1., 1., -1., 1., 1., -1., 1., 1., -1., 1.]
+    # Per 48-feature proprio frame (tensor_sensors.py:features):
+    # [0..11] joint (L<->R swap, +1 sign verified against shoulder_world mirror),
+    # [12..23] joint_vel (L<->R swap, +1), [24..26] gyro (-wx,+wy,-wz),
+    # [27..29] accel (+ax,-ay,+az), [30..32] up_b (+ux,-uy,+uz),
+    # [33..35] twist cmd (+vx,-vy,-wz), [36..47] prev_action (L<->R swap, negate Y).
+    f_perm = (
+        act_perm
+        + [12 + i for i in act_perm]
+        + [24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35]
+        + [36 + i for i in act_perm]
+    )
+    f_sign = (
+        [1.] * 12
+        + [1.] * 12
+        + [-1., 1., -1., 1., -1., 1., 1., -1., 1., 1., -1., -1.]
+        + act_sign
+    )
+    actor_perm, actor_sign = [], []
+    for frame in range(15):
+        base = frame * 48
+        actor_perm.extend(base + i for i in f_perm)
+        actor_sign.extend(f_sign)
+    critic_perm = actor_perm + [720, 721, 722]
+    critic_sign = actor_sign + [1., -1., 1.]
+    tables = (
+        torch.tensor(act_perm, dtype=torch.long, device=device),
+        torch.tensor(act_sign, dtype=dtype, device=device),
+        torch.tensor(actor_perm, dtype=torch.long, device=device),
+        torch.tensor(actor_sign, dtype=dtype, device=device),
+        torch.tensor(critic_perm, dtype=torch.long, device=device),
+        torch.tensor(critic_sign, dtype=dtype, device=device),
+    )
+    _MIRROR_CACHE[key] = tables
+    return tables
+
+
+def mirror_symmetry_augmentation(env, obs=None, actions=None):
+    """Exact XZ-plane Left<->Right mirror transform for RSL-RL symmetry_cfg."""
+    obs_out = None
+    act_out = None
+    if obs is not None:
+        a_obs = obs["actor"]
+        _, _, a_perm, a_sign, c_perm, c_sign = _mirror_tables(a_obs.device, a_obs.dtype)
+        mirrored = {"actor": torch.cat((a_obs, a_obs[:, a_perm] * a_sign), dim=0)}
+        if "critic" in obs.keys():
+            c_obs = obs["critic"]
+            mirrored["critic"] = torch.cat((c_obs, c_obs[:, c_perm] * c_sign), dim=0)
+        obs_out = obs.__class__(mirrored, batch_size=[a_obs.shape[0] * 2], device=a_obs.device)
+    if actions is not None:
+        act_perm, act_sign, *_ = _mirror_tables(actions.device, actions.dtype)
+        act_out = torch.cat((actions, actions[:, act_perm] * act_sign), dim=0)
+    return obs_out, act_out
 
 
 @dataclass(kw_only=True)
@@ -178,6 +240,8 @@ class FootAction(ActionTerm):
         self.sensors=TensorSensors(self.config,env.num_envs,env.device)
         self.joint_ids,_=self._entity.find_joints(JOINTS,preserve_order=True)
         self._raw=torch.zeros((env.num_envs,12),device=env.device)
+        self.prev_raw=torch.zeros_like(self._raw)
+        self.prev2_raw=torch.zeros_like(self._raw)
         self.logical=self.body.q0.reshape(1,12).expand(env.num_envs,-1).clone()
         self.logical,self.targets=self.body.pwm(self.logical)
         self.targets=self.targets.to(self._raw.dtype)
@@ -233,7 +297,8 @@ class FootAction(ActionTerm):
 
     def reset(self,env_ids=None):
         ids=slice(None) if env_ids is None else env_ids
-        self._raw[ids]=0;self.logical[ids]=self.body.q0.reshape(12)
+        self._raw[ids]=0;self.prev_raw[ids]=0;self.prev2_raw[ids]=0
+        self.logical[ids]=self.body.q0.reshape(12)
         logical,physical=self.body.pwm(self.logical[ids])
         self.logical[ids]=logical;self.targets[ids]=physical.to(self._raw.dtype)
         self.history[ids]=0
@@ -277,6 +342,8 @@ class FootAction(ActionTerm):
             forces_w,self._zero_foot_torques,body_ids=self.foot_body_ids)
 
     def process_actions(self,actions):
+        self.prev2_raw.copy_(self.prev_raw)
+        self.prev_raw.copy_(self._raw)
         self._raw.copy_(actions.clamp(-1,1))
         self.logical,targets=self.decode_command(self._raw,self.logical)
         self.targets.copy_(targets)
@@ -399,6 +466,7 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True, snag_
     twist.heading_command = False
     twist.ranges.heading = None
     twist.rel_heading_envs = 0.
+    twist.rel_standing_envs = 0.14
     twist.ranges.lin_vel_x = (-.22,.26)
     twist.ranges.lin_vel_y = (-.08,.08)
     twist.ranges.ang_vel_z = (-1.2,1.2)
@@ -432,9 +500,9 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True, snag_
                 asset.site_names = feet
     cfg.rewards["foot_clearance"]=RewardTermCfg(func=ainekio_mdp.foot_clearance,weight=-.2,
         params=dict(cfg.rewards["foot_clearance"].params,sensor_name="feet_ground_contact",
-                    target_height=.022,max_free_height=.042))
+                    target_height=.016,max_free_height=.042))
     cfg.rewards["foot_swing_height"]=RewardTermCfg(func=ainekio_mdp.foot_swing_height,weight=-.05,
-        params=dict(cfg.rewards["foot_swing_height"].params,target_height=.022,max_free_height=.042))
+        params=dict(cfg.rewards["foot_swing_height"].params,target_height=.016,max_free_height=.042))
     cfg.rewards["foot_slip"]=RewardTermCfg(func=ainekio_mdp.foot_slip,weight=-.32,
         params=cfg.rewards["foot_slip"].params)
     cfg.rewards.update({
@@ -443,14 +511,14 @@ def make_config(config, num_envs=64, *, play=False, include_assembly=True, snag_
         "tracked_air_time":RewardTermCfg(func=ainekio_mdp.tracked_air_time,weight=1.5),
         "alternating_stride":RewardTermCfg(func=ainekio_mdp.alternating_stride,weight=2.0),
         "snag_clearance":RewardTermCfg(func=ainekio_mdp.snag_clearance,weight=1.4),
-        "action_change":RewardTermCfg(func=ainekio_mdp.action_change,weight=-.01),
-        "action_size":RewardTermCfg(func=ainekio_mdp.action_size,weight=-.005),
-        "standing_pose":RewardTermCfg(func=ainekio_mdp.standing_pose,weight=-.5)})
+        "action_change":RewardTermCfg(func=ainekio_mdp.action_change,weight=-.042),
+        "action_size":RewardTermCfg(func=ainekio_mdp.action_size,weight=-1.80),
+        "standing_pose":RewardTermCfg(func=ainekio_mdp.standing_pose,weight=-.90)})
     cfg.rewards["body_ang_vel"].weight=-.005
     # Per-step cost budgets prevent one finite physics excursion from
     # dominating PPO returns. They do not alter plant state or motion limits.
     for name,limit in {"body_ang_vel":20.,"foot_slip":1.5,
-                       "foot_clearance":1.5,"foot_swing_height":1.,"standing_pose":2.5}.items():
+                       "foot_clearance":1.5,"foot_swing_height":1.,"standing_pose":12.0}.items():
         term=cfg.rewards[name]
         cfg.rewards[name]=RewardTermCfg(func=ainekio_mdp.BoundedCost,weight=term.weight,
             params={"function":term.func,"parameters":term.params,"limit":limit})
@@ -595,6 +663,14 @@ def train(directory, config, *, iterations, num_envs=1024, device="cuda:0", seed
         agent.actor.distribution_cfg={
             "class_name":"gateway.neural_gait.microduck_policy:FootGaussianDistribution",
             "init_std":1.,"std_type":"log"}
+        agent.algorithm.symmetry_cfg={
+            "use_data_augmentation":False,
+            "use_mirror_loss":True,
+            "mirror_loss_coeff":0.35,
+            "data_augmentation_func":"gateway.neural_gait.microduck:mirror_symmetry_augmentation",
+        }
+        if resume:
+            agent.algorithm.entropy_coef=0.0015
         agent.save_interval=max(1,math.ceil(500_000/(num_envs*agent.num_steps_per_env)))
         manifest=dict(kind="microduck-mjlab",recipe=RECIPE,algorithm="PPO",
             task_revision=TASK_REVISION,actor_hidden_dims=list(agent.actor.hidden_dims),
@@ -629,8 +705,29 @@ def train(directory, config, *, iterations, num_envs=1024, device="cuda:0", seed
             ckpt_path=str(Path(resume)/"learner.pt")
             has_opt="optimizer_state_dict" in torch.load(ckpt_path,map_location="cpu",weights_only=False)
             runner.load(ckpt_path,load_cfg={"actor":True,"critic":True,"optimizer":False,"iteration":has_opt,"rnd":False},map_location=device)
+            resume_env_path=Path(resume)/"environment.json"
+            geom_shifted=False
+            if resume_env_path.exists():
+                prev_ref=json.loads(resume_env_path.read_text()).get("reference_joint_deg")
+                if prev_ref and len(prev_ref)==12:
+                    dq_rad=torch.deg2rad(
+                        torch.tensor(config.reference_joint_deg,dtype=torch.float32,device=device)
+                        -torch.tensor(prev_ref,dtype=torch.float32,device=device)
+                    )
+                    if float(dq_rad.abs().max().item())>1e-4:
+                        geom_shifted=True
+                        with torch.no_grad():
+                            for net in (runner.alg.actor,runner.alg.critic):
+                                if hasattr(net,"obs_normalizer") and hasattr(net.obs_normalizer,"_mean"):
+                                    m=net.obs_normalizer._mean.data.view(-1)
+                                    for frame_idx in range(15):
+                                        s=frame_idx*48
+                                        m[s:s+12]+=dq_rad.to(m.dtype)
             if hasattr(runner.alg.actor,"distribution") and hasattr(runner.alg.actor.distribution,"log_std_param"):
-                runner.alg.actor.distribution.log_std_param.data.clamp_(max=-1.45)
+                if geom_shifted:
+                    runner.alg.actor.distribution.log_std_param.data.clamp_(min=-1.80,max=-1.40)
+                else:
+                    runner.alg.actor.distribution.log_std_param.data.clamp_(min=-2.05,max=-1.65)
             # Calibrate critic on resumed actor under current snag curriculum before PPO updates
             actor=runner.alg.actor;critic=runner.alg.critic
             actor.obs_normalizer.eval();critic.obs_normalizer.eval()
@@ -676,7 +773,7 @@ def train(directory, config, *, iterations, num_envs=1024, device="cuda:0", seed
             wrapped.reset()
             runner.alg.optimizer.state.clear()
             if hasattr(runner,"alg") and hasattr(runner.alg,"learning_rate"):
-                runner.alg.learning_rate=8.0e-5
+                runner.alg.learning_rate=1.4e-4 if geom_shifted else 1.0e-4
                 for group in runner.alg.optimizer.param_groups:
                     group["lr"]=runner.alg.learning_rate
         elif distill_from:

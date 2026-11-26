@@ -36,6 +36,14 @@ size_t virtual_body_status(uint64_t now_us, char *text, size_t capacity);
 size_t virtual_body_heartbeat(uint64_t now_us, int pong, char *text, size_t capacity);
 size_t virtual_body_feedback_health(uint64_t now_us, char *text, size_t capacity);
 size_t virtual_body_media_actions(char *text, size_t capacity);
+size_t virtual_body_mic_gate(uint64_t now_us, int open, int wake_word,
+    char *text, size_t capacity);
+size_t virtual_body_mic_frame(uint64_t now_us, const uint8_t *pcm, size_t pcm_len,
+    uint8_t *packet_out, size_t packet_cap);
+size_t virtual_body_camera_frame(uint64_t now_us, int origin, uint32_t origin_id,
+    const char *res_name, uint64_t frame_completed_us, uint32_t boot_id,
+    const uint8_t *jpeg, size_t jpeg_len, char *meta_out, size_t meta_cap,
+    uint8_t *packet_out, size_t packet_cap, char *done_out, size_t done_cap);
 int virtual_body_face_frame(uint64_t now_ms, int talking, int capturing,
     uint8_t *rgba_out, char *name_out, size_t name_cap,
     char *token_out, size_t token_cap);

@@ -89,6 +89,12 @@ class DetectorBackendTests(unittest.TestCase):
         self.assertIsNone(backend.vision_target())
         self.assertEqual(backend.model, "rtdetrv2@abc")
 
+        for bogus in (["unknown_direction"], ["unknown_floortopology", "cup"], ["unknown"], ["none"]):
+            with self.assertRaisesRegex(ValueError, "concrete visual entity"):
+                backend.configure_vision({"operation": "search", "requestId": "bogus", "labels": bogus})
+        self.assertEqual(backend._mode, "release")
+        self.assertIsNone(backend.vision_target())
+
     def test_visual_prompt_uses_reference_pixels_and_commits_only_on_success(self):
         processor = Mock(return_value={"pixel_values": Tensor([[[[0.0]]]]), "query_pixel_values": Tensor([[[[0.0]]]])})
         detector = SimpleNamespace(image_guided_detection=Mock(side_effect=RuntimeError("model inference failed")))
@@ -199,16 +205,21 @@ class DetectorBackendTests(unittest.TestCase):
             {
                 "AINEKIO_VISION_DETECTOR_WEIGHTS": "/local/rtdetrv2_320.onnx",
                 "AINEKIO_VISION_DETECTOR_DEVICE": "cpu",
+                "AINEKIO_VISION_OPEN_VOCAB_DEVICE": "cuda",
                 "AINEKIO_VISION_DETECTOR_IMAGE_SIZE": "320",
                 "AINEKIO_VISION_DETECTOR_TRACKER": "iou",
                 "AINEKIO_VISION_OPEN_VOCAB_MODEL": "/local/owlv2",
+                "AINEKIO_VISION_MAX_FRAME_AGE_S": "2.5",
             },
         ):
             args = _parser().parse_args([])
             self.assertEqual(args.vision_detector_weights, "/local/rtdetrv2_320.onnx")
+            self.assertEqual(args.vision_detector_device, "cpu")
+            self.assertEqual(args.vision_open_vocab_device, "cuda")
             self.assertEqual(args.vision_detector_image_size, 320)
             self.assertEqual(args.vision_detector_tracker, "iou")
             self.assertEqual(args.vision_open_vocab_model, "/local/owlv2")
+            self.assertEqual(args.vision_max_frame_age_s, 2.5)
             self.assertEqual(_parser().parse_args(["--vision-detector-image-size", "640"]).vision_detector_image_size, 640)
 
     def test_gateway_rejects_ambiguous_backend_selection_before_startup(self):

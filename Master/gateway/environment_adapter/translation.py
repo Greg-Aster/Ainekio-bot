@@ -61,7 +61,7 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
 
 def _translate_move(action: Mapping[str, object], *, model: str | None = None) -> BridgeAction | None:
     goal = action.get("locomotionGoal")
-    if model == "v2-12servo" and action.get("gait") == "crab" and isinstance(goal, Mapping) and goal.get("kind") == "distance":
+    if model in ("v2-12servo", "v3-12servo") and action.get("gait") == "crab" and isinstance(goal, Mapping) and goal.get("kind") == "distance":
         direction = {"forward": "fwd", "back": "back", "left": "side_l", "right": "side_r"}.get(goal.get("direction"))
         return BridgeAction("intent", "walk", _walk_params(action, direction)) if direction else None
     direction = _normalized(action.get("direction") or "forward")
@@ -86,9 +86,14 @@ def _translate_move(action: Mapping[str, object], *, model: str | None = None) -
     )
 
 
-def _translate_turn(action: Mapping[str, object], side: str, *, model: str | None) -> BridgeAction:
-    if model == "v2-12servo":
-        # Bare V2 turns are ongoing; an explicit cycle count remains available.
+def _translate_turn(action: Mapping[str, object], side: str, *, model: str | None) -> BridgeAction | None:
+    goal = action.get("locomotionGoal")
+    if isinstance(goal, Mapping) and goal.get("kind") == "relativeTurn":
+        degrees = goal.get("degrees")
+        if type(degrees) in {int, float} and ((side == "right" and degrees > 0) or (side == "left" and degrees < 0)):
+            return None
+    if model in ("v2-12servo", "v3-12servo"):
+        # Bare V2/V3 turns are ongoing; an explicit cycle count remains available.
         action = {**action, "continuous": action.get("continuous", "units" not in action)}
     return BridgeAction("intent", "walk", _walk_params(action, "turn_l" if side == "left" else "turn_r"))
 
@@ -135,9 +140,9 @@ def valid_locomotion_goal(goal: object) -> bool:
         return False
     kind = goal.get("kind")
     if kind == "distance":
-        return goal.get("direction") in ("forward", "back", "left", "right") and positive(goal.get("metres")) and positive(goal.get("tolerance"))
+        return goal.get("direction") in ("forward", "back", "left", "right") and positive(goal.get("metres")) and positive(goal.get("tolerance")) and goal["tolerance"] < goal["metres"]
     if kind == "relativeTurn":
-        return number(goal.get("degrees")) and positive(goal.get("tolerance"))
+        return number(goal.get("degrees")) and goal.get("degrees") != 0 and positive(goal.get("tolerance")) and goal["tolerance"] < abs(goal["degrees"])
     if kind == "visual":
         return text(goal.get("target")) and text(goal.get("completionCriteria"))
     if kind not in ("approach", "follow"):

@@ -51,6 +51,7 @@ WALK_LATERAL_FEATURE = "walk_lateral_v1"
 WALK_NOMINAL_FEATURE = "walk_nominal_v1"
 RUN_GAIT_FEATURE = "run_gait_v1"
 CRAB_GAIT_FEATURE = "crab_gait_v1"
+ROOM_CHAT_FEATURE = "room_chat_v1"
 MAX_MONOTONIC_MS = (1 << 53) - 1
 MOTION_PLAN_JOINT_MAP = 1
 MOTION_PLAN_JOINTS = 8
@@ -94,6 +95,9 @@ EVENT_NAMES = frozenset(
         "idle_rest",
         "servo_feedback",
         "wake",
+        "room_chat",
+        "assistant_text",
+        "user_transcript",
     }
 )
 NAK_CODES = frozenset(
@@ -405,14 +409,17 @@ def _validate_motion_plan(message: Mapping[str, object]) -> None:
         maximum=MOTION_PLAN_V2_JOINT_MAP,
     )
     v2 = message["map"] == MOTION_PLAN_V2_JOINT_MAP
+    target_control = False
     if "control" in message:
         _string(message, "control", allowed=frozenset({"targets", "trajectory"}))
-        if not v2:
-            _fail("value:control")
         if message["control"] == "trajectory":
+            if not v2:
+                _fail("value:control")
             _string(message,"trajectory",max_length=32)
             _string(message,"end",allowed=frozenset({"hold"}))
             return
+        target_control = True
+    signed_targets = v2 or target_control
     frames = _required(message, "frames")
     if not isinstance(frames, list):
         _fail("type:frames")
@@ -425,17 +432,17 @@ def _validate_motion_plan(message: Mapping[str, object]) -> None:
         duration_ms, targets = frame
         if type(duration_ms) is not int:
             _fail("type:frames.duration")
-        if not (1 if v2 else MOTION_PLAN_MIN_FRAME_MS) <= duration_ms <= ((1 << 32) - 1 if v2 else MOTION_PLAN_MAX_FRAME_MS):
+        if not (1 if signed_targets else MOTION_PLAN_MIN_FRAME_MS) <= duration_ms <= ((1 << 32) - 1 if signed_targets else MOTION_PLAN_MAX_FRAME_MS):
             _fail("range:frames.duration")
         total_duration_ms += duration_ms
-        if not v2 and total_duration_ms > MOTION_PLAN_MAX_TOTAL_MS:
+        if not signed_targets and total_duration_ms > MOTION_PLAN_MAX_TOTAL_MS:
             _fail("range:frames.total_duration")
         if not isinstance(targets, list) or len(targets) != (MOTION_PLAN_V2_JOINTS if v2 else MOTION_PLAN_JOINTS):
             _fail("range:frames.targets")
         for target in targets:
             if type(target) is not int:
                 _fail("type:frames.target")
-            if not (-(1 << 31) if v2 else 0) <= target <= ((1 << 31) - 1 if v2 else MOTION_PLAN_MAX_CENTIDEGREES):
+            if not (-(1 << 31) if signed_targets else 0) <= target <= ((1 << 31) - 1 if signed_targets else MOTION_PLAN_MAX_CENTIDEGREES):
                 _fail("range:frames.target")
     _string(message, "end", allowed=frozenset({"hold", "stand", "neutral"}))
 
@@ -598,7 +605,7 @@ def _validate_calibration_status(message: Mapping[str, object]) -> None:
         if not 0 < value <= 100:
             _fail("range:provisional_us_per_degree")
     joints = _required(message, "joints")
-    if not isinstance(joints, list) or len(joints) != 12:
+    if not isinstance(joints, list) or len(joints) not in (MOTION_PLAN_JOINTS, MOTION_PLAN_V2_JOINTS):
         _fail("range:calibration.joints")
     seen_ids: set[int] = set()
     channels: set[int] = set()
@@ -911,28 +918,30 @@ def _validate_event(message: Mapping[str, object]) -> None:
             feedback = data["joint_feedback"]
             if not isinstance(feedback, dict):
                 _fail("invalid:imu.joint_feedback")
-            _integer(feedback, "map", minimum=2, maximum=2)
+            joint_map = _integer(feedback, "map", minimum=MOTION_PLAN_JOINT_MAP, maximum=MOTION_PLAN_V2_JOINT_MAP)
+            expected_joints = MOTION_PLAN_V2_JOINTS if joint_map == MOTION_PLAN_V2_JOINT_MAP else MOTION_PLAN_JOINTS
+            mask_max = (1 << expected_joints) - 1
             _boolean(feedback, "enabled")
             for key in ("device_us", "scan", "scan_us", "revision"):
                 _integer(feedback, key, minimum=0, maximum=2**64-1)
             for key in ("usable_mask", "commanded_mask", "stalled_joints", "calibrated_mask",
                         "unavailable_mask", "clipped_mask", "below_calibration_mask", "above_calibration_mask"):
-                _integer(feedback, key, minimum=0, maximum=4095)
+                _integer(feedback, key, minimum=0, maximum=mask_max)
             samples = feedback.get("sampled_us")
-            if not isinstance(samples, list) or len(samples) != 12 or any(
+            if not isinstance(samples, list) or len(samples) != expected_joints or any(
                     type(value) is not int or not 0 <= value <= feedback["device_us"] for value in samples):
                 _fail("invalid:imu.joint_feedback.sampled_us")
             for key,maximum in (("raw_adc",4095),("signal_millivolts",None)):
                 if key not in feedback:continue
                 values=feedback[key]
-                if not isinstance(values,list) or len(values)!=12 or any(
+                if not isinstance(values,list) or len(values)!=expected_joints or any(
                         value is not None and (type(value) is not int or value<0 or
                             (maximum is not None and value>maximum)) for value in values):
                     _fail(f"invalid:imu.joint_feedback.{key}")
             for key in ("filtered_model_deg", "velocity_deg_s", "commanded_model_deg"):
                 values = feedback.get(key)
                 mask = feedback["commanded_mask" if key == "commanded_model_deg" else "usable_mask"]
-                if not isinstance(values, list) or len(values) != 12:
+                if not isinstance(values, list) or len(values) != expected_joints:
                     _fail(f"invalid:imu.joint_feedback.{key}")
                 for index, value in enumerate(values):
                     if mask & (1 << index):
@@ -945,6 +954,8 @@ def _validate_event(message: Mapping[str, object]) -> None:
         if name not in {"vad_open", "vad_close"}:
             _fail("unexpected:origin_id")
         _integer(message, "origin_id", minimum=0, maximum=MAX_BINARY_COUNTER)
+    if name in {"room_chat", "assistant_text", "user_transcript"}:
+        _string(message, "text", max_length=2000)
 
 
 def _validate_cam_meta(message: Mapping[str, object]) -> None:

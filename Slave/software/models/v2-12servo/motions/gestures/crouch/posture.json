@@ -1,1 +1,31 @@
-{"description":"Lower all four planted feet into a held squat. Lower legs stay inclined; chassis and shell remain above ground.","contact_hulls_file":"../sit/posture-hulls.npz","contact_hulls_sha256":"0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c","mechanism_geometry_sha256":"714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b","body_support_scope":"Feet only; complete current body hull above floor.","body_z_mm":-21.104093632586267,"linkage_remap":{"geometry_sha256":"714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b","baseline_geometry_sha256":"d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38","baseline_source_sha256":"fd688c3f3432489d32f5a147bea82414b80d8e8c068938b68a558463aeb27ca7","generator":"docs/gait-research/seated-support-20261005/library-remap.py","qualification":"Offline geometry and sampler candidate. No calibration or runtime limits changed.","policy":"Planted-foot Crouch refitted to the supplied motor mapping and authored pulse window; lowering depth follows that fit."},"angle_scope":"Firmware geometric offsets; physical calibration and assembly mounting unqualified.","calibrated_motion_revision":{"changed_samples":115,"maximum_planted_fit_error_mm":1.0666734340247785e-07,"maximum_joint_step_degrees":0.3713573851735933,"pulse_window_us":[500.0,2800.0],"calibration_sha256":"9d9399db5022768e58bf4d8c4949321864107137970cd8e2e0f8c1327386be0b","body_rotations_preserved":true,"baseline_source_sha256":"3c4b0eb5b59a97d9ba11a6f5d87b1babafda0807ac86ae81a19936c42db81a78","hardware_qualified":false,"maximum_airborne_target_change_mm":0.0}}
+{
+  "description": "Lower all four planted feet into a held squat. Lower legs stay inclined; chassis and shell remain above ground.",
+  "contact_hulls_file": "../sit/posture-hulls.npz",
+  "contact_hulls_sha256": "7d64f84420e23e7c5d256688b9394b2aff5547ab97c7a83c5e6c4bad422ea25e",
+  "mechanism_geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
+  "body_support_scope": "Feet only; complete current body hull above floor.",
+  "body_z_mm": -21.104093632586267,
+  "linkage_remap": {
+    "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+    "baseline_geometry_sha256": "d7b06b9ed179fb3835a17ff8e5c40144df2b5844b17c28ef5ba99dfae9cdbe38",
+    "baseline_source_sha256": "fd688c3f3432489d32f5a147bea82414b80d8e8c068938b68a558463aeb27ca7",
+    "generator": "docs/gait-research/seated-support-20261005/library-remap.py",
+    "qualification": "Offline geometry and sampler candidate. No calibration or runtime limits changed.",
+    "policy": "Planted-foot Crouch refitted to the supplied motor mapping and authored pulse window; lowering depth follows that fit."
+  },
+  "angle_scope": "Firmware geometric offsets; physical calibration and assembly mounting unqualified.",
+  "calibrated_motion_revision": {
+    "changed_samples": 115,
+    "maximum_planted_fit_error_mm": 1.0666734340247785e-07,
+    "maximum_joint_step_degrees": 0.3713573851735933,
+    "pulse_window_us": [
+      500.0,
+      2800.0
+    ],
+    "calibration_sha256": "9d9399db5022768e58bf4d8c4949321864107137970cd8e2e0f8c1327386be0b",
+    "body_rotations_preserved": true,
+    "baseline_source_sha256": "3c4b0eb5b59a97d9ba11a6f5d87b1babafda0807ac86ae81a19936c42db81a78",
+    "hardware_qualified": false,
+    "maximum_airborne_target_change_mm": 0.0
+  }
+}

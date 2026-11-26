@@ -978,8 +978,8 @@ static ainekio_decode_result_t decode_motion_plan(
         char mode[16];
         result=required_string(parser,root,"control",mode,sizeof(mode),7U,10U);
         if(result!=AINEKIO_DECODE_OK)return result;
-        if(!v2)return AINEKIO_DECODE_VALUE;
         if(!strcmp(mode,"trajectory")) {
+            if(!v2)return AINEKIO_DECODE_VALUE;
             result=required_string(parser,root,"trajectory",plan->trajectory_token,
                 sizeof(plan->trajectory_token),1U,AINEKIO_ASSET_NAME_MAX);
             if(result!=AINEKIO_DECODE_OK)return result;
@@ -1010,12 +1010,13 @@ static ainekio_decode_result_t decode_motion_plan(
         if (!token_integer(parser, array_get(parser, frame, 0U), &duration_ms)) {
             return AINEKIO_DECODE_TYPE;
         }
-        if (duration_ms < (v2 ? 1 : AINEKIO_MOTION_PLAN_MIN_FRAME_MS) ||
-            duration_ms > (v2 ? UINT32_MAX : AINEKIO_MOTION_PLAN_MAX_FRAME_MS)) {
+        const bool signed_targets = v2 || plan->target_control;
+        if (duration_ms < (signed_targets ? 1 : AINEKIO_MOTION_PLAN_MIN_FRAME_MS) ||
+            duration_ms > (signed_targets ? UINT32_MAX : AINEKIO_MOTION_PLAN_MAX_FRAME_MS)) {
             return AINEKIO_DECODE_RANGE;
         }
         total_duration_ms += (uint32_t)duration_ms;
-        if (!v2 && total_duration_ms > AINEKIO_MOTION_PLAN_MAX_TOTAL_MS) {
+        if (!signed_targets && total_duration_ms > AINEKIO_MOTION_PLAN_MAX_TOTAL_MS) {
             return AINEKIO_DECODE_RANGE;
         }
 
@@ -1032,8 +1033,8 @@ static ainekio_decode_result_t decode_motion_plan(
             if (!token_integer(parser, array_get(parser, targets, joint_id), &centidegrees)) {
                 return AINEKIO_DECODE_TYPE;
             }
-            if (centidegrees < (v2 ? INT32_MIN : 0) ||
-                centidegrees > (v2 ? INT32_MAX : AINEKIO_MOTION_PLAN_MAX_CENTIDEGREES)) {
+            if (centidegrees < (signed_targets ? INT32_MIN : 0) ||
+                centidegrees > (signed_targets ? INT32_MAX : AINEKIO_MOTION_PLAN_MAX_CENTIDEGREES)) {
                 return AINEKIO_DECODE_RANGE;
             }
             output_frame->targets[joint_id] = (int32_t)centidegrees;

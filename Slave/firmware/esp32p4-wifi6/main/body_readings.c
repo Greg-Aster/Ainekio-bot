@@ -3,6 +3,11 @@
 #include "board.h"
 #include "config.h"
 #include "servo_feedback.h"
+#ifdef CONFIG_AINEKIO_MODEL_V1_8SERVO
+#include "ainekio/v1_model.h"
+#elif defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
+#include "ainekio/v3_model.h"
+#endif
 #include "ainekio/v2_limits.h"
 #include "esp_timer.h"
 #include "cJSON.h"
@@ -21,8 +26,16 @@ cJSON *ainekio_p4_calibration_json(uint32_t sequence)
     cJSON_AddBoolToObject(message, "dirty", state.dirty);
     cJSON_AddBoolToObject(message, "saved", state.saved);
     cJSON_AddBoolToObject(message, "profile_confirmed", state.profile_confirmed);
+#ifdef CONFIG_AINEKIO_MODEL_V1_8SERVO
+    cJSON_AddStringToObject(message, "servo_profile_id", "mg90s-v1-p4");
+    cJSON_AddNumberToObject(message, "provisional_us_per_degree", AINEKIO_V1_US_PER_DEGREE);
+#elif defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
+    cJSON_AddStringToObject(message, "servo_profile_id", AINEKIO_V3_SERVO_PROFILE_ID);
+    cJSON_AddNumberToObject(message, "provisional_us_per_degree", AINEKIO_V3_US_PER_DEGREE);
+#else
     cJSON_AddStringToObject(message, "servo_profile_id", ainekio_v2_servo_profile_id());
     cJSON_AddNumberToObject(message, "provisional_us_per_degree", ainekio_v2_us_per_degree());
+#endif
     cJSON_AddBoolToObject(message, "shaft_travel_measured", false);
     cJSON_AddBoolToObject(message, "ready", state.valid && output.ready);
     uint16_t pulse_min, pulse_max;
@@ -31,7 +44,7 @@ cJSON *ainekio_p4_calibration_json(uint32_t sequence)
         cJSON_AddNumberToObject(message, "pulse_max_us", pulse_max);
     }
     cJSON *joints = cJSON_AddArrayToObject(message, "joints");
-    for (size_t i=0; i<AINEKIO_BODY_JOINT_COUNT; ++i) {
+    for (size_t i=0; i<AINEKIO_P4_ACTIVE_JOINTS; ++i) {
         const ainekio_p4_joint_config_t *joint = &state.joints[i];
         cJSON *entry = cJSON_CreateObject();
         if (!entry || !joints) { cJSON_Delete(entry); cJSON_Delete(message); return NULL; }
@@ -43,7 +56,11 @@ cJSON *ainekio_p4_calibration_json(uint32_t sequence)
         cJSON_AddNumberToObject(entry, "home_cd", joint->home_cd);
         cJSON_AddNumberToObject(entry, "recommended_home_us",
             ainekio_p4_joint_recommended_home(i, joint->invert));
+#if defined(CONFIG_AINEKIO_MODEL_V1_8SERVO) || defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
+        cJSON_AddNumberToObject(entry, "recommended_home_cd", 0.0);
+#else
         cJSON_AddNumberToObject(entry, "recommended_home_cd", 100.*ainekio_v2_center_degrees(i));
+#endif
         cJSON_AddNumberToObject(entry, "us_per_degree", joint->us_per_degree);
         cJSON_AddNumberToObject(entry, "pulse_us", joint->channel < 0 ? 0 : pulses[joint->channel]);
     }
@@ -64,7 +81,7 @@ static cJSON *health_json(const ainekio_p4_feedback_snapshot_t *s)
     ainekio_p4_feedback_health_t health;ainekio_p4_feedback_health(s,&health);
     cJSON *o=cJSON_CreateObject();if(!o)return NULL;
     cJSON_AddBoolToObject(o,"enabled",s->config.enabled);
-    cJSON_AddBoolToObject(o,"usable",s->config.enabled && health.calibrated==0xfff &&
+    cJSON_AddBoolToObject(o,"usable",s->config.enabled && health.calibrated==AINEKIO_P4_ACTIVE_MASK &&
         !(health.unavailable|health.clipped|health.below_calibration|health.above_calibration));
     cJSON_AddNumberToObject(o,"scan",s->scan);
     cJSON_AddNumberToObject(o,"clock_us",esp_timer_get_time());
@@ -76,7 +93,7 @@ static cJSON *health_json(const ainekio_p4_feedback_snapshot_t *s)
     cJSON_AddStringToObject(o,"adc_error",esp_err_to_name(s->error));
     cJSON_AddBoolToObject(o,"supply_voltage_available",false);
     cJSON *mv=cJSON_AddArrayToObject(o,"signal_millivolts");
-    for(unsigned j=0;j<12;j++) {
+    for(unsigned j=0;j<AINEKIO_P4_ACTIVE_JOINTS;j++) {
         unsigned channel=s->config.joint[j].channel;
         cJSON_AddItemToArray(mv,s->config.enabled && (s->valid_mask&(1U<<channel)) &&
             s->millivolts[channel]>=0 ? cJSON_CreateNumber(s->millivolts[channel]):cJSON_CreateNull());
@@ -117,7 +134,12 @@ cJSON *ainekio_p4_feedback_status_json(void)
     cJSON_AddNumberToObject(o,"stalled_joints",motion.stalled_joints);
     cJSON_AddNumberToObject(o,"stall_clock_us",motion.stall_clock_us);
     cJSON *channels=cJSON_AddArrayToObject(o,"channels"),*joints=cJSON_AddArrayToObject(o,"joints");
-    for(unsigned channel=0;channel<16;channel++) {
+#ifdef CONFIG_AINEKIO_FEEDBACK_DIRECT_ADC
+    const unsigned channel_count = 8U;
+#else
+    const unsigned channel_count = 16U;
+#endif
+    for(unsigned channel=0;channel<channel_count;channel++) {
         bool valid=s.config.enabled&&(s.valid_mask&(1U<<channel));
         cJSON *v=cJSON_CreateObject();cJSON_AddItemToArray(channels,v);
         cJSON_AddNumberToObject(v,"channel",channel);cJSON_AddBoolToObject(v,"valid",valid);
@@ -131,7 +153,7 @@ cJSON *ainekio_p4_feedback_status_json(void)
             if(s.millivolts[channel]>=0)cJSON_AddNumberToObject(v,"millivolts",s.millivolts[channel]);
         }
     }
-    for(unsigned id=0;id<12;id++) {
+    for(unsigned id=0;id<AINEKIO_P4_ACTIVE_JOINTS;id++) {
         const ainekio_feedback_joint_t *j=&s.config.joint[id];
         const ainekio_p4_joint_config_t *m=&mapping.joints[id];
         cJSON *v=cJSON_CreateObject();cJSON_AddItemToArray(joints,v);

@@ -76,15 +76,15 @@
   },
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "6fbc91a2487c89eb4f8a0ba72407025283741294b6b62c31702658704330c0bf",
-  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
-  "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
+  "source_sha256": "2d5a84119a885a30fad2918292503a292a4c58485a5ab95ef3c0663978dd84e9",
+  "geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
+  "sole_hulls_sha256": "f10589aff3dcd1b72b04b1e226cc11a19987e9c0c9113c90a235b68780121e5f",
   "face_sha256": {
     "faces/bow/0.bin": "393a0db8923b80170bf21b1f7782609d87061befa863057f17e604d6e17bc33e",
     "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
   },
   "body_contact_required": false,
-  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124",
   "entry_actuator_angles_rad": [
     [
       -7.045333538941194e-09,
@@ -179,7 +179,7 @@
     "path": "docs/gait-research/bow-20260916/source.json",
     "sha256": "114729d3233f328e51cb05de2bf81d9c277c18c235b8420ef5b4d8b0fd696c7b"
   },
-  "posture_sha256": "dff387ca9c8ba4d0bad0494ac19c5feecb34529848ba5a763ca91f0d47ce7861",
+  "posture_sha256": "a1515f02203187ebc10f776b82333f0f26c6a204a069a8ab26acdac79f67b27f",
   "posture_hulls_sha256": "3c0f3b912f38ff177c6f29f70bd5572367c757e377491816dd57bc857396f283",
   "retargeting_notes": "Prompt front-low/rear-high bow with forward hands, held for five seconds before rising and returning to standing.",
   "choreography_source": "docs/gait-research/bow-20260916/manifest.json",

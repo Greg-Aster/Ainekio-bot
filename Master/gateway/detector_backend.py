@@ -244,6 +244,7 @@ class DetectorBackend:
         weights: str,
         *,
         device: str = "cpu",
+        open_vocab_device: str | None = None,
         image_size: int = 640,
         confidence: float = 0.40,
         search_confidence: float = 0.12,
@@ -263,6 +264,7 @@ class DetectorBackend:
                 raise ValueError(f"Detector {thresh_name} must be between 0 and 1")
 
         self.device = device
+        self.open_vocab_device = open_vocab_device or device
         self.image_size = image_size
         self.confidence = float(confidence)
         self.search_confidence = float(search_confidence)
@@ -321,7 +323,7 @@ class DetectorBackend:
                 raise ValueError("Open-vocabulary vision requires an existing local OWLv2 model directory")
             from transformers import Owlv2ForObjectDetection, Owlv2Processor
             self._open_vocab_processor = Owlv2Processor.from_pretrained(str(ov_path), local_files_only=True)
-            self._open_vocab_detector = Owlv2ForObjectDetection.from_pretrained(str(ov_path), local_files_only=True).to(device).eval()
+            self._open_vocab_detector = Owlv2ForObjectDetection.from_pretrained(str(ov_path), local_files_only=True).to(self.open_vocab_device).eval()
             self._open_vocab_model_id = f"{ov_path.name}@{_hash_path(ov_path)}"
 
         self._mode = "release"
@@ -346,6 +348,18 @@ class DetectorBackend:
     def vision_target(self):
         return self._vision_target
 
+    @staticmethod
+    def _validate_open_vocab_label(label: str) -> str:
+        cleaned = label.strip()
+        lowered = cleaned.lower()
+        if (
+            not cleaned
+            or lowered in {"unknown", "none", "null", "undefined", "n/a"}
+            or lowered.startswith(("unknown_", "unknown-", "unknown "))
+        ):
+            raise ValueError(f"Open-vocabulary label must name a concrete visual entity, got {cleaned!r}")
+        return cleaned
+
     def configure_vision(self, request: dict[str, object]) -> dict[str, object]:
         """Called on the camera's single inference executor, never robot receive.
 
@@ -366,9 +380,9 @@ class DetectorBackend:
             raw_labels = request.get("labels")
             if not isinstance(raw_labels, list) or not raw_labels:
                 raise ValueError("Text search requires at least one label")
-            labels = [str(label).strip() for label in raw_labels if isinstance(label, str) and label.strip()]
-            if len(labels) != len(raw_labels):
+            if not all(isinstance(label, str) and label.strip() for label in raw_labels):
                 raise ValueError("Text search labels must be non-empty strings")
+            labels = [self._validate_open_vocab_label(str(label)) for label in raw_labels]
             # Validate tokenization before mutating active state.
             self._open_vocab_processor(text=[labels], return_tensors="pt")
             next_mode = "search"
@@ -403,14 +417,13 @@ class DetectorBackend:
             ref_pil = Image.fromarray(reference_rgb)
 
             # Verify one-shot visual query execution before committing state.
+            ov_device = getattr(self, "open_vocab_device", None) or self.device
             inputs = self._open_vocab_processor(images=ref_pil, query_images=crop_rgb, return_tensors="pt")
-            inputs = {k: v.to(self.device) if hasattr(v, "to") else v for k, v in inputs.items()}
+            inputs = {k: v.to(ov_device) if hasattr(v, "to") else v for k, v in inputs.items()}
             with torch.no_grad():
                 self._open_vocab_detector.image_guided_detection(**inputs)
 
-            description = str(request["description"]).strip()
-            if not description:
-                raise ValueError("Visual selection requires a non-empty description")
+            description = self._validate_open_vocab_label(str(request["description"]))
             next_mode = "select"
             next_classes = {0: description}
             next_query_id = str(request["requestId"])
@@ -566,10 +579,11 @@ class DetectorBackend:
         pil = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
         target_sizes = torch.tensor([[height, width]])
 
+        ov_device = getattr(self, "open_vocab_device", None) or self.device
         if self._mode == "search":
             assert self._search_labels is not None
             inputs = self._open_vocab_processor(text=[self._search_labels], images=pil, return_tensors="pt")
-            inputs = {k: v.to(self.device) if hasattr(v, "to") else v for k, v in inputs.items()}
+            inputs = {k: v.to(ov_device) if hasattr(v, "to") else v for k, v in inputs.items()}
             with torch.no_grad():
                 outputs = self._open_vocab_detector(**inputs)
             outputs_cpu = type(outputs)(**{k: v.cpu() if hasattr(v, "cpu") else v for k, v in outputs.items()})
@@ -604,7 +618,7 @@ class DetectorBackend:
 
         assert self._mode == "select" and self._visual_query_crop is not None
         inputs = self._open_vocab_processor(images=pil, query_images=self._visual_query_crop, return_tensors="pt")
-        inputs = {k: v.to(self.device) if hasattr(v, "to") else v for k, v in inputs.items()}
+        inputs = {k: v.to(ov_device) if hasattr(v, "to") else v for k, v in inputs.items()}
         with torch.no_grad():
             outputs = self._open_vocab_detector.image_guided_detection(**inputs)
         outputs_cpu = type(outputs)(**{k: v.cpu() if hasattr(v, "cpu") else v for k, v in outputs.items()})

@@ -1009,7 +1009,7 @@ class BridgeNeuralPoseLifecycleTests(unittest.IsolatedAsyncioTestCase):
                         "arguments": {
                             "joint": "rear_left_shoulder",
                             "reference": "absolute",
-                            "angle_deg": 12.0,
+                            "angle_deg": -12.0,
                             "speed_pct": 75,
                         },
                     },
@@ -1061,8 +1061,8 @@ class BridgeNeuralPoseLifecycleTests(unittest.IsolatedAsyncioTestCase):
             first_hit_15 = next(i for i, v in enumerate(fr_carrier_trace) if abs(v - 15.0) < 0.05)
             self.assertGreaterEqual(len(fr_carrier_trace) - first_hit_15, 16)
 
-            # Verify middle unblocked segment (rear_left_shoulder -> 12 deg) and final return (0 deg) executed cleanly
-            self.assertGreater(max(rl_shoulder_trace), 10.5)
+            # Verify middle unblocked segment (rear_left_shoulder -> -12 deg outward) and final return (0 deg) executed cleanly
+            self.assertLess(min(rl_shoulder_trace), -10.5)
             self.assertLessEqual(abs(rl_shoulder_trace[-1]), 1.5)
 
             # Verify final-pose stall settled safely (~10.0 deg) without forcing an unwanted return to STAND_ANGLES_DEG
@@ -2052,11 +2052,16 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
             sim.model.jnt_limited[int(sim.model.joint(f"{legs[l_i]}_shoulder").id)] = orig_sh_limited[l_i]
             sim.model.jnt_range[int(sim.model.joint(f"{legs[l_i]}_shoulder").id)] = orig_sh_range[l_i]
         sim.model.geom_friction[:] = orig_geom_friction
+        end_w, end_x, end_y, end_z = (float(v) for v in sim.data.qpos[3:7])
+        final_roll_deg = math.degrees(
+            math.atan2(2.0 * (end_w * end_x + end_y * end_z), 1.0 - 2.0 * (end_x * end_x + end_y * end_y))
+        )
         return {
             "scenario": name,
             "suspended": suspended,
             "upright_min_cos": round(min_up_cos, 3),
             "fell_over": (not suspended) and (min_up_cos < 0.45),
+            "final_roll_deg": round(float(final_roll_deg), 2),
             "segment_end_mae_deg": seg_errors_deg,
             "mean_end_mae_deg": round(sum(seg_errors_deg) / max(1, len(seg_errors_deg)), 2),
             "hold_cmd_p2p_deg": round(max(hold_cmd_p2p_list), 2) if hold_cmd_p2p_list else None,
@@ -2309,6 +2314,19 @@ def run_mujoco_qualification(policy_path: Path) -> dict:
                 servo_kd_scale=1.8,
                 relocking_carpet_legs=(0, 1, 2, 3),
             ),
+            _run_scenario(
+                "live_1305_tilted_roll_13deg_level_stand_recovery",
+                [-9.5, 11.4, -9.8, -2.5, -13.6, -19.5, -3.0, 14.7, -16.7, -8.8, -14.8, -27.6],
+                [
+                    {"name": "stand", "arguments": {}},
+                    {"name": "hold", "arguments": {"seconds": 1.2}},
+                ],
+                suspended=False,
+                cmd_delay_ticks=2,
+                obs_delay_ticks=4,
+                servo_kd_scale=1.8,
+                relocking_carpet_legs=(0, 1, 2, 3),
+            ),
         ]
         return {"policy": str(policy_path), "scenarios": results}
     finally:
@@ -2355,16 +2373,24 @@ class ClosedLoopPolicyQualificationTests(unittest.TestCase):
                 -28.5,
                 f"Scenario {item['scenario']} drove carrier past calibrated -30.87 deg mechanical home: {item}",
             )
-            if item["scenario"] == "overhead_stretch_return_crouched_rear_recovery":
+            if item["scenario"] in (
+                "overhead_stretch_return_crouched_rear_recovery",
+                "live_1305_tilted_roll_13deg_level_stand_recovery",
+            ):
                 self.assertLessEqual(
                     max(abs(v) for v in item["shoulders_end_deg"]),
                     5.0,
-                    f"Overhead stretch return must settle all shoulders inside 5 deg: {item}",
+                    f"{item['scenario']} must settle all shoulders inside 5 deg: {item}",
                 )
                 self.assertLessEqual(
                     max(abs(v - 0.94) for v in item["carriers_end_deg"]),
                     6.0,
-                    f"Overhead stretch return must raise all crouched carriers cleanly to Stand: {item}",
+                    f"{item['scenario']} must level all carriers cleanly to Stand: {item}",
+                )
+                self.assertLessEqual(
+                    abs(item["final_roll_deg"]),
+                    4.5,
+                    f"{item['scenario']} must stand level without locking into a roll tilt: {item}",
                 )
             if item["scenario"] == "splayed_carpet_snag_microstep_recovery":
                 self.assertGreaterEqual(
@@ -2502,6 +2528,20 @@ class NeuralPosePresenceTests(unittest.IsolatedAsyncioTestCase):
         q_deg = (q_rad[0] * (180.0 / math.pi)).tolist()
         for ca_idx in (1, 4, 7, 10):
             self.assertGreaterEqual(q_deg[ca_idx], -27.95, f"Carrier {ca_idx} crossed calibrated floor: {q_deg}")
+
+    def test_mechanical_shoulder_limits_clamp_rear_and_front_shoulders(self):
+        manifold = PoseManifold()
+        # Extreme inward (+45 deg) and outward (-55 deg) requests must clamp inside chassis stops.
+        inward_deg, _ = manifold.project_angles_deg([45.0, 3.46, -21.63] * 4)
+        outward_deg, _ = manifold.project_angles_deg([-55.0, 3.46, -21.63] * 4)
+        self.assertLessEqual(inward_deg[0], 10.1)
+        self.assertLessEqual(inward_deg[3], 10.1)
+        self.assertLessEqual(inward_deg[6], 20.1)
+        self.assertLessEqual(inward_deg[9], 20.1)
+        self.assertGreaterEqual(outward_deg[0], -28.1)
+        self.assertGreaterEqual(outward_deg[3], -28.1)
+        self.assertGreaterEqual(outward_deg[6], -30.1)
+        self.assertGreaterEqual(outward_deg[9], -30.1)
 
     def test_sagittal_nod_basis_keeps_all_four_shoulders_at_exact_zero(self):
         from experiments.freestyle.neural_pose.presence import build_sagittal_nod_basis, speech_presence_goal_deg
@@ -2709,6 +2749,81 @@ class NeuralPosePresenceTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(any(f.get("expr") == "talk_happy" for f in faces))
         finally:
             await presence.close()
+
+    async def test_virtual_simulation_body_executes_freestyle_motion_without_http_maintenance(self):
+        from experiments.freestyle.compact_wire import ProgramEncoding, model_query
+        from experiments.freestyle.motion_space import TOOLS
+
+        gw = _PresenceTestGateway()
+        orig_snapshot = gw.status_snapshot
+
+        async def virtual_snapshot():
+            snap = await orig_snapshot()
+            robot_entry = snap["robots"][gw.conn.robot_id]
+            robot_entry["virtual"] = True
+            robot_entry["features"] = ["walk_nominal_v1", "motion_targets_v1", "servo_feedback_v1", "face_feedback_v1", "room_chat_v1"]
+            robot_entry["calibration"] = {
+                **(robot_entry.get("calibration") or {}),
+                "pulse_min_us": 500,
+                "pulse_max_us": 2800,
+            }
+            robot_entry["status"] = {
+                "imu": dict(gw.obs["imu"]),
+                "balance": {"joint_feedback": {"tolerance_us": 200.0}},
+            }
+            gw.obs["feedback"]["health"] = {
+                "enabled": True,
+                "calibrated_mask": 0xFFF,
+                "unavailable_mask": 0,
+                "clipped_mask": 0,
+                "below_calibration_mask": 0,
+                "above_calibration_mask": 0,
+            }
+            for j in JOINTS:
+                gw.obs["joints"][j]["feedback_usable"] = True
+                gw.obs["joints"][j]["feedback_faults"] = []
+                gw.obs["joints"][j]["filtered_model_deg"] = gw.obs["joints"][j]["commanded_model_deg"]
+            return snap
+
+        gw.status_snapshot = virtual_snapshot
+
+        class _ForbidHttpTransport:
+            async def request(self, robot, endpoint, payload):
+                raise RuntimeError("Virtual simulation bodies do not expose ESP32 Wi-Fi HTTP maintenance")
+
+            async def close(self):
+                pass
+
+        async def fake_generate(_endpoint, req):
+            encoded = model_query(req, ProgramEncoding(TOOLS))
+            obs_enc = encoded["observation"]
+            self.assertEqual(obs_enc["joints"]["feedback_usable"], [True] * 12)
+            self.assertEqual(obs_enc["joints"]["calibrated"], [True] * 12)
+            self.assertEqual(obs_enc["joints"]["within_arrival_tolerance"], [True] * 12)
+            self.assertEqual(len(obs_enc["joints"]["feedback_range_deg"]), 12)
+            self.assertEqual(obs_enc["shaft_tracking"]["unknown_arrival_tolerance"], [])
+            self.assertEqual(len(obs_enc["shaft_tracking"]["within_arrival_tolerance"]), 12)
+            self.assertNotIn("room_chat_v1", obs_enc["features"])
+            self.assertEqual(obs_enc["feedback"]["waiting_joints"], 0)
+            self.assertEqual(obs_enc["feedback"]["no_progress_ms"], 3000)
+            return {
+                "program": [
+                    {
+                        "name": "feet",
+                        "arguments": {"legs": ["front_right"], "offsets_mm": [[0.0, 0.0, 28.0]], "speed_pct": 80},
+                    },
+                    {"name": "stand", "arguments": {}},
+                ]
+            }
+
+        bridge = Bridge(gw, _ForbidHttpTransport(), generate=fake_generate, neural_pose_runtime=_DummyRuntime())
+        try:
+            sub = await bridge.submit(gw.conn.robot_id, "Lift right foot then stand.", True)
+            res = await bridge.result(sub["job_id"])
+            self.assertEqual(res["state"], "completed", res.get("error"))
+            self.assertTrue(any(c.get("t") == "walk_target" for c in gw.conn.sent))
+        finally:
+            await bridge.close()
 
 
 if __name__ == "__main__":

@@ -12,11 +12,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/point/source.json",
-      "sha256": "fdb54fa5dc140657b72870fdd9e5a9e46178169f27bcd0583db7d64472a1f159"
+      "sha256": "d1b926b1bf80361e2b54f53ab0f920116d6bd70f0fc972504773f9859f7617ef"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/point/manifest.json",
-      "sha256": "b5c80dd94a23a072466c104341428f57a869b6a12a6c890c3556c227fe9d88b5"
+      "sha256": "10dab77efad10a6d969a49b8446eec1c3f9958ddfb3bdacf4546c586f54747d0"
     }
   ],
   "source_units": {
@@ -829,5 +829,5 @@
   "body_support_required": false,
   "interruption_note": "Keep the three supporting legs and crouched body coordinated; retract and replace the pointing foot before standing. Never seek directly to the last row.",
   "hardware_ready": false,
-  "geometry_id": "compact-35-20-28-38-55-visible-20261005"
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124"
 }

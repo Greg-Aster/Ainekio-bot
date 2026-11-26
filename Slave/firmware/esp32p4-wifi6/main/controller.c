@@ -23,6 +23,11 @@
 #include "ainekio/v2_motion.h"
 #include "ainekio/v2_walk.h"
 #include "ainekio/v2_microduck.h"
+#ifdef CONFIG_AINEKIO_MODEL_V1_8SERVO
+#include "ainekio/v1_model.h"
+#elif defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
+#include "ainekio/v3_model.h"
+#endif
 
 #include <inttypes.h>
 #include <stdatomic.h>
@@ -313,6 +318,9 @@ static void heartbeat(uint64_t connection, bool pong)
 static const char *const base_commands[] = {
     "stop", "say", "face", "stand", "neutral", "walk", "backward", "left", "right", "crawl", "run",
     "crab", "crab_right", "crab_forward", "crab_backward", "crab_turn_left", "crab_turn_right"
+#if defined(CONFIG_AINEKIO_MODEL_V1_8SERVO) || defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
+    , "crouch", "lay_down", "rest", "sleep", "sit", "bow", "play_bow", "stretch", "wave"
+#endif
 };
 enum { BASE_COMMAND_COUNT = sizeof(base_commands) / sizeof(base_commands[0]) };
 
@@ -321,12 +329,14 @@ static ainekio_capabilities_t capabilities(const ainekio_p4_media_status_t *medi
 {
     size_t count = BASE_COMMAND_COUNT;
     memcpy(commands, base_commands, sizeof(base_commands));
+#if !defined(CONFIG_AINEKIO_MODEL_V1_8SERVO) && !defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
     for (size_t i = 0; i < ainekio_v2_clip_count; ++i) {
         bool duplicate = false;
         for (size_t j = 0; j < count; ++j)
             if (strcmp(commands[j], ainekio_v2_clips[i].command) == 0) duplicate = true;
         if (!duplicate) commands[count++] = ainekio_v2_clips[i].command;
     }
+#endif
     return (ainekio_capabilities_t){.commands=commands, .command_count=count,
         .motion=calibration->valid && calibration->profile_confirmed && atomic_load(&initialized), .camera=media->camera_ready,
         .microphone=media->microphone_ready, .speaker=media->speaker_ready, .wake=media->wake_ready,
@@ -349,7 +359,7 @@ static void hello(uint64_t connection)
     const ainekio_hello_t message = {.firmware=esp_app_get_description()->version,
         .robot_id=config->robot_id, .auth_token=config->robot_token,
         .features=features, .feature_count=sizeof(features)/sizeof(features[0]),
-        .model="v2-12servo", .clock_ms=now_us()/1000U, .capabilities=&caps};
+        .model=AINEKIO_P4_MODEL_NAME, .clock_ms=now_us()/1000U, .capabilities=&caps};
     char text[4096];
     if (ainekio_encode_hello(&message, text, sizeof(text))) reply(connection, text);
     else fail_link();
@@ -1060,7 +1070,7 @@ static esp_err_t calibrate(const request_t *request)
     }
     if (c->operation == AINEKIO_CALIBRATION_SET) {
         const ainekio_p4_calibration_t current = ainekio_p4_calibration();
-        if (c->id < 0 || c->id >= AINEKIO_BODY_JOINT_COUNT) return ESP_ERR_INVALID_ARG;
+        if (c->id < 0 || c->id >= (int)AINEKIO_P4_ACTIVE_JOINTS) return ESP_ERR_INVALID_ARG;
         ainekio_p4_joint_config_t joint = current.joints[c->id];
         joint.channel = c->channel;
         joint.home_us = c->home_us;
@@ -1077,7 +1087,7 @@ static esp_err_t calibrate(const request_t *request)
         if (!ainekio_p4_home_pulses(pulses)) return ESP_ERR_INVALID_STATE;
         return ainekio_p4_body_home(request->output_generation, pulses);
     }
-    if (c->id < 0 || c->id >= AINEKIO_BODY_JOINT_COUNT) return ESP_ERR_INVALID_ARG;
+    if (c->id < 0 || c->id >= (int)AINEKIO_P4_ACTIVE_JOINTS) return ESP_ERR_INVALID_ARG;
     const ainekio_p4_joint_config_t *joint = &state.joints[c->id];
     if (joint->channel < 0) return ESP_ERR_INVALID_STATE;
     const uint16_t pulse = c->operation == AINEKIO_CALIBRATION_HOME ? joint->home_us : c->pulse_us;
@@ -1372,8 +1382,18 @@ int ainekio_p4_controller_command(int argc, char **argv)
     printf("microphone minimum_free_stack=%" PRIu32 " bytes capturing=%d listening_feedback=%d\n",
            ainekio_p4_media_microphone_stack_free(), media.utterance_open,
            ainekio_p4_body_status().listening_feedback);
+#ifdef CONFIG_AINEKIO_MODEL_V1_8SERVO
+    printf("installed model=%s geometry=%s joints=%u neural_gait_trained=%d\n",
+           AINEKIO_P4_MODEL_NAME, ainekio_v1_geometry_id, AINEKIO_V1_JOINT_COUNT,
+           ainekio_v1_microduck_default_model.trained);
+#elif defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
+    printf("installed model=%s geometry=%s joints=%u neural_gait_trained=%d\n",
+           AINEKIO_P4_MODEL_NAME, AINEKIO_V3_GEOMETRY_ID, AINEKIO_V3_JOINT_COUNT,
+           ainekio_v3_microduck_default_model.trained);
+#else
     printf("installed walk=%s joints=%u hardware_qualified=%d; use gait for geometric diagnostics\n",
            ainekio_v2_walk_id, AINEKIO_V2_JOINT_COUNT, ainekio_v2_walk_hardware_qualified);
+#endif
     const ainekio_p4_body_timing_t timing=ainekio_p4_body_timing();
     printf("motion timing frames=%" PRIu32 " max_calculation_us=%" PRIu32 " max_frame_us=%" PRIu32
            " max_request_us=%" PRIu32 " over_2ms=%" PRIu32 " over_5ms=%" PRIu32
@@ -1382,15 +1402,102 @@ int ainekio_p4_controller_command(int argc, char **argv)
     printf("internal_heap_free=%u internal_heap_minimum=%u\n",
            (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
            (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT));
+#if !defined(CONFIG_AINEKIO_MODEL_V1_8SERVO) && !defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
     for (size_t i = 0; i < ainekio_v2_clip_count; ++i)
         printf("installed %s duration_ms=%" PRIu64 " hardware_qualified=%d\n",
                ainekio_v2_clips[i].command, ainekio_v2_clips[i].duration_us / 1000U,
                ainekio_v2_clips[i].hardware_qualified);
+#endif
     return 0;
 }
 
 int ainekio_p4_gait_command(int argc, char **argv)
 {
+#ifdef CONFIG_AINEKIO_MODEL_V1_8SERVO
+    if (argc < 2) {
+        puts("gait walk <elapsed-ms> | gait <posture: stand|crouch|lay_down|sit|bow|stretch|wave>");
+        return 1;
+    }
+    float out_deg[AINEKIO_V1_JOINT_COUNT] = {0};
+    if (strcmp(argv[1], "walk") == 0) {
+        const unsigned long elapsed = argc >= 3 ? strtoul(argv[2], NULL, 10) : 1000UL;
+        if (ainekio_v1_microduck_default_model.trained) {
+            ainekio_v1_microduck_state_t st;
+            ainekio_v1_microduck_reset(&st);
+            const float q_upright[4] = {1.f, 0.f, 0.f, 0.f};
+            const float z3[3] = {0.f, 0.f, 0.f}, g3[3] = {0.f, 0.f, 9.81f};
+            const float cmd[3] = {0.20f, 0.f, 0.f};
+            float q[8] = {0}, dq[8] = {0};
+            uint64_t max_us = 0;
+            for (unsigned long ms = 0; ms <= elapsed; ms += 20) {
+                const uint64_t t0 = now_us();
+                ainekio_v1_microduck_step(&st, &ainekio_v1_microduck_default_model,
+                    (double)ms / 1000.0, q, dq, q_upright, z3, g3, cmd, out_deg);
+                const uint64_t dt_us = now_us() - t0;
+                if (dt_us > max_us) max_us = dt_us;
+                for (unsigned j = 0; j < 8; ++j) {
+                    dq[j] = (out_deg[j] - q[j]) / 0.02f;
+                    q[j] = out_deg[j];
+                }
+            }
+            printf("v1 neural_gait elapsed_ms=%lu max_tick_us=%" PRIu64 " geometry=%s no_PWM=1\n",
+                elapsed, max_us, ainekio_v1_geometry_id);
+        } else {
+            ainekio_v1_walk_sample((double)elapsed / 700.0, 0.75f, 0.0f, 0.0f, 1.0f, out_deg);
+            printf("v1 analytic_trot elapsed_ms=%lu geometry=%s no_PWM=1\n",
+                elapsed, ainekio_v1_geometry_id);
+        }
+    } else {
+        if (!ainekio_v1_posture_angles(argv[1], out_deg)) return 1;
+        printf("v1 posture=%s geometry=%s no_PWM=1\n", argv[1], ainekio_v1_geometry_id);
+    }
+    for (unsigned j = 0; j < AINEKIO_V1_JOINT_COUNT; ++j)
+        printf("%s (%s) deg=%.3f\n", ainekio_v1_joints[j].label, ainekio_v1_joints[j].name,
+            (double)out_deg[j]);
+    return 0;
+#elif defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
+    if (argc < 2) {
+        puts("gait walk <elapsed-ms> | gait <posture: stand|crouch|lay_down|sit|bow|stretch|wave_fr|wave_fl>");
+        return 1;
+    }
+    float out_deg[AINEKIO_V3_JOINT_COUNT] = {0};
+    if (strcmp(argv[1], "walk") == 0) {
+        const unsigned long elapsed = argc >= 3 ? strtoul(argv[2], NULL, 10) : 1000UL;
+        if (ainekio_v3_microduck_default_model.trained) {
+            ainekio_v3_microduck_state_t st;
+            ainekio_v3_microduck_reset(&st);
+            const float q_upright[4] = {1.f, 0.f, 0.f, 0.f};
+            const float z3[3] = {0.f, 0.f, 0.f}, g3[3] = {0.f, 0.f, 9.81f};
+            const float cmd[3] = {0.35f, 0.f, 0.f};
+            float q[12] = {0}, dq[12] = {0};
+            uint64_t max_us = 0;
+            for (unsigned long ms = 0; ms <= elapsed; ms += 20) {
+                const uint64_t t0 = now_us();
+                ainekio_v3_microduck_step(&st, &ainekio_v3_microduck_default_model,
+                    (double)ms / 1000.0, q, dq, q_upright, z3, g3, cmd, out_deg);
+                const uint64_t dt_us = now_us() - t0;
+                if (dt_us > max_us) max_us = dt_us;
+                for (unsigned j = 0; j < 12; ++j) {
+                    dq[j] = (out_deg[j] - q[j]) / 0.02f;
+                    q[j] = out_deg[j];
+                }
+            }
+            printf("v3 neural_gait elapsed_ms=%lu max_tick_us=%" PRIu64 " geometry=%s no_PWM=1\n",
+                elapsed, max_us, AINEKIO_V3_GEOMETRY_ID);
+        } else {
+            ainekio_v3_analytic_trot((double)elapsed * AINEKIO_V3_MICRODUCK_GAIT_HZ / 1000.0,
+                0.35f, 0.0f, 0.0f, out_deg);
+            printf("v3 analytic_trot elapsed_ms=%lu geometry=%s no_PWM=1\n",
+                elapsed, AINEKIO_V3_GEOMETRY_ID);
+        }
+    } else {
+        if (!ainekio_v3_posture_angles(argv[1], out_deg)) return 1;
+        printf("v3 posture=%s geometry=%s no_PWM=1\n", argv[1], AINEKIO_V3_GEOMETRY_ID);
+    }
+    for (unsigned j = 0; j < AINEKIO_V3_JOINT_COUNT; ++j)
+        printf("%u (%s) deg=%.3f\n", j, ainekio_v3_joints[j].name, (double)out_deg[j]);
+    return 0;
+#else
     const bool walk = (argc == 4 || argc == 5 || argc == 6) && (strcmp(argv[1], "walk") == 0 || strcmp(argv[1], "run") == 0);
     if (!walk && argc != 3) {
         puts("gait walk|run <steps 1..10> <elapsed-ms> [speed-percent 0..200 | stride-percent rate]\n"
@@ -1490,4 +1597,5 @@ int ainekio_p4_gait_command(int argc, char **argv)
         printf("%s CAD_cdeg=%.5f cdeg_s=%.5f cdeg_s2=%.5f\n",ainekio_v2_joints[j].name,
                (double)frame.position[j],(double)frame.velocity[j],(double)frame.acceleration[j]);
     return 0;
+#endif
 }

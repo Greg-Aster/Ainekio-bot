@@ -1,0 +1,8 @@
+# Overlay defaults for V1 8-servo clockspring quadruped on Waveshare ESP32-P4-WIFI6.
+# Build with:
+#   idf.py -B build-v1 -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.v1-8servo" -D IDF_TARGET=esp32p4 build
+CONFIG_AINEKIO_MODEL_V1_8SERVO=y
+CONFIG_AINEKIO_DISPLAY_SSD1306=y
+CONFIG_AINEKIO_OLED_SCL=26
+CONFIG_AINEKIO_OLED_SDA=27
+CONFIG_AINEKIO_FEEDBACK_DIRECT_ADC=y

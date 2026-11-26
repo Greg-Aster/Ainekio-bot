@@ -1,6 +1,6 @@
 {
   "description": "Three brisk large front-to-rear pitch/heave waves with all four bare feet planted, then standing recovery.",
-  "mechanism_geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "mechanism_geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
   "contact_hulls_file": "contact-hulls.npz",
   "contact_hulls_sha256": "3c0f3b912f38ff177c6f29f70bd5572367c757e377491816dd57bc857396f283",
   "body_support_scope": "Complete body hull; bare Part027 contact.",

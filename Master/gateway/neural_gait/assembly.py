@@ -38,13 +38,34 @@ MODULE_ENVELOPES = frozenset((
 PREPROCESS_REQUIRED = frozenset((
     # These closed imports trigger CoACD's native "Wrong MCTS clip proposal"
     # on direct decomposition; preprocess the collision copy, not the CAD.
+    "CARAPACE | Rear helmet - Center",
+    "REFINED | FL | Horn_009 - tip trimmed 1.73mm - prepared pilot retained",
+    "REFINED | FR | Horn_009 - tip trimmed 1.73mm - prepared pilot retained",
+    "REFINED | RL | Horn_009 - tip trimmed 1.73mm - prepared pilot retained",
+    "REFINED | RR | Horn_009 - tip trimmed 1.73mm - prepared pilot retained",
+    "REFINED | FL | Horn_023 - stock with prepared pilot",
+    "REFINED | FR | Horn_023 - stock with prepared pilot",
+    "REFINED | RL | Horn_023 - stock with prepared pilot",
+    "REFINED | RR | Horn_023 - stock with prepared pilot",
+    "REFINED | RL | Part_003 - original mount - separate rectangular shims",
     "STRUCTURAL | Front panel brace - Left",
 ))
 # Coarse first-trial contacts for fixed fittings whose detailed decomposition
 # blocked assembly preparation. Each disconnected source solid keeps its own
 # envelope: this does not close the entire chassis or replace moving links.
 FIXED_COMPONENT_ENVELOPES = frozenset((
+    "PC | 01 Rear mounting flange",
+    "PC | 02 Side frame Yminus", "PC | 02 Side frame Yplus",
+    "PC | 03 Charger PCB rail Yminus", "PC | 03 Charger PCB rail Yplus",
+    "PC | 03 Mini560 PCB rail Yminus", "PC | 03 Mini560 PCB rail Yplus",
+    "PC | 04 Charger retainer boss Yminus", "PC | 04 Charger retainer boss Yplus",
+    "PC | 04 Mini560 retainer boss Yminus", "PC | 04 Mini560 retainer boss Yplus",
+    "PC | 05 Lower rear screw seat Yminus", "PC | 05 Lower rear screw seat Yplus",
+    "PC | 05 Upper rear screw seat Yminus", "PC | 05 Upper rear screw seat Yplus",
+    "PC | 06 Mini560 rear stop Yminus", "PC | 06 Mini560 rear stop Yplus",
     "STRUCTURAL | Battery carrier - rear power module cradle",
+    "STRUCTURAL | Battery floor and power module cradle",
+    "STRUCTURAL | PCB clip - HiLetgo Left", "STRUCTURAL | PCB clip - HiLetgo Right",
     "STRUCTURAL | Rear power carrier - open two-level frame",
     "STRUCTURAL | Tray mount plate - Front",
     "STRUCTURAL | Wireless keeper bridge - battery mounted",

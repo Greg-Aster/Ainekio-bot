@@ -9,11 +9,14 @@
 #include "body_readings.h"
 #include "face_timeline.h"
 #include "ainekio/face.h"
+#include "ainekio/binary_codec.h"
 #include "ainekio/control_codec.h"
 #include "ainekio/control_encode.h"
 #include "ainekio/admission.h"
+#include "speech_gate.h"
 #include "cJSON.h"
 #include <inttypes.h>
+#include <math.h>
 
 static ainekio_admission_t admission;
 static uint32_t stopped_sequence;
@@ -45,6 +48,17 @@ static bool sim_was_listening;
 static uint64_t sim_listening_since_ms;
 static uint16_t sim_face_rgb565[AINEKIO_FACE_WIDTH * AINEKIO_FACE_HEIGHT];
 static cJSON *sim_media_action_queue;
+static bool sim_camera_enabled;
+static uint8_t sim_camera_fps=2;
+static ainekio_camera_resolution_t sim_camera_resolution=AINEKIO_CAMERA_VGA;
+static ainekio_camera_resolution_t sim_camera_snapshot_resolution=AINEKIO_CAMERA_AUTO;
+static uint32_t sim_camera_max_exposure_us;
+static uint32_t sim_camera_counter;
+static uint32_t sim_microphone_counter;
+static uint64_t sim_utterance_session;
+static uint64_t sim_utterance_started_us;
+static uint32_t sim_utterance_id;
+static bool sim_utterance_open;
 
 struct test_queue {unsigned capacity,size,count;unsigned char data[];};
 struct test_timer {esp_timer_create_args_t args;uint64_t due;};
@@ -179,6 +193,24 @@ static const char *camera_res_name(ainekio_camera_resolution_t res)
     }
 }
 
+static ainekio_camera_resolution_t parse_camera_res(const char *res)
+{
+    if(!res)return AINEKIO_CAMERA_VGA;
+    if(strcmp(res,"QVGA")==0)return AINEKIO_CAMERA_QVGA;
+    if(strcmp(res,"VGA")==0)return AINEKIO_CAMERA_VGA;
+    if(strcmp(res,"XGA")==0)return AINEKIO_CAMERA_XGA;
+    if(strcmp(res,"960P")==0)return AINEKIO_CAMERA_960P;
+    if(strcmp(res,"FHD")==0)return AINEKIO_CAMERA_FHD;
+    return AINEKIO_CAMERA_VGA;
+}
+
+static ainekio_camera_resolution_t effective_snapshot_res(void)
+{
+    return sim_camera_snapshot_resolution==AINEKIO_CAMERA_AUTO
+        ? AINEKIO_CAMERA_960P
+        : sim_camera_snapshot_resolution;
+}
+
 static const char *mic_gate_name(ainekio_microphone_gate_t gate)
 {
     switch(gate) {
@@ -311,11 +343,13 @@ void virtual_body_set_media_state(int camera_ready,int microphone_ready,
     sim_media.microphone_ready=microphone_ready!=0;
     sim_media.speaker_ready=speaker_ready!=0;
     sim_media.wake_ready=wake_ready!=0;
-    sim_media.utterance_open=capturing!=0;
+    if(!sim_utterance_open) {
+        sim_media.utterance_open=capturing!=0;
+        sim_media.microphone_rms=mic_rms;
+        sim_media.microphone_peak=mic_peak;
+    }
     sim_media.speaker_busy=speaker_busy!=0;
     sim_media.external_speech=external_speech!=0;
-    sim_media.microphone_rms=mic_rms;
-    sim_media.microphone_peak=mic_peak;
     if(battery_voltage>0.F)sim_battery_voltage=battery_voltage;
 }
 
@@ -330,6 +364,13 @@ void virtual_body_close(void)
     sim_face_selection=(ainekio_p4_face_selection_t){0};
     sim_face_clock=(ainekio_p4_face_clock_t){0};
     sim_shown_face=0;sim_was_listening=false;sim_listening_since_ms=0;
+    sim_camera_enabled=false;sim_camera_fps=2;
+    sim_camera_resolution=AINEKIO_CAMERA_VGA;
+    sim_camera_snapshot_resolution=AINEKIO_CAMERA_AUTO;
+    sim_camera_max_exposure_us=0;
+    sim_camera_counter=0;sim_microphone_counter=0;
+    sim_utterance_session=0;sim_utterance_started_us=0;
+    sim_utterance_id=0;sim_utterance_open=false;
 }
 int virtual_body_reset(void *sensor,const double *reference,const double *settings,uint64_t now)
 {
@@ -349,12 +390,12 @@ int virtual_body_reset(void *sensor,const double *reference,const double *settin
         .wake_ready=true,
         .microphone_enabled=false,
         .microphone_listening=false,
-        .microphone_gate=AINEKIO_MIC_GATE_OPEN,
-        .microphone_gain_db=18,
-        .vad_mode=2,
-        .silence_ms=700,
+        .microphone_gate=AINEKIO_MIC_GATE_VAD,
+        .microphone_gain_db=30,
+        .vad_mode=3,
+        .silence_ms=1000,
         .max_recording_ms=15000,
-        .speaker_volume_percent=80,
+        .speaker_volume_percent=100,
         .wake_enabled=false,
         .wake_threshold=0.5F,
     };
@@ -518,6 +559,127 @@ size_t virtual_body_media_actions(char *text,size_t capacity)
     return ok?strlen(text):0;
 }
 
+/* Firmware-owned utterance boundaries and speech-paired still snapshot matching
+ * Slave/firmware/esp32p4-wifi6/main/controller.c::gate_event(). */
+size_t virtual_body_mic_gate(uint64_t now,int open,int wake_word,char *text,size_t capacity)
+{
+    (void)wake_word;
+    if(!sensor_state||!admission.connected||!admission.authenticated||!selected_connection)return 0;
+    if(now>device_us)device_us=now;
+    simulation_p4_activate(sensor_state);
+    if(open) {
+        sim_utterance_session=selected_connection;
+        sim_utterance_started_us=device_us;
+        sim_utterance_id=sim_microphone_counter;
+        sim_utterance_open=true;
+    }
+    const bool correlated=sim_utterance_open && sim_utterance_session==selected_connection;
+    const bool normal=admission.core.mode==AINEKIO_MODE_NORMAL;
+    sim_media.utterance_open=(open!=0)&&correlated;
+    ainekio_p4_body_activity();
+    ainekio_p4_body_listen((open!=0)&&normal);
+    const size_t n=ainekio_encode_event(open?AINEKIO_EVENT_VAD_OPEN:AINEKIO_EVENT_VAD_CLOSE,
+        correlated,sim_utterance_id,text,capacity);
+    if(!open && correlated) {
+        const bool snapshot_due=sim_media.camera_ready &&
+            device_us>=sim_utterance_started_us &&
+            device_us-sim_utterance_started_us>=UINT64_C(300000);
+        sim_utterance_open=false;
+        sim_media.utterance_open=false;
+        sim_media.microphone_rms=0.F;
+        sim_media.microphone_peak=0.F;
+        if(snapshot_due) {
+            cJSON *act=cJSON_CreateObject();
+            if(act) {
+                cJSON_AddStringToObject(act,"kind","snapshot");
+                cJSON_AddStringToObject(act,"origin","audio");
+                cJSON_AddNumberToObject(act,"origin_id",sim_utterance_id);
+                cJSON_AddStringToObject(act,"res",camera_res_name(effective_snapshot_res()));
+                queue_media_action(act);
+            }
+        }
+    }
+    return n;
+}
+
+/* Firmware-owned 16 kHz 20 ms PCM metering and binary framing matching
+ * Slave/firmware/esp32p4-wifi6/components/ainekio_p4_media/media.c + controller.c. */
+size_t virtual_body_mic_frame(uint64_t now,const uint8_t *pcm,size_t pcm_len,
+    uint8_t *packet_out,size_t packet_cap)
+{
+    if(!sensor_state||!pcm||pcm_len!=AINEKIO_AUDIO_PAYLOAD_BYTES||!packet_out)return 0;
+    if(now>device_us)device_us=now;
+    const size_t samples=AINEKIO_AUDIO_PAYLOAD_BYTES/sizeof(int16_t);
+    double squares=0.0;
+    int peak=0;
+    for(size_t i=0;i<samples;++i) {
+        int16_t sample=0;
+        memcpy(&sample,pcm+i*sizeof(int16_t),sizeof(sample));
+        const int s=(int)sample;
+        squares+=(double)s*(double)s;
+        const int mag=s<0?-s:s;
+        if(mag>peak)peak=mag;
+    }
+    const float rms=(float)(sqrt(squares/(double)samples)/32768.0);
+    const bool allowed=admission.connected && admission.authenticated &&
+        sim_utterance_open && sim_utterance_session==selected_connection &&
+        !sim_media.speaker_busy && !sim_media.external_speech;
+    sim_media.microphone_rms=allowed?fmaxf(rms,sim_media.microphone_rms*0.98F):0.F;
+    sim_media.microphone_peak=allowed?fmaxf((float)peak/32768.0F,sim_media.microphone_peak*0.98F):0.F;
+    if(!allowed)return 0;
+    size_t encoded=0;
+    const uint32_t counter=sim_microphone_counter;
+    if(ainekio_binary_encode(AINEKIO_FRAME_MIC_PCM,counter,pcm,pcm_len,
+        packet_out,packet_cap,&encoded)!=AINEKIO_BINARY_OK)return 0;
+    sim_microphone_counter++;
+    return encoded;
+}
+
+/* Firmware-owned camera metadata + binary JPEG + request completion framing
+ * matching Slave/firmware/esp32p4-wifi6/main/controller.c::camera_frame(). */
+size_t virtual_body_camera_frame(uint64_t now,int origin,uint32_t origin_id,
+    const char *res_name,uint64_t frame_completed_us,uint32_t boot_id,
+    const uint8_t *jpeg,size_t jpeg_len,char *meta_out,size_t meta_cap,
+    uint8_t *packet_out,size_t packet_cap,char *done_out,size_t done_cap)
+{
+    if(!sensor_state||!admission.connected||!admission.authenticated||!selected_connection)return 0;
+    if(!jpeg||!jpeg_len||jpeg_len>AINEKIO_MAX_JPEG_BYTES||!meta_out||!packet_out)return 0;
+    if(now>device_us)device_us=now;
+    if(done_out&&done_cap>0)done_out[0]='\0';
+    const ainekio_camera_origin_t cam_origin=
+        origin==1?AINEKIO_CAMERA_ORIGIN_REQUEST:
+        origin==2?AINEKIO_CAMERA_ORIGIN_ACTION:
+        origin==3?AINEKIO_CAMERA_ORIGIN_AUDIO:
+        AINEKIO_CAMERA_ORIGIN_NONE;
+    if(cam_origin==AINEKIO_CAMERA_ORIGIN_NONE && (!sim_camera_enabled || sim_camera_fps==0))return 0;
+    const ainekio_camera_resolution_t res=parse_camera_res(res_name);
+    const uint32_t counter=sim_camera_counter;
+    const uint8_t fps=cam_origin==AINEKIO_CAMERA_ORIGIN_NONE?sim_camera_fps:0U;
+    const uint32_t effective_origin_id=cam_origin==AINEKIO_CAMERA_ORIGIN_NONE?0U:origin_id;
+    const uint64_t completed_us=frame_completed_us?frame_completed_us:device_us;
+    const uint32_t effective_boot_id=boot_id?boot_id:1U;
+    if(!ainekio_encode_camera_meta(res,fps,counter,cam_origin,effective_origin_id,
+        completed_us,effective_boot_id,meta_out,meta_cap)) {
+        if(cam_origin==AINEKIO_CAMERA_ORIGIN_REQUEST&&done_out&&done_cap>0)
+            ainekio_encode_nak(true,effective_origin_id,AINEKIO_NAK_BUSY,
+                "camera capture metadata encoding failed",done_out,done_cap);
+        return 0;
+    }
+    size_t encoded=0;
+    if(ainekio_binary_encode(AINEKIO_FRAME_CAMERA_JPEG,counter,jpeg,jpeg_len,
+        packet_out,packet_cap,&encoded)!=AINEKIO_BINARY_OK) {
+        meta_out[0]='\0';
+        if(cam_origin==AINEKIO_CAMERA_ORIGIN_REQUEST&&done_out&&done_cap>0)
+            ainekio_encode_nak(true,effective_origin_id,AINEKIO_NAK_BUSY,
+                "camera binary frame encoding failed",done_out,done_cap);
+        return 0;
+    }
+    sim_camera_counter++;
+    if(cam_origin==AINEKIO_CAMERA_ORIGIN_REQUEST&&done_out&&done_cap>0)
+        ainekio_encode_done(effective_origin_id,done_out,done_cap);
+    return encoded;
+}
+
 int virtual_body_face_frame(uint64_t now_ms,int talking,int capturing,
     uint8_t *rgba_out,char *name_out,size_t name_cap,
     char *token_out,size_t token_cap)
@@ -603,7 +765,14 @@ void virtual_body_connection_lost(uint64_t connection)
 {
     const bool current=admission.connected&&admission.generation==connection;
     ainekio_admission_close(&admission,connection);
-    if(current)ainekio_p4_body_connection_lost(connection);
+    if(current) {
+        sim_utterance_open=false;
+        sim_media.utterance_open=false;
+        sim_media.microphone_rms=0.F;
+        sim_media.microphone_peak=0.F;
+        ainekio_p4_body_listen(false);
+        ainekio_p4_body_connection_lost(connection);
+    }
 }
 size_t virtual_body_hello(const char *id,const char *token,uint64_t now,char *text,size_t capacity)
 {
@@ -927,18 +1096,23 @@ size_t virtual_body_receive(const char *wire,uint64_t connection,uint64_t now,ch
             return ainekio_encode_nak(true,message.sequence,AINEKIO_NAK_UNKNOWN,
                 "Manual camera controls unsupported on P4",text,capacity);
         }
+        sim_camera_enabled=cmd->data.camera.enabled;
+        sim_camera_fps=cmd->data.camera.fps;
+        sim_camera_resolution=cmd->data.camera.resolution;
+        if(cmd->data.camera.has_snapshot_resolution)
+            sim_camera_snapshot_resolution=cmd->data.camera.snapshot_resolution;
+        if(cmd->data.camera.has_max_exposure_us)
+            sim_camera_max_exposure_us=cmd->data.camera.max_exposure_us;
         ainekio_p4_body_activity();
         cJSON *act=cJSON_CreateObject();
         if(act) {
             cJSON_AddStringToObject(act,"kind","camera");
             cJSON_AddNumberToObject(act,"seq",message.sequence);
-            cJSON_AddBoolToObject(act,"enabled",cmd->data.camera.enabled);
-            cJSON_AddNumberToObject(act,"fps",cmd->data.camera.fps);
-            cJSON_AddStringToObject(act,"res",camera_res_name(cmd->data.camera.resolution));
-            if(cmd->data.camera.has_snapshot_resolution)
-                cJSON_AddStringToObject(act,"snapshot_res",camera_res_name(cmd->data.camera.snapshot_resolution));
-            if(cmd->data.camera.has_max_exposure_us)
-                cJSON_AddNumberToObject(act,"max_exposure_us",cmd->data.camera.max_exposure_us);
+            cJSON_AddBoolToObject(act,"enabled",sim_camera_enabled);
+            cJSON_AddNumberToObject(act,"fps",sim_camera_fps);
+            cJSON_AddStringToObject(act,"res",camera_res_name(sim_camera_resolution));
+            cJSON_AddStringToObject(act,"snapshot_res",camera_res_name(sim_camera_snapshot_resolution));
+            cJSON_AddNumberToObject(act,"max_exposure_us",sim_camera_max_exposure_us);
             queue_media_action(act);
         }
         return ainekio_encode_ack(message.sequence,0,text,capacity);
@@ -948,7 +1122,10 @@ size_t virtual_body_receive(const char *wire,uint64_t connection,uint64_t now,ch
         cJSON *act=cJSON_CreateObject();
         if(act) {
             cJSON_AddStringToObject(act,"kind","snapshot");
+            cJSON_AddStringToObject(act,"origin","request");
             cJSON_AddNumberToObject(act,"seq",message.sequence);
+            cJSON_AddNumberToObject(act,"origin_id",message.sequence);
+            cJSON_AddStringToObject(act,"res",camera_res_name(effective_snapshot_res()));
             queue_media_action(act);
         }
         return ainekio_encode_ack(message.sequence,0,text,capacity);

@@ -2199,6 +2199,20 @@ class GoalLocomotionBoundaryTests(unittest.IsolatedAsyncioTestCase):
         ]
         for goal in goals:
             self.assertTrue(valid_locomotion_goal(goal), goal)
+        self.assertFalse(valid_locomotion_goal({'kind': 'distance', 'direction': 'forward', 'metres': 10, 'tolerance': 10}))
+        self.assertFalse(valid_locomotion_goal({'kind': 'relativeTurn', 'degrees': 45, 'tolerance': 45}))
+        self.assertIsNotNone(translate_environment_action({
+            'type': 'move', 'direction': 'right', 'continuous': True,
+            'locomotionGoal': {'kind': 'relativeTurn', 'degrees': -90, 'tolerance': 3},
+        }, model='v2-12servo'))
+        self.assertIsNone(translate_environment_action({
+            'type': 'move', 'direction': 'right', 'continuous': True,
+            'locomotionGoal': {'kind': 'relativeTurn', 'degrees': 90, 'tolerance': 3},
+        }, model='v2-12servo'))
+        self.assertIsNone(translate_environment_action({
+            'type': 'move', 'direction': 'left', 'continuous': True,
+            'locomotionGoal': {'kind': 'relativeTurn', 'degrees': -90, 'tolerance': 3},
+        }, model='v2-12servo'))
 
 class AvailabilityTests(unittest.IsolatedAsyncioTestCase):
     async def test_watch_authentication_availability_and_no_control_side_effects(self):

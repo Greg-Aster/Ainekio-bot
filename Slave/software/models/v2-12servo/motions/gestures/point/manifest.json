@@ -78,9 +78,9 @@
   },
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "fdb54fa5dc140657b72870fdd9e5a9e46178169f27bcd0583db7d64472a1f159",
-  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
-  "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
+  "source_sha256": "d1b926b1bf80361e2b54f53ab0f920116d6bd70f0fc972504773f9859f7617ef",
+  "geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
+  "sole_hulls_sha256": "f10589aff3dcd1b72b04b1e226cc11a19987e9c0c9113c90a235b68780121e5f",
   "face_sha256": {
     "faces/point/0.bin": "b39eb349030abed806b20676029bd24a63641a6e9b3d3fa52d70192cf62d2695",
     "faces/point/1.bin": "7ba5e49ed63b3719fc1568fb8166f20d1fefb0e33312ba4130e6c0c00579c6c8",
@@ -88,7 +88,7 @@
     "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
   },
   "body_contact_required": false,
-  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124",
   "entry_actuator_angles_rad": [
     [
       -7.045373451895712e-09,
@@ -183,7 +183,7 @@
     "path": "docs/gait-research/point-20260916/source.json",
     "sha256": "5e1ea7fb19b17c5588053538ff08c563767487bc5a7ade0df20a7b89cee737c2"
   },
-  "posture_sha256": "3ee3008a95a8ef42dc8b87c8d9c1a78fdd7e7585029f402d63955f70b1bb39dd",
+  "posture_sha256": "273f06a022468d1aacfe0197fc224bd31cc04c6b161a968435d2fb9e3b935d95",
   "posture_hulls_sha256": "3c0f3b912f38ff177c6f29f70bd5572367c757e377491816dd57bc857396f283",
   "retargeting_notes": "Accepted Wave rear-leg seating, quick front-left lift and full forward point, held before seated foot replacement and recovery.",
   "choreography_source": "docs/gait-research/point-20260916/manifest.json",

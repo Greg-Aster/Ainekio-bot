@@ -16,9 +16,11 @@ DECLARED_GAITS = frozenset({"crawl", *(name for name in CRAB_DIRECTIONS if name 
 
 
 def expression_library(robot: Mapping[str, object] | None) -> list[dict[str, str]]:
-    """The same generated face catalog used by Body Control, for its color display."""
+    """The same generated face catalog used by Body Control, for its color/OLED P4 display."""
     capabilities = robot.get("capabilities") if robot else None
-    if (not robot or robot.get("model") != "v2-12servo"
+    features = robot.get("features") or () if robot else ()
+    is_p4 = bool(robot and (robot.get("model") in ("v2-12servo", "v3-12servo") or "face_feedback_v1" in features))
+    if (not is_p4
         or not isinstance(capabilities, Mapping) or capabilities.get("display") is not True):
         return []
     catalog = json.loads((Path(__file__).parent / "dashboard/static/faces/catalog.json").read_text())

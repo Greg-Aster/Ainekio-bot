@@ -18,7 +18,7 @@ set(GAIT_NATIVE_INCLUDES
   "${PCA}/include" "${P4}" "${IMU}/include" "${FACES}/include"
   "${CMAKE_CURRENT_BINARY_DIR}/motion/walk"
   "${IMU}/vendor/Fusion/Fusion" "${P4}/../tests/body_shim"
-  "${P4}/../tests/imu_shim" "${P4}/../tests/ota_shim" "${PCA}/../ainekio_p4_media/include" "${JSON}")
+  "${P4}/../tests/imu_shim" "${P4}/../tests/ota_shim" "${PCA}/../ainekio_p4_media/include" "${PCA}/../ainekio_p4_media" "${JSON}")
 
 if(EMSCRIPTEN)
   add_executable(ainekio_v2_firmware ${GAIT_NATIVE_SOURCES})
@@ -37,7 +37,7 @@ if(EMSCRIPTEN)
     -sALLOW_MEMORY_GROWTH=1
     -sWASM_BIGINT=1
     -sINITIAL_MEMORY=16777216
-    "-sEXPORTED_FUNCTIONS=['_malloc','_free','_simulation_new','_simulation_free','_simulation_imu','_simulation_feedback','_virtual_body_reset','_virtual_body_close','_virtual_body_tick','_virtual_body_telemetry','_virtual_body_open','_virtual_body_connection_lost','_virtual_body_hello','_virtual_body_receive','_virtual_body_events','_virtual_body_feedback','_virtual_body_set_full_parity','_virtual_body_set_face_style','_virtual_body_set_media_state','_virtual_body_status','_virtual_body_heartbeat','_virtual_body_feedback_health','_virtual_body_media_actions','_virtual_body_face_frame']"
+    "-sEXPORTED_FUNCTIONS=['_malloc','_free','_simulation_new','_simulation_free','_simulation_imu','_simulation_feedback','_virtual_body_reset','_virtual_body_close','_virtual_body_tick','_virtual_body_telemetry','_virtual_body_open','_virtual_body_connection_lost','_virtual_body_hello','_virtual_body_receive','_virtual_body_events','_virtual_body_feedback','_virtual_body_set_full_parity','_virtual_body_set_face_style','_virtual_body_set_media_state','_virtual_body_status','_virtual_body_heartbeat','_virtual_body_feedback_health','_virtual_body_media_actions','_virtual_body_mic_gate','_virtual_body_mic_frame','_virtual_body_camera_frame','_virtual_body_face_frame']"
     "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString','stringToUTF8','lengthBytesUTF8','HEAPU8','HEAPF64','HEAP32']")
 else()
   add_library(gait_native SHARED ${GAIT_NATIVE_SOURCES})

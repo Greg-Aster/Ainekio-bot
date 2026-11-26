@@ -325,7 +325,7 @@ class EnvironmentConfig:
     command: list = field(default_factory=lambda: [0.08, 0.0, 0.0])
     robot: dict = field(default_factory=device_profile)
     target_limits_deg: list = field(default_factory=list)
-    reference_joint_deg: list = field(default_factory=lambda: [0, 3.46, -21.63]*4)
+    reference_joint_deg: list = field(default_factory=lambda: [0.0, -5.46, -62.08]*4)
     # Derive the full containing workspace for new configurations. Explicit
     # serialized scales retain old checkpoints' learned action coordinates.
     foot_action_scale_mm: list | None = None

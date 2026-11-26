@@ -1,0 +1,13 @@
+{
+  "profile_id": "ds3225pro-270-v3-p4",
+  "model": "v3-12servo",
+  "servo": "DSServo DS3225 PRO 25kg Coreless (270 deg)",
+  "nominal_voltage_v": 7.4,
+  "pulse_min_us": 500,
+  "pulse_max_us": 2500,
+  "pulse_center_us": 1500,
+  "us_per_degree": 7.4074,
+  "no_load_speed_deg_s": 800.0,
+  "stall_torque_nm": 3.43,
+  "measured_on_hardware": false
+}

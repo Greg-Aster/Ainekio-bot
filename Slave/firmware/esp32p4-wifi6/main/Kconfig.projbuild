@@ -1,3 +1,54 @@
+menu "Ainekio robot model and hardware"
+choice AINEKIO_ROBOT_MODEL
+    prompt "Robot mechanical model"
+    default AINEKIO_MODEL_V2_12SERVO
+
+config AINEKIO_MODEL_V2_12SERVO
+    bool "V2 12-servo four-bar quadruped (v2-12servo)"
+
+config AINEKIO_MODEL_V1_8SERVO
+    bool "V1 8-servo clockspring quadruped (v1-8servo)"
+
+config AINEKIO_MODEL_V3_12SERVO
+    bool "V3 12-servo Option A-1 DS3225 PRO quadruped (v3-12servo)"
+endchoice
+
+choice AINEKIO_DISPLAY_BACKEND
+    prompt "Face display backend"
+    default AINEKIO_DISPLAY_ST7789
+
+config AINEKIO_DISPLAY_ST7789
+    bool "1.9-inch ST7789 320x170 SPI LCD"
+
+config AINEKIO_DISPLAY_ILI9341
+    bool "2.8-inch ILI9341 320x240 SPI TFT (MSP2807)"
+
+config AINEKIO_DISPLAY_SSD1306
+    bool "0.96-inch SSD1306 128x64 I2C OLED"
+endchoice
+
+config AINEKIO_OLED_SCL
+    int "SSD1306 OLED SCL GPIO"
+    depends on AINEKIO_DISPLAY_SSD1306
+    default 26
+
+config AINEKIO_OLED_SDA
+    int "SSD1306 OLED SDA GPIO"
+    depends on AINEKIO_DISPLAY_SSD1306
+    default 27
+
+choice AINEKIO_FEEDBACK_BACKEND
+    prompt "4th-wire servo feedback acquisition hardware"
+    default AINEKIO_FEEDBACK_MUX_CD74HC4067
+
+config AINEKIO_FEEDBACK_MUX_CD74HC4067
+    bool "16-channel CD74HC4067 analog mux on ADC2 CH0 (GPIO49, S0-S3 GPIO27-30)"
+
+config AINEKIO_FEEDBACK_DIRECT_ADC
+    bool "8 direct ESP32-P4 ADC channels (ADC1 CH4-7 GPIO20-23 + ADC2 CH0-3 GPIO49-52)"
+endchoice
+endmenu
+
 menu "Ainekio 1.9-inch ST7789 face display"
 config AINEKIO_LCD_ENABLED
     bool "Enable the LCD face display"

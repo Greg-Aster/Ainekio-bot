@@ -81,7 +81,7 @@ bool ainekio_feedback_config_valid(const ainekio_feedback_config_t *c)
         for(unsigned p=0;p<3;p++)if((v->points&(1U<<p)) &&
             (v->point[p].raw>4095||!v->point[p].pulse_us))return false;
         if(v->points==7&&!ainekio_feedback_calibrated(v))return false;
-        if((c->stand_enabled||c->jam_enabled)&&!ainekio_feedback_calibrated(v))return false;
+        if(j<AINEKIO_FEEDBACK_ACTIVE_JOINTS && (c->stand_enabled||c->jam_enabled)&&!ainekio_feedback_calibrated(v))return false;
     }
     return true;
 }

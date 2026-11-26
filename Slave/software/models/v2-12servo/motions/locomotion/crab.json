@@ -1,5 +1,5 @@
 {
-  "body_z_mm": -12,
+  "body_z_mm": -14.0,
   "entry_seconds": 3,
   "stance_half_width_mm": 80,
   "period_seconds": 2.4,
@@ -14,7 +14,7 @@
     0.75,
     0.25
   ],
-  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
   "hardware_qualified": false,
   "reference": "Bare Part027 wide wave gait; 40 mm fore/aft and 32 mm sideways stance stroke, 80 percent stance. Source-leg order RL/RR/FL/FR.",
   "startup_cycles": 2,

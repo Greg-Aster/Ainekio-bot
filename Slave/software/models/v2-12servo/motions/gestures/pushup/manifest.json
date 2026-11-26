@@ -76,15 +76,15 @@
   },
   "hardware_qualified": false,
   "actuator_calibration": null,
-  "source_sha256": "919023260bb800901cae13e969c0f2b1363322a2a2a8572a16c80674db13a5bb",
-  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
-  "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
+  "source_sha256": "3d8b634d185564844fa9319f746a1a7bd6ddb963858a53560fef00edd45db18b",
+  "geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
+  "sole_hulls_sha256": "f10589aff3dcd1b72b04b1e226cc11a19987e9c0c9113c90a235b68780121e5f",
   "face_sha256": {
     "faces/pushup/0.bin": "e529d6291e8246d6880628d999e9b5102caed0dacf633bb610b610e47f203a6d",
     "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
   },
   "body_contact_required": false,
-  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124",
   "entry_actuator_angles_rad": [
     [
       -7.045373451895712e-09,
@@ -191,6 +191,6 @@
   "retargeting_notes": "Rear-first squat; five slow deep front presses with rear body clearance held at 8 mm, front down to 3 mm, all four bare feet planted.",
   "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
   "current_mounting_qualification": "Current geometry and installed pulse mapping; loaded behavior and whole-body collisions unqualified.",
-  "posture_sha256": "9f43ee3922ddc59e6b34dddf1f093cb7f4b6d07e66af3a07f3c8c82ec211180e",
+  "posture_sha256": "7dbd3cfd021073de18a421924ca0ec8f75281cd243c6978ef0ed30e102759f51",
   "posture_hulls_sha256": "3c0f3b912f38ff177c6f29f70bd5572367c757e377491816dd57bc857396f283"
 }

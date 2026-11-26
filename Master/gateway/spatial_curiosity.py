@@ -151,6 +151,7 @@ class SpatialCuriosityTracker:
         person_now = False
         seen_person_ids: set[str] = set()
         sector_labels: dict[int, list[str]] = {}
+        seen_track_ids: set[str] = set()
 
         for item in objects:
             if not isinstance(item, Mapping):
@@ -159,6 +160,14 @@ class SpatialCuriosityTracker:
             if not isinstance(label, str) or not label.strip():
                 continue
             label = label.strip()
+            lowered_label = label.lower()
+            if lowered_label in {"unknown", "none", "null", "undefined", "n/a"} or lowered_label.startswith(
+                ("unknown_", "unknown-", "unknown ")
+            ):
+                continue
+            score = item.get("score")
+            if label != "person" and isinstance(score, (int, float)) and math.isfinite(score) and float(score) < 0.50:
+                continue
             box = item.get("box") if isinstance(item.get("box"), Mapping) else None
             cx = 0.5
             area = 0.0
@@ -195,6 +204,7 @@ class SpatialCuriosityTracker:
                 else f"{label}@s{obj_sector}"
             )
             if label != "person":
+                seen_track_ids.add(track_id)
                 auto_inspected = bool(
                     close_capture and area >= 0.08 and 0.2 <= cx <= 0.8
                 )
@@ -207,14 +217,26 @@ class SpatialCuriosityTracker:
                     last_seen_at=now,
                 )
 
+        if current_sector is not None:
+            record.sectors[current_sector].objects = list(sector_labels.get(current_sector, []))
+            for tid in [
+                key
+                for key, entry in record.tracked_objects.items()
+                if entry.sector == current_sector and key not in seen_track_ids
+            ]:
+                del record.tracked_objects[tid]
+
         for sec_idx, labels in sector_labels.items():
             sector_entry = record.sectors[sec_idx]
             sector_entry.last_seen_at = now
-            merged = list(labels)
-            for prev in sector_entry.objects:
-                if prev not in merged and len(merged) < MAX_SECTOR_OBJECTS:
-                    merged.append(prev)
-            sector_entry.objects = merged
+            if sec_idx == current_sector:
+                sector_entry.objects = list(labels)
+            else:
+                merged = list(labels)
+                for prev in sector_entry.objects:
+                    if prev not in merged and len(merged) < MAX_SECTOR_OBJECTS:
+                        merged.append(prev)
+                sector_entry.objects = merged
 
         if len(record.tracked_objects) > MAX_TRACKED_OBJECTS:
             ordered = sorted(
@@ -319,11 +341,36 @@ class SpatialCuriosityTracker:
 
 def _extract_free_floor_meters(locomotion_measurement: Mapping[str, object]) -> float | None:
     position = locomotion_measurement.get("position")
-    if isinstance(position, Mapping) and position.get("available") is True:
-        for key in ("freeFloorMeters", "forwardClearanceMeters", "maxGroundRangeMeters"):
-            val = position.get(key)
-            if isinstance(val, (int, float)) and math.isfinite(float(val)) and float(val) >= 0:
-                return round(float(val), 2)
+    if isinstance(position, Mapping):
+        if position.get("available") is True:
+            for key in ("freeFloorMeters", "forwardClearanceMeters", "maxGroundRangeMeters"):
+                val = position.get(key)
+                if isinstance(val, (int, float)) and math.isfinite(float(val)) and float(val) >= 0:
+                    return round(float(val), 2)
+        if position.get("reason") != "measurement_session_changed":
+            depth_spatial = position.get("depthSpatial")
+            if (
+                isinstance(depth_spatial, Mapping)
+                and depth_spatial.get("available") is True
+                and depth_spatial.get("schema") == "ainekio-depth-grid-v1"
+                and depth_spatial.get("rows") == 8
+                and depth_spatial.get("columns") == 8
+            ):
+                values = depth_spatial.get("values")
+                valid = depth_spatial.get("valid")
+                if isinstance(values, list) and isinstance(valid, list) and len(values) >= 64 and len(valid) >= 64:
+                    samples: list[float] = []
+                    for row in (3, 4, 5, 6):
+                        for col in (2, 3, 4, 5):
+                            idx = row * 8 + col
+                            val = values[idx]
+                            if valid[idx] is True and isinstance(val, (int, float)) and math.isfinite(float(val)) and float(val) > 0:
+                                samples.append(float(val))
+                    if samples:
+                        samples.sort()
+                        mid = len(samples) // 2
+                        median = samples[mid] if len(samples) % 2 == 1 else (samples[mid - 1] + samples[mid]) * 0.5
+                        return round(median, 2)
     target = locomotion_measurement.get("target")
     if isinstance(target, Mapping) and target.get("available") is True:
         val = target.get("distanceMeters", target.get("rangeMeters"))

@@ -21,6 +21,22 @@ import zlib
 LOG = logging.getLogger(__name__)
 COMMANDS = {'intent', 'motion_plan', 'servo', 'stop', 'mode', 'state', 'motion_speed', 'calibration'}
 EVENTS = {'imu', 'servo_feedback', 'status', 'connection', 'command_result', 'event'}
+TERMINAL_RESULTS = {'done', 'nak', 'cancelled', 'calibration_status', 'error', 'replaced'}
+
+
+def _clears_active_motion(command):
+    return command.get('t') in {'stop', 'mode', 'state'}
+
+
+def _starts_active_motion(command):
+    kind = command.get('t')
+    if kind == 'motion_plan':
+        return True
+    if kind == 'intent':
+        return command.get('name') not in {'face', 'say'} and 'update' not in command
+    if kind == 'calibration':
+        return command.get('op') != 'get'
+    return False
 
 
 class Recorder:
@@ -54,10 +70,9 @@ class Recorder:
         if command.get('t') not in COMMANDS:
             return
         robot = command.get('robot_id')
-        motion = command.get('t') in {'motion_plan', 'servo', 'stop', 'mode', 'state'} or (
-            command.get('t') == 'intent' and command.get('name') not in {'face', 'say'}) or (
-            command.get('t') == 'calibration' and command.get('op') != 'get')
-        if motion:
+        if _clears_active_motion(command):
+            self.active.pop(robot, None)
+        elif _starts_active_motion(command):
             self.active[robot] = (command.get('epoch'), command.get('seq'))
         self.record('body_command', command, robot_id=robot,
                     epoch=command.get('epoch'), sequence=command.get('seq'))
@@ -76,7 +91,7 @@ class Recorder:
         self.record('body_event', event, robot_id=robot, epoch=event.get('epoch'), sequence=sequence)
         if current and event.get('t') == 'command_result' and (event.get('epoch'), sequence) == current:
             result = event.get('result', {})
-            if result.get('t') in {'done', 'error', 'replaced'}:
+            if result.get('t') in TERMINAL_RESULTS:
                 self.active.pop(robot, None)
         if event.get('t') == 'connection' and event.get('status') == 'disconnected':
             if current and event.get('epoch') == current[0]:

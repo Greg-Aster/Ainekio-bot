@@ -224,24 +224,32 @@ def synthetic_observation(pose_name: str = 'stand', seed: int = 0):
 
     rng = random.Random(seed * 2654435761 + POSE_SEED_OFFSET.get(pose_name, 0))
     p4_mode = (seed % 4 != 0)
-    installed_cal = p4_mode and (rng.random() < 0.35)
+    cal_roll = rng.random()
+    installed_cal = p4_mode and (cal_roll < 0.35)
+    firmware_stand = p4_mode and not installed_cal and pose_name == 'stand' and (cal_roll < 0.72)
     installed_ranges = (
         [-113.4, 93.6], [-35.37, 171.63], [-111.38, 95.62],
         [-103.5, 103.5], [-23.22, 183.78], [-112.28, 94.72],
         [-103.5, 103.5], [-36.27, 170.73], [-122.18, 84.82],
         [-108.0, 99.0], [-36.27, 170.73], [-124.43, 82.57],
     )
-    tol = rng.choices([16.2, 9.0, 4.5], weights=[6, 2, 2])[0] if p4_mode else 4.5
+    tol = rng.choices([18.0, 16.2, 9.0, 4.5], weights=[3, 4, 2, 1])[0] if p4_mode else 4.5
+    speed_limit = rng.choices([2000, 545.45, 900], weights=[5, 4, 1])[0] if p4_mode else 2000
     joints = {}
     for idx, (name, base) in enumerate(zip(JOINTS, angles)):
         lo_bound, hi_bound = JOINT_CLAMP_BOUNDS[idx % 3]
-        base_cmd = (0.0, 0.9, -21.29)[idx % 3] if (installed_cal and pose_name == 'stand') else base
-        cmd_jitter = rng.choice([-0.05, -0.02, 0.0, 0.02, 0.05]) if (p4_mode and (abs(base_cmd) > 0.01 or installed_cal)) else 0.0
+        if installed_cal and pose_name == 'stand':
+            base_cmd = (0.0, 0.9, -21.29)[idx % 3]
+        elif firmware_stand:
+            base_cmd = (0.0, 3.42, -21.65)[idx % 3]
+        else:
+            base_cmd = base
+        cmd_jitter = rng.choice([-0.05, -0.02, 0.0, 0.02, 0.05]) if (p4_mode and (abs(base_cmd) > 0.01 or installed_cal or firmware_stand)) else 0.0
         cmd = round(min(hi_bound, max(lo_bound, base_cmd + cmd_jitter)), 2)
-        err_span = 1.6 if pose_name == 'stand' else 0.7
+        err_span = 2.0 if pose_name == 'stand' else 0.7
         err = rng.uniform(-err_span, err_span) if p4_mode else rng.uniform(-0.45, 0.45)
         val = round(min(hi_bound, max(lo_bound, cmd + err)), 2)
-        if installed_cal:
+        if installed_cal or firmware_stand:
             cal_delta = rng.choice([-0.45, 0.0, 0.0, 0.45])
             fb_range = [round(installed_ranges[idx][0] + cal_delta, 2), round(installed_ranges[idx][1] + cal_delta, 2)]
         elif p4_mode:
@@ -252,7 +260,7 @@ def synthetic_observation(pose_name: str = 'stand', seed: int = 0):
             fb_range = [-98.0, 90.0] if idx % 3 == 0 else ([-25.0, 168.0] if idx % 3 == 1 else [-108.0, 80.0])
         j_entry = {
             'model_deg': val,
-            'commanded_model_deg': cmd,
+            'commanded_model_deg': 0 if (firmware_stand and idx % 3 == 0) else cmd,
             'home_deg': round([0.0, -30.87, -117.68][idx % 3], 2),
             'calibrated': True,
             'in_calibrated_range': True,
@@ -261,8 +269,8 @@ def synthetic_observation(pose_name: str = 'stand', seed: int = 0):
             'arrival_tolerance_deg': tol,
         }
         if p4_mode:
-            j_entry['filtered_model_deg'] = round(min(hi_bound, max(lo_bound, val + rng.uniform(-1.6, 1.6))), 2)
-            j_entry['velocity_deg_s'] = round(rng.uniform(-11.0, 11.0), 2)
+            j_entry['filtered_model_deg'] = val if firmware_stand else round(min(hi_bound, max(lo_bound, val + rng.uniform(-1.6, 1.6))), 2)
+            j_entry['velocity_deg_s'] = 0 if (firmware_stand and seed % 2 == 0) else round(rng.uniform(-11.0, 11.0), 2)
             j_entry['feedback_faults'] = []
         joints[name] = j_entry
 
@@ -303,7 +311,7 @@ def synthetic_observation(pose_name: str = 'stand', seed: int = 0):
     return {
         'model': 'v2-12servo',
         'expected_up': None,
-        'joint_speed_limit_deg_s': 2000,
+        'joint_speed_limit_deg_s': speed_limit,
         'features': list(P4_FEATURES),
         'trajectory_progress': None,
         'imu': {
@@ -479,7 +487,9 @@ def adapt_program_for_start_pose(
     obs: dict | None,
 ) -> list[dict]:
     full_program = copy.deepcopy(list(program))
-    if obs is None or start_pose == 'stand':
+    if obs is None:
+        return full_program
+    if start_pose == 'stand' and curriculum_family != 'walk_locomotion':
         return full_program
     first_motion = next((a for a in full_program if a['name'] not in ('face', 'hold')), None)
     if first_motion is None or first_motion['name'] in ('stand', 'stop'):
@@ -2429,9 +2439,14 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
 
     # --- Pillar 1: Limb, Side & Joint Mastery (16 families) ---
     specs.append(('raise_right_hand', [
+        ('paw', prog_raise_hand('right', 'standing', 70)),
+        ('give paw', prog_raise_hand('right', 'standing', 70)),
+        ('Give me your paw.', prog_raise_hand('right', 'standing', 70)),
+        ('Can you raise your right paw?', prog_raise_hand('right', 'standing', 70)),
         ('Raise your right hand.', prog_raise_hand('right', 'standing', 70)),
         ('Raise your right paw.', prog_raise_hand('right', 'standing', 70)),
         ('Please raise your right paw.', prog_raise_hand('right', 'standing', 70)),
+        ('Please raise one hand.', prog_raise_hand('right', 'standing', 70)),
         ('Lift your right front paw up and put it back down.', prog_raise_hand('right', 'standing', 70)),
         ('Can you raise your right hand for a moment, then stand?', prog_raise_hand('right', 'standing', 70, 1.0)),
         ('Sit back and put your right arm up high.', prog_raise_hand('right', 'seated', 75)),
@@ -2560,6 +2575,8 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     ], ('Offer a friendly fist bump with your right hand.', prog_fist_bump('right', 75))))
 
     specs.append(('shake_hands', [
+        ('shake hands', prog_shake_hands('right', 3, 65)),
+        ('shake paw', prog_shake_hands('right', 3, 65)),
         ('Offer your right paw to shake hands.', prog_shake_hands('right', 3, 65)),
         ('Shake hands with your left paw.', prog_shake_hands('left', 3, 65)),
         ('Shake my hand with your left hand.', prog_shake_hands('left', 3, 65)),
@@ -2739,15 +2756,61 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
 
     # --- Pillar 3: Locomotion & Expressive Choreography (10 families) ---
     specs.append(('walk_locomotion', [
-        ('Walk forward four steps.', prog_walk('walk', 4, 70, 'walk')),
-        ('Take a few steps backward.', prog_walk('backward', 4, 65, 'walk_slow')),
-        ('Turn to your left.', prog_walk('left', 4, 70, 'turn_left_90')),
-        ('Turn to your right.', prog_walk('right', 4, 70, 'turn_right_90')),
+        ('Walk forward.', prog_walk('walk', 4, 85, 'walk')),
+        ('Walk forward a bit.', prog_walk('walk', 4, 85, 'walk')),
+        ('Move forward.', prog_walk('walk', 4, 85, 'walk')),
+        ('Walk forward 2 steps.', prog_walk('walk', 2, 85, 'walk')),
+        ('Walk forward four steps.', prog_walk('walk', 4, 85, 'walk')),
+        ('Walk forward 6 steps.', prog_walk('walk', 6, 85, 'walk')),
+        ('Walk forward 8 steps.', prog_walk('walk', 8, 85, 'walk')),
+        ('Walk forward 12 steps.', prog_walk('walk', 12, 85, 'walk')),
+        ('Take 15 steps forward.', prog_walk('walk', 15, 85, 'walk')),
+        ('Walk backward.', prog_walk('backward', 4, 80, 'walk_slow')),
+        ('Move backward.', prog_walk('backward', 4, 80, 'walk_slow')),
+        ('Back up a few steps.', prog_walk('backward', 4, 75, 'walk_slow')),
+        ('Take a few steps backward.', prog_walk('backward', 3, 80, 'walk_slow')),
+        ('Walk back.', prog_walk('backward', 4, 85, 'walk_slow')),
+        ('Walk back a bit.', prog_walk('backward', 3, 75, 'walk_slow')),
+        ('Please walk back a few steps.', prog_walk('backward', 3, 80, 'walk_slow')),
+        ('Step back.', prog_walk('backward', 2, 80, 'walk_slow')),
+        ('Could you step back a bit?', prog_walk('backward', 2, 75, 'walk_slow')),
+        ('Move back.', prog_walk('backward', 3, 85, 'walk_slow')),
+        ('Move back 2 steps.', prog_walk('backward', 2, 80, 'walk_slow')),
+        ('Please move back two steps.', prog_walk('backward', 2, 85, 'walk_slow')),
+        ('Go back a couple steps.', prog_walk('backward', 2, 75, 'walk_slow')),
+        ('Step back three steps.', prog_walk('backward', 3, 70, 'walk_slow')),
+        ('Take three steps back.', prog_walk('backward', 3, 80, 'walk_slow')),
+        ('Take 2 steps back.', prog_walk('backward', 2, 80, 'walk_slow')),
+        ('Take 4 steps back.', prog_walk('backward', 4, 80, 'walk_slow')),
+        ('Walk back 4 steps.', prog_walk('backward', 4, 70, 'walk_slow')),
+        ('Take 6 steps back.', prog_walk('backward', 6, 80, 'walk_slow')),
+        ('Walk backward 5 steps.', prog_walk('backward', 5, 80, 'walk_slow')),
+        ('Take 10 steps backward.', prog_walk('backward', 10, 80, 'walk_slow')),
+        ('Turn to your left.', prog_walk('left', 2, 80, 'turn_left_90')),
+        ('Move left.', prog_walk('left', 2, 85, 'turn_left_90')),
+        ('Turn left 45 degrees.', prog_walk('left', 1, 80, 'turn_left_90')),
+        ('Turn left ninety degrees.', prog_walk('left', 2, 75, 'turn_left_90')),
+        ('Turn to your right.', prog_walk('right', 2, 80, 'turn_right_90')),
+        ('Move right.', prog_walk('right', 2, 85, 'turn_right_90')),
+        ('Turn right 45 degrees.', prog_walk('right', 1, 80, 'turn_right_90')),
+        ('Turn right ninety degrees.', prog_walk('right', 2, 75, 'turn_right_90')),
+        ('Turn around.', prog_walk('right', 4, 85, 'turn_right_90')),
+        ('Spin 180 degrees.', prog_walk('right', 4, 80, 'turn_right_90')),
+        ('Crawl forward.', prog_walk('crawl', 4, 50, 'crawl')),
         ('Crawl forward slowly and carefully.', prog_walk('crawl', 4, 45, 'crawl')),
-        ('Run forward quickly!', prog_walk('run', 5, 95, 'run')),
-        ('Sidestep to the left like a crab.', prog_walk('crab', 4, 70, 'crab')),
-        ('Crab-walk to the right.', prog_walk('crab_right', 4, 70, 'crab')),
-    ], ('Walk backward three steps and stop.', prog_walk('backward', 3, 65, 'walk_slow'))))
+        ('Crawl forward 6 steps.', prog_walk('crawl', 6, 50, 'crawl')),
+        ('Run forward.', prog_walk('run', 6, 100, 'run')),
+        ('Run!', prog_walk('run', 6, 100, 'run')),
+        ('Run forward quickly!', prog_walk('run', 6, 100, 'run')),
+        ('Run forward 10 steps.', prog_walk('run', 10, 100, 'run')),
+        ('Sidestep left.', prog_walk('crab', 4, 85, 'crab')),
+        ('Sidestep to the left like a crab.', prog_walk('crab', 4, 85, 'crab')),
+        ('Sidestep left 3 steps.', prog_walk('crab', 3, 85, 'crab')),
+        ('Sidestep right.', prog_walk('crab_right', 4, 85, 'crab')),
+        ('Sidestep to the right.', prog_walk('crab_right', 4, 85, 'crab')),
+        ('Crab-walk to the right.', prog_walk('crab_right', 4, 85, 'crab')),
+        ('Sidestep right 5 steps.', prog_walk('crab_right', 5, 85, 'crab')),
+    ], ('Walk forward 10 steps.', prog_walk('walk', 10, 85, 'walk'))))
 
     specs.append(('pace_and_patrol', [
         ('Pace back and forth like you are deep in thought.', prog_pace_patrol('pace', 65)),
@@ -3171,7 +3234,11 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
     specs.append(('alternate_legs_and_hands', [
         ('Lift your right front leg, then lift your left front leg.',
          prog_alternate_limbs(('front_right', 'front_left'), 0.45, 70)),
+        ('Put your feet in the air right foot first then put it down then left foot.',
+         prog_alternate_limbs(('front_right', 'front_left'), 0.45, 70)),
         ('Lift your left front leg, then lift your right front leg.',
+         prog_alternate_limbs(('front_left', 'front_right'), 0.45, 70)),
+        ('Put your feet in the air left foot first then put it down then right foot.',
          prog_alternate_limbs(('front_left', 'front_right'), 0.45, 70)),
         ('Lift your right hand, then lift your left hand.',
          prog_alternate_limbs(('front_right', 'front_left'), 0.45, 70)),
@@ -3309,7 +3376,7 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
         'clapping_applause', 'shake_hands', 'high_five', 'fist_bump', 'beckon_come_here',
         'polite_bow', 'full_body_stretch', 'pushups_and_squats', 'yes_and_no_gestures', 'laugh_and_sigh',
         'head_tilt_curious', 'look_directions', 'vehicle_cornering_and_banking',
-        'moonwalk_dance', 'salsa_dance', 'macarena_dance', 'disco_dance',
+        'moonwalk_dance', 'salsa_dance', 'macarena_dance', 'disco_dance', 'walk_locomotion',
         'lift_front_right_leg', 'lift_front_left_leg', 'lift_rear_right_leg', 'lift_rear_left_leg',
         'standing_right_hand', 'standing_left_hand', 'both_hands_reach_and_jazz',
         'leg_stretch_and_shake', 'alternate_legs_and_hands',
@@ -3334,7 +3401,7 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
                     modes.insert(0, None)
             elif fam in origin_sensitive_fams:
                 modes = ['stand', 'sit', nonstand_cycle[(fam_idx + item_idx) % len(nonstand_cycle)]]
-                if item_idx == 0:
+                if item_idx == 0 or fam == 'walk_locomotion':
                     modes.insert(0, None)
             elif item_idx == 0 or 'left' in low or 'right' in low or 'wave' in low or 'paw' in low:
                 modes = [None, 'stand', 'sit' if item_idx % 2 == 0 else nonstand_cycle[(fam_idx + item_idx) % len(nonstand_cycle)]]
@@ -3358,7 +3425,7 @@ def build_curriculum_splits(discarded_ids: set[str] | None = None):
                 if row['query'] in seen_queries or row['id'] in seen_ids:
                     continue
                 bucket_key = (fam, str(mode), compact(row['answers']))
-                max_dup = 2 if mode is None else 3
+                max_dup = 8 if fam == 'walk_locomotion' else (2 if mode is None else 3)
                 if program_bucket_counts.get(bucket_key, 0) >= max_dup:
                     continue
                 program_bucket_counts[bucket_key] = program_bucket_counts.get(bucket_key, 0) + 1

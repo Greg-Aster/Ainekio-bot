@@ -10,11 +10,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/dead/source.json",
-      "sha256": "d723754f6a19df430baa6d592c868048bf998ebd5b6527093e92e6519cc4107f"
+      "sha256": "a1415f158cbd7551ba583d7267d470143b91ff79fd125c473519c63ad220a2e5"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/dead/manifest.json",
-      "sha256": "20fbc13c8507dbdead1efe3e66d038fcbf3577d1271d8da7a0224b2478b32668"
+      "sha256": "a07064a1fbffa8f32b07e6709b0109777ef742a9d7ce735ba9f45244457c2f65"
     }
   ],
   "source_units": {
@@ -253,5 +253,6 @@
     "optional_demo_recovery_end_s": null,
     "behavior": "Hold the grounded terminal pose until another command."
   },
-  "hardware_ready": false
+  "hardware_ready": false,
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124"
 }

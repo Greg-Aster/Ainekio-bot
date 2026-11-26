@@ -12,11 +12,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/wave/source.json",
-      "sha256": "e117471c079df2cd697a30b769e96138a374f9ce42e17980bb69720b1233e61e"
+      "sha256": "00c07f10ea0e6886e2d3458fb67404348eee029b71e2398905a97947430909df"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/wave/manifest.json",
-      "sha256": "d1d2c6e54a77e51e8d3eae1ed34bb57d6a765b9f511fa712def84ff4e47dc9c9"
+      "sha256": "828c48b58a54d359be9e1a208aac6b3a58da85ec37c7a3f82128920fab7e52b8"
     }
   ],
   "source_units": {
@@ -824,5 +824,5 @@
   },
   "hardware_ready": false,
   "required_hardware_implementation": "Apply execution-policy.json in the canonical calibrated actuator executor; neither this file nor timing.py emits servo commands.",
-  "geometry_id": "compact-35-20-28-38-55-visible-20261005"
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124"
 }

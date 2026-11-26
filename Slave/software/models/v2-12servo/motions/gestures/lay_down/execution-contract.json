@@ -10,11 +10,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/lay_down/source.json",
-      "sha256": "95299a72b01f9cff7f04d012186d53ead1c06324333bfb1bec757224851ec5ad"
+      "sha256": "8a860e85b25f59e62b38f53c3a07ac3a229a09351709ffd3f321b90a2f2a35c3"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/lay_down/manifest.json",
-      "sha256": "696cbf1c5c92c4fdfd69d8d3d1f5e745632d8f571bfe7af8fd608d28b89d5536"
+      "sha256": "f185d4dde2eb05d383c7682929694999086e8ad652d1171f02b4e210d763bd64"
     }
   ],
   "source_units": {
@@ -217,5 +217,6 @@
     "optional_demo_recovery_end_s": null,
     "behavior": "Hold the grounded terminal pose until another command."
   },
-  "hardware_ready": false
+  "hardware_ready": false,
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124"
 }

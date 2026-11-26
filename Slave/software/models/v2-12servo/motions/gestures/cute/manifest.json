@@ -1,1 +1,190 @@
-{"command":"cute","body_control_label":"CUTE","wire":{"t":"intent","name":"emote","asset":"cute"},"gait_id":"cute_upright_24_38_20260921","generated_utc":"2026-10-06","duration_seconds":13.5,"semantic_end_seconds":13.5,"source_sample_hz":120,"sample_count":1621,"entry_pose":"Common current-geometry standing pose; calibrated arbitrary-pose entry remains unimplemented.","completion":"Return along solved entry paths to exact geometric standing and hold. Restore stand face.","semantic_final_actuator_angles_rad":[[-3.258793139579919e-09,0.016347915315830023,-0.3708226812043879],[-6.517514079637103e-09,0.016347508290458918,-0.370822616037598],[1.8867850144699266e-09,0.016348523302604126,-0.3708227845283329],[-3.258808060841376e-09,0.01634810848734036,-0.3708227169893765]],"playlist_final_actuator_angles_rad":[[-3.258793139579919e-09,0.016347915315830023,-0.3708226812043879],[-6.517514079637103e-09,0.016347508290458918,-0.370822616037598],[1.8867850144699266e-09,0.016348523302604126,-0.3708227845283329],[-3.258808060841376e-09,0.01634810848734036,-0.3708227169893765]],"face_cues":[{"time_s":0.0,"name":"cute","mode":"once","fps":1},{"time_s":13.0,"name":"stand","mode":"once","fps":1}],"hardware_qualified":false,"actuator_calibration":null,"source_sha256":"99a9c4c5979f411abc88ca480ada86754a1696f43395ab0d6336ae5e9e846ca7","geometry_sha256":"714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b","sole_hulls_sha256":"3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136","face_sha256":{"faces/cute/0.bin":"89612291f1e0519e1672562b0b09025d4c787ff83230ab1d945969a8429cadff","faces/stand/0.bin":"08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"},"contact_model":"Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.","geometry_id":"compact-35-20-28-38-55-visible-20261005","entry_actuator_angles_rad":[[-3.2587514535178554e-09,0.016347915315763184,-0.37082268120438233],[-6.517507747520016e-09,0.016347508290471217,-0.37082261603760536],[1.8868235142267755e-09,0.01634852330256753,-0.3708227845283269],[-3.2588081688618683e-09,0.016348108487340002,-0.37082271698937896]],"source_validation":{"command":"cute","geometry_id":"compact-35-20-28-38-55-visible-20261005","samples":1621,"duration_s":13.5,"sample_hz":120,"minimum_sole_height_mm":-2.008171406941983e-12,"minimum_body_ground_clearance_mm":0.0,"minimum_closure_triangle_height_mm":12.574163690156144,"minimum_input_toggle_clearance_deg":25.576475241139697,"input_toggle_witness_time_and_cad_leg":[7.05,"FL"],"maximum_adjacent_joint_step_degrees":2.3712962220761122,"peak_joint_speed_deg_s":284.0236894675577,"joint_min_deg":[-72.49845392866473,-31.503686363688107,-53.214713088192944],"joint_max_deg":[5.020669840845745e-06,28.589490041946906,-21.076221504982513],"maximum_body_translation_difference_mm":0.0,"maximum_foot_xy_difference_mm":2.623740989030073e-12,"maximum_sole_height_difference_mm":2.284394895468722e-12,"timing_preserved":true,"contact_schedule_preserved":true,"body_rotations_preserved":true,"hardware_qualified":false,"collision_checked":false,"calibration_qualified":false,"policy":"Preserve original foot XY, whole-sole height, body path, timing and contacts.","motion_end_s":13.0},"retargeted_from":{"path":"docs/gait-research/motion-batch-20260916/commands/cute/source.json","sha256":"97349072ef595173eb1e3c0482e979675b113ae3df8bea3eb54f7ab4e5fac47f"},"blender_workspace_file":"Slave/hardware/v2-12servo/ainekio-variable-gait.blend","blender_scene":"Motions - Current Geometry","body_target":{"position_mm":[0.0,0.0,63.0],"euler_xyz_rad":[0.0,-0.0,0.0]},"choreography_source":"docs/gait-research/motion-batch-20260916/commands/cute/manifest.json","retargeting_notes":"Current full-body and sole targets are solved against root geometry.json; geometry-dependent legacy prose remains only in the historical package.","recorded_geometry_sha256":"630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244","current_mounting_qualification":"Original finite recording retained; not requalified for current centered mounts and shaft screw heads.","final_actuator_angles_rad":[[-3.258793139579919e-09,0.016347915315830023,-0.3708226812043879],[-6.517514079637103e-09,0.016347508290458918,-0.370822616037598],[1.8867850144699266e-09,0.016348523302604126,-0.3708227845283329],[-3.258808060841376e-09,0.01634810848734036,-0.3708227169893765]]}
+{
+  "command": "cute",
+  "body_control_label": "CUTE",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "cute"
+  },
+  "gait_id": "cute_upright_24_38_20260921",
+  "generated_utc": "2026-10-06",
+  "duration_seconds": 13.5,
+  "semantic_end_seconds": 13.5,
+  "source_sample_hz": 120,
+  "sample_count": 1621,
+  "entry_pose": "Common current-geometry standing pose; calibrated arbitrary-pose entry remains unimplemented.",
+  "completion": "Return along solved entry paths to exact geometric standing and hold. Restore stand face.",
+  "semantic_final_actuator_angles_rad": [
+    [
+      -3.258793139579919e-09,
+      0.016347915315830023,
+      -0.3708226812043879
+    ],
+    [
+      -6.517514079637103e-09,
+      0.016347508290458918,
+      -0.370822616037598
+    ],
+    [
+      1.8867850144699266e-09,
+      0.016348523302604126,
+      -0.3708227845283329
+    ],
+    [
+      -3.258808060841376e-09,
+      0.01634810848734036,
+      -0.3708227169893765
+    ]
+  ],
+  "playlist_final_actuator_angles_rad": [
+    [
+      -3.258793139579919e-09,
+      0.016347915315830023,
+      -0.3708226812043879
+    ],
+    [
+      -6.517514079637103e-09,
+      0.016347508290458918,
+      -0.370822616037598
+    ],
+    [
+      1.8867850144699266e-09,
+      0.016348523302604126,
+      -0.3708227845283329
+    ],
+    [
+      -3.258808060841376e-09,
+      0.01634810848734036,
+      -0.3708227169893765
+    ]
+  ],
+  "face_cues": [
+    {
+      "time_s": 0.0,
+      "name": "cute",
+      "mode": "once",
+      "fps": 1
+    },
+    {
+      "time_s": 13.0,
+      "name": "stand",
+      "mode": "once",
+      "fps": 1
+    }
+  ],
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "source_sha256": "72411073fa660f44a041d43e48dfe87afa37a6ce7cb61f4994929fecefc0d6b1",
+  "geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
+  "sole_hulls_sha256": "f10589aff3dcd1b72b04b1e226cc11a19987e9c0c9113c90a235b68780121e5f",
+  "face_sha256": {
+    "faces/cute/0.bin": "89612291f1e0519e1672562b0b09025d4c787ff83230ab1d945969a8429cadff",
+    "faces/stand/0.bin": "08b5e909229e652b30b6b5c365879649050eadf5b0b120ab76a5755cc830ad5e"
+  },
+  "contact_model": "Current complete sole hull minimum Z; preserved contact choreography and explicit sequential stance preparation for body support.",
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124",
+  "entry_actuator_angles_rad": [
+    [
+      -3.2587514535178554e-09,
+      0.016347915315763184,
+      -0.37082268120438233
+    ],
+    [
+      -6.517507747520016e-09,
+      0.016347508290471217,
+      -0.37082261603760536
+    ],
+    [
+      1.8868235142267755e-09,
+      0.01634852330256753,
+      -0.3708227845283269
+    ],
+    [
+      -3.2588081688618683e-09,
+      0.016348108487340002,
+      -0.37082271698937896
+    ]
+  ],
+  "source_validation": {
+    "command": "cute",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 1621,
+    "duration_s": 13.5,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": -2.008171406941983e-12,
+    "minimum_body_ground_clearance_mm": 0.0,
+    "minimum_closure_triangle_height_mm": 12.574163690156144,
+    "minimum_input_toggle_clearance_deg": 25.576475241139697,
+    "input_toggle_witness_time_and_cad_leg": [
+      7.05,
+      "FL"
+    ],
+    "maximum_adjacent_joint_step_degrees": 2.3712962220761122,
+    "peak_joint_speed_deg_s": 284.0236894675577,
+    "joint_min_deg": [
+      -72.49845392866473,
+      -31.503686363688107,
+      -53.214713088192944
+    ],
+    "joint_max_deg": [
+      5.020669840845745e-06,
+      28.589490041946906,
+      -21.076221504982513
+    ],
+    "maximum_body_translation_difference_mm": 0.0,
+    "maximum_foot_xy_difference_mm": 2.623740989030073e-12,
+    "maximum_sole_height_difference_mm": 2.284394895468722e-12,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true,
+    "body_rotations_preserved": true,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "policy": "Preserve original foot XY, whole-sole height, body path, timing and contacts.",
+    "motion_end_s": 13.0
+  },
+  "retargeted_from": {
+    "path": "docs/gait-research/motion-batch-20260916/commands/cute/source.json",
+    "sha256": "97349072ef595173eb1e3c0482e979675b113ae3df8bea3eb54f7ab4e5fac47f"
+  },
+  "blender_workspace_file": "Slave/hardware/v2-12servo/ainekio-variable-gait.blend",
+  "blender_scene": "Motions - Current Geometry",
+  "body_target": {
+    "position_mm": [
+      0.0,
+      0.0,
+      63.0
+    ],
+    "euler_xyz_rad": [
+      0.0,
+      -0.0,
+      0.0
+    ]
+  },
+  "choreography_source": "docs/gait-research/motion-batch-20260916/commands/cute/manifest.json",
+  "retargeting_notes": "Current full-body and sole targets are solved against root geometry.json; geometry-dependent legacy prose remains only in the historical package.",
+  "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads.",
+  "final_actuator_angles_rad": [
+    [
+      -3.258793139579919e-09,
+      0.016347915315830023,
+      -0.3708226812043879
+    ],
+    [
+      -6.517514079637103e-09,
+      0.016347508290458918,
+      -0.370822616037598
+    ],
+    [
+      1.8867850144699266e-09,
+      0.016348523302604126,
+      -0.3708227845283329
+    ],
+    [
+      -3.258808060841376e-09,
+      0.01634810848734036,
+      -0.3708227169893765
+    ]
+  ]
+}

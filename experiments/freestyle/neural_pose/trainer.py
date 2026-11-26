@@ -363,6 +363,9 @@ class PoseAction(ActionTerm):
                 [0.70, -27.50, -24.00, -5.80, -27.50, -21.40, 9.00, 47.40, 44.50, 13.30, 88.30, 58.60],
                 [-13.80, -22.00, -12.00, 2.70, -22.00, -16.00, -8.40, 0.94, -21.25, -1.60, 0.94, -21.25],
                 [2.70, -22.00, -16.00, -13.80, -22.00, -12.00, -1.60, 0.94, -21.25, -8.40, 0.94, -21.25],
+                # Exact 13:05:16 +13 deg right-roll lock-in state (left carriers extended, right compressed) + mirror
+                [-9.50, 11.40, -9.80, -2.50, -13.60, -19.50, -3.00, 14.70, -16.70, -8.80, -14.80, -27.60],
+                [-2.50, -13.60, -19.50, -9.50, 11.40, -9.80, -8.80, -14.80, -27.60, -3.00, 14.70, -16.70],
             ],
             dtype=torch.float32,
         )
@@ -787,16 +790,18 @@ class PoseAction(ActionTerm):
         pinned = active_locked & (~self.stance_jam_airborne) & in_contact & (dist_to_lock <= 0.035)
         self.stance_jam_age = torch.where(pinned, self.stance_jam_age + 1, self.stance_jam_age)
 
-        # Schmitt-trigger single-leg sequencer with stand-before-step priority:
-        # - Do NOT initiate a shoulder micro-step while any stance leg's carrier is still deeply
-        #   crouched/folded (|ca_err| > 14 deg / 0.24 rad) — stand up on all 4 legs first!
+        # Schmitt-trigger single-leg sequencer with level-and-stand-before-step priority:
+        # - Do NOT initiate a shoulder micro-step while any stance leg's carrier is off goal
+        #   (|ca_err| > 10.9 deg / 0.19 rad) OR chassis is rolled/pitched > 10 deg (-grav_z <= 0.985)
+        #   — level the torso and stand on all 4 legs first!
         # - Continue an already-latched step down to <= 3.0 deg (0.052 rad)
-        # - Initiate a NEW step strictly when shoulder error > 6.5 deg (0.113 rad)
+        # - Initiate a NEW step strictly when shoulder error > 5.6 deg (0.098 rad)
         ca_err = (self.current_goal_rad.reshape(-1, 4, 3)[..., 1] - q_all[..., 1]).abs()
-        stance_upright = (~((self.leg_support > 0.5) & (ca_err > 0.24))).all(dim=-1, keepdim=True)
+        grav_z = -self._entity.data.projected_gravity_b[:, 2:3]
+        stance_upright = (~((self.leg_support > 0.5) & (ca_err > 0.19))).all(dim=-1, keepdim=True) & (grav_z > 0.985)
         keep_mask = self.stance_step_leg & active_locked & (sh_err > 0.052) & stance_upright
         keep_cur = keep_mask.any(dim=-1)
-        start_mask = active_locked & (sh_err > 0.113) & stance_upright
+        start_mask = active_locked & (sh_err > 0.098) & stance_upright
         next_scores = torch.where(start_mask, sh_err, torch.full_like(sh_err, -1.0))
         next_oh = torch.nn.functional.one_hot(next_scores.argmax(dim=-1), num_classes=4).to(torch.bool) & start_mask.any(
             dim=-1, keepdim=True
@@ -1461,11 +1466,14 @@ def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: floa
         u_out = u_teacher
         sample_w = torch.ones_like(u_teacher)
 
-        # 1. Ground-contact friction jam ONLY: Schmitt-trigger single-leg step (>6.5 deg start, <=3.0 deg release)
-        #    gated by stand-before-step (all stance carriers within 14 deg of goal before lifting any paw).
+        # 1. Ground-contact friction jam ONLY: Schmitt-trigger single-leg step (>5.6 deg start, <=3.0 deg release)
+        #    gated by level-and-stand-before-step (all stance carriers within 11 deg & tilt <= 10 deg).
         active_locked = pose_term.stance_jam_leg_mask & (~pose_term.stance_jam_unlocked)
         ca_err = (pose_term.current_goal_rad - q_true).abs().reshape(-1, 4, 3)[..., 1]
-        stance_upright = (~((pose_term.leg_support > 0.5) & (ca_err > 0.24))).all(dim=-1, keepdim=True)
+        grav_z = -pose_term._entity.data.projected_gravity_b[:, 2:3]
+        stance_upright = (~((pose_term.leg_support > 0.5) & (ca_err > 0.19))).all(dim=-1, keepdim=True) & (
+            grav_z > 0.985
+        )
         sjam_ready = (
             active_locked
             & stance_upright
@@ -1475,7 +1483,7 @@ def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: floa
         sh_err = (pose_term.current_goal_rad - q_true).abs().reshape(-1, 4, 3)[..., 0]
         latched_ready = pose_term.stance_step_leg & sjam_ready & (sh_err > 0.052)
         has_latched = latched_ready.any(dim=-1, keepdim=True)
-        start_cand = sjam_ready & (sh_err > 0.113)
+        start_cand = sjam_ready & (sh_err > 0.098)
         has_start = start_cand.any(dim=-1, keepdim=True)
         fb_scores = torch.where(start_cand, sh_err, torch.full_like(sh_err, -1.0))
         fb_oh = torch.nn.functional.one_hot(fb_scores.argmax(dim=-1), num_classes=4).to(torch.bool) & has_start
@@ -1494,12 +1502,12 @@ def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: floa
             in_contact = env.scene["feet_ground_contact"].data.found > 0  # (N, 4)
             airborne = getattr(pose_term, "stance_jam_airborne", ~in_contact)
 
-            # Full calibrated carpet-clearing lift (z_norm +0.18 -> ~22 mm real clearance, bounded
-            # strictly inside the -27.87 deg calibrated carrier floor by PoseManifold).
+            # Full calibrated carpet-clearing lift (bounded strictly inside -27.87 deg by PoseManifold)
+            # paired with full tripod CoM shift/diagonal brace to unload the stepping leg cleanly.
             xy_contact = 0.50 * curr_f43[..., :2] + 0.50 * goal_f43[..., :2]
-            z_contact = (curr_f43[..., 2] + 0.18).clamp(-1.0, 0.85)
+            z_contact = (curr_f43[..., 2] + 0.20).clamp(-1.0, 0.85)
             xy_air = goal_f43[..., :2]
-            z_air = (torch.maximum(curr_f43[..., 2], goal_f43[..., 2]) + 0.15).clamp(-1.0, 0.84)
+            z_air = (torch.maximum(curr_f43[..., 2], goal_f43[..., 2]) + 0.16).clamp(-1.0, 0.84)
 
             step_xy = torch.where((~airborne).unsqueeze(-1), xy_contact, xy_air)
             step_z = torch.where(~airborne, z_contact, z_air).unsqueeze(-1)
@@ -1513,9 +1521,9 @@ def _dagger_jam_warmstart(runner, wrapped, env, raw_ckpt: dict, prev_scale: floa
             right_single = step_leg_oh[:, 1] | step_leg_oh[:, 3]
             rear_single = step_leg_oh[:, 0] | step_leg_oh[:, 1]
             front_single = step_leg_oh[:, 2] | step_leg_oh[:, 3]
-            shift_y = 14.0 / 155.0
-            shift_x = 9.0 / 155.0
-            brace_z = torch.full((env.num_envs,), -8.0 / 180.0, device=device)
+            shift_y = 20.0 / 155.0
+            shift_x = 12.0 / 155.0
+            brace_z = torch.full((env.num_envs,), -14.0 / 180.0, device=device)
             com_shift_y = torch.where(left_single, shift_y, torch.where(right_single, -shift_y, 0.0))
             com_shift_x = torch.where(rear_single, -shift_x, torch.where(front_single, shift_x, 0.0))
 

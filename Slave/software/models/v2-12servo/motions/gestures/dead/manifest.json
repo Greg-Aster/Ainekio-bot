@@ -77,12 +77,12 @@
       1.1453266486403793
     ]
   ],
-  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
-  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
-  "sole_hulls_sha256": "3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136",
-  "source_sha256": "d723754f6a19df430baa6d592c868048bf998ebd5b6527093e92e6519cc4107f",
-  "posture_sha256": "aa3cec28eace1fc22630d227b5c77497a29e7e5bb7753d7e7d95027fc0d6ee41",
-  "posture_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124",
+  "geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
+  "sole_hulls_sha256": "f10589aff3dcd1b72b04b1e226cc11a19987e9c0c9113c90a235b68780121e5f",
+  "source_sha256": "a1415f158cbd7551ba583d7267d470143b91ff79fd125c473519c63ad220a2e5",
+  "posture_sha256": "ed219b86ce174f933174ac1438539638eb0eea7fa188df0239cb94f23c004fa3",
+  "posture_hulls_sha256": "7d64f84420e23e7c5d256688b9394b2aff5547ab97c7a83c5e6c4bad422ea25e",
   "reviewed_sha256": "edd012fa6cecb5b143a31a2e9fda478cec6f63c6556188e736848038b8d066b7",
   "hardware_qualified": false,
   "actuator_calibration": null,

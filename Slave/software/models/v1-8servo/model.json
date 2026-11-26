@@ -1,0 +1,164 @@
+{
+  "model": "v1-8servo",
+  "board": "esp32p4-wifi6",
+  "joint_map_version": 1,
+  "geometry_id": "v1-p4-clockspring-20261121",
+  "position_units": "signed centidegrees from standing neutral (0 = standing; +hip = forward +X; +knee = lift outward/up)",
+  "hardware": {
+    "controller": "Waveshare ESP32-P4-WIFI6",
+    "servo_driver": {
+      "type": "PCA9685",
+      "i2c_port": 1,
+      "sda_gpio": 2,
+      "scl_gpio": 3,
+      "oe_gpio": 4,
+      "address": "0x40"
+    },
+    "imu": {
+      "type": "GY-LSM6DS3",
+      "i2c_port": 0,
+      "sda_gpio": 7,
+      "scl_gpio": 8,
+      "address": "0x6A"
+    },
+    "display": {
+      "type": "SSD1306_128x64",
+      "scl_gpio": 26,
+      "sda_gpio": 27,
+      "address": "0x3C"
+    },
+    "camera": {
+      "type": "Arducam B0066 (OV5647 MIPI-CSI)"
+    },
+    "feedback": {
+      "type": "direct_adc_8ch",
+      "multiplexer": false,
+      "adc1_gpios": [
+        20,
+        21,
+        22,
+        23
+      ],
+      "adc2_gpios": [
+        49,
+        50,
+        51,
+        52
+      ]
+    }
+  },
+  "joints": [
+    {
+      "id": 0,
+      "label": "R1",
+      "name": "front_right_hip",
+      "cad_leg": "FR",
+      "physical_leg": "front_right",
+      "axis": "hip",
+      "pca_channel": 0,
+      "adc_gpio": 20,
+      "limits_deg": [
+        -45.0,
+        45.0
+      ]
+    },
+    {
+      "id": 1,
+      "label": "R2",
+      "name": "rear_right_hip",
+      "cad_leg": "RR",
+      "physical_leg": "rear_right",
+      "axis": "hip",
+      "pca_channel": 1,
+      "adc_gpio": 21,
+      "limits_deg": [
+        -45.0,
+        45.0
+      ]
+    },
+    {
+      "id": 2,
+      "label": "L1",
+      "name": "front_left_hip",
+      "cad_leg": "FL",
+      "physical_leg": "front_left",
+      "axis": "hip",
+      "pca_channel": 2,
+      "adc_gpio": 22,
+      "limits_deg": [
+        -45.0,
+        45.0
+      ]
+    },
+    {
+      "id": 3,
+      "label": "L2",
+      "name": "rear_left_hip",
+      "cad_leg": "RL",
+      "physical_leg": "rear_left",
+      "axis": "hip",
+      "pca_channel": 3,
+      "adc_gpio": 23,
+      "limits_deg": [
+        -45.0,
+        45.0
+      ]
+    },
+    {
+      "id": 4,
+      "label": "R4",
+      "name": "rear_right_knee",
+      "cad_leg": "RR",
+      "physical_leg": "rear_right",
+      "axis": "knee",
+      "pca_channel": 4,
+      "adc_gpio": 49,
+      "limits_deg": [
+        -15.0,
+        115.0
+      ]
+    },
+    {
+      "id": 5,
+      "label": "R3",
+      "name": "front_right_knee",
+      "cad_leg": "FR",
+      "physical_leg": "front_right",
+      "axis": "knee",
+      "pca_channel": 5,
+      "adc_gpio": 50,
+      "limits_deg": [
+        -15.0,
+        115.0
+      ]
+    },
+    {
+      "id": 6,
+      "label": "L3",
+      "name": "front_left_knee",
+      "cad_leg": "FL",
+      "physical_leg": "front_left",
+      "axis": "knee",
+      "pca_channel": 6,
+      "adc_gpio": 51,
+      "limits_deg": [
+        -15.0,
+        115.0
+      ]
+    },
+    {
+      "id": 7,
+      "label": "L4",
+      "name": "rear_left_knee",
+      "cad_leg": "RL",
+      "physical_leg": "rear_left",
+      "axis": "knee",
+      "pca_channel": 7,
+      "adc_gpio": 52,
+      "limits_deg": [
+        -15.0,
+        115.0
+      ]
+    }
+  ]
+}

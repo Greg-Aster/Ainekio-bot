@@ -895,6 +895,14 @@
       "Feedback calibration incomplete; programmed motion remains available.";
   }
 
+  function isVirtualBody(entry) {
+    return Boolean(
+      entry?.virtual ||
+      (typeof entry?.firmware === "string" && entry.firmware.startsWith("virtual-")) ||
+      (entry?.features || []).includes("room_chat_v1")
+    );
+  }
+
   function renderServoFeedback() {
     const panel = byId("servo-feedback-panel");
     if (!panel) return;
@@ -902,16 +910,17 @@
       el.disabled = !servoFeedbackSupported || servoFeedbackWriting;
     });
     const data = servoFeedbackData;
+    const virtualConnected = Boolean(calibrationEntry?.connected && isVirtualBody(calibrationEntry));
     if (byId("cockpit-jam-toggle")) {
       const separateJam = typeof data?.jam_enabled === "boolean";
       const jamOn = Boolean(data && (separateJam ? data.jam_enabled : (data.stand_enabled && data.no_progress_ms)));
       byId("cockpit-jam-toggle").disabled = !servoFeedbackSupported || servoFeedbackWriting || !data;
       byId("cockpit-jam-toggle").checked = jamOn;
-      text("cockpit-jam-state", !servoFeedbackSupported ? "Connect a P4 robot" : !data ? "Reading from robot…" :
+      text("cockpit-jam-state", !servoFeedbackSupported ? (virtualConnected ? "Virtual body (simulated)" : "Connect a P4 robot") : !data ? "Reading from robot…" :
         jamOn ? `Active · ${data.no_progress_ms ?? 1000} ms window` : "Off");
     }
     if (!servoFeedbackSupported) {
-      text("servo-feedback-status", "Connect a P4 with servo feedback firmware.");
+      text("servo-feedback-status", virtualConnected ? "Virtual simulation streams joint feedback over WebSocket; ESP32 HTTP maintenance is not used." : "Connect a P4 with servo feedback firmware.");
       byId("servo-feedback-rows").replaceChildren();
       text("servo-feedback-motion", ""); text("servo-feedback-raw", ""); text("servo-feedback-points", "");
       text("servo-feedback-health", "");
@@ -1003,7 +1012,7 @@
   }
 
   function updateServoFeedback(entry) {
-    const supported = Boolean(entry?.connected && entry.model === "v2-12servo" &&
+    const supported = Boolean(entry?.connected && !isVirtualBody(entry) && entry.model === "v2-12servo" &&
       entry.connection_state !== "stale" && (entry.features || []).includes("servo_feedback_v1"));
     const session = `${selectedRobotId}:${entry?.epoch}:${supported}`;
     if (session !== servoFeedbackSession) {
@@ -1375,7 +1384,7 @@
 
   let idleRestSession = "", idleRestRequest = 0;
   function updateIdleRest(entry) {
-    const supported = Boolean(entry?.connected && entry.features?.includes("idle_rest_v1"));
+    const supported = Boolean(entry?.connected && !isVirtualBody(entry) && entry.features?.includes("idle_rest_v1"));
     byId("idle-rest-form").hidden = !supported;
     const session = supported ? `${selectedRobotId}:${entry.epoch}` : "";
     if (session !== idleRestSession) {
@@ -1814,6 +1823,149 @@
       if (session===gyroJointSession) renderGyroJointGuide();
     } catch(error) { if (session===gyroJointSession) text("gyro-joint-result",error.message); }
   }
+  let autoCalData = null;
+  let autoCalRobot = null;
+  let autoCalPollTimer = null;
+  let autoCalBusy = false;
+
+  function stopAutoCalPolling() {
+    if (autoCalPollTimer) {
+      window.clearTimeout(autoCalPollTimer);
+      autoCalPollTimer = null;
+    }
+  }
+
+  function renderAutoCalibration() {
+    const card = byId("auto-calibration-card");
+    if (!card) return;
+    const p4 = bodyCalibrationEnabled();
+    const online = Boolean(calibrationEntry && calibrationEntry.connection_state !== "stale");
+    card.hidden = !p4;
+    if (!p4) {
+      stopAutoCalPolling();
+      return;
+    }
+    if (autoCalRobot !== selectedRobotId) {
+      autoCalRobot = selectedRobotId;
+      autoCalData = null;
+      stopAutoCalPolling();
+    }
+    const modeSelect = byId("auto-calibration-mode");
+    const mode = modeSelect ? modeSelect.value : "floor";
+    text("auto-calibration-help", mode === "legs_free"
+      ? "Support the chassis off the ground so all four legs hang freely with no ground friction. Sweeps all 12 joints across wide unloaded ranges to calibrate 4th-wire feedback; skips floor leveling."
+      : "Place the robot on a flat, low-friction surface with clear space around all four legs. Uses your saved 4th-wire curves (or sweeps symmetrically if any joint is uncalibrated), then balances leg heights and shoulders using the IMU and shaft load. Aborts and releases servos if tilt exceeds 25°.");
+    const state = autoCalData?.state || "idle";
+    const running = state === "running";
+    if (modeSelect) modeSelect.disabled = !online || running || autoCalBusy;
+    if (byId("auto-calibration-start")) byId("auto-calibration-start").disabled = !online || running || autoCalBusy;
+    if (byId("auto-calibration-stop")) byId("auto-calibration-stop").disabled = !online || !running;
+    if (byId("auto-calibration-apply")) byId("auto-calibration-apply").disabled = !online || autoCalBusy || !autoCalData?.can_apply;
+    if (byId("auto-calibration-restore")) byId("auto-calibration-restore").disabled = !online || autoCalBusy || !autoCalData?.can_restore;
+    const pct = running ? ` (${Math.round((autoCalData.progress || 0) * 100)}%)` : "";
+    text("auto-calibration-status", (autoCalData?.message || "Ready to calibrate.") + pct);
+    const summaryEl = byId("auto-calibration-summary");
+    if (summaryEl) {
+      const b = autoCalData?.before, a = autoCalData?.after;
+      if (a && Number.isFinite(b?.roll_deg) && Number.isFinite(a?.roll_deg)) {
+        summaryEl.hidden = false;
+        summaryEl.textContent = `Tilt: roll ${b.roll_deg.toFixed(2)}° → ${a.roll_deg.toFixed(2)}° · pitch ${b.pitch_deg.toFixed(2)}° → ${a.pitch_deg.toFixed(2)}° · ${a.calibrated_joints ?? 0}/12 calibrated · ${a.in_range_joints ?? 0}/12 in range.`;
+      } else if (a && a.mode === "legs_free") {
+        summaryEl.hidden = false;
+        summaryEl.textContent = `Legs-free sweep: ${a.calibrated_joints ?? 0}/12 joints calibrated · ${a.in_range_joints ?? 0}/12 in range.`;
+      } else {
+        summaryEl.hidden = true;
+        summaryEl.textContent = "";
+      }
+    }
+    const wrap = byId("auto-calibration-table-wrap");
+    const tbody = byId("auto-calibration-rows");
+    const rows = Array.isArray(autoCalData?.joints) ? autoCalData.joints : [];
+    if (wrap && tbody) {
+      wrap.hidden = rows.length === 0;
+      tbody.replaceChildren();
+      for (const row of rows) {
+        const tr = document.createElement("tr");
+        const delta = row.home_delta_us ? ` (${row.home_delta_us > 0 ? "+" : ""}${row.home_delta_us})` : "";
+        const pts = (row.points || []).map((p) => `${p.pulse_us}→${p.raw}`).join(" / ") || "—";
+        const errB = Number.isFinite(row.error_us_before) ? `${row.error_us_before.toFixed(0)}` : "—";
+        const errA = Number.isFinite(row.error_us_after) ? `${row.error_us_after.toFixed(0)}` : "—";
+        const cells = [
+          row.name || `Joint ${row.id}`,
+          `${row.home_us_before} → ${row.home_us_after}${delta}`,
+          pts,
+          `${errB} → ${errA}`,
+          row.in_calibrated_range === true ? "In range" : row.in_calibrated_range === false ? "Out" : "—",
+        ];
+        for (const value of cells) {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+    }
+  }
+
+  async function pollAutoCalibration(robotId) {
+    if (!robotId || robotId !== selectedRobotId) return;
+    try {
+      const data = await request(`/api/calibration/auto?robot_id=${encodeURIComponent(robotId)}`);
+      if (robotId !== selectedRobotId) return;
+      const wasRunning = autoCalData?.state === "running";
+      autoCalData = data;
+      renderAutoCalibration();
+      if (data.state === "running") {
+        stopAutoCalPolling();
+        autoCalPollTimer = window.setTimeout(() => void pollAutoCalibration(robotId), 400);
+      } else if (wasRunning) {
+        if (typeof calibrateBody === "function") void calibrateBody("get", {}, "Calibration refreshed");
+        if (typeof readServoFeedback === "function") void readServoFeedback(null, true);
+      }
+    } catch (error) {
+      if (robotId === selectedRobotId) text("auto-calibration-status", error.message);
+    }
+  }
+
+  async function operateAutoCalibration(op) {
+    const robotId = selectedRobotId;
+    if (!robotId || !bodyCalibrationEnabled()) return;
+    const mode = byId("auto-calibration-mode")?.value || "floor";
+    autoCalBusy = true;
+    renderAutoCalibration();
+    try {
+      const payload = op === "start" ? { robot_id: robotId, op, mode } : { robot_id: robotId, op };
+      const reply = await request("/api/calibration/auto", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (robotId !== selectedRobotId) return;
+      autoCalData = reply.auto_calibration || null;
+      renderAutoCalibration();
+      if (autoCalData?.state === "running") {
+        stopAutoCalPolling();
+        autoCalPollTimer = window.setTimeout(() => void pollAutoCalibration(robotId), 400);
+      } else if (op === "apply" || op === "restore" || op === "stop") {
+        if (typeof calibrateBody === "function") void calibrateBody("get", {}, "Calibration refreshed");
+        if (typeof readServoFeedback === "function") void readServoFeedback(null, true);
+      }
+    } catch (error) {
+      if (robotId === selectedRobotId) text("auto-calibration-status", error.message);
+    } finally {
+      autoCalBusy = false;
+      if (robotId === selectedRobotId) renderAutoCalibration();
+    }
+  }
+
+  function setupAutoCalibration() {
+    if (!byId("auto-calibration-card")) return;
+    byId("auto-calibration-mode")?.addEventListener("change", () => renderAutoCalibration());
+    byId("auto-calibration-start")?.addEventListener("click", () => void operateAutoCalibration("start"));
+    byId("auto-calibration-stop")?.addEventListener("click", () => void operateAutoCalibration("stop"));
+    byId("auto-calibration-apply")?.addEventListener("click", () => void operateAutoCalibration("apply"));
+    byId("auto-calibration-restore")?.addEventListener("click", () => void operateAutoCalibration("restore"));
+  }
+
   function setupGyroJointGuide() {
     for (const action of ["minus","plus","capture","restore","correct"])
       byId(`gyro-joint-${action}`).addEventListener("click",()=>void operateGyroJoint(action));
@@ -2229,6 +2381,7 @@
     byId("calibration-use-position-button").disabled = !p4 || !online || !calibrationData || !servoFeedbackSupported || calibrationLoading;
     byId("calibration-home-reference").disabled = !p4 || !calibrationData || calibrationLoading;
     if (p4) renderCalibrationHomeReference();
+    renderAutoCalibration();
     renderGyroJointGuide();
   }
 
@@ -2261,7 +2414,8 @@
 
   function renderMaintenance() {
     if (!byId("recording-details")) return;
-    const online = calibrationEntry?.model === "v2-12servo" && calibrationEntry.connection_state !== "stale";
+    const virtualConnected = Boolean(calibrationEntry?.connected && isVirtualBody(calibrationEntry));
+    const online = !virtualConnected && calibrationEntry?.model === "v2-12servo" && calibrationEntry.connection_state !== "stale";
     const available = online && !maintenanceBusy;
     byId("recording-start-button").disabled = !available || Boolean(recordingData?.recording);
     byId("recording-stop-button").disabled = !available || !recordingData?.recording;
@@ -2276,8 +2430,8 @@
     byId("firmware-next-boot-button").disabled = !available || !staged;
     byId("firmware-restart-button").disabled = !available || !staged;
     if (!online) {
-      text("recording-details", "Connect the robot to use its internal card.");
-      text("firmware-details", "Connect the robot to manage its firmware.");
+      text("recording-details", virtualConnected ? "SD card recording is physical ESP32-P4 hardware only." : "Connect the robot to use its internal card.");
+      text("firmware-details", virtualConnected ? "Virtual simulation runs compiled WASM firmware directly in the browser." : "Connect the robot to manage its firmware.");
     } else {
       if (recordingData) text("recording-details", `${recordingData.recording ? "Recording" : "Stopped"} · ${recordingData.frames} frames · ${recordingData.dropped} dropped · ${recordingData.segments} completed segments · ${recordingData.overwrite_oldest ? `rolling overwrite (${recordingData.overwritten || 0} reused)` : "stops when full"} · ${(recordingData.free_bytes / 1048576).toFixed(1)} MiB free.${!recordingData.mounted ? " Card unavailable." : ""}${recordingData.error !== "ESP_OK" ? ` ${recordingData.error}` : ""}${recordingData.storage_error !== "ESP_OK" ? ` ${recordingData.storage_error}` : ""}`);
       if (firmwareData) text("firmware-details", `${firmwareData.version || "P4"} · ${firmwareData.state.replaceAll("_", " ")} · running ${firmwareData.running}${firmwareData.boot !== firmwareData.running ? ` · next boot ${firmwareData.boot}` : ""}${firmwareData.pending_verify ? " · awaiting startup validation" : ""}${firmwareData.error !== "ESP_OK" ? ` · ${firmwareData.error}` : ""}`);
@@ -2289,7 +2443,7 @@
   }
 
   async function refreshMaintenance() {
-    if (calibrationEntry?.model !== "v2-12servo" || calibrationEntry.connection_state === "stale" || maintenanceBusy || maintenanceReading) return;
+    if (isVirtualBody(calibrationEntry) || calibrationEntry?.model !== "v2-12servo" || calibrationEntry.connection_state === "stale" || maintenanceBusy || maintenanceReading) return;
     const robot = selectedRobotId;
     maintenanceReading = true;
     maintenanceReadAt = Date.now();
@@ -3685,6 +3839,7 @@
           window.renderFreestyleStatus?.(payload.freestyle, selectedRobotId);
           window.renderMotionLibraryStatus?.(payload.freestyle, selectedRobotId, payload.robots?.[selectedRobotId]);
           renderHostNetwork(payload.host_network);
+          renderSimulationStatus(payload.simulation);
         }
       } catch (error) {
         if (generation === statusGeneration) {
@@ -3697,6 +3852,258 @@
       } finally { statusRequest = null; }
     })();
     return statusRequest;
+  }
+
+  let simHydrated = false;
+  let simBusy = false;
+
+  function showSimResult(message, isError = false) {
+    const out = byId("sim-result");
+    if (!out) return;
+    out.textContent = message || "";
+    out.classList?.toggle?.("error", Boolean(isError && message));
+  }
+
+  function renderSimulationStatus(sim) {
+    const summary = byId("sim-status-summary");
+    const form = byId("sim-config-form");
+    if (!summary || !form || !sim) return;
+    const settings = sim.settings || {};
+    if (!simHydrated) {
+      if (byId("sim-model") && settings.model) byId("sim-model").value = settings.model;
+      if (byId("sim-robot-id") && settings.robot_id) byId("sim-robot-id").value = settings.robot_id;
+      if (byId("sim-level") && settings.level) byId("sim-level").value = settings.level;
+      if (byId("sim-mp") && settings.mp) byId("sim-mp").value = settings.mp;
+      if (byId("sim-room") && typeof settings.room === "string") byId("sim-room").value = settings.room;
+      if (byId("sim-display-name") && typeof settings.display_name === "string") {
+        byId("sim-display-name").value = settings.display_name;
+      }
+      if (byId("sim-remote-url") && settings.remote_simulator_url) {
+        byId("sim-remote-url").value = settings.remote_simulator_url;
+      }
+      if (byId("sim-remote-ws") && settings.remote_ws_url) {
+        byId("sim-remote-ws").value = settings.remote_ws_url;
+      }
+      simHydrated = true;
+    }
+
+    const headless = sim.headless || {};
+    const robot = sim.robot || {};
+    const localSrv = sim.local_server || {};
+    const parts = [];
+    if (headless.running) {
+      const hc = headless.config || {};
+      parts.push(
+        `Background host simulation RUNNING (PID ${headless.pid}, ${(hc.model || settings.model || "v2").toUpperCase()} in ${hc.level || settings.level || "v2_lab"}${hc.room ? `, room "${hc.room}"` : ""})`
+      );
+    } else {
+      parts.push("Background host simulation stopped");
+    }
+    if (robot.connected) {
+      parts.push(`Virtual robot ${robot.robot_id} ONLINE (epoch ${robot.epoch ?? "?"})`);
+    } else {
+      parts.push(`Virtual robot ${robot.robot_id || settings.robot_id || "ainekio-v2-sim"} offline`);
+    }
+    if (localSrv.running && localSrv.url) {
+      parts.push(`Local web server: ${localSrv.url}`);
+    } else if (!localSrv.available) {
+      parts.push("Local simulator bundle unavailable (remote simulator.ainek.io still ready)");
+    }
+    if (headless.error) {
+      parts.push(`Note: ${headless.error}`);
+    }
+    summary.textContent = parts.join(" · ");
+
+    const startBtn = byId("sim-headless-start-button");
+    const stopBtn = byId("sim-headless-stop-button");
+    const localBtn = byId("sim-open-local-button");
+    const remoteBtn = byId("sim-open-remote-button");
+    const localSrvBtn = byId("sim-local-server-button");
+    const roomBtn = byId("sim-copy-room-button");
+    const activeRoom = headless.running ? headless.config?.room || "" : "";
+    if (startBtn) startBtn.disabled = simBusy || !headless.supported;
+    if (stopBtn) stopBtn.disabled = simBusy || !headless.running;
+    if (localSrvBtn) {
+      localSrvBtn.disabled = simBusy || !localSrv.available || Boolean(localSrv.running);
+      localSrvBtn.textContent = localSrv.running && localSrv.port
+        ? `Local web server active (:${localSrv.port})`
+        : "Start local web server (:8792)";
+    }
+    if (localBtn) {
+      localBtn.disabled = simBusy || !localSrv.available;
+      localBtn.textContent = activeRoom
+        ? `Join active room "${activeRoom}" locally (viewer)`
+        : "Open local simulator tab";
+    }
+    if (remoteBtn) {
+      remoteBtn.disabled = simBusy;
+      remoteBtn.textContent = activeRoom
+        ? `Join active room "${activeRoom}" on simulator.ainek.io (viewer)`
+        : "Open remote simulator (simulator.ainek.io)";
+    }
+    if (roomBtn) {
+      const curRoom = (activeRoom || byId("sim-room")?.value || settings.room || "").trim();
+      roomBtn.disabled = simBusy || curRoom.length < 3;
+    }
+  }
+
+  function setupSimulationControls() {
+    const form = byId("sim-config-form");
+    if (!form) return;
+
+    const modelEl = byId("sim-model");
+    const robotIdEl = byId("sim-robot-id");
+    const roomEl = byId("sim-room");
+
+    modelEl?.addEventListener("change", () => {
+      const cur = (robotIdEl?.value || "").trim();
+      if (!cur || /^ainekio-v[123]-sim$/.test(cur)) {
+        if (robotIdEl) robotIdEl.value = `ainekio-${modelEl.value}-sim`;
+      }
+    });
+
+    roomEl?.addEventListener("input", () => {
+      const roomBtn = byId("sim-copy-room-button");
+      if (roomBtn) roomBtn.disabled = simBusy || roomEl.value.trim().length < 3;
+    });
+
+    function collectSimValues() {
+      return {
+        model: byId("sim-model")?.value || "v2",
+        robot_id: (byId("sim-robot-id")?.value || "").trim(),
+        level: byId("sim-level")?.value || "v2_lab",
+        mp: byId("sim-mp")?.value || "solo",
+        room: (byId("sim-room")?.value || "").trim(),
+        display_name: (byId("sim-display-name")?.value || "").trim(),
+        remote_simulator_url: (byId("sim-remote-url")?.value || "").trim(),
+        remote_ws_url: (byId("sim-remote-ws")?.value || "").trim(),
+      };
+    }
+
+    async function copyText(value, successMsg) {
+      try {
+        await navigator.clipboard.writeText(value);
+        showSimResult(successMsg, false);
+      } catch {
+        window.prompt(successMsg, value);
+      }
+    }
+
+    async function runSimAction(op, options = {}) {
+      if (simBusy) return null;
+      simBusy = true;
+      showSimResult("Working…", false);
+      try {
+        const res = await request("/api/simulation", {
+          method: "POST",
+          body: JSON.stringify({ op, ...collectSimValues(), ...options }),
+        });
+        simBusy = false;
+        renderSimulationStatus(res);
+        return res;
+      } catch (error) {
+        simBusy = false;
+        showSimResult(error.message, true);
+        return null;
+      }
+    }
+
+    byId("sim-headless-start-button")?.addEventListener("click", async () => {
+      const res = await runSimAction("start_headless");
+      if (res) {
+        const roomNote = res.links?.room_invite_url ? ` Join remotely at ${res.links.room_invite_url}` : "";
+        showSimResult(`Background simulation started on host (PID ${res.headless?.pid}).${roomNote}`, false);
+        refreshStatus();
+      }
+    });
+
+    byId("sim-headless-stop-button")?.addEventListener("click", async () => {
+      const res = await runSimAction("stop_headless");
+      if (res) {
+        showSimResult("Background simulation stopped.", false);
+        refreshStatus();
+      }
+    });
+
+    byId("sim-local-server-button")?.addEventListener("click", async () => {
+      const res = await runSimAction("start_local_server");
+      if (res?.local_server?.url) {
+        showSimResult(`Local simulator web server ready at ${res.local_server.url} (no background robot started).`, false);
+        refreshStatus();
+      }
+    });
+
+    byId("sim-open-local-button")?.addEventListener("click", async () => {
+      const popup = window.open("about:blank", "_blank");
+      const res = await runSimAction("open_tab");
+      const viewerMode = Boolean(res?.launch?.viewer_mode);
+      const url = viewerMode ? res?.launch?.local_viewer_url : res?.launch?.local_simulator_url;
+      if (url) {
+        if (popup) popup.location.replace(url);
+        else window.location.assign(url);
+        if (viewerMode) {
+          showSimResult("Opened local multiplayer room viewer tab (24/7 background robot stays active).", false);
+        } else if (res?.launch?.stopped_solo_headless) {
+          showSimResult("Stopped Solo background runner and handed virtual robot to local simulator tab.", false);
+        } else {
+          showSimResult("Opened local simulator tab and linked virtual robot.", false);
+        }
+        refreshStatus();
+      } else {
+        popup?.close?.();
+        if (res) showSimResult("Local simulator bundle is not available.", true);
+      }
+    });
+
+    byId("sim-open-remote-button")?.addEventListener("click", async () => {
+      const popup = window.open("about:blank", "_blank");
+      const res = await runSimAction("open_tab");
+      const viewerMode = Boolean(res?.launch?.viewer_mode);
+      const url = viewerMode ? res?.launch?.remote_viewer_url : res?.launch?.remote_simulator_url;
+      if (url) {
+        if (popup) popup.location.replace(url);
+        else window.location.assign(url);
+        if (viewerMode) {
+          showSimResult("Opened remote multiplayer room viewer tab (24/7 background robot stays active).", false);
+        } else if (res?.launch?.stopped_solo_headless) {
+          showSimResult("Stopped Solo background runner and opened remote simulator tab.", false);
+        } else {
+          showSimResult("Opened remote simulator and passed one-time #hash credentials.", false);
+        }
+        refreshStatus();
+      } else {
+        popup?.close?.();
+      }
+    });
+
+    byId("sim-copy-pair-button")?.addEventListener("click", async () => {
+      const res = await runSimAction("prepare");
+      const code = res?.launch?.pairing_code;
+      if (code) {
+        await copyText(
+          code,
+          "Copied remote pairing code! Paste it into External Body Control Link on simulator.ainek.io."
+        );
+      }
+    });
+
+    byId("sim-copy-room-button")?.addEventListener("click", async () => {
+      const res = await runSimAction("prepare");
+      const invite = res?.links?.room_invite_url;
+      if (invite) {
+        await copyText(invite, `Copied multiplayer room invite link: ${invite}`);
+      } else if (res) {
+        showSimResult("Enter a room name (at least 3 characters) first.", true);
+      }
+    });
+
+    byId("sim-rotate-token-button")?.addEventListener("click", async () => {
+      const res = await runSimAction("rotate_token");
+      if (res) {
+        showSimResult(`Generated a fresh pairing token for ${res.launch?.robot_id || "virtual robot"}.`, false);
+        refreshStatus();
+      }
+    });
   }
 
   function setupSpeechOutput() {
@@ -4273,6 +4680,32 @@
         }).catch((error) => showResult(error.message, true));
       });
     }
+    if (byId("cockpit-stream-form")) {
+      byId("cockpit-stream-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const input = byId("cockpit-stream-input");
+        const sendBtn = byId("cockpit-stream-send");
+        const msg = (input?.value || "").trim();
+        if (!msg) return;
+        if (sendBtn) sendBtn.disabled = true;
+        try {
+          const res = await request("/api/metahuman-stream", {
+            method: "POST",
+            body: JSON.stringify({ op: "send", text: msg }),
+          });
+          if (input) input.value = "";
+          if (res?.messages && latestMetahumanBridge) {
+            latestMetahumanBridge = { ...latestMetahumanBridge, messages: res.messages };
+            renderCockpitStream(latestMetahumanBridge, true);
+          }
+          showResult("Message sent to MetaHuman OS");
+        } catch (error) {
+          showResult(error.message, true);
+        } finally {
+          if (sendBtn) sendBtn.disabled = false;
+        }
+      });
+    }
 
     const setSettingsOpen = (open) => {
       if (!settingsDrawer) return;
@@ -4619,6 +5052,8 @@
       refreshStatus();
     });
     setupMotionControls();
+    setupAutoCalibration();
+    setupSimulationControls();
     setupGyroJointGuide();
     setupIdleRest();
     setupServoFeedback();

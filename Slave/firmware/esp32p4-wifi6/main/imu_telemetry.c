@@ -62,22 +62,23 @@ size_t ainekio_imu_telemetry(const ainekio_p4_imu_status_t *sensor,
     if(!feedback)return (size_t)n;
     size_t used=(size_t)n-2; /* Extend data, retaining the existing event. */
     const ainekio_p4_feedback_health_t *h=&feedback->health;
-    if(!append(text,capacity,&used,",\"joint_feedback\":{\"map\":2,\"device_us\":%" PRIu64
+    if(!append(text,capacity,&used,",\"joint_feedback\":{\"map\":%u,\"device_us\":%" PRIu64
         ",\"scan\":%" PRIu32 ",\"scan_us\":%" PRIu32 ",\"revision\":%" PRIu32
         ",\"enabled\":%s,\"usable_mask\":%u,\"commanded_mask\":%u,\"stalled_joints\":%u,"
         "\"calibrated_mask\":%u,\"unavailable_mask\":%u,\"clipped_mask\":%u,"
         "\"below_calibration_mask\":%u,\"above_calibration_mask\":%u,\"sampled_us\":[",
+        (unsigned)AINEKIO_P4_JOINT_MAP_VERSION,
         feedback->device_us,feedback->scan,feedback->scan_us,feedback->revision,
         feedback->enabled?"true":"false",feedback->usable_mask,feedback->commanded_mask,
         feedback->stalled_joints,h->calibrated,h->unavailable,h->clipped,
         h->below_calibration,h->above_calibration))return 0;
-    for(unsigned j=0;j<12;j++)
+    for(unsigned j=0;j<AINEKIO_P4_ACTIVE_JOINTS;j++)
         if(!append(text,capacity,&used,"%s%" PRId64,j?",":"",feedback->sampled_us[j]))return 0;
     if(!append(text,capacity,&used,"],\"raw_adc\":["))return 0;
-    for(unsigned j=0;j<12;j++)
+    for(unsigned j=0;j<AINEKIO_P4_ACTIVE_JOINTS;j++)
         if(!append(text,capacity,&used,"%s%u",j?",":"",feedback->raw_adc[j]))return 0;
     if(!append(text,capacity,&used,"],\"signal_millivolts\":["))return 0;
-    for(unsigned j=0;j<12;j++) {
+    for(unsigned j=0;j<AINEKIO_P4_ACTIVE_JOINTS;j++) {
         if(!append(text,capacity,&used,"%s",j?",":""))return 0;
         if(feedback->signal_millivolts[j]>=0) {
             if(!append(text,capacity,&used,"%d",feedback->signal_millivolts[j]))return 0;
@@ -88,7 +89,7 @@ size_t ainekio_imu_telemetry(const ainekio_p4_imu_status_t *sensor,
         feedback->commanded.position};
     for(unsigned c=0;c<3;c++) {
         if(!append(text,capacity,&used,"],\"%s\":[",names[c]))return 0;
-        for(unsigned j=0;j<12;j++) {
+        for(unsigned j=0;j<AINEKIO_P4_ACTIVE_JOINTS;j++) {
             const bool present=(c==2?feedback->commanded_mask:feedback->measured_mask)&(1U<<j);
             if(!append(text,capacity,&used,"%s",j?",":""))return 0;
             if(present) {if(!append(text,capacity,&used,"%.6g",columns[c][j]/100.))return 0;}

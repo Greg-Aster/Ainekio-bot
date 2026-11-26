@@ -1,5 +1,5 @@
 {
-  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
   "gait": "bound",
   "base_cycle_seconds": 1.2,
   "ground_contact_fraction": 0.42,
@@ -24,25 +24,25 @@
   "automatic_speed_threshold_percent": 100,
   "maximum_speed_percent": 200,
   "transition_cycles": 6,
-  "body_z_mm": 5,
+  "body_z_mm": -4.0,
   "research_angle_bounds_deg": [
     [
-      -110,
-      110
+      -110.0,
+      110.0
     ],
     [
-      -39.99,
+      -55.0,
       185.33
     ],
     [
-      -53.27,
+      -150.0,
       139.36
     ]
   ],
   "forward": {
     "sweep_mm": 44,
     "rearward_bias_mm": 0,
-    "body_z_mm": 5,
+    "body_z_mm": -4.0,
     "lane_offset_mm": 0,
     "lane_assignment": "physical_front_inside_rear_outside",
     "pitch_bias_deg": 0,

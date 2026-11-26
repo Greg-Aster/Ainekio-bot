@@ -26,6 +26,7 @@ class SpeechAudioMessage:
     speech_id: str
     duration_ms: int
     pcm: bytes
+    text: str | None = None
 
 
 def parse_speech_audio_message(
@@ -75,12 +76,16 @@ def parse_speech_audio_message(
         or len(pcm) % PCM_FRAME_BYTES
     ):
         raise ValueError("unsupported robot speech payload")
+    raw_text = metadata.get("text")
+    if raw_text is not None and (not isinstance(raw_text, str) or len(raw_text) > 2000):
+        raise ValueError("invalid robot speech text metadata")
     return SpeechAudioMessage(
         session_id=session_id,
         action_id=action_id,
         speech_id=speech_id,
         duration_ms=duration_ms,
         pcm=pcm,
+        text=raw_text.strip() if isinstance(raw_text, str) and raw_text.strip() else None,
     )
 
 

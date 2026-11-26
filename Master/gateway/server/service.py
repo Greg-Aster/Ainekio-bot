@@ -206,6 +206,7 @@ class GatewayConnection:
         transport: str = "lan",
         model: str = "v1-8servo",
         capabilities: Mapping[str, object] | None = None,
+        firmware: str = "",
     ) -> None:
         self.service = service
         self.websocket = websocket
@@ -217,6 +218,8 @@ class GatewayConnection:
         self.local_address = socket_address[0] if isinstance(socket_address, tuple) and socket_address else None
         self.model = model
         self.capabilities = dict(capabilities) if capabilities is not None else None
+        self.firmware = firmware
+        self.is_virtual = firmware.startswith("virtual-") or "room_chat_v1" in features
         self.body_clock_ms: int | None = None
         self.body_clock_received_at = 0.0
         self.body_clock_samples = 0
@@ -664,10 +667,16 @@ class GatewayConnection:
         elapsed_ms = math.floor((now - self.body_clock_received_at) * 1000.0)
         return self.body_clock_ms + elapsed_ms + remaining
 
+    @property
+    def is_p4_body(self) -> bool:
+        return self.model in ("v2-12servo", "v3-12servo") or (
+            self.model == "v1-8servo" and BODY_CALIBRATION_FEATURE in self.features
+        )
+
     async def send_control(self, message: Mapping[str, object]) -> None:
         async with self._send_lock:
             message = dict(message)
-            if message.get("t") in {"welcome", "ping", "pong"} and self.model == "v2-12servo":
+            if message.get("t") in {"welcome", "ping", "pong"} and self.is_p4_body:
                 # Snapshot at actual send time, not when a notification was
                 # scheduled. A late end cannot unmute newer speech.
                 message["external_speech"] = self.service.external_speech_active(self.robot_id)
@@ -695,7 +704,7 @@ class GatewayConnection:
         # source; semantic goal admission remains in MetaHuman/Environment Bridge.
         command = dict(command)
         if (
-            self.model == "v2-12servo"
+            self.is_p4_body
             and command.get("t") == "intent"
             and command.get("name") == "emote"
             and not ({"forward", "turn", "lateral"} & command.keys())
@@ -737,7 +746,7 @@ class GatewayConnection:
             if message.get("t") == "intent" and ("forward" in message or "turn" in message or "lateral" in message):
                 if message.get("name") != "walk":
                     raise GatewayError("steering requires a walk command")
-                if self.model != "v2-12servo" or not {LOCOMOTION_FEATURE, WALK_STEERING_FEATURE}.issubset(self.features):
+                if not self.is_p4_body or not {LOCOMOTION_FEATURE, WALK_STEERING_FEATURE}.issubset(self.features):
                     raise GatewayError("body does not support composed steering (walk_steering_v1 required)")
             if "lateral" in message and WALK_LATERAL_FEATURE not in self.features:
                 raise GatewayError("body does not support lateral steering (walk_lateral_v1 required)")
@@ -759,7 +768,7 @@ class GatewayConnection:
                 if CAMERA_MOTION_EXPOSURE_FEATURE not in self.features:
                     raise GatewayError("Update the robot firmware: camera_motion_exposure_v1 is required to set an automatic exposure ceiling")
             if message.get("t") == "balance":
-                if self.model != "v2-12servo" or BALANCE_CONTROL_FEATURE not in self.features:
+                if not self.is_p4_body or BALANCE_CONTROL_FEATURE not in self.features:
                     raise GatewayError("Update the P4 firmware to configure self-leveling")
                 if BALANCE_TUNING_FIELDS.intersection(message) and BALANCE_TUNING_FEATURE not in self.features:
                     raise GatewayError("Update the P4 firmware to tune self-leveling response")
@@ -769,7 +778,7 @@ class GatewayConnection:
                     raise GatewayError("Update the P4 firmware for stationary gyro calibration")
                 validate_control_message({**message, "seq": 1})
             if message.get("t") == "motion_speed" or "playback_rate" in message:
-                if self.model != "v2-12servo" or MOTION_SPEED_FEATURE not in self.features:
+                if not self.is_p4_body or MOTION_SPEED_FEATURE not in self.features:
                     raise GatewayError("body does not support saved motion speed")
                 if "joint_speed_limit_deg_s" in message and JOINT_SPEED_LIMIT_FEATURE not in self.features:
                     raise GatewayError("body firmware does not support a configurable joint speed limit")
@@ -778,11 +787,11 @@ class GatewayConnection:
                     message.get("name") not in {"sit", "stand", "emote"} or
                     message.get("asset") in {"run", *CRAB_DIRECTIONS}):
                     raise GatewayError("use walking controls for ongoing gaits")
-            # V1 keeps its preprogrammed Run asset. V2 Run is the same ongoing
+            # V1 S3 keeps its preprogrammed Run asset. P4 Run is the same ongoing
             # walking command with Speed above 100; feature admission follows.
             if message.get("t") == "walk_target" or (message.get("t") == "intent" and
                     message.get("name") == "walk" and message.get("source") == "host"):
-                if self.model != "v2-12servo" or WALK_NOMINAL_FEATURE not in self.features:
+                if not self.is_p4_body or WALK_NOMINAL_FEATURE not in self.features:
                     raise GatewayError("body does not support host nominal Walk targets")
                 if message.get("t") == "walk_target":
                     active = self.pending.get(message.get("walk"))
@@ -793,7 +802,7 @@ class GatewayConnection:
                 message.get("steps") == 0 or any(key in message for key in
                     ("speed", "stride", "rate", "forward", "turn", "lateral", "update", "gait", "speed_percent", "stride_percent", "motion_rate"))
             ):
-                if self.model != "v2-12servo" or not {WALK_CONTROLS_FEATURE, LOCOMOTION_FEATURE}.intersection(self.features):
+                if not self.is_p4_body or not {WALK_CONTROLS_FEATURE, LOCOMOTION_FEATURE}.intersection(self.features):
                     raise GatewayError("body does not support variable walking controls")
                 if (message.get("steps") == 0 or "gait" in message or message.get("dir") != "fwd") and LOCOMOTION_FEATURE not in self.features:
                     raise GatewayError("body does not support ongoing directional locomotion")
@@ -819,13 +828,13 @@ class GatewayConnection:
             movement = movement_command(message)
             if movement is not None and not body_command_available(movement, supported):
                 raise GatewayError(f"{movement} is unavailable on body {self.robot_id} ({self.model})")
-            if self.model != "v1-8servo" and message.get("t") in {"servo", "limits", "pose_save", "cal_save"}:
-                raise GatewayError("this body does not support the eight-servo calibration contract")
+            if self.is_p4_body and message.get("t") in {"servo", "limits", "pose_save", "cal_save"}:
+                raise GatewayError("this body does not support the legacy eight-servo S3 calibration contract")
             if message.get("t") == "calibration" and (
-                self.model != "v2-12servo" or BODY_CALIBRATION_FEATURE not in self.features
+                not self.is_p4_body or BODY_CALIBRATION_FEATURE not in self.features
             ):
-                raise GatewayError("body does not support twelve-joint calibration")
-            if message.get("t") == "robot_settings" and (self.model != "v2-12servo" or ROBOT_SETTINGS_FEATURE not in self.features):
+                raise GatewayError("body does not support P4 joint calibration")
+            if message.get("t") == "robot_settings" and (not self.is_p4_body or ROBOT_SETTINGS_FEATURE not in self.features):
                 raise GatewayError("Update the P4 firmware to manage robot settings here")
             if message.get("t") == "robot_settings" and message.get("op") == "network" and GATEWAY_SWITCHING_FEATURE not in self.features:
                 saved = self.last_robot_settings
@@ -835,7 +844,7 @@ class GatewayConnection:
                        for p in saved["networks"]):
                     raise GatewayError("This firmware cannot switch computers on the same Wi-Fi; update the P4 firmware")
             if message.get("t") == "storage" and (
-                self.model != "v2-12servo" or STORAGE_CONTROL_FEATURE not in self.features
+                not self.is_p4_body or STORAGE_CONTROL_FEATURE not in self.features
             ):
                 raise GatewayError("body does not support storage control")
             # Feature checks and validation precede sequence allocation: a
@@ -850,7 +859,7 @@ class GatewayConnection:
                     key in message for key in ("token", "if_token", "timeout_ms", "background", "release")
                 ) and FACE_FEEDBACK_FEATURE not in self.features:
                     raise GatewayError("Timed/releasable expressions require face_feedback_v1 firmware")
-            if self.model != "v1-8servo" and capability and (
+            if self.is_p4_body and capability and (
                 self.capabilities is None or self.capabilities.get(capability) is not True
             ):
                 reasons = (self.capabilities or {}).get("reasons", {})
@@ -1375,6 +1384,7 @@ class GatewayService:
         self._closing = False
         self._event_callbacks: list[GatewayCallback] = []
         self._frame_callbacks: list[GatewayCallback] = []
+        self._last_assistant_broadcast: tuple[str, float] | None = None
         self._transcript_callbacks: list[GatewayCallback] = []
         self._command_callbacks: list[GatewayCallback] = []
         self._diagnostic_callbacks: list[Callable[[dict[str, object]], None]] = []
@@ -1437,6 +1447,7 @@ class GatewayService:
                 transport,
                 str(hello["model"]) if BODY_CAPABILITIES_FEATURE in features else "v1-8servo",
                 hello.get("capabilities") if BODY_CAPABILITIES_FEATURE in features else None,
+                str(hello.get("fw", "")),
             )
             connection.observe_body_clock(hello)
             await connection.send_control(
@@ -1600,7 +1611,7 @@ class GatewayService:
         on_sequence: Callable[[int], AsyncContextManager[None] | None] | None = None,
     ) -> int:
         connection = self._connection(robot_id)
-        v2 = connection.model == "v2-12servo"
+        v2 = connection.model in ("v2-12servo", "v3-12servo")
         feature = (MOTION_CURVES_FEATURE if control == "trajectory" else
                    MOTION_TARGETS_FEATURE if control == "targets" else MOTION_PLAN_V2_FEATURE if v2 else MOTION_PLAN_FEATURE)
         if feature not in connection.features:
@@ -1806,7 +1817,7 @@ class GatewayService:
             try:
                 while True:
                     revision = connection._external_speech_revision
-                    if connection.model == "v2-12servo":
+                    if connection.is_p4_body:
                         await connection.send_control({"t":"pong"})
                     connection.external_speech_error = None
                     if revision == connection._external_speech_revision:
@@ -1925,7 +1936,7 @@ class GatewayService:
     async def body_robot_settings(self, operation: str, values: Mapping[str, object] | None = None,
                                   *, robot_id: str | None = None) -> dict[str, object]:
         connection = self._connection(robot_id)
-        if connection.model != "v2-12servo" or ROBOT_SETTINGS_FEATURE not in connection.features:
+        if not connection.is_p4_body or ROBOT_SETTINGS_FEATURE not in connection.features:
             raise GatewayError("Update the P4 firmware to manage robot settings here")
         message = {**dict(values or {}), "t": "robot_settings", "op": operation}
         validate_control_message({**message, "seq": 1})
@@ -2104,6 +2115,30 @@ class GatewayService:
 
     async def publish_transcript(self, transcript: dict[str, object]) -> None:
         await _publish(self._transcript_callbacks, transcript)
+        if transcript.get("source") == "environment_adapter":
+            text = transcript.get("text")
+            if isinstance(text, str) and text.strip():
+                clean = text.strip()[:2000]
+                role = str(transcript.get("role") or "assistant").strip().lower()
+                event_name = "user_transcript" if role == "user" else "assistant_text"
+                now = self.clock()
+                if event_name == "assistant_text":
+                    prev = self._last_assistant_broadcast
+                    if prev is not None and prev[0] == clean and (now - prev[1]) < 15.0:
+                        return
+                    self._last_assistant_broadcast = (clean, now)
+                target_id = transcript.get("robot_id")
+                for rid, connection in tuple(self._connections.items()):
+                    if target_id is not None and rid != target_id:
+                        continue
+                    if "room_chat_v1" not in connection.features:
+                        continue
+                    try:
+                        await connection.send_control(
+                            {"t": "event", "name": event_name, "text": clean}
+                        )
+                    except (ConnectionClosed, OSError):
+                        pass
 
     def status(self) -> dict[str, object]:
         now = self.clock()
@@ -2128,6 +2163,8 @@ class GatewayService:
                     "local_address": connection.local_address,
                     "features": list(connection.features),
                     "model": connection.model,
+                    "firmware": connection.firmware,
+                    "virtual": connection.is_virtual,
                     "capabilities": connection.capabilities,
                     "robot_commands": body_commands(connection.model, connection.features, connection.capabilities),
                     "body_command_sequence": connection.body_command_sequence,
@@ -2216,11 +2253,13 @@ class GatewayService:
         feedback = imu.get("joint_feedback")
         if feedback is None:
             raise GatewayError("This robot has not supplied joint feedback telemetry")
+        labels = ("R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4") if feedback.get("map") == 1 else V2_JOINT_LABELS
+        joint_count = len(labels)
         joints = {}
-        for index, name in enumerate(V2_JOINT_LABELS):
+        for index, name in enumerate(labels):
             joints[name] = {
-                "raw_adc": feedback.get("raw_adc",[None]*12)[index],
-                "signal_millivolts": feedback.get("signal_millivolts",[None]*12)[index],
+                "raw_adc": feedback.get("raw_adc",[None]*joint_count)[index],
+                "signal_millivolts": feedback.get("signal_millivolts",[None]*joint_count)[index],
                 "filtered_model_deg": feedback["filtered_model_deg"][index],
                 "velocity_deg_s": feedback["velocity_deg_s"][index],
                 "commanded_model_deg": feedback["commanded_model_deg"][index],
@@ -2231,7 +2270,7 @@ class GatewayService:
                     if feedback[name + "_mask"] & (1 << index)],
             }
         events = self.body_events.observation(robot_id,connection.epoch,imu)
-        return {"epoch": connection.epoch, "model": "v2-12servo", "joints": joints,
+        return {"epoch": connection.epoch, "model": connection.model, "joints": joints,
                 "events":events,
                 "imu": {key: value for key, value in imu.items() if key != "joint_feedback"},
                 "feedback": {**{key: feedback[key] for key in (
@@ -2243,6 +2282,8 @@ class GatewayService:
     async def maintenance_address(self, robot_id: str) -> str:
         """Resolve HTTP maintenance from the selected authenticated LAN peer."""
         connection = self._connection(robot_id)
+        if connection.is_virtual:
+            raise GatewayError("Virtual simulation bodies do not expose ESP32 Wi-Fi HTTP maintenance")
         peer = getattr(connection.websocket, "remote_address", None)
         if connection.transport != "lan" or not isinstance(peer, tuple) or not peer:
             raise GatewayError("This robot connection does not expose its Wi-Fi maintenance address")

@@ -22,10 +22,14 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from uuid import uuid4
 
 from gateway.security import DashboardPasswordStore, RobotTokenStore, _atomic_secure_json, _read_json
+from gateway.auto_calibration import AutoCalibrationManager, GatewayCalibrationTransport
+from gateway.plugins import virtual_default_camera_settings, virtual_default_depth_settings
+from gateway.simulation import SimulationManager
 from gateway.environment_adapter import EnvironmentAdapter
 from gateway.hotspot import RobotHotspot
 from gateway.host_audio import HostAudio
 from gateway.body_events import validate_settings
+from gateway.episodes import DEFAULT_LIMIT as DEFAULT_EPISODE_LIMIT, read_recent_episodes
 from gateway.server.service import GatewayError, GatewayService
 from protocol.binary_helpers import CAMERA_JPEG_FRAME_TYPE
 from protocol.control_v1 import ProtocolValidationError
@@ -130,6 +134,32 @@ class DashboardHttpServer(ThreadingHTTPServer):
         gateway.subscribe_frames(self._record_camera_frame)
         self.freestyle_recorder = None
         self.presence = None
+        self.auto_calibration = AutoCalibrationManager(
+            GatewayCalibrationTransport(gateway, lambda rid: self.token_store.snapshot().get(rid)),
+            on_event=lambda ev, data: self.audit_log.record(ev, **data),
+        )
+        gateway_port = int(os.environ.get("AINEKIO_GATEWAY_PORT", "8790") or "8790")
+        self.simulation = SimulationManager(
+            gateway=gateway,
+            event_loop=event_loop,
+            token_store=token_store,
+            bind_host=server_address[0],
+            gateway_port=gateway_port,
+            initial_settings=self.control_settings.get("simulation", {}),
+            save_settings_cb=self._save_simulation_settings,
+            on_event=lambda ev, data: self.audit_log.record(ev, **data),
+        )
+
+    def _save_simulation_settings(self, sim_settings: dict[str, Any]) -> None:
+        saved = {**self.control_settings, "simulation": sim_settings}
+        _atomic_secure_json(self.control_settings_path, saved)
+        self.control_settings = saved
+
+    def server_close(self) -> None:
+        try:
+            self.simulation.close()
+        finally:
+            super().server_close()
 
     def start_presence(self):
         if self.presence is not None or not (FREESTYLE_ROOT / "neural_pose" / "presence.py").is_file():
@@ -436,7 +466,13 @@ class DashboardHttpServer(ThreadingHTTPServer):
         if event.get("t") != "connection" or event.get("status") != "connected":
             return
         robot_id = event.get("robot_id")
+        if not isinstance(robot_id, str):
+            return
         settings = self.control_settings["cameras"].get(robot_id)
+        if settings is None:
+            robot_info = (self.gateway.status().get("robots") or {}).get(robot_id)
+            if isinstance(robot_info, dict) and robot_info.get("virtual") is True:
+                settings = virtual_default_camera_settings()
         if settings is not None:
             try:
                 await self.gateway.set_camera(robot_id=robot_id, wait_for_ack=True, **settings)
@@ -535,6 +571,32 @@ class DashboardHandler(BaseHTTPRequestHandler):
             except ValueError as error:
                 self._send_json({"error": str(error)}, status=HTTPStatus.BAD_REQUEST)
             return
+        if path == "/api/calibration/auto":
+            if self._require_session() is None:
+                return
+            query = parse_qs(parsed_url.query)
+            robot_ids = query.get("robot_id", [])
+            if len(robot_ids) != 1 or not robot_ids[0]:
+                self._send_json({"error": "Select one robot"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(self.server.auto_calibration.status(robot_ids[0]))
+            return
+        if path == "/api/episodes":
+            if self._require_session() is None:
+                return
+            self._recent_episodes(parsed_url.query)
+            return
+        if path == "/api/simulation":
+            if self._require_session() is None:
+                return
+            self._send_json(
+                self.server.simulation.status(
+                    request_host=self.headers.get("Host"),
+                    client_host=self.client_address[0] if self.client_address else None,
+                    include_secrets=True,
+                )
+            )
+            return
         if path in ROBOT_MAINTENANCE:
             if self._require_session() is not None:
                 self._robot_maintenance(path)
@@ -580,13 +642,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "audit": self.server.audit_log.entries(),
                     "token_robot_ids": sorted(self.server.token_store.snapshot()),
                     "host_network": self.server.hotspot.snapshot(),
-                    "camera_settings": self.server.control_settings["cameras"],
+                    "camera_settings": {
+                        **{
+                            rid: virtual_default_camera_settings()
+                            for rid, rinfo in (status.get("robots") or {}).items()
+                            if isinstance(rinfo, dict) and rinfo.get("virtual") is True
+                        },
+                        **self.server.control_settings["cameras"],
+                    },
                     "motion_systems": self.server.control_settings.get("motion_systems", {}),
-                    "depth_settings": self.server.control_settings.get("depth_motion", {}),
+                    "depth_settings": {
+                        **{
+                            rid: virtual_default_depth_settings(str(rinfo.get("model") or "v2-12servo"))
+                            for rid, rinfo in (status.get("robots") or {}).items()
+                            if isinstance(rinfo, dict) and rinfo.get("virtual") is True
+                        },
+                        **self.server.control_settings.get("depth_motion", {}),
+                    },
                     "body_events": self.server.call_gateway(self.server.body_event_status()),
                     "presence": self.server.call_gateway(self.server.presence_status()),
                     "person_recognition": self.server.call_gateway(self.server.person_status()),
                     "recognition": self.server.call_gateway(self.server.recognition_status()),
+                    "simulation": self.server.simulation.status(
+                        request_host=self.headers.get("Host"),
+                        client_host=self.client_address[0] if self.client_address else None,
+                        include_secrets=False,
+                        robots=status.get("robots", {}),
+                    ),
                 }
             )
             return
@@ -616,6 +698,38 @@ class DashboardHandler(BaseHTTPRequestHandler):
             raise GatewayError("MetaHuman Environment Bridge is not configured")
         return self.server.call_gateway(adapter.speech_output_settings(playback_target,
             **({'computer_device':computer_device} if computer_device is not None else {})))
+
+    def _recent_episodes(self, query_string: str) -> None:
+        query = parse_qs(query_string, keep_blank_values=True)
+        try:
+            limit_raw = query.get("limit", [str(DEFAULT_EPISODE_LIMIT)])[0]
+            limit = int(limit_raw) if limit_raw else DEFAULT_EPISODE_LIMIT
+            robot_id = query.get("robot_id", [None])[0] or None
+            types_raw = query.get("types", [None])[0]
+            types = [t for t in types_raw.split(",") if t.strip()] if types_raw else None
+            include_faces = query.get("include_faces", ["0"])[0] in ("1", "true", "yes")
+            since = query.get("since", [None])[0] or None
+            episode_id = query.get("id", [None])[0] or None
+            live_status = self.server.call_gateway(self.server.gateway.status_snapshot())
+            if self.server.freestyle_recorder is not None:
+                try:
+                    self.server.freestyle_recorder.flush()
+                except RuntimeError:
+                    pass
+            payload = read_recent_episodes(
+                self.server.password_store.path.parent,
+                limit=limit,
+                robot_id=robot_id,
+                types=types,
+                include_faces=include_faces,
+                since=since,
+                episode_id=episode_id,
+                live_gateway_status=live_status,
+            )
+        except ValueError as exc:
+            self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+            return
+        self._send_json(payload)
 
     def _camera_frame(self, query_string: str) -> None:
         query = parse_qs(query_string, keep_blank_values=True)
@@ -940,13 +1054,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if path == "/api/metahuman-stream":
             adapter = self.server.environment_adapter
             if adapter is None:
+                if (_optional_string(payload, "op") or "clear") == "send":
+                    raise GatewayError("MetaHuman Environment Bridge is not configured")
                 return {"ok": True, "messages": []}
             op = _optional_string(payload, "op") or "clear"
-            if op != "clear":
-                raise ValueError("op must be clear")
-            self.server.call_gateway(asyncio.sleep(0))
-            adapter.clear_text_stream()
-            return {"ok": True, "messages": []}
+            if op == "clear":
+                self.server.call_gateway(asyncio.sleep(0))
+                adapter.clear_text_stream()
+                return {"ok": True, "messages": []}
+            if op == "send":
+                msg_text = _required_string(payload, "text")
+                sent = self.server.call_gateway(
+                    adapter.submit_operator_text(msg_text, sender="Operator", channel="body-control")
+                )
+                return {"ok": True, "message": sent, "messages": adapter.connection_status()["messages"]}
+            raise ValueError("op must be clear or send")
         if path == "/api/speech-output":
             target = _required_string(payload, "playbackTarget")
             if target not in {"computer", "robot"}:
@@ -1127,6 +1249,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
             result = self.server.call_gateway(self.server.gateway.body_storage(operation, robot_id=robot_id), timeout=12.0)
             self.server.audit_log.record("storage_confirmed", robot_id=robot_id, operation=operation, sequence=result["seq"])
             return {"ok": True, "seq": result["seq"], "storage": result}
+        if path == "/api/calibration/auto":
+            operation = _required_string(payload, "op")
+            if not robot_id:
+                raise ValueError("Select one robot")
+            if operation == "start":
+                mode = _optional_string(payload, "mode") or "floor"
+                result = self.server.call_gateway(
+                    self.server.auto_calibration.start(robot_id, mode=mode)
+                )
+            elif operation == "stop":
+                result = self.server.call_gateway(self.server.auto_calibration.stop(robot_id), timeout=20.0)
+                self.server.stop_latched = True
+            elif operation == "apply":
+                result = self.server.call_gateway(self.server.auto_calibration.apply(robot_id), timeout=12.0)
+            elif operation == "restore":
+                result = self.server.call_gateway(self.server.auto_calibration.restore(robot_id), timeout=20.0)
+            else:
+                raise ValueError("op must be start, stop, apply, or restore")
+            self.server.audit_log.record("auto_calibration", robot_id=robot_id, operation=operation)
+            return {"ok": True, "auto_calibration": result}
         if path == "/api/calibration/body":
             operation = _required_string(payload, "op")
             values = {key: value for key, value in payload.items() if key not in {"op", "robot_id"}}
@@ -1201,6 +1343,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.server.call_gateway(self.server.gateway.revoke_token(target_robot_id))
             self.server.audit_log.record("robot_token_revoked", robot_id=target_robot_id)
             return {"ok": True}
+        if path == "/api/simulation":
+            op = _required_string(payload, "op")
+            req_host = self.headers.get("Host")
+            cli_host = self.client_address[0] if self.client_address else None
+            if op == "prepare":
+                return self.server.simulation.prepare(payload, request_host=req_host, client_host=cli_host, rotate=False)
+            if op == "open_tab":
+                return self.server.simulation.prepare(payload, request_host=req_host, client_host=cli_host, rotate=False, for_tab=True)
+            if op == "start_local_server":
+                return self.server.simulation.start_local_server(request_host=req_host, client_host=cli_host)
+            if op == "rotate_token":
+                return self.server.simulation.prepare(payload, request_host=req_host, client_host=cli_host, rotate=True)
+            if op == "start_headless":
+                return self.server.simulation.start_headless(payload, request_host=req_host, client_host=cli_host)
+            if op == "stop_headless":
+                return self.server.simulation.stop_headless(request_host=req_host)
+            if op == "revoke_token":
+                return self.server.simulation.revoke_virtual_token(robot_id, request_host=req_host)
+            raise ValueError("Unsupported simulation operation")
         raise ValueError("unknown API command")
 
     def _change_password(self, payload: dict[str, object]) -> None:

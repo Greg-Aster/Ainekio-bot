@@ -1,0 +1,106 @@
+{
+  "model": "v3-12servo",
+  "geometry_id": "v3-p4-ds3225pro-optA1-ankle-20261122",
+  "joint_map": "v3-option-a1-54-22-46-56-20261121",
+  "position_units": "signed centidegrees from CAD neutral (h=0, alpha=0, theta=0)",
+  "zero": "CAD neutral standing pose (shoulder height 180.93 mm above ground).",
+  "joints": [
+    {
+      "id": 0,
+      "name": "rear_left_shoulder",
+      "cad_leg": "RL",
+      "actuator": "h_Part002",
+      "positive_body_axis": "-X",
+      "pca_channel": 0
+    },
+    {
+      "id": 1,
+      "name": "rear_left_carrier",
+      "cad_leg": "RL",
+      "actuator": "alpha_Part006",
+      "positive_body_axis": "-Y",
+      "pca_channel": 1
+    },
+    {
+      "id": 2,
+      "name": "rear_left_crank",
+      "cad_leg": "RL",
+      "actuator": "theta_Part005",
+      "positive_body_axis": "-Y",
+      "pca_channel": 2
+    },
+    {
+      "id": 3,
+      "name": "rear_right_shoulder",
+      "cad_leg": "RR",
+      "actuator": "h_Part002",
+      "positive_body_axis": "+X",
+      "pca_channel": 3
+    },
+    {
+      "id": 4,
+      "name": "rear_right_carrier",
+      "cad_leg": "RR",
+      "actuator": "alpha_Part006",
+      "positive_body_axis": "-Y",
+      "pca_channel": 4
+    },
+    {
+      "id": 5,
+      "name": "rear_right_crank",
+      "cad_leg": "RR",
+      "actuator": "theta_Part005",
+      "positive_body_axis": "-Y",
+      "pca_channel": 5
+    },
+    {
+      "id": 6,
+      "name": "front_left_shoulder",
+      "cad_leg": "FL",
+      "actuator": "h_Part002",
+      "positive_body_axis": "-X",
+      "pca_channel": 6
+    },
+    {
+      "id": 7,
+      "name": "front_left_carrier",
+      "cad_leg": "FL",
+      "actuator": "alpha_Part006",
+      "positive_body_axis": "-Y",
+      "pca_channel": 7
+    },
+    {
+      "id": 8,
+      "name": "front_left_crank",
+      "cad_leg": "FL",
+      "actuator": "theta_Part005",
+      "positive_body_axis": "-Y",
+      "pca_channel": 8
+    },
+    {
+      "id": 9,
+      "name": "front_right_shoulder",
+      "cad_leg": "FR",
+      "actuator": "h_Part002",
+      "positive_body_axis": "+X",
+      "pca_channel": 9
+    },
+    {
+      "id": 10,
+      "name": "front_right_carrier",
+      "cad_leg": "FR",
+      "actuator": "alpha_Part006",
+      "positive_body_axis": "-Y",
+      "pca_channel": 10
+    },
+    {
+      "id": 11,
+      "name": "front_right_crank",
+      "cad_leg": "FR",
+      "actuator": "theta_Part005",
+      "positive_body_axis": "-Y",
+      "pca_channel": 11
+    }
+  ],
+  "servo_profile": "servo_profile.json"
+}

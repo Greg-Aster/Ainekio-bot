@@ -1,41 +1,41 @@
 {
-  "source_file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/front-shell-fixes.blend",
-  "scene": "Wireless",
+  "source_file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/v3-2.blend",
+  "scene": "v2",
   "frame": 168,
   "units": "mm",
   "mass_kg": 0.65,
   "angles_deg": [
-    1.0299999713897705,
-    -0.38999998569488525,
-    -13.673608578319678,
     0.0,
     0.0,
-    -13.673608578319678,
-    -40.0,
-    51.310001373291016,
-    29.670391082763672,
     0.0,
     0.0,
-    -13.673608578319678
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
   ],
   "frames": {
     "REFINED | FL | h alpha theta": [
       [
         -1.0,
-        -8.469434931157593e-08,
-        1.5254290985922125e-07,
+        -8.742276236262114e-08,
+        1.5099580252808664e-07,
         -92.98379516601562
       ],
       [
         8.742276236262114e-08,
-        -0.9998384118080139,
-        0.01797592267394066,
+        -1.0,
+        0.0,
         31.7500057220459
       ],
       [
         1.5099580252808664e-07,
-        0.01797592267394066,
-        0.9998384118080139,
+        1.4210854715202004e-14,
+        1.0,
         80.96183013916016
       ],
       [
@@ -48,21 +48,21 @@
     "REFINED | FL | mechanism frame": [
       [
         1.0,
-        9.015122515165785e-08,
-        1.5254292407007597e-07,
+        8.742281210061265e-08,
+        1.5099581673894136e-07,
         -129.30941772460938
       ],
       [
-        8.739453960515675e-08,
-        -0.9998384118080139,
-        0.017976073548197746,
-        6.198516845703125
+        8.742279078433057e-08,
+        -1.0,
+        1.5099580252808664e-07,
+        7.649986267089844
       ],
       [
-        -1.541388456871573e-07,
-        0.017976073548197746,
-        0.9998384118080139,
-        0.44631004333496094
+        -1.5099583094979607e-07,
+        1.5099578831723193e-07,
+        1.0,
+        5.4850133892614394e-06
       ],
       [
         0.0,
@@ -74,21 +74,21 @@
     "REFINED | FL | mount frame": [
       [
         -1.0,
-        -8.469434931157593e-08,
-        1.5254290985922125e-07,
+        -8.742276236262114e-08,
+        1.5099580252808664e-07,
         -16.633811950683594
       ],
       [
         8.742276236262114e-08,
-        -0.9998384118080139,
-        0.01797592267394066,
-        6.198530197143555
+        -1.0,
+        0.0,
+        7.649999618530273
       ],
       [
         1.5099580252808664e-07,
-        0.01797592267394066,
-        0.9998384118080139,
-        0.44629260897636414
+        1.4210854715202004e-14,
+        1.0,
+        -1.1528529284987599e-05
       ],
       [
         0.0,
@@ -99,22 +99,22 @@
     ],
     "REFINED | FL | primary": [
       [
-        0.9999767541885376,
-        9.015122515165785e-08,
-        0.006806989200413227,
+        0.9999999403953552,
+        8.742281210061265e-08,
+        1.5099580252808664e-07,
         -66.72158813476562
       ],
       [
-        -0.0001222727878484875,
-        -0.9998384118080139,
-        0.01797565631568432,
-        7.451666831970215
+        8.742278367890322e-08,
+        -1.0,
+        1.5099578831723193e-07,
+        7.650002479553223
       ],
       [
-        -0.006805890705436468,
-        0.017976073548197746,
-        0.9998151659965515,
-        70.14686584472656
+        -1.5099581673894136e-07,
+        1.5099578831723193e-07,
+        0.9999999403953552,
+        69.71182250976562
       ],
       [
         0.0,
@@ -125,22 +125,22 @@
     ],
     "REFINED | FL | input": [
       [
-        0.9652712941169739,
-        9.015122515165785e-08,
-        -0.26124927401542664,
+        0.8761566281318665,
+        8.742281210061265e-08,
+        -0.4820263981819153,
         -79.22166442871094
       ],
       [
-        0.004696323070675135,
-        -0.9998384118080139,
-        0.01735176518559456,
-        7.65839147567749
+        1.493800425578229e-07,
+        -1.0,
+        9.015586499572237e-08,
+        7.650003433227539
       ],
       [
-        0.26120707392692566,
-        0.017976073548197746,
-        0.9651153087615967,
-        81.64502716064453
+        0.4820263981819153,
+        1.5099578831723193e-07,
+        0.8761566281318665,
+        81.21184539794922
       ],
       [
         0.0,
@@ -151,22 +151,22 @@
     ],
     "REFINED | FL | foot": [
       [
-        0.9999976754188538,
-        9.015122515165785e-08,
-        -0.0021636616438627243,
-        -96.64700317382812
+        0.9556398987770081,
+        8.742281210061265e-08,
+        -0.29453763365745544,
+        -90.56253051757812
       ],
       [
-        3.898427894455381e-05,
-        -0.9998384118080139,
-        0.017976032570004463,
-        7.125375747680664
+        1.2801866944300855e-07,
+        -1.0,
+        1.1854828585455834e-07,
+        7.649997711181641
       ],
       [
-        0.0021633103024214506,
-        0.017976073548197746,
-        0.9998360872268677,
-        51.99850845336914
+        0.29453763365745544,
+        1.5099578831723193e-07,
+        0.9556398987770081,
+        55.02816390991211
       ],
       [
         0.0,
@@ -177,22 +177,22 @@
     ],
     "REFINED | FL | rod": [
       [
-        0.9978822469711304,
-        9.015122515165785e-08,
-        -0.06504490971565247,
-        -91.72709655761719
+        0.9578312039375305,
+        8.742281210061265e-08,
+        0.28733131289482117,
+        -91.8941650390625
       ],
       [
-        0.0011693419655784965,
-        -0.9998384118080139,
-        0.017937999218702316,
-        7.938963413238525
+        4.035048206674219e-08,
+        -1.0,
+        1.697477927109503e-07,
+        7.650003433227539
       ],
       [
-        0.06503438949584961,
-        0.017976073548197746,
-        0.9977210164070129,
-        97.25064086914062
+        -0.28733131289482117,
+        1.5099578831723193e-07,
+        0.9578312039375305,
+        90.97953033447266
       ],
       [
         0.0,
@@ -290,7 +290,7 @@
         -8.742264867578342e-08,
         1.0,
         -3.019916050561733e-07,
-        -7.650004863739014
+        -7.650005340576172
       ],
       [
         -1.6689300537109375e-06,
@@ -307,21 +307,21 @@
     ],
     "REFINED | FR | input": [
       [
-        0.9652716517448425,
-        8.742314605569845e-08,
-        -0.26124781370162964,
+        0.8761573433876038,
+        8.742315316112581e-08,
+        -0.48202505707740784,
         -79.22166442871094
       ],
       [
-        -1.6328169749613153e-07,
+        -2.2216389083951071e-07,
         1.0,
-        -2.686646496385947e-07,
-        -7.650007247924805
+        -2.224519022320237e-07,
+        -7.650007724761963
       ],
       [
-        0.26124781370162964,
-        3.019914345259167e-07,
-        0.9652716517448425,
+        0.48202505707740784,
+        3.0199146294762613e-07,
+        0.8761573433876038,
         81.21189880371094
       ],
       [
@@ -333,22 +333,22 @@
     ],
     "REFINED | FR | foot": [
       [
-        1.0,
+        0.9556403160095215,
         8.742315316112581e-08,
-        1.6689300537109375e-06,
-        -96.52281188964844
+        -0.29453617334365845,
+        -90.56257629394531
       ],
       [
-        -8.742264867578342e-08,
+        -1.7249249140149914e-07,
         1.0,
-        -3.019916050561733e-07,
-        -7.649997234344482
+        -2.6284592991032696e-07,
+        -7.649998664855957
       ],
       [
-        -1.6689300537109375e-06,
+        0.29453617334365845,
         3.0199146294762613e-07,
-        1.0,
-        51.35734176635742
+        0.9556403160095215,
+        55.02824401855469
       ],
       [
         0.0,
@@ -359,22 +359,22 @@
     ],
     "REFINED | FR | rod": [
       [
-        0.9974774718284607,
+        0.9578308463096619,
         8.742315316112581e-08,
-        -0.0709838718175888,
-        -91.72706604003906
+        0.28733280301094055,
+        -91.89414978027344
       ],
       [
-        -1.0863914212677628e-07,
+        3.035452778021863e-09,
         1.0,
-        -2.9502405141101917e-07,
-        -7.65001106262207
+        -3.1437627967534354e-07,
+        -7.650009632110596
       ],
       [
-        0.0709838718175888,
+        -0.28733280301094055,
         3.0199146294762613e-07,
-        0.9974774718284607,
-        96.82006072998047
+        0.9578308463096619,
+        90.97960662841797
       ],
       [
         0.0,
@@ -386,20 +386,20 @@
     "REFINED | RL | h alpha theta": [
       [
         1.0,
-        3.172804667883611e-07,
-        -2.4211445293076395e-07,
+        8.742276236262114e-08,
+        -3.8941439584050386e-07,
         80.44999694824219
       ],
       [
         8.742217261215046e-08,
-        -0.766043484210968,
-        -0.6427887678146362,
+        -1.0,
+        -1.5179342653937056e-06,
         31.7500057220459
       ],
       [
         3.894145095273416e-07,
-        -0.6427887678146362,
-        0.766043484210968,
+        -1.5179342653937056e-06,
+        1.0,
         80.96183013916016
       ],
       [
@@ -412,21 +412,21 @@
     "REFINED | RL | mechanism frame": [
       [
         1.0,
-        3.172804667883611e-07,
-        -2.4211445293076395e-07,
+        8.742276236262114e-08,
+        -3.8941439584050386e-07,
         4.100028991699219
       ],
       [
         8.742217261215046e-08,
-        -0.766043484210968,
-        -0.6427887678146362,
-        65.32970428466797
+        -1.0,
+        -1.5179342653937056e-06,
+        7.650121688842773
       ],
       [
         3.894145095273416e-07,
-        -0.6427887678146362,
-        0.766043484210968,
-        3.450307846069336
+        -1.5179342653937056e-06,
+        1.0,
+        -6.631400901824236e-05
       ],
       [
         0.0,
@@ -438,21 +438,21 @@
     "REFINED | RL | mount frame": [
       [
         1.0,
-        3.172804667883611e-07,
-        -2.4211445293076395e-07,
+        8.742276236262114e-08,
+        -3.8941439584050386e-07,
         4.100028991699219
       ],
       [
         8.742217261215046e-08,
-        -0.766043484210968,
-        -0.6427887678146362,
-        65.32970428466797
+        -1.0,
+        -1.5179342653937056e-06,
+        7.650121688842773
       ],
       [
         3.894145095273416e-07,
-        -0.6427887678146362,
-        0.766043484210968,
-        3.450307846069336
+        -1.5179342653937056e-06,
+        1.0,
+        -6.631400901824236e-05
       ],
       [
         0.0,
@@ -463,22 +463,22 @@
     ],
     "REFINED | RL | primary": [
       [
-        0.6251062154769897,
-        3.172804667883611e-07,
-        -0.7805397510528564,
-        66.68782806396484
+        1.0,
+        8.742276236262114e-08,
+        -3.8941439584050386e-07,
+        66.68781280517578
       ],
       [
-        -0.5017220377922058,
-        -0.766043484210968,
-        -0.401811420917511,
-        20.51973533630371
+        8.742217261215046e-08,
+        -1.0,
+        -1.5179342653937056e-06,
+        7.650021076202393
       ],
       [
-        0.5979275107383728,
-        -0.6427887678146362,
-        0.4788583815097809,
-        56.85261535644531
+        3.894145095273416e-07,
+        -1.5179342653937056e-06,
+        1.0,
+        69.71177673339844
       ],
       [
         0.0,
@@ -489,22 +489,22 @@
     ],
     "REFINED | RL | input": [
       [
-        0.5226734280586243,
-        3.172804667883611e-07,
-        -0.8525329828262329,
-        54.18775177001953
+        0.8761564493179321,
+        8.742276236262114e-08,
+        -0.4820268750190735,
+        54.187740325927734
       ],
       [
-        -0.5479984879493713,
-        -0.766043484210968,
-        -0.33596882224082947,
-        13.12764835357666
+        -6.550890816470201e-07,
+        -1.0,
+        -1.372088036077912e-06,
+        7.650002479553223
       ],
       [
-        0.6530774235725403,
-        -0.6427887678146362,
-        0.4003903865814209,
-        65.6621322631836
+        0.4820268750190735,
+        -1.5179342653937056e-06,
+        0.8761564493179321,
+        81.21179962158203
       ],
       [
         0.0,
@@ -515,22 +515,22 @@
     ],
     "REFINED | RL | foot": [
       [
-        0.9578955173492432,
-        3.1728043836665165e-07,
-        -0.2871170938014984,
-        62.385398864746094
+        0.9556397199630737,
+        8.742276236262114e-08,
+        -0.29453814029693604,
+        42.84688186645508
       ],
       [
-        -0.18455539643764496,
-        -0.766043484210968,
-        -0.615724503993988,
-        42.846710205078125
+        -3.6354487065182184e-07,
+        -1.0,
+        -1.4763476201551384e-06,
+        7.650041580200195
       ],
       [
-        0.21994437277317047,
-        -0.6427887678146362,
-        0.7337895631790161,
-        30.244441986083984
+        0.29453814029693604,
+        -1.5179342653937056e-06,
+        0.9556397199630737,
+        55.02811813354492
       ],
       [
         0.0,
@@ -541,22 +541,22 @@
     ],
     "REFINED | RL | rod": [
       [
-        0.6263499855995178,
-        3.172804667883611e-07,
-        -0.7795420289039612,
-        34.38015365600586
+        0.9578314423561096,
+        8.742276236262114e-08,
+        0.2873308062553406,
+        41.51523208618164
       ],
       [
-        -0.5010806918144226,
-        -0.766043484210968,
-        -0.4026108980178833,
-        11.348719596862793
+        5.198855319576978e-07,
+        -1.0,
+        -1.4288058309830376e-06,
+        7.649986743927002
       ],
       [
-        0.597163200378418,
-        -0.6427887678146362,
-        0.4798111617565155,
-        67.78216552734375
+        -0.2873308062553406,
+        -1.5179342653937056e-06,
+        0.9578314423561096,
+        90.97947692871094
       ],
       [
         0.0,
@@ -671,21 +671,21 @@
     ],
     "REFINED | RR | input": [
       [
-        0.9652711153030396,
+        0.8761563897132874,
         -1.430511474609375e-06,
-        -0.2612498104572296,
+        -0.4820268452167511,
         54.18770217895508
       ],
       [
-        1.341383836006571e-06,
+        1.180567778646946e-06,
         1.0,
-        -5.194727918933495e-07,
+        -8.218408993343473e-07,
         -7.649984359741211
       ],
       [
-        0.2612498104572296,
+        0.4820268452167511,
         1.509958451606508e-07,
-        0.9652711153030396,
+        0.8761563897132874,
         81.21183776855469
       ],
       [
@@ -697,22 +697,22 @@
     ],
     "REFINED | RR | foot": [
       [
-        1.0,
+        0.9556397199630737,
         -1.430511474609375e-06,
-        -3.8941428215366614e-07,
-        36.88661193847656
+        -0.29453814029693604,
+        42.84684371948242
       ],
       [
-        1.430511474609375e-06,
+        1.322579578300065e-06,
         1.0,
-        -1.5099638517312997e-07,
-        -7.6500043869018555
+        -5.656378334606416e-07,
+        -7.649996280670166
       ],
       [
-        3.8941448110563215e-07,
+        0.29453814029693604,
         1.509958451606508e-07,
-        1.0,
-        51.35723114013672
+        0.9556397199630737,
+        55.02814865112305
       ],
       [
         0.0,
@@ -723,22 +723,22 @@
     ],
     "REFINED | RR | rod": [
       [
-        0.9974773526191711,
+        0.9578314423561096,
         -1.430511474609375e-06,
-        -0.07098592072725296,
-        41.682254791259766
+        0.2873308062553406,
+        41.515193939208984
       ],
       [
-        1.4161843182591838e-06,
+        1.413574636899284e-06,
         1.0,
-        -2.521611008887703e-07,
-        -7.6500043869018555
+        2.664014857600705e-07,
+        -7.650003910064697
       ],
       [
-        0.07098592072725296,
+        -0.2873308062553406,
         1.509958451606508e-07,
-        0.9974773526191711,
-        96.8199691772461
+        0.9578314423561096,
+        90.9795150756836
       ],
       [
         0.0,
@@ -779,370 +779,6 @@
     },
     {
       "key": "mesh_002",
-      "name": "BOOT NEW | Center shell with recessed lines",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 328,
-      "triangles": 652
-    },
-    {
-      "key": "mesh_003",
-      "name": "BOOT NEW | Chevron tread 01",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 50,
-      "triangles": 96
-    },
-    {
-      "key": "mesh_004",
-      "name": "BOOT NEW | Chevron tread 02",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 61,
-      "triangles": 118
-    },
-    {
-      "key": "mesh_005",
-      "name": "BOOT NEW | Chevron tread 02.001",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 153,
-      "triangles": 302
-    },
-    {
-      "key": "mesh_006",
-      "name": "BOOT NEW | Chevron tread 04",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 886,
-      "triangles": 1768
-    },
-    {
-      "key": "mesh_007",
-      "name": "BOOT NEW | Chevron tread 06",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 50,
-      "triangles": 96
-    },
-    {
-      "key": "mesh_008",
-      "name": "BOOT NEW | Chevron tread 07",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 50,
-      "triangles": 96
-    },
-    {
-      "key": "mesh_009",
-      "name": "BOOT NEW | Chevron tread 08",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 50,
-      "triangles": 96
-    },
-    {
-      "key": "mesh_010",
-      "name": "BOOT NEW | Chevron tread 09",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 50,
-      "triangles": 96
-    },
-    {
-      "key": "mesh_011",
-      "name": "BOOT NEW | Chevron tread 10",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 50,
-      "triangles": 96
-    },
-    {
-      "key": "mesh_012",
-      "name": "BOOT NEW | Foot surround and screw seat",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 4001,
-      "triangles": 8002
-    },
-    {
-      "key": "mesh_013",
-      "name": "BOOT NEW | Foot tread backing",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 862,
-      "triangles": 1724
-    },
-    {
-      "key": "mesh_014",
-      "name": "BOOT NEW | Inner locating key 01",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 78,
-      "triangles": 152
-    },
-    {
-      "key": "mesh_015",
-      "name": "BOOT NEW | Inner locating key 02",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 78,
-      "triangles": 152
-    },
-    {
-      "key": "mesh_016",
-      "name": "BOOT NEW | Inner locating key 03",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 78,
-      "triangles": 152
-    },
-    {
-      "key": "mesh_017",
-      "name": "BOOT NEW | Upper joint surround",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 704,
-      "triangles": 1408
-    },
-    {
-      "key": "mesh_018",
-      "name": "BOOT NEW | Upper tread 01",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 416,
-      "triangles": 828
-    },
-    {
-      "key": "mesh_019",
-      "name": "BOOT NEW | Upper tread 02",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 140,
-      "triangles": 276
-    },
-    {
-      "key": "mesh_020",
-      "name": "BOOT NEW | Upper tread 03",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 148,
-      "triangles": 292
-    },
-    {
-      "key": "mesh_021",
-      "name": "BOOT NEW | Upper tread 04",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 378,
-      "triangles": 752
-    },
-    {
-      "key": "mesh_022",
-      "name": "BOOT NEW | Upper tread 05",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 415,
-      "triangles": 826
-    },
-    {
-      "key": "mesh_023",
-      "name": "BOOT NEW | Upper tread 06",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 280,
-      "triangles": 556
-    },
-    {
-      "key": "mesh_024",
-      "name": "BOOT NEW | Upper tread 07",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 254,
-      "triangles": 504
-    },
-    {
-      "key": "mesh_025",
-      "name": "BOOT NEW | Upper tread 08",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 232,
-      "triangles": 460
-    },
-    {
-      "key": "mesh_026",
-      "name": "BOOT NEW | Upper tread 09",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 437,
-      "triangles": 870
-    },
-    {
-      "key": "mesh_027",
-      "name": "BOOT NEW | Upper tread 10",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 380,
-      "triangles": 756
-    },
-    {
-      "key": "mesh_028",
       "name": "CARAPACE | Central shell - extracted 014.001",
       "body": "torso",
       "rgba": [
@@ -1156,7 +792,7 @@
       "triangles": 616
     },
     {
-      "key": "mesh_029",
+      "key": "mesh_003",
       "name": "CARAPACE | Compact arch - Center",
       "body": "torso",
       "rgba": [
@@ -1166,11 +802,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 878,
-      "triangles": 1764
+      "vertices": 837,
+      "triangles": 1682
     },
     {
-      "key": "mesh_030",
+      "key": "mesh_004",
       "name": "CARAPACE | Compact arch - Left",
       "body": "torso",
       "rgba": [
@@ -1184,7 +820,7 @@
       "triangles": 1466
     },
     {
-      "key": "mesh_031",
+      "key": "mesh_005",
       "name": "CARAPACE | Compact arch - Right",
       "body": "torso",
       "rgba": [
@@ -1198,7 +834,7 @@
       "triangles": 1770
     },
     {
-      "key": "mesh_032",
+      "key": "mesh_006",
       "name": "CARAPACE | Rear helmet - Center",
       "body": "torso",
       "rgba": [
@@ -1212,7 +848,7 @@
       "triangles": 2990
     },
     {
-      "key": "mesh_033",
+      "key": "mesh_007",
       "name": "CARAPACE | Rear helmet - Left",
       "body": "torso",
       "rgba": [
@@ -1222,11 +858,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 2275,
-      "triangles": 4582
+      "vertices": 2399,
+      "triangles": 4838
     },
     {
-      "key": "mesh_034",
+      "key": "mesh_008",
       "name": "CARAPACE | Rear helmet - Right",
       "body": "torso",
       "rgba": [
@@ -1236,11 +872,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 2040,
-      "triangles": 4100
+      "vertices": 2130,
+      "triangles": 4280
     },
     {
-      "key": "mesh_035",
+      "key": "mesh_009",
       "name": "Carapace - Left Side Protector",
       "body": "front_left_mechanism",
       "rgba": [
@@ -1250,11 +886,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 866,
-      "triangles": 1744
+      "vertices": 265,
+      "triangles": 538
     },
     {
-      "key": "mesh_036",
+      "key": "mesh_010",
       "name": "Carapace - Left Side Protector.001",
       "body": "rear_left_mechanism",
       "rgba": [
@@ -1264,11 +900,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 866,
-      "triangles": 1744
+      "vertices": 392,
+      "triangles": 792
     },
     {
-      "key": "mesh_037",
+      "key": "mesh_011",
       "name": "Carapace - Right Side Protector",
       "body": "front_right_mechanism",
       "rgba": [
@@ -1278,11 +914,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 866,
-      "triangles": 1744
+      "vertices": 265,
+      "triangles": 538
     },
     {
-      "key": "mesh_038",
+      "key": "mesh_012",
       "name": "Carapace - Right Side Protector.001",
       "body": "rear_right_mechanism",
       "rgba": [
@@ -1292,11 +928,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 866,
-      "triangles": 1744
+      "vertices": 298,
+      "triangles": 604
     },
     {
-      "key": "mesh_039",
+      "key": "mesh_013",
       "name": "Cheek.Fang.L.001",
       "body": "torso",
       "rgba": [
@@ -1310,7 +946,7 @@
       "triangles": 232
     },
     {
-      "key": "mesh_040",
+      "key": "mesh_014",
       "name": "Cheek.Fang.R.001",
       "body": "torso",
       "rgba": [
@@ -1324,7 +960,7 @@
       "triangles": 414
     },
     {
-      "key": "mesh_041",
+      "key": "mesh_015",
       "name": "Chin.L.001",
       "body": "torso",
       "rgba": [
@@ -1338,7 +974,7 @@
       "triangles": 1042
     },
     {
-      "key": "mesh_042",
+      "key": "mesh_016",
       "name": "Chin.R.001",
       "body": "torso",
       "rgba": [
@@ -1352,7 +988,7 @@
       "triangles": 1042
     },
     {
-      "key": "mesh_043",
+      "key": "mesh_017",
       "name": "FPC_contact_1",
       "body": "torso",
       "rgba": [
@@ -1366,7 +1002,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_044",
+      "key": "mesh_018",
       "name": "FPC_contact_10",
       "body": "torso",
       "rgba": [
@@ -1380,7 +1016,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_045",
+      "key": "mesh_019",
       "name": "FPC_contact_11",
       "body": "torso",
       "rgba": [
@@ -1394,7 +1030,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_046",
+      "key": "mesh_020",
       "name": "FPC_contact_12",
       "body": "torso",
       "rgba": [
@@ -1408,7 +1044,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_047",
+      "key": "mesh_021",
       "name": "FPC_contact_13",
       "body": "torso",
       "rgba": [
@@ -1422,7 +1058,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_048",
+      "key": "mesh_022",
       "name": "FPC_contact_14",
       "body": "torso",
       "rgba": [
@@ -1436,7 +1072,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_049",
+      "key": "mesh_023",
       "name": "FPC_contact_15",
       "body": "torso",
       "rgba": [
@@ -1450,7 +1086,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_050",
+      "key": "mesh_024",
       "name": "FPC_contact_16",
       "body": "torso",
       "rgba": [
@@ -1464,7 +1100,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_051",
+      "key": "mesh_025",
       "name": "FPC_contact_17",
       "body": "torso",
       "rgba": [
@@ -1478,7 +1114,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_052",
+      "key": "mesh_026",
       "name": "FPC_contact_18",
       "body": "torso",
       "rgba": [
@@ -1492,7 +1128,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_053",
+      "key": "mesh_027",
       "name": "FPC_contact_19",
       "body": "torso",
       "rgba": [
@@ -1506,7 +1142,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_054",
+      "key": "mesh_028",
       "name": "FPC_contact_2",
       "body": "torso",
       "rgba": [
@@ -1520,7 +1156,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_055",
+      "key": "mesh_029",
       "name": "FPC_contact_20",
       "body": "torso",
       "rgba": [
@@ -1534,7 +1170,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_056",
+      "key": "mesh_030",
       "name": "FPC_contact_21",
       "body": "torso",
       "rgba": [
@@ -1548,7 +1184,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_057",
+      "key": "mesh_031",
       "name": "FPC_contact_22",
       "body": "torso",
       "rgba": [
@@ -1562,7 +1198,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_058",
+      "key": "mesh_032",
       "name": "FPC_contact_23",
       "body": "torso",
       "rgba": [
@@ -1576,7 +1212,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_059",
+      "key": "mesh_033",
       "name": "FPC_contact_24",
       "body": "torso",
       "rgba": [
@@ -1590,7 +1226,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_060",
+      "key": "mesh_034",
       "name": "FPC_contact_25",
       "body": "torso",
       "rgba": [
@@ -1604,7 +1240,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_061",
+      "key": "mesh_035",
       "name": "FPC_contact_26",
       "body": "torso",
       "rgba": [
@@ -1618,7 +1254,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_062",
+      "key": "mesh_036",
       "name": "FPC_contact_27",
       "body": "torso",
       "rgba": [
@@ -1632,7 +1268,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_063",
+      "key": "mesh_037",
       "name": "FPC_contact_28",
       "body": "torso",
       "rgba": [
@@ -1646,7 +1282,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_064",
+      "key": "mesh_038",
       "name": "FPC_contact_29",
       "body": "torso",
       "rgba": [
@@ -1660,7 +1296,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_065",
+      "key": "mesh_039",
       "name": "FPC_contact_3",
       "body": "torso",
       "rgba": [
@@ -1674,7 +1310,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_066",
+      "key": "mesh_040",
       "name": "FPC_contact_30",
       "body": "torso",
       "rgba": [
@@ -1688,7 +1324,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_067",
+      "key": "mesh_041",
       "name": "FPC_contact_4",
       "body": "torso",
       "rgba": [
@@ -1702,7 +1338,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_068",
+      "key": "mesh_042",
       "name": "FPC_contact_5",
       "body": "torso",
       "rgba": [
@@ -1716,7 +1352,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_069",
+      "key": "mesh_043",
       "name": "FPC_contact_6",
       "body": "torso",
       "rgba": [
@@ -1730,7 +1366,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_070",
+      "key": "mesh_044",
       "name": "FPC_contact_7",
       "body": "torso",
       "rgba": [
@@ -1744,7 +1380,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_071",
+      "key": "mesh_045",
       "name": "FPC_contact_8",
       "body": "torso",
       "rgba": [
@@ -1758,7 +1394,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_072",
+      "key": "mesh_046",
       "name": "FPC_contact_9",
       "body": "torso",
       "rgba": [
@@ -1772,7 +1408,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_073",
+      "key": "mesh_047",
       "name": "FPC_latch_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -1786,7 +1422,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_074",
+      "key": "mesh_048",
       "name": "Flex_front_fold_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -1800,7 +1436,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_075",
+      "key": "mesh_049",
       "name": "Flex_through_slot_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -1814,7 +1450,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_076",
+      "key": "mesh_050",
       "name": "Flex_trace_1",
       "body": "torso",
       "rgba": [
@@ -1828,7 +1464,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_077",
+      "key": "mesh_051",
       "name": "Flex_trace_10",
       "body": "torso",
       "rgba": [
@@ -1842,7 +1478,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_078",
+      "key": "mesh_052",
       "name": "Flex_trace_11",
       "body": "torso",
       "rgba": [
@@ -1856,7 +1492,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_079",
+      "key": "mesh_053",
       "name": "Flex_trace_12",
       "body": "torso",
       "rgba": [
@@ -1870,7 +1506,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_080",
+      "key": "mesh_054",
       "name": "Flex_trace_13",
       "body": "torso",
       "rgba": [
@@ -1884,7 +1520,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_081",
+      "key": "mesh_055",
       "name": "Flex_trace_14",
       "body": "torso",
       "rgba": [
@@ -1898,7 +1534,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_082",
+      "key": "mesh_056",
       "name": "Flex_trace_15",
       "body": "torso",
       "rgba": [
@@ -1912,7 +1548,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_083",
+      "key": "mesh_057",
       "name": "Flex_trace_16",
       "body": "torso",
       "rgba": [
@@ -1926,7 +1562,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_084",
+      "key": "mesh_058",
       "name": "Flex_trace_17",
       "body": "torso",
       "rgba": [
@@ -1940,7 +1576,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_085",
+      "key": "mesh_059",
       "name": "Flex_trace_18",
       "body": "torso",
       "rgba": [
@@ -1954,7 +1590,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_086",
+      "key": "mesh_060",
       "name": "Flex_trace_19",
       "body": "torso",
       "rgba": [
@@ -1968,7 +1604,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_087",
+      "key": "mesh_061",
       "name": "Flex_trace_2",
       "body": "torso",
       "rgba": [
@@ -1982,7 +1618,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_088",
+      "key": "mesh_062",
       "name": "Flex_trace_20",
       "body": "torso",
       "rgba": [
@@ -1996,7 +1632,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_089",
+      "key": "mesh_063",
       "name": "Flex_trace_21",
       "body": "torso",
       "rgba": [
@@ -2010,7 +1646,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_090",
+      "key": "mesh_064",
       "name": "Flex_trace_22",
       "body": "torso",
       "rgba": [
@@ -2024,7 +1660,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_091",
+      "key": "mesh_065",
       "name": "Flex_trace_23",
       "body": "torso",
       "rgba": [
@@ -2038,7 +1674,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_092",
+      "key": "mesh_066",
       "name": "Flex_trace_24",
       "body": "torso",
       "rgba": [
@@ -2052,7 +1688,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_093",
+      "key": "mesh_067",
       "name": "Flex_trace_25",
       "body": "torso",
       "rgba": [
@@ -2066,7 +1702,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_094",
+      "key": "mesh_068",
       "name": "Flex_trace_26",
       "body": "torso",
       "rgba": [
@@ -2080,7 +1716,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_095",
+      "key": "mesh_069",
       "name": "Flex_trace_3",
       "body": "torso",
       "rgba": [
@@ -2094,7 +1730,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_096",
+      "key": "mesh_070",
       "name": "Flex_trace_4",
       "body": "torso",
       "rgba": [
@@ -2108,7 +1744,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_097",
+      "key": "mesh_071",
       "name": "Flex_trace_5",
       "body": "torso",
       "rgba": [
@@ -2122,7 +1758,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_098",
+      "key": "mesh_072",
       "name": "Flex_trace_6",
       "body": "torso",
       "rgba": [
@@ -2136,7 +1772,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_099",
+      "key": "mesh_073",
       "name": "Flex_trace_7",
       "body": "torso",
       "rgba": [
@@ -2150,7 +1786,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_100",
+      "key": "mesh_074",
       "name": "Flex_trace_8",
       "body": "torso",
       "rgba": [
@@ -2164,7 +1800,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_101",
+      "key": "mesh_075",
       "name": "Flex_trace_9",
       "body": "torso",
       "rgba": [
@@ -2178,7 +1814,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_102",
+      "key": "mesh_076",
       "name": "Glass_border",
       "body": "torso",
       "rgba": [
@@ -2192,7 +1828,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_103",
+      "key": "mesh_077",
       "name": "Gyro carrier",
       "body": "torso",
       "rgba": [
@@ -2202,11 +1838,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 2607,
-      "triangles": 5502
+      "vertices": 651,
+      "triangles": 1334
     },
     {
-      "key": "mesh_104",
+      "key": "mesh_078",
       "name": "Header_pin_1_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2220,7 +1856,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_105",
+      "key": "mesh_079",
       "name": "Header_pin_2_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2234,7 +1870,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_106",
+      "key": "mesh_080",
       "name": "Header_pin_3_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2248,7 +1884,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_107",
+      "key": "mesh_081",
       "name": "Header_pin_4_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2262,7 +1898,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_108",
+      "key": "mesh_082",
       "name": "Header_pin_5_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2276,7 +1912,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_109",
+      "key": "mesh_083",
       "name": "Header_pin_6_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2290,7 +1926,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_110",
+      "key": "mesh_084",
       "name": "Header_pin_7_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2304,7 +1940,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_111",
+      "key": "mesh_085",
       "name": "Header_pin_8_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2318,7 +1954,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_112",
+      "key": "mesh_086",
       "name": "Header_plastic_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2332,7 +1968,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_113",
+      "key": "mesh_087",
       "name": "LCD_driver_strip_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2346,7 +1982,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_114",
+      "key": "mesh_088",
       "name": "LCD_package_base_representative_25p8x49p72",
       "body": "torso",
       "rgba": [
@@ -2360,7 +1996,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_115",
+      "key": "mesh_089",
       "name": "MASK | Recessed LCD bezel",
       "body": "torso",
       "rgba": [
@@ -2370,11 +2006,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 1148,
-      "triangles": 2316
+      "vertices": 1286,
+      "triangles": 2592
     },
     {
-      "key": "mesh_116",
+      "key": "mesh_090",
       "name": "MASK | Upper visor - joined brow and crown",
       "body": "torso",
       "rgba": [
@@ -2384,11 +2020,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 2299,
-      "triangles": 4662
+      "vertices": 2443,
+      "triangles": 4950
     },
     {
-      "key": "mesh_117",
+      "key": "mesh_091",
       "name": "MOUNT | Camera retainer to LCD carrier",
       "body": "torso",
       "rgba": [
@@ -2402,7 +2038,7 @@
       "triangles": 4534
     },
     {
-      "key": "mesh_118",
+      "key": "mesh_092",
       "name": "MOUNT | Wireless LCD carrier spacer 1",
       "body": "torso",
       "rgba": [
@@ -2416,7 +2052,7 @@
       "triangles": 576
     },
     {
-      "key": "mesh_119",
+      "key": "mesh_093",
       "name": "MOUNT | Wireless LCD carrier spacer 2",
       "body": "torso",
       "rgba": [
@@ -2430,7 +2066,7 @@
       "triangles": 576
     },
     {
-      "key": "mesh_120",
+      "key": "mesh_094",
       "name": "MOUNT | Wireless LCD carrier spacer 3",
       "body": "torso",
       "rgba": [
@@ -2444,7 +2080,7 @@
       "triangles": 576
     },
     {
-      "key": "mesh_121",
+      "key": "mesh_095",
       "name": "MOUNT | Wireless LCD carrier spacer 4",
       "body": "torso",
       "rgba": [
@@ -2458,7 +2094,7 @@
       "triangles": 576
     },
     {
-      "key": "mesh_122",
+      "key": "mesh_096",
       "name": "Mount_pad_back_1",
       "body": "torso",
       "rgba": [
@@ -2472,7 +2108,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_123",
+      "key": "mesh_097",
       "name": "Mount_pad_back_2",
       "body": "torso",
       "rgba": [
@@ -2486,7 +2122,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_124",
+      "key": "mesh_098",
       "name": "Mount_pad_back_3",
       "body": "torso",
       "rgba": [
@@ -2500,7 +2136,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_125",
+      "key": "mesh_099",
       "name": "Mount_pad_back_4",
       "body": "torso",
       "rgba": [
@@ -2514,7 +2150,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_126",
+      "key": "mesh_100",
       "name": "Mount_pad_front_1",
       "body": "torso",
       "rgba": [
@@ -2528,7 +2164,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_127",
+      "key": "mesh_101",
       "name": "Mount_pad_front_2",
       "body": "torso",
       "rgba": [
@@ -2542,7 +2178,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_128",
+      "key": "mesh_102",
       "name": "Mount_pad_front_3",
       "body": "torso",
       "rgba": [
@@ -2556,7 +2192,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_129",
+      "key": "mesh_103",
       "name": "Mount_pad_front_4",
       "body": "torso",
       "rgba": [
@@ -2570,7 +2206,245 @@
       "triangles": 672
     },
     {
-      "key": "mesh_130",
+      "key": "mesh_104",
+      "name": "PC | 01 Rear mounting flange",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 240,
+      "triangles": 500
+    },
+    {
+      "key": "mesh_105",
+      "name": "PC | 02 Side frame Yminus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 144,
+      "triangles": 288
+    },
+    {
+      "key": "mesh_106",
+      "name": "PC | 02 Side frame Yplus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 144,
+      "triangles": 288
+    },
+    {
+      "key": "mesh_107",
+      "name": "PC | 03 Charger PCB rail Yminus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 16,
+      "triangles": 28
+    },
+    {
+      "key": "mesh_108",
+      "name": "PC | 03 Charger PCB rail Yplus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 16,
+      "triangles": 28
+    },
+    {
+      "key": "mesh_109",
+      "name": "PC | 03 Mini560 PCB rail Yminus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 16,
+      "triangles": 28
+    },
+    {
+      "key": "mesh_110",
+      "name": "PC | 03 Mini560 PCB rail Yplus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 16,
+      "triangles": 28
+    },
+    {
+      "key": "mesh_111",
+      "name": "PC | 04 Charger retainer boss Yminus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 144,
+      "triangles": 288
+    },
+    {
+      "key": "mesh_112",
+      "name": "PC | 04 Charger retainer boss Yplus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 144,
+      "triangles": 288
+    },
+    {
+      "key": "mesh_113",
+      "name": "PC | 04 Mini560 retainer boss Yminus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 147,
+      "triangles": 294
+    },
+    {
+      "key": "mesh_114",
+      "name": "PC | 04 Mini560 retainer boss Yplus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 147,
+      "triangles": 294
+    },
+    {
+      "key": "mesh_115",
+      "name": "PC | 05 Lower rear screw seat Yminus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 96,
+      "triangles": 192
+    },
+    {
+      "key": "mesh_116",
+      "name": "PC | 05 Lower rear screw seat Yplus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 96,
+      "triangles": 192
+    },
+    {
+      "key": "mesh_117",
+      "name": "PC | 05 Upper rear screw seat Yminus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 96,
+      "triangles": 192
+    },
+    {
+      "key": "mesh_118",
+      "name": "PC | 05 Upper rear screw seat Yplus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 96,
+      "triangles": 192
+    },
+    {
+      "key": "mesh_119",
+      "name": "PC | 06 Mini560 rear stop Yminus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 8,
+      "triangles": 12
+    },
+    {
+      "key": "mesh_120",
+      "name": "PC | 06 Mini560 rear stop Yplus",
+      "body": "torso",
+      "rgba": [
+        0.07500000298023224,
+        0.08500000089406967,
+        0.10499999672174454,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 8,
+      "triangles": 12
+    },
+    {
+      "key": "mesh_121",
       "name": "PCB_29x62_holes_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2584,7 +2458,7 @@
       "triangles": 4776
     },
     {
-      "key": "mesh_131",
+      "key": "mesh_122",
       "name": "Pin_label_1",
       "body": "torso",
       "rgba": [
@@ -2598,7 +2472,7 @@
       "triangles": 1120
     },
     {
-      "key": "mesh_132",
+      "key": "mesh_123",
       "name": "Pin_label_2",
       "body": "torso",
       "rgba": [
@@ -2612,7 +2486,7 @@
       "triangles": 1272
     },
     {
-      "key": "mesh_133",
+      "key": "mesh_124",
       "name": "Pin_label_3",
       "body": "torso",
       "rgba": [
@@ -2626,7 +2500,7 @@
       "triangles": 1556
     },
     {
-      "key": "mesh_134",
+      "key": "mesh_125",
       "name": "Pin_label_4",
       "body": "torso",
       "rgba": [
@@ -2640,7 +2514,7 @@
       "triangles": 1412
     },
     {
-      "key": "mesh_135",
+      "key": "mesh_126",
       "name": "Pin_label_5",
       "body": "torso",
       "rgba": [
@@ -2654,7 +2528,7 @@
       "triangles": 1544
     },
     {
-      "key": "mesh_136",
+      "key": "mesh_127",
       "name": "Pin_label_6",
       "body": "torso",
       "rgba": [
@@ -2668,7 +2542,7 @@
       "triangles": 1080
     },
     {
-      "key": "mesh_137",
+      "key": "mesh_128",
       "name": "Pin_label_7",
       "body": "torso",
       "rgba": [
@@ -2682,7 +2556,7 @@
       "triangles": 1536
     },
     {
-      "key": "mesh_138",
+      "key": "mesh_129",
       "name": "Pin_label_8",
       "body": "torso",
       "rgba": [
@@ -2696,7 +2570,7 @@
       "triangles": 904
     },
     {
-      "key": "mesh_139",
+      "key": "mesh_130",
       "name": "Pin_pad_back_1",
       "body": "torso",
       "rgba": [
@@ -2710,7 +2584,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_140",
+      "key": "mesh_131",
       "name": "Pin_pad_back_2",
       "body": "torso",
       "rgba": [
@@ -2724,7 +2598,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_141",
+      "key": "mesh_132",
       "name": "Pin_pad_back_3",
       "body": "torso",
       "rgba": [
@@ -2738,7 +2612,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_142",
+      "key": "mesh_133",
       "name": "Pin_pad_back_4",
       "body": "torso",
       "rgba": [
@@ -2752,7 +2626,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_143",
+      "key": "mesh_134",
       "name": "Pin_pad_back_5",
       "body": "torso",
       "rgba": [
@@ -2766,7 +2640,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_144",
+      "key": "mesh_135",
       "name": "Pin_pad_back_6",
       "body": "torso",
       "rgba": [
@@ -2780,7 +2654,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_145",
+      "key": "mesh_136",
       "name": "Pin_pad_back_7",
       "body": "torso",
       "rgba": [
@@ -2794,7 +2668,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_146",
+      "key": "mesh_137",
       "name": "Pin_pad_back_8",
       "body": "torso",
       "rgba": [
@@ -2808,7 +2682,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_147",
+      "key": "mesh_138",
       "name": "Pin_pad_front_1",
       "body": "torso",
       "rgba": [
@@ -2822,7 +2696,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_148",
+      "key": "mesh_139",
       "name": "Pin_pad_front_2",
       "body": "torso",
       "rgba": [
@@ -2836,7 +2710,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_149",
+      "key": "mesh_140",
       "name": "Pin_pad_front_3",
       "body": "torso",
       "rgba": [
@@ -2850,7 +2724,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_150",
+      "key": "mesh_141",
       "name": "Pin_pad_front_4",
       "body": "torso",
       "rgba": [
@@ -2864,7 +2738,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_151",
+      "key": "mesh_142",
       "name": "Pin_pad_front_5",
       "body": "torso",
       "rgba": [
@@ -2878,7 +2752,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_152",
+      "key": "mesh_143",
       "name": "Pin_pad_front_6",
       "body": "torso",
       "rgba": [
@@ -2892,7 +2766,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_153",
+      "key": "mesh_144",
       "name": "Pin_pad_front_7",
       "body": "torso",
       "rgba": [
@@ -2906,7 +2780,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_154",
+      "key": "mesh_145",
       "name": "Pin_pad_front_8",
       "body": "torso",
       "rgba": [
@@ -2920,7 +2794,7 @@
       "triangles": 672
     },
     {
-      "key": "mesh_155",
+      "key": "mesh_146",
       "name": "Purple_PCB_13x18_two_holes_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -2934,7 +2808,7 @@
       "triangles": 63968
     },
     {
-      "key": "mesh_156",
+      "key": "mesh_147",
       "name": "REFERENCE | Battery pack - 73.6 x 46 x 22 mm",
       "body": "torso",
       "rgba": [
@@ -2948,7 +2822,7 @@
       "triangles": 804
     },
     {
-      "key": "mesh_157",
+      "key": "mesh_148",
       "name": "REFERENCE | HiLetgo 2S USB-C charger - rear",
       "body": "torso",
       "rgba": [
@@ -2962,7 +2836,7 @@
       "triangles": 5384
     },
     {
-      "key": "mesh_158",
+      "key": "mesh_149",
       "name": "REFERENCE | HiLetgo CD74HC4067 - estimated mounting dimensions",
       "body": "torso",
       "rgba": [
@@ -2976,7 +2850,7 @@
       "triangles": 29987
     },
     {
-      "key": "mesh_159",
+      "key": "mesh_150",
       "name": "REFERENCE | LCD default face - centered preview",
       "body": "torso",
       "rgba": [
@@ -2990,7 +2864,7 @@
       "triangles": 2
     },
     {
-      "key": "mesh_160",
+      "key": "mesh_151",
       "name": "REFERENCE | Mini560 - 4 upward header pins per end",
       "body": "torso",
       "rgba": [
@@ -3004,7 +2878,7 @@
       "triangles": 144
     },
     {
-      "key": "mesh_161",
+      "key": "mesh_152",
       "name": "REFERENCE | Mini560 buck converter - rear",
       "body": "torso",
       "rgba": [
@@ -3018,7 +2892,7 @@
       "triangles": 5436
     },
     {
-      "key": "mesh_162",
+      "key": "mesh_153",
       "name": "REFERENCE | Rocker switch - 19x12 housing - ESTIMATED depth",
       "body": "torso",
       "rgba": [
@@ -3032,7 +2906,7 @@
       "triangles": 456
     },
     {
-      "key": "mesh_163",
+      "key": "mesh_154",
       "name": "REFERENCE | Speaker - 20x30x6.66 mm",
       "body": "torso",
       "rgba": [
@@ -3046,175 +2920,133 @@
       "triangles": 108
     },
     {
-      "key": "mesh_164",
+      "key": "mesh_155",
       "name": "REFINED | FL | Bearing - main leg pivot",
       "body": "rear_left_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_165",
+      "key": "mesh_156",
       "name": "REFINED | FL | Bearing - rod input",
       "body": "rear_left_rod_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_166",
+      "key": "mesh_157",
       "name": "REFINED | FL | Bearing - rod output",
       "body": "rear_left_rod_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_167",
+      "key": "mesh_158",
       "name": "REFINED | FL | Horn_009 - tip trimmed 1.73mm - prepared pilot retained",
       "body": "rear_left_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 3653,
       "triangles": 7330
     },
     {
-      "key": "mesh_168",
+      "key": "mesh_159",
       "name": "REFINED | FL | Horn_023 - stock with prepared pilot",
       "body": "rear_left_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 3352,
       "triangles": 6732
     },
     {
-      "key": "mesh_169",
+      "key": "mesh_160",
       "name": "REFINED | FL | M3x6 screw - input directly into Part_009",
       "body": "rear_left_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_170",
+      "key": "mesh_161",
       "name": "REFINED | FL | M3x6 screw - knee directly into Part_023",
       "body": "rear_left_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_171",
+      "key": "mesh_162",
       "name": "REFINED | FL | M3x6 screw - output directly into Part_027",
       "body": "rear_left_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_172",
+      "key": "mesh_163",
       "name": "REFINED | FL | Part009 reversed horn screw 1 - clearance reference",
       "body": "rear_left_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 588,
       "triangles": 1172
     },
     {
-      "key": "mesh_173",
-      "name": "REFINED | FL | Part009 reversed horn screw 2 - clearance reference",
-      "body": "rear_left_crank_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_174",
-      "name": "REFINED | FL | Part023 reversed horn screw 1 - clearance reference",
-      "body": "rear_left_carrier_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_175",
-      "name": "REFINED | FL | Part023 reversed horn screw 2 - clearance reference",
-      "body": "rear_left_carrier_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_176",
+      "key": "mesh_164",
       "name": "REFINED | FL | Part_003 - original mount - separate rectangular shims",
       "body": "rear_left_shoulder_body",
       "rgba": [
@@ -3228,7 +3060,7 @@
       "triangles": 7670
     },
     {
-      "key": "mesh_177",
+      "key": "mesh_165",
       "name": "REFINED | FL | Part_005 - servo reference",
       "body": "rear_left_mechanism",
       "rgba": [
@@ -3242,7 +3074,7 @@
       "triangles": 72658
     },
     {
-      "key": "mesh_178",
+      "key": "mesh_166",
       "name": "REFINED | FL | Part_006 - servo reference",
       "body": "rear_left_mechanism",
       "rgba": [
@@ -3256,7 +3088,7 @@
       "triangles": 7874
     },
     {
-      "key": "mesh_179",
+      "key": "mesh_167",
       "name": "REFINED | FL | Part_009 - 20mm recessed horn crank - plain joint bore",
       "body": "rear_left_crank_body",
       "rgba": [
@@ -3266,25 +3098,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 9043,
-      "triangles": 18154
+      "vertices": 645,
+      "triangles": 1298
     },
     {
-      "key": "mesh_180",
-      "name": "REFINED | FL | Part_020 - concept inner boot",
-      "body": "rear_left_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 7047,
-      "triangles": 14110
-    },
-    {
-      "key": "mesh_181",
+      "key": "mesh_168",
       "name": "REFINED | FL | Part_021_M3-6 - unchanged foot reference",
       "body": "rear_left_pickup_body",
       "rgba": [
@@ -3298,7 +3116,7 @@
       "triangles": 1324
     },
     {
-      "key": "mesh_182",
+      "key": "mesh_169",
       "name": "REFINED | FL | Part_022 - concept outer boot",
       "body": "rear_left_pickup_body",
       "rgba": [
@@ -3308,11 +3126,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 5695,
-      "triangles": 11394
+      "vertices": 1060,
+      "triangles": 2124
     },
     {
-      "key": "mesh_183",
+      "key": "mesh_170",
       "name": "REFINED | FL | Part_023 - 35mm carrier - 4.9mm outside-horn - plain joint bore",
       "body": "rear_left_carrier_body",
       "rgba": [
@@ -3322,11 +3140,25 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 9253,
-      "triangles": 18530
+      "vertices": 677,
+      "triangles": 1366
     },
     {
-      "key": "mesh_184",
+      "key": "mesh_171",
+      "name": "REFINED | FL | Part_023 - inside collar",
+      "body": "rear_left_carrier_body",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 326,
+      "triangles": 652
+    },
+    {
+      "key": "mesh_172",
       "name": "REFINED | FL | Part_026 - 38mm direct styled rod",
       "body": "rear_left_rod_body",
       "rgba": [
@@ -3336,11 +3168,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 5543,
-      "triangles": 11098
+      "vertices": 465,
+      "triangles": 934
     },
     {
-      "key": "mesh_185",
+      "key": "mesh_173",
       "name": "REFINED | FL | Part_027 - 28mm pickup short collar - plain joint bore",
       "body": "rear_left_pickup_body",
       "rgba": [
@@ -3350,11 +3182,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 6627,
-      "triangles": 13274
+      "vertices": 929,
+      "triangles": 1878
     },
     {
-      "key": "mesh_186",
+      "key": "mesh_174",
       "name": "REFINED | FL | Servo shaft screw head - Part009 - 4x1.5mm",
       "body": "rear_left_crank_body",
       "rgba": [
@@ -3368,7 +3200,7 @@
       "triangles": 252
     },
     {
-      "key": "mesh_187",
+      "key": "mesh_175",
       "name": "REFINED | FL | Servo shaft screw head - Part023 - 4x1.5mm",
       "body": "rear_left_carrier_body",
       "rgba": [
@@ -3382,301 +3214,245 @@
       "triangles": 252
     },
     {
-      "key": "mesh_188",
+      "key": "mesh_176",
       "name": "REFINED | FL | Servo006 mounting screw 1 - reference",
       "body": "rear_left_mechanism",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 576,
       "triangles": 1148
     },
     {
-      "key": "mesh_189",
+      "key": "mesh_177",
       "name": "REFINED | FL | Servo006 mounting screw 2 - reference",
       "body": "rear_left_mechanism",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 576,
       "triangles": 1148
     },
     {
-      "key": "mesh_190",
+      "key": "mesh_178",
       "name": "REFINED | FL | Shim - input bearing inner race - 0.1mm",
       "body": "rear_left_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_191",
+      "key": "mesh_179",
       "name": "REFINED | FL | Shim - knee bearing inner race - 0.1mm",
       "body": "rear_left_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_192",
+      "key": "mesh_180",
       "name": "REFINED | FL | Shim - output bearing outer-side inner race - 0.1mm",
       "body": "rear_left_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_193",
+      "key": "mesh_181",
       "name": "REFINED | FL | Washer - input screw inner race - 0.2mm",
       "body": "rear_left_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_194",
+      "key": "mesh_182",
       "name": "REFINED | FL | Washer - knee screw inner race - 0.2mm",
       "body": "rear_left_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_195",
+      "key": "mesh_183",
       "name": "REFINED | FL | Washer - output bearing inner race - 0.2mm",
       "body": "rear_left_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_196",
+      "key": "mesh_184",
       "name": "REFINED | FR | Bearing - main leg pivot",
       "body": "rear_right_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_197",
+      "key": "mesh_185",
       "name": "REFINED | FR | Bearing - rod input",
       "body": "rear_right_rod_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_198",
+      "key": "mesh_186",
       "name": "REFINED | FR | Bearing - rod output",
       "body": "rear_right_rod_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_199",
-      "name": "REFINED | FR | Foot inner cap - mirrored outer boot",
-      "body": "rear_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 12473,
-      "triangles": 25006
-    },
-    {
-      "key": "mesh_200",
+      "key": "mesh_187",
       "name": "REFINED | FR | Horn_009 - tip trimmed 1.73mm - prepared pilot retained",
       "body": "rear_right_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 3653,
       "triangles": 7330
     },
     {
-      "key": "mesh_201",
+      "key": "mesh_188",
       "name": "REFINED | FR | Horn_023 - stock with prepared pilot",
       "body": "rear_right_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 3352,
       "triangles": 6732
     },
     {
-      "key": "mesh_202",
+      "key": "mesh_189",
       "name": "REFINED | FR | M3x6 screw - input directly into Part_009",
       "body": "rear_right_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_203",
+      "key": "mesh_190",
       "name": "REFINED | FR | M3x6 screw - knee directly into Part_023",
       "body": "rear_right_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_204",
+      "key": "mesh_191",
       "name": "REFINED | FR | M3x6 screw - output directly into Part_027",
       "body": "rear_right_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_205",
+      "key": "mesh_192",
       "name": "REFINED | FR | Part009 reversed horn screw 1 - clearance reference",
       "body": "rear_right_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 588,
       "triangles": 1172
     },
     {
-      "key": "mesh_206",
-      "name": "REFINED | FR | Part009 reversed horn screw 2 - clearance reference",
-      "body": "rear_right_crank_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_207",
-      "name": "REFINED | FR | Part023 reversed horn screw 1 - clearance reference",
-      "body": "rear_right_carrier_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_208",
-      "name": "REFINED | FR | Part023 reversed horn screw 2 - clearance reference",
-      "body": "rear_right_carrier_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_209",
+      "key": "mesh_193",
       "name": "REFINED | FR | Part_003 - original mount - separate rectangular shims",
       "body": "rear_right_shoulder_body",
       "rgba": [
@@ -3690,7 +3466,7 @@
       "triangles": 7670
     },
     {
-      "key": "mesh_210",
+      "key": "mesh_194",
       "name": "REFINED | FR | Part_005 - servo reference",
       "body": "rear_right_mechanism",
       "rgba": [
@@ -3704,7 +3480,7 @@
       "triangles": 72658
     },
     {
-      "key": "mesh_211",
+      "key": "mesh_195",
       "name": "REFINED | FR | Part_006 - servo reference",
       "body": "rear_right_mechanism",
       "rgba": [
@@ -3718,7 +3494,7 @@
       "triangles": 7874
     },
     {
-      "key": "mesh_212",
+      "key": "mesh_196",
       "name": "REFINED | FR | Part_009 - 20mm recessed horn crank - plain joint bore",
       "body": "rear_right_crank_body",
       "rgba": [
@@ -3728,11 +3504,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 9043,
-      "triangles": 18154
+      "vertices": 645,
+      "triangles": 1298
     },
     {
-      "key": "mesh_213",
+      "key": "mesh_197",
       "name": "REFINED | FR | Part_021_M3-6 - unchanged foot reference",
       "body": "rear_right_pickup_body",
       "rgba": [
@@ -3746,7 +3522,21 @@
       "triangles": 1324
     },
     {
-      "key": "mesh_214",
+      "key": "mesh_198",
+      "name": "REFINED | FR | Part_022 - concept outer boot",
+      "body": "rear_right_pickup_body",
+      "rgba": [
+        0.6399999856948853,
+        0.017999999225139618,
+        0.020999999716877937,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 1060,
+      "triangles": 2124
+    },
+    {
+      "key": "mesh_199",
       "name": "REFINED | FR | Part_023 - 35mm carrier - 4.9mm outside-horn - plain joint bore",
       "body": "rear_right_carrier_body",
       "rgba": [
@@ -3756,11 +3546,25 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 9253,
-      "triangles": 18530
+      "vertices": 677,
+      "triangles": 1366
     },
     {
-      "key": "mesh_215",
+      "key": "mesh_200",
+      "name": "REFINED | FR | Part_023 - inside collar",
+      "body": "rear_right_carrier_body",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 326,
+      "triangles": 652
+    },
+    {
+      "key": "mesh_201",
       "name": "REFINED | FR | Part_026 - 38mm direct styled rod",
       "body": "rear_right_rod_body",
       "rgba": [
@@ -3770,11 +3574,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 5543,
-      "triangles": 11098
+      "vertices": 465,
+      "triangles": 934
     },
     {
-      "key": "mesh_216",
+      "key": "mesh_202",
       "name": "REFINED | FR | Part_027 - 28mm pickup short collar - plain joint bore",
       "body": "rear_right_pickup_body",
       "rgba": [
@@ -3784,11 +3588,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 6627,
-      "triangles": 13274
+      "vertices": 929,
+      "triangles": 1878
     },
     {
-      "key": "mesh_217",
+      "key": "mesh_203",
       "name": "REFINED | FR | Servo shaft screw head - Part009 - 4x1.5mm",
       "body": "rear_right_crank_body",
       "rgba": [
@@ -3802,7 +3606,7 @@
       "triangles": 252
     },
     {
-      "key": "mesh_218",
+      "key": "mesh_204",
       "name": "REFINED | FR | Servo shaft screw head - Part023 - 4x1.5mm",
       "body": "rear_right_carrier_body",
       "rgba": [
@@ -3816,287 +3620,245 @@
       "triangles": 252
     },
     {
-      "key": "mesh_219",
+      "key": "mesh_205",
       "name": "REFINED | FR | Servo006 mounting screw 1 - reference",
       "body": "rear_right_mechanism",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 576,
       "triangles": 1148
     },
     {
-      "key": "mesh_220",
+      "key": "mesh_206",
       "name": "REFINED | FR | Servo006 mounting screw 2 - reference",
       "body": "rear_right_mechanism",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 576,
       "triangles": 1148
     },
     {
-      "key": "mesh_221",
+      "key": "mesh_207",
       "name": "REFINED | FR | Shim - input bearing inner race - 0.1mm",
       "body": "rear_right_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_222",
+      "key": "mesh_208",
       "name": "REFINED | FR | Shim - knee bearing inner race - 0.1mm",
       "body": "rear_right_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_223",
+      "key": "mesh_209",
       "name": "REFINED | FR | Shim - output bearing outer-side inner race - 0.1mm",
       "body": "rear_right_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_224",
+      "key": "mesh_210",
       "name": "REFINED | FR | Washer - input screw inner race - 0.2mm",
       "body": "rear_right_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_225",
+      "key": "mesh_211",
       "name": "REFINED | FR | Washer - knee screw inner race - 0.2mm",
       "body": "rear_right_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_226",
+      "key": "mesh_212",
       "name": "REFINED | FR | Washer - output bearing inner race - 0.2mm",
       "body": "rear_right_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_227",
+      "key": "mesh_213",
       "name": "REFINED | RL | Bearing - main leg pivot",
       "body": "front_left_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_228",
+      "key": "mesh_214",
       "name": "REFINED | RL | Bearing - rod input",
       "body": "front_left_rod_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_229",
+      "key": "mesh_215",
       "name": "REFINED | RL | Bearing - rod output",
       "body": "front_left_rod_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_230",
+      "key": "mesh_216",
       "name": "REFINED | RL | Horn_009 - tip trimmed 1.73mm - prepared pilot retained",
       "body": "front_left_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 3653,
-      "triangles": 7330
+      "vertices": 2809,
+      "triangles": 5634
     },
     {
-      "key": "mesh_231",
+      "key": "mesh_217",
       "name": "REFINED | RL | Horn_023 - stock with prepared pilot",
       "body": "front_left_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 3352,
       "triangles": 6732
     },
     {
-      "key": "mesh_232",
+      "key": "mesh_218",
       "name": "REFINED | RL | M3x6 screw - input directly into Part_009",
       "body": "front_left_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_233",
+      "key": "mesh_219",
       "name": "REFINED | RL | M3x6 screw - knee directly into Part_023",
       "body": "front_left_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_234",
+      "key": "mesh_220",
       "name": "REFINED | RL | M3x6 screw - output directly into Part_027",
       "body": "front_left_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_235",
+      "key": "mesh_221",
       "name": "REFINED | RL | Part009 reversed horn screw 1 - clearance reference",
       "body": "front_left_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 588,
       "triangles": 1172
     },
     {
-      "key": "mesh_236",
-      "name": "REFINED | RL | Part009 reversed horn screw 2 - clearance reference",
-      "body": "front_left_crank_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_237",
-      "name": "REFINED | RL | Part023 reversed horn screw 1 - clearance reference",
-      "body": "front_left_carrier_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_238",
-      "name": "REFINED | RL | Part023 reversed horn screw 2 - clearance reference",
-      "body": "front_left_carrier_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_239",
+      "key": "mesh_222",
       "name": "REFINED | RL | Part_003 - original mount - separate rectangular shims",
       "body": "front_left_shoulder_body",
       "rgba": [
@@ -4110,7 +3872,7 @@
       "triangles": 7670
     },
     {
-      "key": "mesh_240",
+      "key": "mesh_223",
       "name": "REFINED | RL | Part_005 - servo reference",
       "body": "front_left_mechanism",
       "rgba": [
@@ -4124,7 +3886,7 @@
       "triangles": 72658
     },
     {
-      "key": "mesh_241",
+      "key": "mesh_224",
       "name": "REFINED | RL | Part_006 - servo reference",
       "body": "front_left_mechanism",
       "rgba": [
@@ -4138,7 +3900,7 @@
       "triangles": 7874
     },
     {
-      "key": "mesh_242",
+      "key": "mesh_225",
       "name": "REFINED | RL | Part_009 - 20mm recessed horn crank - plain joint bore",
       "body": "front_left_crank_body",
       "rgba": [
@@ -4148,25 +3910,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 9043,
-      "triangles": 18154
+      "vertices": 806,
+      "triangles": 1620
     },
     {
-      "key": "mesh_243",
-      "name": "REFINED | RL | Part_020 - concept inner boot",
-      "body": "front_left_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 7045,
-      "triangles": 14106
-    },
-    {
-      "key": "mesh_244",
+      "key": "mesh_226",
       "name": "REFINED | RL | Part_021_M3-6 - unchanged foot reference",
       "body": "front_left_pickup_body",
       "rgba": [
@@ -4180,7 +3928,7 @@
       "triangles": 1324
     },
     {
-      "key": "mesh_245",
+      "key": "mesh_227",
       "name": "REFINED | RL | Part_022 - concept outer boot",
       "body": "front_left_pickup_body",
       "rgba": [
@@ -4190,11 +3938,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 5761,
-      "triangles": 11526
+      "vertices": 1060,
+      "triangles": 2124
     },
     {
-      "key": "mesh_246",
+      "key": "mesh_228",
       "name": "REFINED | RL | Part_023 - 35mm carrier - 4.9mm outside-horn - plain joint bore",
       "body": "front_left_carrier_body",
       "rgba": [
@@ -4204,11 +3952,25 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 9253,
-      "triangles": 18530
+      "vertices": 694,
+      "triangles": 1400
     },
     {
-      "key": "mesh_247",
+      "key": "mesh_229",
+      "name": "REFINED | RL | Part_023 - inside collar",
+      "body": "front_left_carrier_body",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 539,
+      "triangles": 1082
+    },
+    {
+      "key": "mesh_230",
       "name": "REFINED | RL | Part_026 - 38mm direct styled rod",
       "body": "front_left_rod_body",
       "rgba": [
@@ -4218,11 +3980,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 5543,
-      "triangles": 11098
+      "vertices": 465,
+      "triangles": 934
     },
     {
-      "key": "mesh_248",
+      "key": "mesh_231",
       "name": "REFINED | RL | Part_027 - 28mm pickup short collar - plain joint bore",
       "body": "front_left_pickup_body",
       "rgba": [
@@ -4232,11 +3994,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 6627,
-      "triangles": 13274
+      "vertices": 929,
+      "triangles": 1878
     },
     {
-      "key": "mesh_249",
+      "key": "mesh_232",
       "name": "REFINED | RL | Servo shaft screw head - Part009 - 4x1.5mm",
       "body": "front_left_crank_body",
       "rgba": [
@@ -4250,7 +4012,7 @@
       "triangles": 252
     },
     {
-      "key": "mesh_250",
+      "key": "mesh_233",
       "name": "REFINED | RL | Servo shaft screw head - Part023 - 4x1.5mm",
       "body": "front_left_carrier_body",
       "rgba": [
@@ -4264,287 +4026,245 @@
       "triangles": 252
     },
     {
-      "key": "mesh_251",
+      "key": "mesh_234",
       "name": "REFINED | RL | Servo006 mounting screw 1 - reference",
       "body": "front_left_mechanism",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 576,
       "triangles": 1148
     },
     {
-      "key": "mesh_252",
+      "key": "mesh_235",
       "name": "REFINED | RL | Servo006 mounting screw 2 - reference",
       "body": "front_left_mechanism",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 576,
       "triangles": 1148
     },
     {
-      "key": "mesh_253",
+      "key": "mesh_236",
       "name": "REFINED | RL | Shim - input bearing inner race - 0.1mm",
       "body": "front_left_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_254",
+      "key": "mesh_237",
       "name": "REFINED | RL | Shim - knee bearing inner race - 0.1mm",
       "body": "front_left_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_255",
+      "key": "mesh_238",
       "name": "REFINED | RL | Shim - output bearing outer-side inner race - 0.1mm",
       "body": "front_left_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_256",
+      "key": "mesh_239",
       "name": "REFINED | RL | Washer - input screw inner race - 0.2mm",
       "body": "front_left_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_257",
+      "key": "mesh_240",
       "name": "REFINED | RL | Washer - knee screw inner race - 0.2mm",
       "body": "front_left_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_258",
+      "key": "mesh_241",
       "name": "REFINED | RL | Washer - output bearing inner race - 0.2mm",
       "body": "front_left_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_259",
+      "key": "mesh_242",
       "name": "REFINED | RR | Bearing - main leg pivot",
       "body": "front_right_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_260",
+      "key": "mesh_243",
       "name": "REFINED | RR | Bearing - rod input",
       "body": "front_right_rod_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_261",
+      "key": "mesh_244",
       "name": "REFINED | RR | Bearing - rod output",
       "body": "front_right_rod_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 450,
       "triangles": 900
     },
     {
-      "key": "mesh_262",
+      "key": "mesh_245",
       "name": "REFINED | RR | Horn_009 - tip trimmed 1.73mm - prepared pilot retained",
       "body": "front_right_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 3653,
       "triangles": 7330
     },
     {
-      "key": "mesh_263",
+      "key": "mesh_246",
       "name": "REFINED | RR | Horn_023 - stock with prepared pilot",
       "body": "front_right_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 3352,
       "triangles": 6732
     },
     {
-      "key": "mesh_264",
+      "key": "mesh_247",
       "name": "REFINED | RR | M3x6 screw - input directly into Part_009",
       "body": "front_right_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_265",
+      "key": "mesh_248",
       "name": "REFINED | RR | M3x6 screw - knee directly into Part_023",
       "body": "front_right_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_266",
+      "key": "mesh_249",
       "name": "REFINED | RR | M3x6 screw - output directly into Part_027",
       "body": "front_right_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 396,
       "triangles": 788
     },
     {
-      "key": "mesh_267",
+      "key": "mesh_250",
       "name": "REFINED | RR | Part009 reversed horn screw 1 - clearance reference",
       "body": "front_right_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 588,
       "triangles": 1172
     },
     {
-      "key": "mesh_268",
-      "name": "REFINED | RR | Part009 reversed horn screw 2 - clearance reference",
-      "body": "front_right_crank_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_269",
-      "name": "REFINED | RR | Part023 reversed horn screw 1 - clearance reference",
-      "body": "front_right_carrier_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_270",
-      "name": "REFINED | RR | Part023 reversed horn screw 2 - clearance reference",
-      "body": "front_right_carrier_body",
-      "rgba": [
-        0.4,
-        0.4,
-        0.4,
-        1
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 588,
-      "triangles": 1172
-    },
-    {
-      "key": "mesh_271",
+      "key": "mesh_251",
       "name": "REFINED | RR | Part_003 - original mount - separate rectangular shims",
       "body": "front_right_shoulder_body",
       "rgba": [
@@ -4558,7 +4278,7 @@
       "triangles": 7670
     },
     {
-      "key": "mesh_272",
+      "key": "mesh_252",
       "name": "REFINED | RR | Part_005 - servo reference",
       "body": "front_right_mechanism",
       "rgba": [
@@ -4572,7 +4292,7 @@
       "triangles": 72658
     },
     {
-      "key": "mesh_273",
+      "key": "mesh_253",
       "name": "REFINED | RR | Part_006 - servo reference",
       "body": "front_right_mechanism",
       "rgba": [
@@ -4586,7 +4306,7 @@
       "triangles": 7874
     },
     {
-      "key": "mesh_274",
+      "key": "mesh_254",
       "name": "REFINED | RR | Part_009 - 20mm recessed horn crank - plain joint bore",
       "body": "front_right_crank_body",
       "rgba": [
@@ -4596,25 +4316,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 9043,
-      "triangles": 18154
+      "vertices": 645,
+      "triangles": 1298
     },
     {
-      "key": "mesh_275",
-      "name": "REFINED | RR | Part_020 - concept inner boot",
-      "body": "front_right_pickup_body",
-      "rgba": [
-        0.6399999856948853,
-        0.017999999225139618,
-        0.020999999716877937,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 7047,
-      "triangles": 14110
-    },
-    {
-      "key": "mesh_276",
+      "key": "mesh_255",
       "name": "REFINED | RR | Part_021_M3-6 - unchanged foot reference",
       "body": "front_right_pickup_body",
       "rgba": [
@@ -4628,7 +4334,7 @@
       "triangles": 1324
     },
     {
-      "key": "mesh_277",
+      "key": "mesh_256",
       "name": "REFINED | RR | Part_022 - concept outer boot",
       "body": "front_right_pickup_body",
       "rgba": [
@@ -4638,11 +4344,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 5745,
-      "triangles": 11494
+      "vertices": 1060,
+      "triangles": 2124
     },
     {
-      "key": "mesh_278",
+      "key": "mesh_257",
       "name": "REFINED | RR | Part_023 - 35mm carrier - 4.9mm outside-horn - plain joint bore",
       "body": "front_right_carrier_body",
       "rgba": [
@@ -4652,11 +4358,25 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 9253,
-      "triangles": 18530
+      "vertices": 677,
+      "triangles": 1366
     },
     {
-      "key": "mesh_279",
+      "key": "mesh_258",
+      "name": "REFINED | RR | Part_023 - inside collar",
+      "body": "front_right_carrier_body",
+      "rgba": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 326,
+      "triangles": 652
+    },
+    {
+      "key": "mesh_259",
       "name": "REFINED | RR | Part_026 - 38mm direct styled rod",
       "body": "front_right_rod_body",
       "rgba": [
@@ -4666,11 +4386,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 5543,
-      "triangles": 11098
+      "vertices": 465,
+      "triangles": 934
     },
     {
-      "key": "mesh_280",
+      "key": "mesh_260",
       "name": "REFINED | RR | Part_027 - 28mm pickup short collar - plain joint bore",
       "body": "front_right_pickup_body",
       "rgba": [
@@ -4680,11 +4400,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 6627,
-      "triangles": 13274
+      "vertices": 929,
+      "triangles": 1878
     },
     {
-      "key": "mesh_281",
+      "key": "mesh_261",
       "name": "REFINED | RR | Servo shaft screw head - Part009 - 4x1.5mm",
       "body": "front_right_crank_body",
       "rgba": [
@@ -4698,7 +4418,7 @@
       "triangles": 252
     },
     {
-      "key": "mesh_282",
+      "key": "mesh_262",
       "name": "REFINED | RR | Servo shaft screw head - Part023 - 4x1.5mm",
       "body": "front_right_carrier_body",
       "rgba": [
@@ -4712,119 +4432,119 @@
       "triangles": 252
     },
     {
-      "key": "mesh_283",
+      "key": "mesh_263",
       "name": "REFINED | RR | Servo006 mounting screw 1 - reference",
       "body": "front_right_mechanism",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 576,
       "triangles": 1148
     },
     {
-      "key": "mesh_284",
+      "key": "mesh_264",
       "name": "REFINED | RR | Servo006 mounting screw 2 - reference",
       "body": "front_right_mechanism",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 576,
       "triangles": 1148
     },
     {
-      "key": "mesh_285",
+      "key": "mesh_265",
       "name": "REFINED | RR | Shim - input bearing inner race - 0.1mm",
       "body": "front_right_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_286",
+      "key": "mesh_266",
       "name": "REFINED | RR | Shim - knee bearing inner race - 0.1mm",
       "body": "front_right_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_287",
+      "key": "mesh_267",
       "name": "REFINED | RR | Shim - output bearing outer-side inner race - 0.1mm",
       "body": "front_right_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_288",
+      "key": "mesh_268",
       "name": "REFINED | RR | Washer - input screw inner race - 0.2mm",
       "body": "front_right_crank_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_289",
+      "key": "mesh_269",
       "name": "REFINED | RR | Washer - knee screw inner race - 0.2mm",
       "body": "front_right_carrier_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_290",
+      "key": "mesh_270",
       "name": "REFINED | RR | Washer - output bearing inner race - 0.2mm",
       "body": "front_right_pickup_body",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 384,
       "triangles": 768
     },
     {
-      "key": "mesh_291",
+      "key": "mesh_271",
       "name": "Rear_FPC_connector_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -4838,7 +4558,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_292",
+      "key": "mesh_272",
       "name": "Rear_flex_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -4852,7 +4572,7 @@
       "triangles": 20
     },
     {
-      "key": "mesh_293",
+      "key": "mesh_273",
       "name": "SMD_1_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -4866,7 +4586,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_294",
+      "key": "mesh_274",
       "name": "SMD_2_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -4880,7 +4600,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_295",
+      "key": "mesh_275",
       "name": "SMD_3_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -4894,7 +4614,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_296",
+      "key": "mesh_276",
       "name": "SMD_4_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -4908,7 +4628,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_297",
+      "key": "mesh_277",
       "name": "SMD_5_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -4922,7 +4642,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_298",
+      "key": "mesh_278",
       "name": "SMD_6_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -4936,7 +4656,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_299",
+      "key": "mesh_279",
       "name": "SMD_7_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -4950,7 +4670,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_300",
+      "key": "mesh_280",
       "name": "SMD_8_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -4964,7 +4684,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_301",
+      "key": "mesh_281",
       "name": "SMD_9_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -4978,7 +4698,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_302",
+      "key": "mesh_282",
       "name": "SMD_pad_1_0",
       "body": "torso",
       "rgba": [
@@ -4992,7 +4712,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_303",
+      "key": "mesh_283",
       "name": "SMD_pad_1_1",
       "body": "torso",
       "rgba": [
@@ -5006,7 +4726,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_304",
+      "key": "mesh_284",
       "name": "SMD_pad_2_0",
       "body": "torso",
       "rgba": [
@@ -5020,7 +4740,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_305",
+      "key": "mesh_285",
       "name": "SMD_pad_2_1",
       "body": "torso",
       "rgba": [
@@ -5034,7 +4754,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_306",
+      "key": "mesh_286",
       "name": "SMD_pad_3_0",
       "body": "torso",
       "rgba": [
@@ -5048,7 +4768,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_307",
+      "key": "mesh_287",
       "name": "SMD_pad_3_1",
       "body": "torso",
       "rgba": [
@@ -5062,7 +4782,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_308",
+      "key": "mesh_288",
       "name": "SMD_pad_4_0",
       "body": "torso",
       "rgba": [
@@ -5076,7 +4796,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_309",
+      "key": "mesh_289",
       "name": "SMD_pad_4_1",
       "body": "torso",
       "rgba": [
@@ -5090,7 +4810,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_310",
+      "key": "mesh_290",
       "name": "SMD_pad_5_0",
       "body": "torso",
       "rgba": [
@@ -5104,7 +4824,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_311",
+      "key": "mesh_291",
       "name": "SMD_pad_5_1",
       "body": "torso",
       "rgba": [
@@ -5118,7 +4838,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_312",
+      "key": "mesh_292",
       "name": "SMD_pad_6_0",
       "body": "torso",
       "rgba": [
@@ -5132,7 +4852,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_313",
+      "key": "mesh_293",
       "name": "SMD_pad_6_1",
       "body": "torso",
       "rgba": [
@@ -5146,7 +4866,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_314",
+      "key": "mesh_294",
       "name": "SMD_pad_7_0",
       "body": "torso",
       "rgba": [
@@ -5160,7 +4880,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_315",
+      "key": "mesh_295",
       "name": "SMD_pad_7_1",
       "body": "torso",
       "rgba": [
@@ -5174,7 +4894,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_316",
+      "key": "mesh_296",
       "name": "SMD_pad_8_0",
       "body": "torso",
       "rgba": [
@@ -5188,7 +4908,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_317",
+      "key": "mesh_297",
       "name": "SMD_pad_8_1",
       "body": "torso",
       "rgba": [
@@ -5202,7 +4922,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_318",
+      "key": "mesh_298",
       "name": "SMD_pad_9_0",
       "body": "torso",
       "rgba": [
@@ -5216,7 +4936,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_319",
+      "key": "mesh_299",
       "name": "SMD_pad_9_1",
       "body": "torso",
       "rgba": [
@@ -5230,7 +4950,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_320",
+      "key": "mesh_300",
       "name": "SOT23_1_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -5244,7 +4964,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_321",
+      "key": "mesh_301",
       "name": "SOT23_2_ESTIMATED",
       "body": "torso",
       "rgba": [
@@ -5258,7 +4978,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_322",
+      "key": "mesh_302",
       "name": "SOT23_leg_1_0",
       "body": "torso",
       "rgba": [
@@ -5272,7 +4992,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_323",
+      "key": "mesh_303",
       "name": "SOT23_leg_1_1",
       "body": "torso",
       "rgba": [
@@ -5286,7 +5006,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_324",
+      "key": "mesh_304",
       "name": "SOT23_leg_1_2",
       "body": "torso",
       "rgba": [
@@ -5300,7 +5020,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_325",
+      "key": "mesh_305",
       "name": "SOT23_leg_2_0",
       "body": "torso",
       "rgba": [
@@ -5314,7 +5034,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_326",
+      "key": "mesh_306",
       "name": "SOT23_leg_2_1",
       "body": "torso",
       "rgba": [
@@ -5328,7 +5048,7 @@
       "triangles": 12
     },
     {
-      "key": "mesh_327",
+      "key": "mesh_307",
       "name": "SOT23_leg_2_2",
       "body": "torso",
       "rgba": [
@@ -5342,21 +5062,21 @@
       "triangles": 12
     },
     {
-      "key": "mesh_328",
-      "name": "STRUCTURAL | Battery carrier - rear power module cradle",
+      "key": "mesh_308",
+      "name": "STRUCTURAL | Battery floor and power module cradle",
       "body": "torso",
       "rgba": [
-        0.800000011920929,
-        0.800000011920929,
-        0.800000011920929,
+        0.4,
+        0.4,
+        0.4,
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 4339,
-      "triangles": 8758
+      "vertices": 4388,
+      "triangles": 8856
     },
     {
-      "key": "mesh_329",
+      "key": "mesh_309",
       "name": "STRUCTURAL | Center support crossbar - Front",
       "body": "torso",
       "rgba": [
@@ -5370,7 +5090,7 @@
       "triangles": 2726
     },
     {
-      "key": "mesh_330",
+      "key": "mesh_310",
       "name": "STRUCTURAL | Center support crossbar - Rear",
       "body": "torso",
       "rgba": [
@@ -5384,7 +5104,7 @@
       "triangles": 5264
     },
     {
-      "key": "mesh_331",
+      "key": "mesh_311",
       "name": "STRUCTURAL | Compact arch mount - Rear panel",
       "body": "torso",
       "rgba": [
@@ -5398,7 +5118,7 @@
       "triangles": 2240
     },
     {
-      "key": "mesh_332",
+      "key": "mesh_312",
       "name": "STRUCTURAL | Front panel brace - Left",
       "body": "torso",
       "rgba": [
@@ -5408,11 +5128,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 684,
-      "triangles": 1380
+      "vertices": 672,
+      "triangles": 1360
     },
     {
-      "key": "mesh_333",
+      "key": "mesh_313",
       "name": "STRUCTURAL | Front panel brace - Right",
       "body": "torso",
       "rgba": [
@@ -5422,109 +5142,137 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 684,
-      "triangles": 1380
+      "vertices": 710,
+      "triangles": 1448
     },
     {
-      "key": "mesh_334",
+      "key": "mesh_314",
       "name": "STRUCTURAL | Gyro washer-spacer - 1",
       "body": "torso",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 281,
       "triangles": 562
     },
     {
-      "key": "mesh_335",
+      "key": "mesh_315",
       "name": "STRUCTURAL | Gyro washer-spacer - 2",
       "body": "torso",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 281,
       "triangles": 562
     },
     {
-      "key": "mesh_336",
+      "key": "mesh_316",
+      "name": "STRUCTURAL | PCB clip - HiLetgo Left",
+      "body": "torso",
+      "rgba": [
+        0.4,
+        0.4,
+        0.4,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 142,
+      "triangles": 284
+    },
+    {
+      "key": "mesh_317",
+      "name": "STRUCTURAL | PCB clip - HiLetgo Right",
+      "body": "torso",
+      "rgba": [
+        0.4,
+        0.4,
+        0.4,
+        1.0
+      ],
+      "attachment_basis": "evaluated CAD parent hierarchy",
+      "vertices": 141,
+      "triangles": 282
+    },
+    {
+      "key": "mesh_318",
       "name": "STRUCTURAL | PCB clip - P4 front",
       "body": "torso",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 335,
-      "triangles": 670
+      "vertices": 140,
+      "triangles": 280
     },
     {
-      "key": "mesh_337",
+      "key": "mesh_319",
       "name": "STRUCTURAL | PCB clip - P4 rear inner",
       "body": "torso",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 335,
-      "triangles": 670
+      "vertices": 142,
+      "triangles": 284
     },
     {
-      "key": "mesh_338",
+      "key": "mesh_320",
       "name": "STRUCTURAL | PCB clip - P4 rear outer",
       "body": "torso",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 335,
-      "triangles": 670
+      "vertices": 142,
+      "triangles": 284
     },
     {
-      "key": "mesh_339",
+      "key": "mesh_321",
       "name": "STRUCTURAL | PCB retainer - Adafruit 1",
       "body": "torso",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 320,
       "triangles": 640
     },
     {
-      "key": "mesh_340",
+      "key": "mesh_322",
       "name": "STRUCTURAL | PCB retainer - Adafruit 2",
       "body": "torso",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
       "vertices": 320,
       "triangles": 640
     },
     {
-      "key": "mesh_341",
+      "key": "mesh_323",
       "name": "STRUCTURAL | Rear helmet joining strap - Front",
       "body": "torso",
       "rgba": [
@@ -5538,7 +5286,7 @@
       "triangles": 2002
     },
     {
-      "key": "mesh_342",
+      "key": "mesh_324",
       "name": "STRUCTURAL | Rear helmet joining strap - Rear",
       "body": "torso",
       "rgba": [
@@ -5552,7 +5300,7 @@
       "triangles": 1986
     },
     {
-      "key": "mesh_343",
+      "key": "mesh_325",
       "name": "STRUCTURAL | Rear power carrier - Mini560 retainer",
       "body": "torso",
       "rgba": [
@@ -5566,7 +5314,7 @@
       "triangles": 1796
     },
     {
-      "key": "mesh_344",
+      "key": "mesh_326",
       "name": "STRUCTURAL | Rear power carrier - charger retainer",
       "body": "torso",
       "rgba": [
@@ -5580,21 +5328,7 @@
       "triangles": 1898
     },
     {
-      "key": "mesh_345",
-      "name": "STRUCTURAL | Rear power carrier - open two-level frame",
-      "body": "torso",
-      "rgba": [
-        0.07500000298023224,
-        0.08500000089406967,
-        0.10499999672174454,
-        1.0
-      ],
-      "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 3684,
-      "triangles": 7404
-    },
-    {
-      "key": "mesh_346",
+      "key": "mesh_327",
       "name": "STRUCTURAL | Speaker holder - 20x30",
       "body": "torso",
       "rgba": [
@@ -5608,7 +5342,7 @@
       "triangles": 1448
     },
     {
-      "key": "mesh_347",
+      "key": "mesh_328",
       "name": "STRUCTURAL | Speaker holder - removable retaining frame",
       "body": "torso",
       "rgba": [
@@ -5622,7 +5356,7 @@
       "triangles": 1516
     },
     {
-      "key": "mesh_348",
+      "key": "mesh_329",
       "name": "STRUCTURAL | Tray mount plate - Front",
       "body": "torso",
       "rgba": [
@@ -5636,7 +5370,7 @@
       "triangles": 4814
     },
     {
-      "key": "mesh_349",
+      "key": "mesh_330",
       "name": "STRUCTURAL | Tray mount plate - Rear",
       "body": "torso",
       "rgba": [
@@ -5650,21 +5384,21 @@
       "triangles": 1970
     },
     {
-      "key": "mesh_350",
+      "key": "mesh_331",
       "name": "STRUCTURAL | Wireless keeper bridge - battery mounted",
       "body": "torso",
       "rgba": [
         0.4,
         0.4,
         0.4,
-        1
+        1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 11868,
-      "triangles": 23788
+      "vertices": 2522,
+      "triangles": 5076
     },
     {
-      "key": "mesh_351",
+      "key": "mesh_332",
       "name": "Side.Guard.L.001",
       "body": "torso",
       "rgba": [
@@ -5674,11 +5408,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 183,
-      "triangles": 366
+      "vertices": 182,
+      "triangles": 364
     },
     {
-      "key": "mesh_352",
+      "key": "mesh_333",
       "name": "Side.Guard.R.002",
       "body": "torso",
       "rgba": [
@@ -5688,11 +5422,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 177,
-      "triangles": 354
+      "vertices": 176,
+      "triangles": 352
     },
     {
-      "key": "mesh_353",
+      "key": "mesh_334",
       "name": "TESTS | B0066 - shortened 60mm cable - local route preview",
       "body": "torso",
       "rgba": [
@@ -5706,7 +5440,7 @@
       "triangles": 132
     },
     {
-      "key": "mesh_354",
+      "key": "mesh_335",
       "name": "TESTS | Board - Adafruit PCA9685",
       "body": "torso",
       "rgba": [
@@ -5720,7 +5454,7 @@
       "triangles": 464646
     },
     {
-      "key": "mesh_355",
+      "key": "mesh_336",
       "name": "TESTS | Board - ESP32-P4-WIFI6",
       "body": "torso",
       "rgba": [
@@ -5734,7 +5468,7 @@
       "triangles": 784296
     },
     {
-      "key": "mesh_356",
+      "key": "mesh_337",
       "name": "TESTS | Body - Front End Panel - Compact",
       "body": "torso",
       "rgba": [
@@ -5744,11 +5478,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 4236,
-      "triangles": 8504
+      "vertices": 3271,
+      "triangles": 6570
     },
     {
-      "key": "mesh_357",
+      "key": "mesh_338",
       "name": "TESTS | Body - Left Center Mount.001",
       "body": "torso",
       "rgba": [
@@ -5762,7 +5496,7 @@
       "triangles": 11302
     },
     {
-      "key": "mesh_358",
+      "key": "mesh_339",
       "name": "TESTS | Body - Rear End Panel - Q6A Ports",
       "body": "torso",
       "rgba": [
@@ -5776,7 +5510,7 @@
       "triangles": 14670
     },
     {
-      "key": "mesh_359",
+      "key": "mesh_340",
       "name": "TESTS | Body - Right Center Mount.001",
       "body": "torso",
       "rgba": [
@@ -5790,7 +5524,7 @@
       "triangles": 13676
     },
     {
-      "key": "mesh_360",
+      "key": "mesh_341",
       "name": "TESTS | FR - Part_001_9g",
       "body": "rear_right_shoulder_body",
       "rgba": [
@@ -5804,7 +5538,7 @@
       "triangles": 4210
     },
     {
-      "key": "mesh_361",
+      "key": "mesh_342",
       "name": "TESTS | FR - Part_002_SG90",
       "body": "torso",
       "rgba": [
@@ -5818,7 +5552,7 @@
       "triangles": 72650
     },
     {
-      "key": "mesh_362",
+      "key": "mesh_343",
       "name": "TESTS | FR - Part_004",
       "body": "rear_right_shoulder_body",
       "rgba": [
@@ -5832,7 +5566,7 @@
       "triangles": 660
     },
     {
-      "key": "mesh_363",
+      "key": "mesh_344",
       "name": "TESTS | Face - Arducam B0066 - camera mock-up",
       "body": "torso",
       "rgba": [
@@ -5846,7 +5580,7 @@
       "triangles": 268
     },
     {
-      "key": "mesh_364",
+      "key": "mesh_345",
       "name": "TESTS | Face - Black LCD Carrier",
       "body": "torso",
       "rgba": [
@@ -5856,11 +5590,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 5839,
-      "triangles": 11734
+      "vertices": 4087,
+      "triangles": 8230
     },
     {
-      "key": "mesh_365",
+      "key": "mesh_346",
       "name": "TESTS | Part_001_9g",
       "body": "rear_left_shoulder_body",
       "rgba": [
@@ -5874,7 +5608,7 @@
       "triangles": 4210
     },
     {
-      "key": "mesh_366",
+      "key": "mesh_347",
       "name": "TESTS | Part_002_SG90",
       "body": "torso",
       "rgba": [
@@ -5888,7 +5622,7 @@
       "triangles": 72650
     },
     {
-      "key": "mesh_367",
+      "key": "mesh_348",
       "name": "TESTS | Part_004",
       "body": "rear_left_shoulder_body",
       "rgba": [
@@ -5902,7 +5636,7 @@
       "triangles": 660
     },
     {
-      "key": "mesh_368",
+      "key": "mesh_349",
       "name": "TESTS | RL - Part_001_9g",
       "body": "front_left_shoulder_body",
       "rgba": [
@@ -5916,7 +5650,7 @@
       "triangles": 4210
     },
     {
-      "key": "mesh_369",
+      "key": "mesh_350",
       "name": "TESTS | RL - Part_002_SG90",
       "body": "torso",
       "rgba": [
@@ -5930,7 +5664,7 @@
       "triangles": 72650
     },
     {
-      "key": "mesh_370",
+      "key": "mesh_351",
       "name": "TESTS | RL - Part_004",
       "body": "front_left_shoulder_body",
       "rgba": [
@@ -5944,7 +5678,7 @@
       "triangles": 660
     },
     {
-      "key": "mesh_371",
+      "key": "mesh_352",
       "name": "TESTS | RR - Part_001_9g",
       "body": "front_right_shoulder_body",
       "rgba": [
@@ -5958,7 +5692,7 @@
       "triangles": 4210
     },
     {
-      "key": "mesh_372",
+      "key": "mesh_353",
       "name": "TESTS | RR - Part_002_SG90",
       "body": "torso",
       "rgba": [
@@ -5972,7 +5706,7 @@
       "triangles": 72650
     },
     {
-      "key": "mesh_373",
+      "key": "mesh_354",
       "name": "TESTS | RR - Part_004",
       "body": "front_right_shoulder_body",
       "rgba": [
@@ -5986,7 +5720,7 @@
       "triangles": 660
     },
     {
-      "key": "mesh_374",
+      "key": "mesh_355",
       "name": "Temple.L.001",
       "body": "torso",
       "rgba": [
@@ -5996,11 +5730,11 @@
         1.0
       ],
       "attachment_basis": "evaluated CAD parent hierarchy",
-      "vertices": 437,
-      "triangles": 886
+      "vertices": 197,
+      "triangles": 394
     },
     {
-      "key": "mesh_375",
+      "key": "mesh_356",
       "name": "Temple.R.001",
       "body": "torso",
       "rgba": [
@@ -6014,7 +5748,7 @@
       "triangles": 394
     },
     {
-      "key": "mesh_376",
+      "key": "mesh_357",
       "name": "Viewing_window_23p695x43p72",
       "body": "torso",
       "rgba": [
@@ -6030,28 +5764,8 @@
   ],
   "excluded": [
     {
-      "name": "Anker Slim",
-      "reason": "detached old battery X -734..-579 / Y -368..-296 mm; current battery retained"
-    },
-    {
-      "name": "Board - Radxa Q6A",
-      "reason": "offboard Q6A hardware"
-    },
-    {
       "name": "Body - Assembly",
-      "reason": "non-mesh assembly/group/rig object"
-    },
-    {
-      "name": "CARAPACE | Front helmet - extracted 014.001",
-      "reason": "detached old shell at X -1218 mm; current three-piece helmet retained"
-    },
-    {
-      "name": "CARAPACE | Rear helmet - extracted 014.002",
-      "reason": "detached source at X 1849..1911 mm; current three shells explicitly derived from it retained"
-    },
-    {
-      "name": "CONCEPT C | Compact faceted arch - fit study",
-      "reason": "render-hidden source reference; retained in CAD, not active render assembly"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "Crown.Center.001",
@@ -6059,127 +5773,75 @@
     },
     {
       "name": "FIT REF | Gyro 14mm header envelope - Left",
-      "reason": "fit-envelope reference, not an installed solid component"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "FIT REF | Gyro 14mm header envelope - Right",
-      "reason": "fit-envelope reference, not an installed solid component"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "FIT REF | PCA9685 - 1x6 right-angle male header",
-      "reason": "fit-envelope reference, not an installed solid component"
-    },
-    {
-      "name": "FIT REF | Radxa Armor 7056A - Lower cover (approx)",
-      "reason": "offboard Q6A hardware"
-    },
-    {
-      "name": "FIT REF | Radxa Armor 7056A - Mount screws",
-      "reason": "offboard Q6A hardware"
-    },
-    {
-      "name": "FIT REF | Radxa Armor 7056A - Upper cover (approx)",
-      "reason": "offboard Q6A hardware"
-    },
-    {
-      "name": "Face.Rail.L.001",
-      "reason": "detached face rail at Y -169 mm"
-    },
-    {
-      "name": "Face.Rail.R.001",
-      "reason": "detached face rail at Y -143 mm"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "GY_LSM6DS3_TWO_HOLE_REFERENCE",
-      "reason": "non-mesh assembly/group/rig object"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "MASK | Fitted panel assembly",
-      "reason": "non-mesh assembly/group/rig object"
-    },
-    {
-      "name": "REFERENCE | FR outer boot - before clean rebuild",
-      "reason": "detached replaced boot at X -270 mm; installed rebuilt boot retained"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "REFINED | FL | Part_020 - full-length inner boot",
-      "reason": "render-hidden previous boot design; current rebuilt boot components retained"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "REFINED | FL | Part_022 - full-length outer boot",
-      "reason": "render-hidden previous boot design; current rebuilt boot components retained"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "REFINED | FR | Part_020 - full-length inner boot",
-      "reason": "render-hidden previous boot design; current rebuilt boot components retained"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "REFINED | FR | Part_022 - full-length outer boot",
-      "reason": "render-hidden previous boot design; current rebuilt boot components retained"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "REFINED | RL | Part_020 - full-length inner boot",
-      "reason": "render-hidden previous boot design; current rebuilt boot components retained"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "REFINED | RL | Part_022 - full-length outer boot",
-      "reason": "render-hidden previous boot design; current rebuilt boot components retained"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "REFINED | RR | Part_020 - full-length inner boot",
-      "reason": "render-hidden previous boot design; current rebuilt boot components retained"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "REFINED | RR | Part_022 - full-length outer boot",
-      "reason": "render-hidden previous boot design; current rebuilt boot components retained"
-    },
-    {
-      "name": "Radxa_Dragon_Q6A_Bottom_Slot",
-      "reason": "offboard Q6A hardware"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "Reference_model_metres",
-      "reason": "non-mesh assembly/group/rig object"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "Reference_model_metres_NOT_verified_factory_CAD",
-      "reason": "non-mesh assembly/group/rig object"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "Reference_model_metres_NOT_verified_factory_CAD.001",
-      "reason": "non-mesh assembly/group/rig object"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "Robot Layout",
-      "reason": "non-mesh assembly/group/rig object"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
-      "name": "STRUCTURAL | Battery bracket - Front paired",
-      "reason": "detached old bracket at X -696 / Y -332 mm; current cradle retained"
-    },
-    {
-      "name": "STRUCTURAL | Battery bracket - Rear paired",
-      "reason": "detached old bracket at X -613 / Y -332 mm; current cradle retained"
-    },
-    {
-      "name": "STRUCTURAL | Battery clip - Left front - underside mount",
-      "reason": "detached with old brackets at X -703..-606 / Y -370..-295 mm; current battery cradle retained"
-    },
-    {
-      "name": "STRUCTURAL | Battery clip - Left rear - underside mount",
-      "reason": "detached with old brackets at X -703..-606 / Y -370..-295 mm; current battery cradle retained"
-    },
-    {
-      "name": "STRUCTURAL | Battery clip - Right front - underside mount",
-      "reason": "detached with old brackets at X -703..-606 / Y -370..-295 mm; current battery cradle retained"
-    },
-    {
-      "name": "STRUCTURAL | Battery clip - Right rear - underside mount",
-      "reason": "detached with old brackets at X -703..-606 / Y -370..-295 mm; current battery cradle retained"
-    },
-    {
-      "name": "STRUCTURAL | Rear panel brace - Right",
-      "reason": "detached brace at Y -209 mm"
+      "name": "STRUCTURAL | Rear power carrier - open two-level frame",
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "TESTS | B0066 - adjacent circuit reference",
@@ -6187,11 +5849,11 @@
     },
     {
       "name": "TESTS | Face - LCD 29x62 - imported assembly",
-      "reason": "non-mesh assembly/group/rig object"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "XIITIA_1p9_REFERENCE_NOT_FACTORY_CAD",
-      "reason": "non-mesh assembly/group/rig object"
+      "reason": "hidden/backup/non-installed CAD object"
     },
     {
       "name": "front mask - Chin",
@@ -6206,34 +5868,34 @@
     "Purple_PCB_13x18_two_holes_ESTIMATED": {
       "bounds_mm": [
         [
-          44.86283874511719,
+          49.77748489379883,
           -6.500072002410889,
-          59.02676773071289
+          59.02676010131836
         ],
         [
-          62.86286544799805,
+          67.77751159667969,
           6.499962329864502,
-          61.79377365112305
+          61.79376220703125
         ]
       ],
       "matrix_world": [
         [
           -1.07288655737392e-09,
-          1.1324892135178288e-09,
-          -0.001000000862404704,
-          53.86285400390625
+          1.1324891024955264e-09,
+          -0.0010000007459893823,
+          58.77750015258789
         ],
         [
           0.0010000014444813132,
-          7.152560765888438e-10,
-          -8.940700402249036e-10,
+          7.152560210776926e-10,
+          -8.940699292026011e-10,
           -5.435943603515625e-05
         ],
         [
-          8.940704843141134e-10,
-          -0.001000000862404704,
-          -1.311304953510728e-09,
-          59.07277297973633
+          8.940703732918109e-10,
+          -0.0010000007459893823,
+          -1.3113048424884255e-09,
+          59.0727653503418
         ],
         [
           0.0,
@@ -6286,9 +5948,9 @@
   },
   "imu_site": {
     "position_mm": [
-      53.86285209655762,
+      58.77749824523926,
       -5.4836273193359375e-05,
-      60.41027069091797
+      60.410261154174805
     ],
     "basis": "CAD PCB envelope center; chip center not separately identified",
     "position_measured": false,
@@ -6313,5 +5975,5 @@
     "basis": "CAD camera envelope center, not calibrated optical center; forward +X and upright from CAD mounting. Intrinsics unqualified.",
     "position_measured": false
   },
-  "scope": "Installed assembly collections; excludes render-hidden studies, offboard Q6A and tools"
+  "scope": "Installed Study A 28-16-31-37 assembly collections (springless); excludes render-hidden studies, backups, offboard Q6A and tools"
 }

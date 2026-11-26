@@ -14,6 +14,7 @@
 #include "freertos/semphr.h"
 #include "nvs.h"
 #include "cJSON.h"
+#include "sdkconfig.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,9 +25,31 @@ static ainekio_p4_feedback_snapshot_t *state;
 static ainekio_feedback_filter_t *filters;
 static SemaphoreHandle_t config_mutex;
 static portMUX_TYPE lock=portMUX_INITIALIZER_UNLOCKED;
+#ifdef CONFIG_AINEKIO_FEEDBACK_DIRECT_ADC
+/* V1 direct 8-channel 4th-wire feedback (no analog multiplexer):
+ *   ch 0..3 -> ADC1 CH4..CH7 (GPIO20, 21, 22, 23) = R1, R2, L1, L2 hips
+ *   ch 4..7 -> ADC2 CH0..CH3 (GPIO49, 50, 51, 52) = R4, R3, L3, L4 knees */
+static adc_oneshot_unit_handle_t adc1_handle, adc2_handle;
+static adc_cali_handle_t cali1_handle, cali2_handle;
+typedef struct {
+    adc_unit_t unit;
+    adc_channel_t chan;
+} direct_adc_map_t;
+static const direct_adc_map_t direct_map[8] = {
+    {ADC_UNIT_1, ADC_CHANNEL_4}, /* ch 0: GPIO20 */
+    {ADC_UNIT_1, ADC_CHANNEL_5}, /* ch 1: GPIO21 */
+    {ADC_UNIT_1, ADC_CHANNEL_6}, /* ch 2: GPIO22 */
+    {ADC_UNIT_1, ADC_CHANNEL_7}, /* ch 3: GPIO23 */
+    {ADC_UNIT_2, ADC_CHANNEL_0}, /* ch 4: GPIO49 */
+    {ADC_UNIT_2, ADC_CHANNEL_1}, /* ch 5: GPIO50 */
+    {ADC_UNIT_2, ADC_CHANNEL_2}, /* ch 6: GPIO51 */
+    {ADC_UNIT_2, ADC_CHANNEL_3}, /* ch 7: GPIO52 */
+};
+#else
 static adc_oneshot_unit_handle_t adc;
 static adc_cali_handle_t cali;
 static const int select_gpio[4]={27,28,29,30};
+#endif
 
 void ainekio_p4_feedback_snapshot(ainekio_p4_feedback_snapshot_t *out)
 {
@@ -46,6 +69,35 @@ bool ainekio_p4_feedback_jam_enabled(void)
     bool enabled=state&&state->config.enabled&&state->config.jam_enabled&&state->config.no_progress_ms;
     portEXIT_CRITICAL(&lock);return enabled;
 }
+#ifdef CONFIG_AINEKIO_FEEDBACK_DIRECT_ADC
+static esp_err_t initialize_adc(void)
+{
+    const adc_oneshot_unit_init_cfg_t u1={.unit_id=ADC_UNIT_1};
+    const adc_oneshot_unit_init_cfg_t u2={.unit_id=ADC_UNIT_2};
+    esp_err_t result=adc_oneshot_new_unit(&u1,&adc1_handle);
+    if(result!=ESP_OK)return result;
+    result=adc_oneshot_new_unit(&u2,&adc2_handle);
+    if(result!=ESP_OK){adc_oneshot_del_unit(adc1_handle);adc1_handle=NULL;return result;}
+    const adc_oneshot_chan_cfg_t channel={.atten=ADC_ATTEN_DB_12,.bitwidth=ADC_BITWIDTH_12};
+    for(unsigned i=0;i<8;i++) {
+        adc_oneshot_unit_handle_t h=direct_map[i].unit==ADC_UNIT_1?adc1_handle:adc2_handle;
+        result=adc_oneshot_config_channel(h,direct_map[i].chan,&channel);
+        if(result!=ESP_OK) {
+            adc_oneshot_del_unit(adc1_handle);adc1_handle=NULL;
+            adc_oneshot_del_unit(adc2_handle);adc2_handle=NULL;
+            return result;
+        }
+    }
+    const adc_cali_curve_fitting_config_t cfg1={.unit_id=ADC_UNIT_1,.chan=ADC_CHANNEL_4,
+        .atten=ADC_ATTEN_DB_12,.bitwidth=ADC_BITWIDTH_12};
+    const adc_cali_curve_fitting_config_t cfg2={.unit_id=ADC_UNIT_2,.chan=ADC_CHANNEL_0,
+        .atten=ADC_ATTEN_DB_12,.bitwidth=ADC_BITWIDTH_12};
+    esp_err_t v1=adc_cali_create_scheme_curve_fitting(&cfg1,&cali1_handle);
+    esp_err_t v2=adc_cali_create_scheme_curve_fitting(&cfg2,&cali2_handle);
+    portENTER_CRITICAL(&lock);state->voltage_error=v1!=ESP_OK?v1:v2;portEXIT_CRITICAL(&lock);
+    return ESP_OK;
+}
+#else
 static esp_err_t initialize_adc(void)
 {
     const adc_oneshot_unit_init_cfg_t unit={.unit_id=ADC_UNIT_2};
@@ -64,6 +116,7 @@ static esp_err_t initialize_adc(void)
     portENTER_CRITICAL(&lock);state->voltage_error=voltage;portEXIT_CRITICAL(&lock);
     return ESP_OK;
 }
+#endif
 static void wait_for_next_scan(TickType_t *next)
 {
     const TickType_t period = pdMS_TO_TICKS(20);
@@ -87,10 +140,61 @@ static void acquire(void *unused)
             memset(filters,0,16*sizeof(*filters));
             portENTER_CRITICAL(&lock);state->valid_mask=0;portEXIT_CRITICAL(&lock);
         } else {
-            if(!adc&&!attempted) {
+#ifdef CONFIG_AINEKIO_FEEDBACK_DIRECT_ADC
+            const bool adc_ready = adc1_handle != NULL && adc2_handle != NULL;
+#else
+            const bool adc_ready = adc != NULL;
+#endif
+            if(!adc_ready&&!attempted) {
                 attempted=true;esp_err_t e=initialize_adc();
                 portENTER_CRITICAL(&lock);state->error=e;state->initialized=e==ESP_OK;portEXIT_CRITICAL(&lock);
             }
+#ifdef CONFIG_AINEKIO_FEEDBACK_DIRECT_ADC
+            if(adc1_handle && adc2_handle) {
+                int64_t start=esp_timer_get_time();
+                sample.valid_mask=0;sample.error=ESP_OK;
+                for(unsigned channel=0;channel<8;channel++) {
+                    esp_err_t e=ESP_OK;int raw=0,total=0,lo=4095,hi=0;
+                    adc_oneshot_unit_handle_t h=direct_map[channel].unit==ADC_UNIT_1?adc1_handle:adc2_handle;
+                    adc_cali_handle_t c=direct_map[channel].unit==ADC_UNIT_1?cali1_handle:cali2_handle;
+                    const adc_channel_t ch=direct_map[channel].chan;
+                    /* Discard the first sample after switching ADC channel; average 4 reads. */
+                    e=adc_oneshot_read(h,ch,&raw);
+                    for(unsigned n=0;n<4&&e==ESP_OK;n++) {
+                        e=adc_oneshot_read(h,ch,&raw);
+                        if(e==ESP_OK){total+=raw;if(raw<lo)lo=raw;if(raw>hi)hi=raw;}
+                    }
+                    sample.sampled_us[channel]=esp_timer_get_time();
+                    sample.millivolts[channel]=-1;
+                    if(e==ESP_OK) {
+                        sample.raw[channel]=(total+2)/4;sample.spread[channel]=hi-lo;
+                        ainekio_feedback_filter_update(&filters[channel],sample.raw[channel],sample.sampled_us[channel]);
+                        sample.filtered_raw[channel]=(float)filters[channel].position;
+                        sample.velocity_raw_s[channel]=(float)filters[channel].velocity;
+                        sample.valid_mask|=1U<<channel;
+                        if(c) {
+                            int mv;
+                            esp_err_t v=adc_cali_raw_to_voltage(c,sample.raw[channel],&mv);
+                            if(v==ESP_OK)sample.millivolts[channel]=mv;
+                        }
+                    } else {sample.error=e;filters[channel].initialized=false;}
+                }
+                sample.scan_us=esp_timer_get_time()-start;
+                portENTER_CRITICAL(&lock);
+                if(state->revision==sample.revision&&state->config.enabled) {
+                    memcpy(state->raw,sample.raw,sizeof(sample.raw));
+                    memcpy(state->spread,sample.spread,sizeof(sample.spread));
+                    memcpy(state->filtered_raw,sample.filtered_raw,sizeof(sample.filtered_raw));
+                    memcpy(state->velocity_raw_s,sample.velocity_raw_s,sizeof(sample.velocity_raw_s));
+                    memcpy(state->millivolts,sample.millivolts,sizeof(sample.millivolts));
+                    memcpy(state->sampled_us,sample.sampled_us,sizeof(sample.sampled_us));
+                    state->valid_mask=sample.valid_mask;state->error=sample.error;
+                    state->scan_us=sample.scan_us;state->scan++;
+                    sample.scan=state->scan;
+                }
+                portEXIT_CRITICAL(&lock);
+            }
+#else
             if(adc) {
                 int64_t start=esp_timer_get_time();
                 sample.valid_mask=0;sample.error=ESP_OK;
@@ -139,6 +243,7 @@ static void acquire(void *unused)
                 }
                 portEXIT_CRITICAL(&lock);
             }
+#endif
         }
         /* Sensor scan cadence; never delays the independent body task. */
         wait_for_next_scan(&next);
@@ -224,9 +329,13 @@ static esp_err_t change(cJSON *o)
             c.progress_us=value;
         }
     } else {
-        int id;if(!integer(o,"joint",0,11,&id))return ESP_ERR_INVALID_ARG;
+        int id;if(!integer(o,"joint",0,(int)AINEKIO_FEEDBACK_ACTIVE_JOINTS-1,&id))return ESP_ERR_INVALID_ARG;
         if(!strcmp(op->valuestring,"map")) {
+#ifdef CONFIG_AINEKIO_FEEDBACK_DIRECT_ADC
+            int channel;if(!integer(o,"channel",0,7,&channel))return ESP_ERR_INVALID_ARG;
+#else
             int channel;if(!integer(o,"channel",0,15,&channel))return ESP_ERR_INVALID_ARG;
+#endif
             /* Channel changes cannot silently reuse another servo's curve. */
             if(c.joint[id].channel!=channel){c.joint[id].channel=channel;c.joint[id].points=0;}
         } else if(!strcmp(op->valuestring,"clear"))c.joint[id].points=0;

@@ -248,6 +248,84 @@ class EnvironmentAdapter:
     def clear_text_stream(self) -> None:
         self._text_stream.clear()
 
+    async def _capture_turn_visual(self, correlation_id: str) -> dict[str, object] | None:
+        _, robot = self._selected_robot()
+        if robot is None or robot.get("connection_state") != "online":
+            return None
+        capabilities = robot.get("capabilities")
+        if not isinstance(capabilities, Mapping) or capabilities.get("camera") is not True:
+            return None
+        action_id = f"{correlation_id}:photo"
+        visual_future = asyncio.get_running_loop().create_future()
+        self._remember_action_visual(action_id, visual_future)
+        try:
+            capture = await self.handle_action({"id": action_id, "type": "captureImage"})
+            if capture.get("type") == "completed" and visual_future.done():
+                visual = await self._complete_camera_visual(visual_future.result())
+                if visual is not None:
+                    visual["metadata"].pop("actionId", None)
+                    visual["metadata"]["correlationId"] = correlation_id
+                    return visual
+        except (GatewayError, ConnectionClosed, OSError):
+            return None
+        finally:
+            self._pending_action_visuals.pop(action_id, None)
+            if not visual_future.done():
+                visual_future.cancel()
+        return None
+
+    async def submit_operator_text(
+        self,
+        raw_text: str,
+        *,
+        sender: str = "Operator",
+        channel: str = "body-control",
+    ) -> dict[str, object]:
+        clean = raw_text.strip()[:500]
+        if not clean:
+            raise ValueError("Message text must not be empty")
+        if not (self._bridge_ready and self._websocket is not None and not self._websocket.closed):
+            raise GatewayError("MetaHuman Environment Bridge is disconnected")
+        robot_id, _ = self._selected_robot()
+        self._spatial_curiosity.record_human_activity(robot_id, self.clock())
+        event_id = f"operator-text:{uuid4()}"
+        timestamp = self.utcnow().isoformat()
+        entry = self.record_text_stream_message(
+            {
+                "id": event_id,
+                "text": clean,
+                "role": "user",
+                "source": channel,
+                "timestamp": timestamp,
+            }
+        )
+        visual = await self._capture_turn_visual(event_id)
+        await self._send_observation(
+            visual=visual,
+            text=[
+                {
+                    "id": event_id,
+                    "source": "player",
+                    "text": clean,
+                    "timestamp": timestamp,
+                    "senderId": robot_id or "operator",
+                    "senderName": sender[:32] or "Operator",
+                    "channel": channel[:32],
+                }
+            ],
+        )
+        if channel == "body-control":
+            await self.gateway.publish_transcript(
+                {
+                    "source": "environment_adapter",
+                    "session_id": self.config.session_id,
+                    "robot_id": robot_id,
+                    "role": "user",
+                    "text": clean,
+                }
+            )
+        return entry or {"id": event_id, "text": clean, "role": "user", "timestamp": timestamp}
+
     def connection_status(self) -> dict[str, object]:
         websocket = self._websocket
         return {
@@ -438,11 +516,30 @@ class EnvironmentAdapter:
                             "timestamp": message.get("timestamp"),
                         }
                     )
+                    await self.gateway.publish_transcript(
+                        {
+                            "source": "environment_adapter",
+                            "session_id": self.config.session_id,
+                            "robot_id": self._selected_robot()[0],
+                            "role": "user",
+                            "text": transcript_text.strip(),
+                        }
+                    )
                 continue
             if message.get("type") == "environment.text_stream":
                 payload_msg = message.get("message")
                 if isinstance(payload_msg, Mapping):
-                    self.record_text_stream_message(payload_msg)
+                    recorded = self.record_text_stream_message(payload_msg)
+                    if recorded and recorded.get("role") == "assistant" and isinstance(recorded.get("text"), str):
+                        await self.gateway.publish_transcript(
+                            {
+                                "source": "environment_adapter",
+                                "session_id": self.config.session_id,
+                                "robot_id": self._selected_robot()[0],
+                                "role": "assistant",
+                                "text": recorded["text"],
+                            }
+                        )
                 continue
             if message.get("type") == "environment.observation.ack":
                 if message.get("admitted") is True and isinstance(message.get("observationId"), str):
@@ -499,7 +596,7 @@ class EnvironmentAdapter:
         if (request.get("gatewayInstance") != self.gateway.instance_id
             or robot is None or robot_id != request.get("robotId") or robot.get("epoch") != request.get("epoch")):
             raise GatewayError("walk update belongs to an ended control session")
-        if (robot.get("model") != "v2-12servo"
+        if (robot.get("model") not in ("v2-12servo", "v3-12servo")
             or not {LOCOMOTION_FEATURE, COMMAND_DEADLINE_FEATURE}.issubset(robot.get("features", []))
             or robot.get("connection_state") != "online"
             or not isinstance(robot.get("capabilities"), Mapping) or robot["capabilities"].get("motion") is not True):
@@ -598,10 +695,20 @@ class EnvironmentAdapter:
         await self._send_payload(websocket, json.dumps(result, separators=(",", ":")))
 
     async def _process_speech_audio(self, speech: SpeechAudioMessage) -> None:
+        robot_id, robot = self._selected_robot()
+        if isinstance(speech.text, str) and speech.text.strip():
+            await self.gateway.publish_transcript(
+                {
+                    "source": "environment_adapter",
+                    "session_id": self.config.session_id,
+                    "robot_id": robot_id,
+                    "role": "assistant",
+                    "text": speech.text.strip(),
+                }
+            )
         if self._speech_target == 'computer':
             await self._process_computer_speech(speech)
             return
-        robot_id, robot = self._selected_robot()
         if robot is None:
             feedback = self._feedback(
                 speech.action_id,
@@ -1363,11 +1470,59 @@ class EnvironmentAdapter:
                     },
                 )
             return
+        if event.get("t") == "event" and event.get("name") == "room_chat":
+            raw_text = event.get("text")
+            if isinstance(raw_text, str) and raw_text.strip():
+                chat_robot = event.get("robot_id")
+                self._spatial_curiosity.record_human_activity(
+                    chat_robot if isinstance(chat_robot, str) else None,
+                    self.clock(),
+                )
+                sender = event.get("sender")
+                room = event.get("room")
+                clean_text = raw_text.strip()[:400]
+                clean_sender = sender.strip()[:32] if isinstance(sender, str) and sender.strip() else ""
+                clean_room = room.strip()[:32] if isinstance(room, str) and room.strip() else ""
+                msg_id = event.get("id")
+                event_id = f"room-chat:{msg_id}" if isinstance(msg_id, str) and msg_id else f"room-chat:{uuid4()}"
+                self.record_text_stream_message(
+                    {
+                        "id": event_id,
+                        "text": clean_text,
+                        "role": "user",
+                        "source": "multiplayer-room" if clean_room else "simulator-chat",
+                    }
+                )
+                text_event: dict[str, object] = {
+                    "id": event_id,
+                    "source": "player",
+                    "text": clean_text,
+                    "timestamp": self.utcnow().isoformat(),
+                    "senderId": str(event.get("sender_id") or chat_robot or "simulator")[:64],
+                    **({"senderName": clean_sender} if clean_sender and clean_sender.lower() != "operator" else {}),
+                    "channel": "multiplayer-room" if clean_room else "simulator-chat",
+                    **({"metadata": {"room": clean_room}} if clean_room else {}),
+                }
+                self._track_action(
+                    event_id,
+                    self._deliver_room_chat(text_event, event_id, self._websocket),
+                )
+            return
         await self._send_observation(body_event=event, metadata=(
             {"perceptionEvent": "body_event"} if event.get("name") == "body_event" else None
         ))
         if event.get("t") == "connection":
             await self._recover_action_receipts()
+
+    async def _deliver_room_chat(
+        self,
+        text_event: dict[str, object],
+        correlation_id: str,
+        recipient: Any | None,
+    ) -> None:
+        visual = await self._capture_turn_visual(correlation_id)
+        if recipient is not None and recipient is self._websocket and not recipient.closed:
+            await self._send_observation(visual=visual, text=[text_event])
 
     async def _process_wake(self, event: dict[str, object], recipient: Any | None) -> None:
         # Submit the Freestyle request without waiting for the camera. Only
@@ -1437,7 +1592,7 @@ class EnvironmentAdapter:
         self._spatial_curiosity.record_human_activity(self._selected_robot()[0], self.clock())
         text_event = {
             "id": f"ainekio-text-{uuid4()}",
-            "source": "environment",
+            "source": "player",
             "text": text,
             "timestamp": self.utcnow().isoformat(),
         }
@@ -1851,7 +2006,7 @@ class EnvironmentAdapter:
             declared if isinstance(declared, Mapping) else None,
         ) if robot is not None else ()
         motion_ready = body_authenticated and (supported is None or any(name != "stop" for name in supported))
-        updates_available = bool(motion_ready and robot and robot.get("model") == "v2-12servo"
+        updates_available = bool(motion_ready and robot and robot.get("model") in ("v2-12servo", "v3-12servo")
             and {LOCOMOTION_FEATURE, COMMAND_DEADLINE_FEATURE}.issubset(robot.get("features", []))
             and robot.get("connection_state") == "online")
         speaker_ready = self._speech_target == "computer" or (body_authenticated and (not isinstance(declared, Mapping) or declared.get("speaker") is True))
@@ -2055,7 +2210,7 @@ class EnvironmentAdapter:
                 "available": False,
             }
         features = robot.get("features")
-        v2 = robot.get("model") == "v2-12servo"
+        v2 = robot.get("model") in ("v2-12servo", "v3-12servo")
         feature = "motion_targets_v1" if v2 else "motion_plan_v1"
         supported = isinstance(features, list) and feature in features
         details = {}

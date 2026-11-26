@@ -10,7 +10,7 @@ import unittest
 
 
 def robot_fixture():
-    home = [0, 3.46, -21.63] * 4
+    home = [0, -5.46, -62.08] * 4
     return {
         "calibration": [
             dict(
@@ -80,7 +80,7 @@ class NativeSensorTests(unittest.TestCase):
         self.np = np
         self.robot = robot_fixture()
         self.body = BodyModel(self.robot)
-        self.pose = np.array([0, 3.46, -21.63] * 4)
+        self.pose = np.array([0, -5.46, -62.08] * 4)
         self.addCleanup(self.body.close)
 
     def test_batched_firmware_memory_is_repeatable_and_isolated_between_bodies(self):
@@ -775,7 +775,7 @@ class VirtualBodySensorTests(unittest.TestCase):
         for m in robot["calibration"]:
             m["channel"] = (m["id"] + 5) % 12
         self.body = BodyModel(robot)
-        self.pose = np.array([0, 3.46, -21.63] * 4)
+        self.pose = np.array([0, -5.46, -62.08] * 4)
         self.executor = VirtualBody(self.body, self.pose, joint_speed_deg_s=60/.11,
                                     balance=False, heading_feedback=False)
         self.addCleanup(self.body.close)
@@ -785,7 +785,7 @@ class VirtualBodySensorTests(unittest.TestCase):
         self.executor.reset(0, 1)
         self.assertEqual(self.executor.receive(dict(t="welcome", ver=1, epoch=1,
             profile="home", command_deadline_v1=True), 1, 0), [])
-        self.geometry = "compact-35-20-28-38-55-visible-20261005"
+        self.geometry = "studya-28-16-37-31-55-boot-20261124"
 
     def send(self, **command):
         self.seq += 1
@@ -807,7 +807,7 @@ class VirtualBodySensorTests(unittest.TestCase):
 
     def start(self):
         result = self.send(t="intent", name="walk", dir="fwd", steps=0, speed=30,
-            source="host", geometry=self.geometry, reference_cd=[0,346,-2163]*4,
+            source="host", geometry=self.geometry, reference_cd=[0,-546,-6208]*4,
             twist=[.08,0,0])
         self.assertEqual(result, [dict(t="ack",seq=1)])
         return self.seq
@@ -837,7 +837,7 @@ class VirtualBodySensorTests(unittest.TestCase):
         feedback = data["joint_feedback"]
         self.assertEqual(feedback["usable_mask"], 4095)
         self.assertEqual(feedback["sampled_us"], [self.now]*12)
-        self.np.testing.assert_allclose(feedback["filtered_model_deg"], [0,3.46,-21.63]*4, atol=.2)
+        self.np.testing.assert_allclose(feedback["filtered_model_deg"], [0,-5.46,-62.08]*4, atol=.2)
         self.executor.telemetry(self.now)
         after = self.executor.tick(self.now)
         self.np.testing.assert_array_equal(before["logical_pwm_us"], after["logical_pwm_us"])
@@ -1073,7 +1073,7 @@ class NativeOutputClockTests(unittest.TestCase):
             profile="home", command_deadline_v1=True), 1, 0), [])
         command = dict(t="intent", name="walk", seq=1, epoch=1, deadline_ms=10000,
             dir="fwd", steps=0, speed=30, source="host", twist=[.08,0,0],
-            geometry="compact-35-20-28-38-55-visible-20261005", reference_cd=[0,346,-2163]*4)
+            geometry="studya-28-16-37-31-55-boot-20261124", reference_cd=[0,-546,-6208]*4)
         self.assertEqual(executor.receive(command, 1, 0), [dict(t="ack", seq=1)])
         return env, executor
 

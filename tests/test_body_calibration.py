@@ -30,12 +30,17 @@ class BodyCalibrationTests(unittest.IsolatedAsyncioTestCase):
         return connection, socket
 
     async def test_model_feature_and_payload_validation_precede_sequence_assignment(self):
-        for model, feature in (("v1-8servo", True), ("v2-12servo", False), ("unknown", True)):
+        for model, feature in (("v1-8servo", False), ("v2-12servo", False), ("unknown", True)):
             connection, socket = self.connection(model=model, feature=feature)
             with self.assertRaises(GatewayError):
                 await connection.send_command({"t": "calibration", "op": "get"}, received_at=1)
             self.assertEqual(connection.next_sequence, 1)
             self.assertEqual(socket.messages, [])
+        # Redesigned V1-on-P4 advertises body_calibration_v2 and accepts 8-joint calibration
+        v1_p4, v1_socket = self.connection(model="v1-8servo", feature=True)
+        seq = await v1_p4.send_command({"t": "calibration", "op": "get"}, received_at=1)
+        self.assertEqual(seq, 1)
+        self.assertEqual(len(v1_socket.messages), 1)
         connection, _ = self.connection()
         for fields in ({"id": 12, "pulse_us": 1500}, {"id": 11, "pulse_us": True},
                        {"id": 11, "pulse_us": 0}, {"id": 11, "pulse_us": 65536}):

@@ -2710,8 +2710,10 @@ static void host_walk_policy_owns_attitude(void)
     assert(execute(&md)==ESP_OK);
     advance(20);
     assert(body.motion.walk.stride_percent==100. && body.microduck_steps==1);
+    assert(body.motion.walk.end_phase==1.);
     ainekio_p4_body_event_t done=finish(20000);
     assert(done.completed && done.sequence==410);
+    assert(body.microduck_steps==40);
     assert(body.balance_hold && body.balance_contacts);
     advance(200);
     for(unsigned j=0;j<12;j++)
@@ -2959,7 +2961,10 @@ static void standing_catch_recovery_and_compliant_clamp(void)
     imu_status.calibration_applied=true;
     imu_status.attitude.available=imu_status.attitude.fresh=true;
     imu_status.attitude.orientation_wxyz[0]=1.0f;
-    ainekio_command_t start=host_walk(8401);
+    char stand_wire[768];ainekio_control_message_t stand_msg;
+    snprintf(stand_wire,sizeof stand_wire,"{\"t\":\"intent\",\"seq\":8401,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"speed\":50,\"source\":\"host\",\"geometry\":\"%s\",\"reference_cd\":[0,-546,-6208,0,-546,-6208,0,-546,-6208,0,-546,-6208],\"twist\":[0.08,0,0]}",ainekio_v2_walk_geometry_id);
+    assert(ainekio_control_decode_for_body(stand_wire,strlen(stand_wire),&stand_msg)==AINEKIO_DECODE_OK);
+    ainekio_command_t start=stand_msg.command;
     assert(execute(&start)==ESP_OK);
     ainekio_command_t target=host_target(8402,8401,1,0);
     assert(execute(&target)==ESP_OK);
@@ -2977,7 +2982,7 @@ static void standing_catch_recovery_and_compliant_clamp(void)
     imu_status.attitude.orientation_wxyz[1]=sinf(0.018f); /* ~2.06 deg roll wakes leveling */
     shaft_tracking_available=shaft_measured_override=true;
     shaft_measured=body.pose;
-    shaft_measured.position[1]=body.pose.position[1]-1450.0f; /* 14.5 deg sag */
+    shaft_measured.position[1]=body.pose.position[1]-1750.0f; /* ~17.5 deg Study A sag (~14 deg on 35 mm carrier) */
     shaft_measured.velocity[1]=0.0f;
     advance(960);
     assert(body.motion.kind==MOTION_NONE && body.stand_goal_active && body.stand_catch_since!=0);
@@ -3054,7 +3059,9 @@ static void standing_catch_recovery_and_compliant_clamp(void)
     imu_status.attitude.available=imu_status.attitude.fresh=true;
     imu_status.attitude.orientation_wxyz[0]=cosf(0.045f);
     imu_status.attitude.orientation_wxyz[1]=sinf(0.045f); /* ~5.16 deg roll: never settles */
-    start=host_walk(8410);
+    snprintf(stand_wire,sizeof stand_wire,"{\"t\":\"intent\",\"seq\":8410,\"name\":\"walk\",\"dir\":\"fwd\",\"steps\":0,\"speed\":50,\"source\":\"host\",\"geometry\":\"%s\",\"reference_cd\":[0,-546,-6208,0,-546,-6208,0,-546,-6208,0,-546,-6208],\"twist\":[0.08,0,0]}",ainekio_v2_walk_geometry_id);
+    assert(ainekio_control_decode_for_body(stand_wire,strlen(stand_wire),&stand_msg)==AINEKIO_DECODE_OK);
+    start=stand_msg.command;
     assert(execute(&start)==ESP_OK);
     target=host_target(8411,8410,1,0);
     assert(execute(&target)==ESP_OK);
@@ -3071,7 +3078,7 @@ static void standing_catch_recovery_and_compliant_clamp(void)
     for(unsigned cycle=1;cycle<=STAND_MAX_REPLANS;cycle++) {
         shaft_tracking_available=shaft_measured_override=true;
         shaft_measured=body.pose;
-        shaft_measured.position[1]=body.pose.position[1]-2400.0f;
+        shaft_measured.position[1]=body.pose.position[1]-3000.0f;
         shaft_measured.velocity[1]=0.0f;
         limit_ms=3000;
         while(body.motion.kind==MOTION_NONE && limit_ms){advance(20);limit_ms-=20;}
@@ -3106,7 +3113,7 @@ static void standing_catch_recovery_and_compliant_clamp(void)
     advance(60);
     assert(body.motion.kind==MOTION_POSE && body.motion.entering && body.motion.contact_entry);
     /* Inject the twisted mid-air pose with replans exhausted and force posture_advance_mapped to fail. */
-    const float crooked_cd[12]={1470.f,-4890.f,-4030.f,-380.f,480.f,-4050.f,560.f,-1070.f,-210.f,-620.f,-3940.f,-4830.f};
+    const float crooked_cd[12]={1470.f,-2060.f,-5928.f,-380.f,1168.f,-9922.f,560.f,-1506.f,-5005.f,-620.f,-1975.f,-4593.f};
     for(unsigned j=0;j<12;j++)body.pose.position[j]=crooked_cd[j];
     body.motion.posture_replans=STAND_MAX_REPLANS;
     body.motion.posture.anchors[0][2]=500.0; /* Unreachable mid-air anchor forces posture_advance_mapped to return false */

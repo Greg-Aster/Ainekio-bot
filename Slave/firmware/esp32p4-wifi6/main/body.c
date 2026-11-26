@@ -1250,6 +1250,8 @@ static esp_err_t start_motion_with_curve(const body_request_t *request, uint64_t
     body.motion = *next;
     if(next->kind==MOTION_WALK && !next->walk.host_nominal) {
         ainekio_v2_microduck_reset(&body.microduck);
+        if(intent.data.walk.steps)
+            body.motion.walk.end_phase=(double)intent.data.walk.steps;
         body.microduck_reference=candidate_microduck_pose.frame;
         body.microduck_prev_pose=candidate_microduck_pose.frame;
         memset(body.microduck_feet,0,sizeof body.microduck_feet);

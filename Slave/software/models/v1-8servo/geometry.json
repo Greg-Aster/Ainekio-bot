@@ -1,0 +1,264 @@
+{
+  "model": "v1-8servo",
+  "geometry_id": "v1-p4-clockspring-20261121",
+  "source_file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/v3-2.blend",
+  "scene": "v1",
+  "units": "mm",
+  "axes": "+X forward, +Y left, +Z up",
+  "standing_root_height_mm": 56.665,
+  "mass_kg": 0.376,
+  "mass_measured": false,
+  "mass_basis": "Estimated from v3-2.blend CAD volumes (PLA) + MG90S/ESP32-P4/PCA9685/14500 component weights; update when physically weighed.",
+  "link_masses_kg": {
+    "torso": 0.27,
+    "upper_leg": 0.022,
+    "lower_leg": 0.0045
+  },
+  "servo_specs": {
+    "model": "MG90S",
+    "stall_torque_nm": 0.216,
+    "no_load_speed_rad_s": 10.47,
+    "pulse_min_us": 500,
+    "pulse_max_us": 2500,
+    "pulse_center_us": 1500,
+    "us_per_degree": 11.111
+  },
+  "legs": {
+    "front_right": {
+      "cad_leg": "FR",
+      "hip_joint_id": 0,
+      "knee_joint_id": 5,
+      "hip_label": "R1",
+      "knee_label": "R3",
+      "neutral_yaw_deg": -45.0,
+      "hip_sign": 1.0,
+      "knee_sign": -1.0,
+      "hip_in_body_mm": [
+        48.35,
+        -38.5,
+        3.475
+      ],
+      "knee_in_hip_mm": [
+        28.0,
+        6.7444,
+        6.1
+      ],
+      "knee_in_body_mm": [
+        72.918,
+        -53.53,
+        9.575
+      ],
+      "foot_in_knee_mm": [
+        -12.2697,
+        2.685,
+        -66.24
+      ],
+      "foot_in_hip_mm": [
+        15.7303,
+        9.4294,
+        -60.14
+      ],
+      "foot_in_body_stand_mm": [
+        66.1406,
+        -42.9554,
+        -56.665
+      ],
+      "hip_limits_deg": [
+        -45.0,
+        45.0
+      ],
+      "knee_limits_deg": [
+        -15.0,
+        115.0
+      ],
+      "blender_stand_deg": {
+        "hip": 135.0,
+        "knee": 180.0
+      }
+    },
+    "rear_right": {
+      "cad_leg": "RR",
+      "hip_joint_id": 1,
+      "knee_joint_id": 4,
+      "hip_label": "R2",
+      "knee_label": "R4",
+      "neutral_yaw_deg": -135.0,
+      "hip_sign": 1.0,
+      "knee_sign": -1.0,
+      "hip_in_body_mm": [
+        -48.35,
+        -38.5,
+        3.475
+      ],
+      "knee_in_hip_mm": [
+        28.0,
+        -6.744,
+        6.1
+      ],
+      "knee_in_body_mm": [
+        -72.9177,
+        -53.5303,
+        9.575
+      ],
+      "foot_in_knee_mm": [
+        -12.2697,
+        -2.6851,
+        -66.24
+      ],
+      "foot_in_hip_mm": [
+        15.7303,
+        -9.4291,
+        -60.14
+      ],
+      "foot_in_body_stand_mm": [
+        -66.1404,
+        -42.9557,
+        -56.665
+      ],
+      "hip_limits_deg": [
+        -45.0,
+        45.0
+      ],
+      "knee_limits_deg": [
+        -15.0,
+        115.0
+      ],
+      "blender_stand_deg": {
+        "hip": 45.0,
+        "knee": 0.0
+      }
+    },
+    "front_left": {
+      "cad_leg": "FL",
+      "hip_joint_id": 2,
+      "knee_joint_id": 6,
+      "hip_label": "L1",
+      "knee_label": "L3",
+      "neutral_yaw_deg": 45.0,
+      "hip_sign": -1.0,
+      "knee_sign": -1.0,
+      "hip_in_body_mm": [
+        48.35,
+        38.5,
+        3.475
+      ],
+      "knee_in_hip_mm": [
+        28.0,
+        -6.744,
+        6.1
+      ],
+      "knee_in_body_mm": [
+        72.9177,
+        53.5303,
+        9.575
+      ],
+      "foot_in_knee_mm": [
+        -12.2697,
+        -2.6851,
+        -66.24
+      ],
+      "foot_in_hip_mm": [
+        15.7303,
+        -9.4291,
+        -60.14
+      ],
+      "foot_in_body_stand_mm": [
+        66.1404,
+        42.9557,
+        -56.665
+      ],
+      "hip_limits_deg": [
+        -45.0,
+        45.0
+      ],
+      "knee_limits_deg": [
+        -15.0,
+        115.0
+      ],
+      "blender_stand_deg": {
+        "hip": 45.0,
+        "knee": 0.0
+      }
+    },
+    "rear_left": {
+      "cad_leg": "RL",
+      "hip_joint_id": 3,
+      "knee_joint_id": 7,
+      "hip_label": "L2",
+      "knee_label": "L4",
+      "neutral_yaw_deg": 135.0,
+      "hip_sign": -1.0,
+      "knee_sign": -1.0,
+      "hip_in_body_mm": [
+        -48.35,
+        38.5,
+        3.475
+      ],
+      "knee_in_hip_mm": [
+        28.0,
+        6.744,
+        6.1
+      ],
+      "knee_in_body_mm": [
+        -72.9177,
+        53.5303,
+        9.575
+      ],
+      "foot_in_knee_mm": [
+        -12.2697,
+        2.6851,
+        -66.24
+      ],
+      "foot_in_hip_mm": [
+        15.7303,
+        9.4291,
+        -60.14
+      ],
+      "foot_in_body_stand_mm": [
+        -66.1404,
+        42.9557,
+        -56.665
+      ],
+      "hip_limits_deg": [
+        -45.0,
+        45.0
+      ],
+      "knee_limits_deg": [
+        -15.0,
+        115.0
+      ],
+      "blender_stand_deg": {
+        "hip": 135.0,
+        "knee": 180.0
+      }
+    }
+  },
+  "imu_site": {
+    "position_body_mm": [
+      43.8977,
+      -15.3098,
+      -7.4715
+    ],
+    "position_measured": false,
+    "basis": "CAD GY-LSM6DS3 PCB envelope center in Robot Root frame"
+  },
+  "camera_site": {
+    "position_body_mm": [
+      59.5855,
+      0.0,
+      -6.4153
+    ],
+    "forward_body": [
+      1.0,
+      0.0,
+      0.0
+    ],
+    "up_body": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "position_measured": false,
+    "basis": "CAD Arducam B0066 envelope center in Robot Root frame"
+  }
+}

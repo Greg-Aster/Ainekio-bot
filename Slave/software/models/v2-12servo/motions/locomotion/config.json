@@ -1,8 +1,8 @@
 {
-  "geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
   "walk_turn_degrees_per_cycle": 8.73,
   "crawl": {
-    "body_z_mm": -5,
+    "body_z_mm": -8.0,
     "entry_seconds": 2,
     "sweep_mm": 32,
     "rearward_bias_mm": 0,
@@ -48,9 +48,9 @@
   },
   "hardware_qualified": false,
   "walk": {
-    "body_z_mm": 5,
-    "stance_sweep_mm": 61.94505422059417,
-    "rearward_bias_mm": 23.041079405021794,
+    "body_z_mm": -4.5,
+    "stance_sweep_mm": 60.0,
+    "rearward_bias_mm": 0.0,
     "lift_mm": 10,
     "body_motion_scale": 0,
     "stroke_basis": "Owner-reindexed cranks: left Home 2800 us, full Walk opposite endpoint 1600 us; mirrored right 500/1700 us. Photo-estimated mounting angle -117.68 degrees at Home, not measured calibration. Carrier calibration unchanged. Fit uses those crank endpoints, rearward foot placement, and variable body height. Authored reversal landmarks are emitted at production cadence. Requires corresponding mounting calibration; saved robot calibration is not overwritten.",
@@ -62,14 +62,14 @@
     "support_x_mean_full_stride_mm": 0,
     "minimum_lift_mm": 6,
     "support_phase_cycles": 0,
-    "body_z_full_stride_mm": -1.3223185985845165,
+    "body_z_full_stride_mm": -5.5,
     "body_height_coefficients_mm": [
       -5.755500565571178,
       1.5838630594194612,
       -1.32619395668322,
       -1.304375040929981
     ],
-    "backward_body_z_full_stride_mm": -3.9091947681820205,
+    "backward_body_z_full_stride_mm": -6.0,
     "backward_body_height_coefficients_mm": [
       -4.878419243837693,
       -4.1228930765910565,

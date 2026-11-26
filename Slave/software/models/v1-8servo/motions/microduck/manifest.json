@@ -1,0 +1,15 @@
+{
+  "schema": "ainekio-v1-neural-gait-v2-cpg",
+  "action": "normalized-joint-deg-v1",
+  "source_onnx_sha256": "f86bab73ba0d9bebe7b11177bf4851362e50615f861c240d390b4b1369de1124",
+  "policy_bin_sha256": "0c5b4fbe6e3adca704fcb6603995e7636bd4adc20416ddde15fb226462d89b4a",
+  "hidden_dims": [
+    128,
+    64,
+    32
+  ],
+  "action_scale_deg": [
+    45.0,
+    90.0
+  ]
+}

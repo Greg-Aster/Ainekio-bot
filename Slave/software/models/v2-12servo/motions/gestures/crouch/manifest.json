@@ -1,1 +1,139 @@
-{"command":"crouch","wire":{"t":"intent","name":"emote","asset":"crouch"},"gait_id":"crouch_current_geometry","duration_seconds":4.0,"motion_end_seconds":2.0,"source_sample_hz":120,"sample_count":481,"entry_actuator_angles_rad":[[-9.85895098892797e-08,0.0134868621826172,-0.370450973510742],[6.57263612424686e-08,0.013486385345459,-0.3704514503479],[-9.85894885729977e-08,0.0134875774383545,-0.370450258255005],[6.57263328207591e-08,0.0134871006011963,-0.370450258255005]],"final_actuator_angles_rad":[[-1.457466992567456e-07,-0.40526492441072887,-0.3845022897541356],[7.136909803941057e-08,-0.4052654347528234,-0.38450262121345563],[-1.1804745623487192e-07,-0.40526484581954014,-0.38450185424276484],[7.704952448406781e-08,-0.4052654878872913,-0.38450121663407943]],"geometry_id":"compact-35-20-28-38-55-visible-20261005","geometry_sha256":"714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b","sole_hulls_sha256":"3542ce650011fef0879eb82037bab9ef4946f44009cc98633ea0b23a1f695136","source_sha256":"925eafe68e9ddf01debcdcb811d6bc873a6475b28579b670bb8b17d18441951c","posture_sha256":"3b04b4a8f2f59895bdf86953d784a12d05f9f003685d72b5a1faa156c57ca197","posture_hulls_sha256":"0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c","hardware_qualified":false,"actuator_calibration":null,"completion":"Hold the four-foot crouch until another command.","source_validation":{"motion_end_s":2.0,"min_sole_z_mm":0.12711264544851986,"min_body_z_mm":28.145885483573245,"minimum_closure_height_mm":22.230155457924564,"maximum_adjacent_joint_step_degrees":0.3713573851735933,"maximum_planted_target_error_mm":0.15096942525389778,"command":"crouch","geometry_id":"compact-35-20-28-38-55-visible-20261005","samples":481,"duration_s":4.0,"sample_hz":120,"minimum_sole_height_mm":0.12711264544851986,"minimum_body_ground_clearance_mm":28.145885483573245,"minimum_closure_triangle_height_mm":22.230155457924564,"minimum_input_toggle_clearance_deg":75.01013996259164,"minimum_support_margin_mm":60.68744027268405,"peak_joint_speed_deg_s":44.498955650199875,"joint_min_deg":[[-1.15024668980391e-05,-23.220003197539473,-23.813618465789535],[2.475473837539458e-06,-23.21999913519962,-23.8136457865462],[-1.0664582029119324e-05,-23.237733843309638,-23.813577484654534],[2.649749518896951e-06,-23.237748446252024,-23.813591145032866]],"joint_max_deg":[[-3.2312669139876125e-06,0.7727402819385633,-20.751385113684368],[9.864240887294333e-06,0.7727129611818835,-20.751385113684368],[-3.76623596405993e-06,0.7727812630735832,-20.751344132549367],[9.86424007307232e-06,0.7727539423169032,-20.751316811792638]],"maximum_body_translation_difference_mm":9.655384307621649,"maximum_body_pitch_difference_deg":0.0,"hardware_qualified":false,"collision_checked":false,"calibration_qualified":false,"timing_preserved":true,"contact_schedule_preserved":true},"recorded_geometry_sha256":"630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244","current_mounting_qualification":"Original finite recording retained; not requalified for current centered mounts and shaft screw heads.","generated_utc":"2026-11-05"}
+{
+  "command": "crouch",
+  "wire": {
+    "t": "intent",
+    "name": "emote",
+    "asset": "crouch"
+  },
+  "gait_id": "crouch_current_geometry",
+  "duration_seconds": 4.0,
+  "motion_end_seconds": 2.0,
+  "source_sample_hz": 120,
+  "sample_count": 481,
+  "entry_actuator_angles_rad": [
+    [
+      -9.85895098892797e-08,
+      0.0134868621826172,
+      -0.370450973510742
+    ],
+    [
+      6.57263612424686e-08,
+      0.013486385345459,
+      -0.3704514503479
+    ],
+    [
+      -9.85894885729977e-08,
+      0.0134875774383545,
+      -0.370450258255005
+    ],
+    [
+      6.57263328207591e-08,
+      0.0134871006011963,
+      -0.370450258255005
+    ]
+  ],
+  "final_actuator_angles_rad": [
+    [
+      -1.457466992567456e-07,
+      -0.40526492441072887,
+      -0.3845022897541356
+    ],
+    [
+      7.136909803941057e-08,
+      -0.4052654347528234,
+      -0.38450262121345563
+    ],
+    [
+      -1.1804745623487192e-07,
+      -0.40526484581954014,
+      -0.38450185424276484
+    ],
+    [
+      7.704952448406781e-08,
+      -0.4052654878872913,
+      -0.38450121663407943
+    ]
+  ],
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124",
+  "geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
+  "sole_hulls_sha256": "f10589aff3dcd1b72b04b1e226cc11a19987e9c0c9113c90a235b68780121e5f",
+  "source_sha256": "aa240c6e646f96fa8325610e8f5f41dbe998729b19b5cc79d54c726f80b71427",
+  "posture_sha256": "cf4b92442f64ea526b0a90e0dd60457c39f567a0b479a75d91b696d3c9f6f409",
+  "posture_hulls_sha256": "7d64f84420e23e7c5d256688b9394b2aff5547ab97c7a83c5e6c4bad422ea25e",
+  "hardware_qualified": false,
+  "actuator_calibration": null,
+  "completion": "Hold the four-foot crouch until another command.",
+  "source_validation": {
+    "motion_end_s": 2.0,
+    "min_sole_z_mm": 0.12711264544851986,
+    "min_body_z_mm": 28.145885483573245,
+    "minimum_closure_height_mm": 22.230155457924564,
+    "maximum_adjacent_joint_step_degrees": 0.3713573851735933,
+    "maximum_planted_target_error_mm": 0.15096942525389778,
+    "command": "crouch",
+    "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+    "samples": 481,
+    "duration_s": 4.0,
+    "sample_hz": 120,
+    "minimum_sole_height_mm": 0.12711264544851986,
+    "minimum_body_ground_clearance_mm": 28.145885483573245,
+    "minimum_closure_triangle_height_mm": 22.230155457924564,
+    "minimum_input_toggle_clearance_deg": 75.01013996259164,
+    "minimum_support_margin_mm": 60.68744027268405,
+    "peak_joint_speed_deg_s": 44.498955650199875,
+    "joint_min_deg": [
+      [
+        -1.15024668980391e-05,
+        -23.220003197539473,
+        -23.813618465789535
+      ],
+      [
+        2.475473837539458e-06,
+        -23.21999913519962,
+        -23.8136457865462
+      ],
+      [
+        -1.0664582029119324e-05,
+        -23.237733843309638,
+        -23.813577484654534
+      ],
+      [
+        2.649749518896951e-06,
+        -23.237748446252024,
+        -23.813591145032866
+      ]
+    ],
+    "joint_max_deg": [
+      [
+        -3.2312669139876125e-06,
+        0.7727402819385633,
+        -20.751385113684368
+      ],
+      [
+        9.864240887294333e-06,
+        0.7727129611818835,
+        -20.751385113684368
+      ],
+      [
+        -3.76623596405993e-06,
+        0.7727812630735832,
+        -20.751344132549367
+      ],
+      [
+        9.86424007307232e-06,
+        0.7727539423169032,
+        -20.751316811792638
+      ]
+    ],
+    "maximum_body_translation_difference_mm": 9.655384307621649,
+    "maximum_body_pitch_difference_deg": 0.0,
+    "hardware_qualified": false,
+    "collision_checked": false,
+    "calibration_qualified": false,
+    "timing_preserved": true,
+    "contact_schedule_preserved": true
+  },
+  "recorded_geometry_sha256": "630bcbf79ce6784dc8d5364ccc645dfc68cf1aba23da6dce7a481df22e43b244",
+  "current_mounting_qualification": "Original finite recording retained; not requalified for current centered mounts and shaft screw heads.",
+  "generated_utc": "2026-11-05"
+}

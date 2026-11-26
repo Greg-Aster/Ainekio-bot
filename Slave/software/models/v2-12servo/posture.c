@@ -18,7 +18,7 @@ bool ainekio_v2_rise_begin(ainekio_v2_rise_t *s)
        !ainekio_v2_contact_forward(&s->stand,s->anchors,true))return false;
     for(unsigned l=0;l<4;l++)s->stand.grounded[l]=true;
     s->crouch=s->stand;
-    s->crouch.body[2]-=25.;
+    s->crouch.body[2]-=20.;
     if(!ainekio_v2_contact_solve(&s->crouch,(const double (*)[3])s->anchors))return false;
     return true;
 }

@@ -1,0 +1,365 @@
+{
+  "model": "v3-12servo",
+  "geometry_id": "v3-p4-ds3225pro-optA1-ankle-20261122",
+  "source_file": "/home/greggles/Ainekio/Slave/hardware/v2-12servo/v3-2.blend",
+  "scene": "v3",
+  "units": "mm",
+  "axes": "+X forward, +Y left, +Z up",
+  "neutral_sole_z_in_robot_mm": -40.9336,
+  "standing_shoulder_height_mm": 180.9336,
+  "standing_belly_clearance_mm": 126.7761,
+  "torso_com_in_robot_mm": [
+    4.0,
+    0.0,
+    140.0
+  ],
+  "mass_kg": 2.97,
+  "mass_measured": false,
+  "mass_basis": "Estimated from v3-2.blend (scene 'v3') Komatsu shell + Option A-1 functional leg CAD (PETG knee flat spiral spring, preloaded PETG servo-saver connecting rod, 2-stage double-parallelogram self-leveling ankle linkage + outboard compliant ankle damper) + 12x DS3225 PRO (720g) + 4x 21700 2S2P (280g) + Radxa Dragon Q6A/Armor (160g) + ESP32-P4/PCA9685/CD74HC4067/MSP2807/IMU/wiring (~260g). Update when physically weighed.",
+  "link_masses_kg": {
+    "torso": 1.75,
+    "shoulder_bracket": 0.145,
+    "carrier": 0.046,
+    "crank": 0.012,
+    "rod": 0.015,
+    "lower_leg_and_foot": 0.088
+  },
+  "leg_mechanics": {
+    "knee_spiral_spring_nm_rad": 0.167,
+    "servo_saver_rod_preload_n": 22.0,
+    "servo_saver_rod_stroke_mm": 1.3,
+    "servo_saver_solref": [
+      0.006,
+      0.9
+    ],
+    "ankle_leveling": "double-parallelogram-1to1",
+    "ankle_level_solref": [
+      0.006,
+      0.95
+    ],
+    "ankle_damping_nm_s_rad": 0.004,
+    "ankle_range_rad": [
+      -0.48,
+      0.48
+    ]
+  },
+  "servo_specs": {
+    "model": "DSServo DS3225 PRO (270 deg, HV coreless)",
+    "voltage_v": 7.4,
+    "stall_torque_nm": 3.43,
+    "no_load_speed_rad_s": 13.9626,
+    "no_load_speed_deg_s": 800.0,
+    "travel_deg": 270.0,
+    "pulse_min_us": 500,
+    "pulse_max_us": 2500,
+    "pulse_center_us": 1500,
+    "us_per_degree": 7.4074,
+    "weight_g": 60.0
+  },
+  "linkage_mm": {
+    "carrier": 54.0,
+    "crank": 22.0,
+    "pickup": 46.0,
+    "rod": 56.0,
+    "lower_leg_nominal": 135.0,
+    "alpha_zero_rad": -2.202809465985,
+    "theta_zero_rad": 3.055204643652,
+    "beta_offset_rad": 3.5672784535897932,
+    "separation_min_mm": 10.5,
+    "separation_max_mm": 101.5
+  },
+  "legs": {
+    "rear_left": {
+      "cad_leg": "RL",
+      "joint_ids": [
+        0,
+        1,
+        2
+      ],
+      "shoulder_roll_sign": -1.0,
+      "shoulder_in_robot_mm": [
+        -128.0,
+        47.2,
+        140.0
+      ],
+      "carrier_in_shoulder_mm": [
+        36.05,
+        3.66,
+        -19.75
+      ],
+      "crank_in_shoulder_mm": [
+        16.0,
+        3.66,
+        0.25
+      ],
+      "knee_neutral_in_shoulder_mm": [
+        4.1484,
+        3.66,
+        -63.3193
+      ],
+      "knee_neutral_rot_y_deg": 49.193,
+      "beta_zero_rad": 2.70869875,
+      "gamma_zero_rad": -2.17232048,
+      "sole_center_in_knee_mm": [
+        133.3995,
+        44.5,
+        -25.4657
+      ],
+      "sole_center_in_robot_mm": [
+        -55.9487,
+        95.36,
+        -40.9336
+      ],
+      "sole_knee_bounds_mm": {
+        "min": [
+          103.527,
+          23.7,
+          -57.915
+        ],
+        "max": [
+          161.511,
+          65.3,
+          9.069
+        ]
+      },
+      "ankle_pivot_in_knee_mm": [
+        106.5,
+        43.05,
+        -4.5
+      ],
+      "limits_deg": {
+        "shoulder": [
+          -30.0,
+          30.0
+        ],
+        "carrier": [
+          -40.0,
+          50.0
+        ],
+        "crank": [
+          -50.0,
+          50.0
+        ]
+      }
+    },
+    "rear_right": {
+      "cad_leg": "RR",
+      "joint_ids": [
+        3,
+        4,
+        5
+      ],
+      "shoulder_roll_sign": 1.0,
+      "shoulder_in_robot_mm": [
+        -128.0,
+        -47.2,
+        140.0
+      ],
+      "carrier_in_shoulder_mm": [
+        36.05,
+        -3.66,
+        -19.75
+      ],
+      "crank_in_shoulder_mm": [
+        16.0,
+        -3.66,
+        0.25
+      ],
+      "knee_neutral_in_shoulder_mm": [
+        4.1484,
+        -3.66,
+        -63.3193
+      ],
+      "knee_neutral_rot_y_deg": 49.193,
+      "beta_zero_rad": 2.7086987,
+      "gamma_zero_rad": -2.17232054,
+      "sole_center_in_knee_mm": [
+        133.3995,
+        -44.4999,
+        -25.4657
+      ],
+      "sole_center_in_robot_mm": [
+        -55.9487,
+        -95.36,
+        -40.9336
+      ],
+      "sole_knee_bounds_mm": {
+        "min": [
+          103.527,
+          -65.3,
+          -57.915
+        ],
+        "max": [
+          161.511,
+          -23.7,
+          9.069
+        ]
+      },
+      "ankle_pivot_in_knee_mm": [
+        106.5,
+        -43.05,
+        -4.5
+      ],
+      "limits_deg": {
+        "shoulder": [
+          -30.0,
+          30.0
+        ],
+        "carrier": [
+          -40.0,
+          50.0
+        ],
+        "crank": [
+          -50.0,
+          50.0
+        ]
+      }
+    },
+    "front_left": {
+      "cad_leg": "FL",
+      "joint_ids": [
+        6,
+        7,
+        8
+      ],
+      "shoulder_roll_sign": -1.0,
+      "shoulder_in_robot_mm": [
+        143.5,
+        47.2,
+        140.0
+      ],
+      "carrier_in_shoulder_mm": [
+        -16.0,
+        3.66,
+        -19.75
+      ],
+      "crank_in_shoulder_mm": [
+        -36.05,
+        3.66,
+        0.25
+      ],
+      "knee_neutral_in_shoulder_mm": [
+        -47.9016,
+        3.66,
+        -63.3193
+      ],
+      "knee_neutral_rot_y_deg": 49.193,
+      "beta_zero_rad": 2.70869875,
+      "gamma_zero_rad": -2.17232048,
+      "sole_center_in_knee_mm": [
+        133.3995,
+        44.4999,
+        -25.4657
+      ],
+      "sole_center_in_robot_mm": [
+        163.5013,
+        95.36,
+        -40.9336
+      ],
+      "sole_knee_bounds_mm": {
+        "min": [
+          103.748,
+          21.818,
+          -58.371
+        ],
+        "max": [
+          162.039,
+          63.416,
+          8.878
+        ]
+      },
+      "ankle_pivot_in_knee_mm": [
+        106.5,
+        43.05,
+        -4.5
+      ],
+      "limits_deg": {
+        "shoulder": [
+          -30.0,
+          30.0
+        ],
+        "carrier": [
+          -40.0,
+          50.0
+        ],
+        "crank": [
+          -50.0,
+          50.0
+        ]
+      }
+    },
+    "front_right": {
+      "cad_leg": "FR",
+      "joint_ids": [
+        9,
+        10,
+        11
+      ],
+      "shoulder_roll_sign": 1.0,
+      "shoulder_in_robot_mm": [
+        143.5,
+        -47.2,
+        140.0
+      ],
+      "carrier_in_shoulder_mm": [
+        -16.0,
+        -3.66,
+        -19.75
+      ],
+      "crank_in_shoulder_mm": [
+        -36.05,
+        -3.66,
+        0.25
+      ],
+      "knee_neutral_in_shoulder_mm": [
+        -47.9016,
+        -3.66,
+        -63.3193
+      ],
+      "knee_neutral_rot_y_deg": 49.193,
+      "beta_zero_rad": 2.70869874,
+      "gamma_zero_rad": -2.17232049,
+      "sole_center_in_knee_mm": [
+        133.3995,
+        -44.4999,
+        -25.4657
+      ],
+      "sole_center_in_robot_mm": [
+        127.2024,
+        -95.36,
+        -40.9336
+      ],
+      "sole_knee_bounds_mm": {
+        "min": [
+          113.471,
+          -65.3,
+          -57.542
+        ],
+        "max": [
+          115.384,
+          -23.7,
+          -56.331
+        ]
+      },
+      "ankle_pivot_in_knee_mm": [
+        106.5,
+        -43.05,
+        -4.5
+      ],
+      "limits_deg": {
+        "shoulder": [
+          -30.0,
+          30.0
+        ],
+        "carrier": [
+          -40.0,
+          50.0
+        ],
+        "crank": [
+          -50.0,
+          50.0
+        ]
+      }
+    }
+  }
+}

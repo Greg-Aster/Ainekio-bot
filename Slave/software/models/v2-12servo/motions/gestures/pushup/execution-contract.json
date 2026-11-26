@@ -12,11 +12,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/pushup/source.json",
-      "sha256": "919023260bb800901cae13e969c0f2b1363322a2a2a8572a16c80674db13a5bb"
+      "sha256": "3d8b634d185564844fa9319f746a1a7bd6ddb963858a53560fef00edd45db18b"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/pushup/manifest.json",
-      "sha256": "68195c910f2eaf759199116b525485296963b7ebdf5c0b9e172f0de6b461f0ef"
+      "sha256": "a1cccfa98bee62e79da65bae928c1a3cfd5ae336cb45f88c33905e54b74e0c77"
     }
   ],
   "source_units": {
@@ -1400,5 +1400,5 @@
   "body_support_required": false,
   "interruption_note": "Keep all four supporting legs coordinated. Stop along the recorded body path and return through the raised crouch to standing; never seek directly to the last row.",
   "hardware_ready": false,
-  "geometry_id": "compact-35-20-28-38-55-visible-20261005"
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124"
 }

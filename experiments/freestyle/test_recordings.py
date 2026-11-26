@@ -143,6 +143,46 @@ class RecordingTests(unittest.TestCase):
             recorder.close()
             self.assertIsNotNone(recorder.status()['error'])
 
+    def test_ack_only_and_stop_commands_do_not_latch_idle_telemetry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'evidence.sqlite'
+            recorder = Recorder(path)
+            # Active walk records telemetry; walk steering update keeps original sequence; stop clears capture.
+            recorder.command({'t': 'intent', 'name': 'walk', 'dir': 'fwd', 'steps': 0, 'robot_id': 'r', 'epoch': 1, 'seq': 20})
+            recorder.event({'t': 'imu', 'robot_id': 'r', 'epoch': 1, 'imu': {'sample': 'during_walk'}})
+            recorder.command({'t': 'intent', 'name': 'walk', 'dir': 'fwd', 'steps': 1, 'speed': 50, 'update': 20, 'robot_id': 'r', 'epoch': 1, 'seq': 21})
+            recorder.diagnostic({'event': 'command_result', 'command_type': 'intent', 't': 'ack', 'robot_id': 'r', 'epoch': 1, 'seq': 21})
+            recorder.event({'t': 'imu', 'robot_id': 'r', 'epoch': 1, 'imu': {'sample': 'after_update'}})
+            recorder.command({'t': 'stop', 'robot_id': 'r', 'epoch': 1, 'seq': 22})
+            recorder.diagnostic({'event': 'command_result', 'command_type': 'stop', 't': 'ack', 'robot_id': 'r', 'epoch': 1, 'seq': 22})
+            recorder.diagnostic({'event': 'command_result', 'command_type': 'intent', 't': 'cancelled', 'code': 'stop', 'robot_id': 'r', 'epoch': 1, 'seq': 20})
+            recorder.event({'t': 'imu', 'robot_id': 'r', 'epoch': 1, 'imu': {'sample': 'idle_after_stop'}})
+
+            # Ack-only mode, state, and legacy servo commands must never latch idle telemetry.
+            for seq, cmd in (
+                (23, {'t': 'mode', 'name': 'normal', 'robot_id': 'r', 'epoch': 1, 'seq': 23}),
+                (24, {'t': 'state', 'name': 'active', 'robot_id': 'r', 'epoch': 1, 'seq': 24}),
+                (25, {'t': 'servo', 'id': 0, 'deg': 90.0, 'ms': 200, 'robot_id': 'r', 'epoch': 1, 'seq': 25}),
+            ):
+                recorder.command(cmd)
+                recorder.diagnostic({'event': 'command_result', 'command_type': cmd['t'], 't': 'ack', 'robot_id': 'r', 'epoch': 1, 'seq': seq})
+                recorder.event({'t': 'imu', 'robot_id': 'r', 'epoch': 1, 'imu': {'sample': f'idle_{seq}'}})
+
+            # Calibration setter and NAK'd motion_plan release active capture on calibration_status / nak.
+            recorder.command({'t': 'calibration', 'op': 'set', 'robot_id': 'r', 'epoch': 1, 'seq': 26})
+            recorder.event({'t': 'imu', 'robot_id': 'r', 'epoch': 1, 'imu': {'sample': 'during_cal'}})
+            recorder.diagnostic({'event': 'command_result', 'command_type': 'calibration', 't': 'calibration_status', 'robot_id': 'r', 'epoch': 1, 'seq': 26})
+            recorder.event({'t': 'imu', 'robot_id': 'r', 'epoch': 1, 'imu': {'sample': 'idle_after_cal'}})
+
+            recorder.command({'t': 'motion_plan', 'robot_id': 'r', 'epoch': 1, 'seq': 27, 'frames': []})
+            recorder.diagnostic({'event': 'command_result', 'command_type': 'motion_plan', 't': 'nak', 'robot_id': 'r', 'epoch': 1, 'seq': 27})
+            recorder.event({'t': 'imu', 'robot_id': 'r', 'epoch': 1, 'imu': {'sample': 'idle_after_nak'}})
+            recorder.close()
+
+            rows = list(read_records(path))
+            imu_rows = [(r['sequence'], r['payload']['imu']['sample']) for r in rows if r['payload'].get('t') == 'imu']
+            self.assertEqual(imu_rows, [(20, 'during_walk'), (20, 'after_update'), (26, 'during_cal')])
+
 
 class RecordedBridgeTests(unittest.IsolatedAsyncioTestCase):
     async def test_saved_correction_executes_exactly_and_exports_only_after_operator_success(self):

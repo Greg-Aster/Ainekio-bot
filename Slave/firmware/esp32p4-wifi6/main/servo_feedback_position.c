@@ -6,7 +6,7 @@ void ainekio_p4_feedback_health(const ainekio_p4_feedback_snapshot_t *s,
     ainekio_p4_feedback_health_t *health)
 {
     *health=(ainekio_p4_feedback_health_t){0};
-    for(unsigned j=0;j<12;j++) {
+    for(unsigned j=0;j<AINEKIO_FEEDBACK_ACTIVE_JOINTS;j++) {
         const ainekio_feedback_joint_t *joint=&s->config.joint[j];
         const unsigned c=joint->channel,bit=1U<<j;
         if(!ainekio_feedback_calibrated(joint))continue;
@@ -91,7 +91,7 @@ bool ainekio_p4_feedback_frame(const ainekio_p4_joint_config_t *mapping,
 {
     ainekio_p4_feedback_snapshot_t s;ainekio_p4_feedback_snapshot(&s);
     ainekio_v2_frame_t result=*frame;
-    for(unsigned j=0;j<12;j++) {
+    for(unsigned j=0;j<AINEKIO_FEEDBACK_ACTIVE_JOINTS;j++) {
         double pulse;
         if(mapping[j].channel>=0 && (!joint_pulse(&s,j,&pulse) ||
             !joint_position(&s,mapping,j,&pulse,&result)))return false;
@@ -102,7 +102,7 @@ void ainekio_p4_feedback_walk_frame(const ainekio_p4_joint_config_t *mapping,
     ainekio_v2_frame_t *frame)
 {
     ainekio_p4_feedback_snapshot_t s;ainekio_p4_feedback_snapshot(&s);
-    for(unsigned j=0;j<12;j++) {
+    for(unsigned j=0;j<AINEKIO_FEEDBACK_ACTIVE_JOINTS;j++) {
         if(mapping[j].channel<0)continue;
         const unsigned c=s.config.joint[j].channel;
         if(s.raw[c]==0 || s.raw[c]==4095)continue;
@@ -117,7 +117,7 @@ void ainekio_p4_feedback_observe(const ainekio_p4_feedback_snapshot_t *s,
     *out=(ainekio_p4_feedback_observation_t){.enabled=s->config.enabled,
         .scan=s->scan,.scan_us=s->scan_us,.revision=s->revision};
     ainekio_p4_feedback_health(s,&out->health);
-    for(unsigned j=0;j<12;j++) {
+    for(unsigned j=0;j<AINEKIO_FEEDBACK_ACTIVE_JOINTS;j++) {
         const unsigned channel=s->config.joint[j].channel;
         out->sampled_us[j]=s->sampled_us[channel];
         out->raw_adc[j]=s->raw[channel];
@@ -143,7 +143,7 @@ bool ainekio_p4_feedback_check(const ainekio_p4_joint_config_t *mapping,
 {
     ainekio_p4_feedback_snapshot_t s;ainekio_p4_feedback_snapshot(&s);
     bool observed=true;*remaining=0;
-    for(unsigned j=0;j<12;j++) {
+    for(unsigned j=0;j<AINEKIO_FEEDBACK_ACTIVE_JOINTS;j++) {
         const int output=mapping[j].channel;
         if(output<0 || !targets[output])continue;
         const unsigned c=s.config.joint[j].channel;
@@ -169,7 +169,7 @@ uint16_t ainekio_p4_feedback_stalled(ainekio_p4_feedback_progress_t *p,
     const double deadband_us=fmax((double)s.config.tolerance_us,JAM_DEADBAND_MIN_US);
     const double shift_us=fmax((double)s.config.progress_us,JAM_TARGET_SHIFT_MIN_US);
     uint16_t stalled=0;
-    for(unsigned j=0;j<12;j++) {
+    for(unsigned j=0;j<AINEKIO_FEEDBACK_ACTIVE_JOINTS;j++) {
         const int output=mapping[j].channel;
         const unsigned c=s.config.joint[j].channel;
         double measured=0.,velocity_us_s=0.;
@@ -232,7 +232,7 @@ uint16_t ainekio_p4_feedback_thermal_step(ainekio_p4_feedback_thermal_t *thermal
     thermal->updated_us=now_us;
     const bool jam_active=armed && s.config.enabled && s.config.jam_enabled;
     uint16_t tripped=0;
-    for(unsigned j=0;j<12;j++) {
+    for(unsigned j=0;j<AINEKIO_FEEDBACK_ACTIVE_JOINTS;j++) {
         const int output=mapping ? mapping[j].channel : -1;
         const uint16_t target_us=(armed && targets && output>=0) ? targets[output] : 0;
         double measured_us=0.,velocity_us_s=0.;

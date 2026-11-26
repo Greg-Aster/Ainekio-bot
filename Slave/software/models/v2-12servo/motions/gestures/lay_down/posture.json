@@ -1,7 +1,7 @@
 {
   "description": "Lift and place each foot outward before lowering the body onto the original grounded Lay Down pose; hold until another command.",
-  "mechanism_geometry_sha256": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
+  "mechanism_geometry_sha256": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
   "contact_hulls_file": "../reviewed-hulls.npz",
-  "contact_hulls_sha256": "0cdbc3643ea88f049fdba0a5c7561484c9614a2838c6a9513c0e1d6fbbb3403c",
+  "contact_hulls_sha256": "7d64f84420e23e7c5d256688b9394b2aff5547ab97c7a83c5e6c4bad422ea25e",
   "body_support_scope": "Measured Blender body and lower-leg surfaces; physical balance unqualified."
 }

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
 import json
 import os
 import sqlite3
@@ -20,6 +22,21 @@ class ActionConflictError(GatewayError):
 
 def encoded(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def compact_action_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Replace raw speechAudio PCM blobs with deterministic digest metadata once dispatched."""
+    out = dict(payload)
+    if out.get("type") == "speechAudio" and isinstance(out.get("pcm"), str):
+        pcm_b64 = out.pop("pcm")
+        try:
+            raw_bytes = base64.b64decode(pcm_b64, validate=False)
+            out["pcmBytes"] = len(raw_bytes)
+            out["pcmSha256"] = hashlib.sha256(raw_bytes).hexdigest()
+        except Exception:
+            out["pcmChars"] = len(pcm_b64)
+            out["pcmSha256"] = hashlib.sha256(pcm_b64.encode("utf-8")).hexdigest()
+    return out
 
 
 class ActionReceipts:
@@ -45,8 +62,25 @@ class ActionReceipts:
         """)
         if "cancellation_only" not in {row[1] for row in self.db.execute("PRAGMA table_info(actions)")}:
             self.db.execute("ALTER TABLE actions ADD COLUMN cancellation_only INTEGER NOT NULL DEFAULT 0")
+        self._compact_dispatched_speech_payloads()
         if path != ":memory:":
             os.chmod(path, 0o600)
+
+    def _compact_dispatched_speech_payloads(self) -> int:
+        rows = self.db.execute(
+            "SELECT id, payload FROM actions WHERE state != 'received' AND instr(payload, '\"pcm\":') > 0"
+        ).fetchall()
+        if not rows:
+            return 0
+        with self.transaction():
+            updated = 0
+            for row in rows:
+                parsed = json.loads(row["payload"])
+                compacted = encoded(compact_action_payload(parsed))
+                if compacted != row["payload"]:
+                    self.db.execute("UPDATE actions SET payload=? WHERE id=?", (compacted, row["id"]))
+                    updated += 1
+            return updated
 
     @contextmanager
     def transaction(self) -> Iterator[None]:
@@ -83,6 +117,7 @@ class ActionReceipts:
 
     def receive(self, action: dict[str, Any], accepted: Mapping[str, object]) -> dict[str, Any]:
         payload = {key: value for key, value in action.items() if key != "timing"}
+        comparable = encoded(compact_action_payload(payload))
         with self.transaction():
             previous = self._action(str(action["id"]))
             if previous:
@@ -90,10 +125,12 @@ class ActionReceipts:
                     if json.loads(previous["payload"])["bodyLease"] != payload.get("bodyLease"):
                         raise ActionConflictError("cancelled action id reused for a different body owner")
                     return json.loads(previous["result"])
-                if previous["payload"] != encoded(payload):
+                if encoded(compact_action_payload(json.loads(previous["payload"]))) != comparable:
                     raise ActionConflictError("action id reused with different content")
                 return json.loads(previous["result"] or previous["accepted"])
             self._assert_owner(payload, advance=True)
+            # Keep raw PCM only while state == 'received' so pre-admission reconnect
+            # can still play unstarted speech; begin() and terminal feedback compact it.
             self.db.execute("INSERT INTO actions(id,payload,accepted,state,updated) VALUES (?,?,?,'received',?)", (action["id"], encoded(payload), encoded(accepted), time()))
             return dict(accepted)
 
@@ -102,8 +139,13 @@ class ActionReceipts:
             row = self._action(action_id)
             if row is None or row["state"] != "received":
                 raise GatewayError("action was already started or completed")
-            self._assert_owner(json.loads(row["payload"]), advance=False)
-            self.db.execute("UPDATE actions SET state='started',wire=?,updated=? WHERE id=?", (encoded(wire), time(), action_id))
+            parsed_payload = json.loads(row["payload"])
+            self._assert_owner(parsed_payload, advance=False)
+            compacted = encoded(compact_action_payload(parsed_payload))
+            self.db.execute(
+                "UPDATE actions SET state='started',payload=?,wire=?,updated=? WHERE id=?",
+                (compacted, encoded(wire), time(), action_id),
+            )
 
     def request_cancel(self, action_id: str, lease: object, cancelled: Mapping[str, object]) -> sqlite3.Row:
         with self.transaction():
@@ -258,9 +300,10 @@ class ActionReceipts:
                     # Natural completion and cancellation can race. The first
                     # committed terminal receipt is returned to both callers.
                     feedback = previous
-                self.db.execute("UPDATE actions SET state=?,result=?,observation_recorded=?,updated=? WHERE id=?", (
+                compacted = encoded(compact_action_payload(json.loads(row["payload"])))
+                self.db.execute("UPDATE actions SET state=?,payload=?,result=?,observation_recorded=?,updated=? WHERE id=?", (
                     "outcome_unknown" if feedback["type"] == "outcome_unknown" and feedback.get("data", {}).get("executionEnded") is not True else "terminal",
-                    encoded(feedback), row["observation_recorded"] if previous == feedback else 0,
+                    compacted, encoded(feedback), row["observation_recorded"] if previous == feedback else 0,
                     time(), feedback["actionId"]))
                 # A later Stop receipt is not a correlated terminal receipt for
                 # an earlier action. Preserve that action's explicit uncertainty.

@@ -121,7 +121,7 @@ class Bridge:
             return
         try:
             snapshot = (await self.gateway.status_snapshot())['robots'].get(robot)
-            if not snapshot or not snapshot.get('connected', True):
+            if not snapshot or not snapshot.get('connected', True) or snapshot.get('virtual'):
                 return
             features = snapshot.get('features', [])
             if 'walk_nominal_v1' not in features or 'servo_feedback_v1' not in features:
@@ -357,27 +357,70 @@ class Bridge:
             raise ValueError('This trained joint contract describes the V2 twelve-servo body')
         calibration = snapshot.get('calibration') or await self.gateway.body_calibration('get',robot_id=robot)
         speed = snapshot.get('motion_speed') or await self.gateway.body_motion_speed('get',robot_id=robot)
-        feedback = await self.transport.request(robot,'servo-feedback',None)
-        await self._sync_neural_pose_servo_feedback(robot, epoch=snapshot['epoch'], feedback=feedback)
         home, commanded = calibrated_positions(calibration)
         joints = {j:{'home_deg':home[j], 'commanded_model_deg':commanded[j]} for j in JOINTS}
-        for item in feedback.get('joints',[]):
-            j=JOINTS[item['id']]
-            joints[j].update({k:item[k] for k in ('model_deg','calibrated','in_calibrated_range','command_us') if k in item})
-            mapping = next(v for v in calibration['joints'] if v['id']==item['id'])
-            joints[j].update(feedback_geometry(mapping, item, feedback))
-            joints[j]['commanded_model_deg'] = (home[j]+(-1 if mapping['invert'] else 1)*(item['command_us']-mapping['home_us'])/mapping['us_per_degree']
-                                                 if item['command_us'] else None)
-            if 'velocity_us_s' in item:
-                joints[j]['velocity_deg_s'] = (-1 if mapping['invert'] else 1)*item['velocity_us_s']/mapping['us_per_degree']
-        status = (await self.gateway.status_snapshot())['robots'][robot]['status'] or {}
-        imu = status.get('imu')
+        if snapshot.get('virtual'):
+            sensor = self.gateway.body_sensor_observation(robot)
+            fb_meta = dict(sensor.get('feedback') or {})
+            health = fb_meta.get('health') or {}
+            cal_mask = int(health.get('calibrated_mask', 0))
+            status = (await self.gateway.status_snapshot())['robots'][robot].get('status') or {}
+            tol_us = (((status.get('balance') or {}).get('joint_feedback') or {}).get('tolerance_us')
+                      or ((status.get('imu') or {}).get('joint_feedback') or {}).get('tolerance_us')
+                      or (180.0 if fb_meta.get('enabled') else None))
+            p_min, p_max = calibration.get('pulse_min_us'), calibration.get('pulse_max_us')
+            points = ([{'pulse_us': p_min}, {'pulse_us': p_max}]
+                      if isinstance(p_min, (int, float)) and isinstance(p_max, (int, float)) else [])
+            fb_geom = {
+                **fb_meta,
+                **({'arrival_tolerance_us': float(tol_us)}
+                   if isinstance(tol_us, (int, float)) and tol_us > 0 else {}),
+            }
+            for idx, j in enumerate(JOINTS):
+                s_joint = (sensor.get('joints') or {}).get(j) or {}
+                mapping = next(v for v in calibration['joints'] if v['id']==idx)
+                cal = bool(cal_mask & (1 << idx))
+                measured = s_joint.get('filtered_model_deg')
+                geom = feedback_geometry(mapping, {'id': idx, 'calibrated': cal, 'points': points}, fb_geom)
+                faults = list(s_joint.get('feedback_faults') if 'feedback_faults' in s_joint else geom.get('feedback_faults', []))
+                in_range = cal and not any(f in ('below_calibration', 'above_calibration', 'clipped') for f in faults)
+                joints[j].update({
+                    **geom,
+                    'model_deg': measured,
+                    'filtered_model_deg': measured,
+                    'commanded_model_deg': s_joint.get('commanded_model_deg', commanded[j]),
+                    'velocity_deg_s': s_joint.get('velocity_deg_s', 0.0),
+                    'calibrated': cal,
+                    'in_calibrated_range': in_range,
+                    'feedback_usable': bool(s_joint.get('feedback_usable', geom.get('feedback_usable', False))),
+                    'feedback_faults': faults,
+                    **({'sampled_us': s_joint['sampled_us']} if 'sampled_us' in s_joint else {}),
+                })
+            imu = sensor.get('imu')
+            fb_meta.setdefault('waiting_joints', 0)
+            if fb_meta.get('enabled') and 'no_progress_ms' not in fb_meta:
+                fb_meta['no_progress_ms'] = 3000
+            feedback = fb_meta
+        else:
+            feedback = await self.transport.request(robot,'servo-feedback',None)
+            await self._sync_neural_pose_servo_feedback(robot, epoch=snapshot['epoch'], feedback=feedback)
+            for item in feedback.get('joints',[]):
+                j=JOINTS[item['id']]
+                joints[j].update({k:item[k] for k in ('model_deg','calibrated','in_calibrated_range','command_us') if k in item})
+                mapping = next(v for v in calibration['joints'] if v['id']==item['id'])
+                joints[j].update(feedback_geometry(mapping, item, feedback))
+                joints[j]['commanded_model_deg'] = (home[j]+(-1 if mapping['invert'] else 1)*(item['command_us']-mapping['home_us'])/mapping['us_per_degree']
+                                                     if item['command_us'] else None)
+                if 'velocity_us_s' in item:
+                    joints[j]['velocity_deg_s'] = (-1 if mapping['invert'] else 1)*item['velocity_us_s']/mapping['us_per_degree']
+            status = (await self.gateway.status_snapshot())['robots'][robot]['status'] or {}
+            imu = status.get('imu')
         motion=(imu or {}).get('motion') or {}
         trajectory=copy.deepcopy(motion.get('trajectory'))
         if trajectory is not None:
             trajectory.update({k:motion[k] for k in ('sequence','sampled_us','phase') if k in motion})
         return {'epoch':snapshot['epoch'],'joints':joints,'imu':imu,
-                'features':snapshot.get('features',[]),
+                'features':[f for f in snapshot.get('features',[]) if f != 'room_chat_v1'],
                 'trajectory_progress':trajectory,
                 'expected_up':((imu or {}).get('motion') or {}).get('expected_up'),
                 'feedback':{k:feedback[k] for k in ('device_us','scan_us','enabled','stalled_joints','no_progress_ms',

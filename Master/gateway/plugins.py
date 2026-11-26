@@ -26,6 +26,41 @@ AUDIO_SAMPLE_WIDTH_BYTES = 2
 DEFAULT_MAX_UTTERANCE_MS = 15000
 MAX_BINARY_COUNTER = (1 << 32) - 1
 
+
+def virtual_default_camera_settings() -> dict[str, object]:
+    """1 FPS VGA preview + 960P still defaults matching physical P4 Body Control settings."""
+    return {
+        "on": True,
+        "fps": 1,
+        "resolution": "VGA",
+        "snapshot_resolution": "960P",
+        "max_exposure_us": 0,
+    }
+
+
+def virtual_default_depth_settings(model: str | None) -> dict[str, object]:
+    """CAD chin-camera rigid transform + MoGe-2 depth defaults for virtual bodies."""
+    if model == "v3-12servo":
+        pitch_down = 0.06
+        tx, ty, tz = 0.196, 0.0, 0.018
+    elif model == "v1-8servo":
+        pitch_down = 0.04
+        tx, ty, tz = 0.064, 0.0, -0.0064
+    else:
+        pitch_down = 0.08
+        tx, ty, tz = 0.115, 0.0, 0.055
+    c, s = math.cos(pitch_down), math.sin(pitch_down)
+    return {
+        "mode": "moge-open3d",
+        "resolution_level": 0,
+        "cameraToBody": [
+            [0.0, -s, c, tx],
+            [-1.0, 0.0, 0.0, ty],
+            [0.0, -c, -s, tz],
+            [0.0, 0.0, 0.0, 1.0],
+        ],
+    }
+
 TranscriptFunction = Callable[[bytes], str | None | Awaitable[str | None]]
 CameraFunction = Callable[[bytes], object | Awaitable[object]]
 
@@ -374,6 +409,7 @@ class _CameraInput:
     attitude: dict | None = None
     requested: bool = False
     result: asyncio.Future[CameraAnalysis] | None = None
+    metric_result: asyncio.Future[object] | None = None
 
 
 CameraObserver = Callable[[CameraAnalysis], object | Awaitable[object]]
@@ -477,6 +513,15 @@ class CameraFramePlugin:
         if item is None:
             return None
         item.requested = True
+        if (
+            item.metric_result is None
+            and self._effective_depth_config(item.robot_id).get("mode") == "moge-open3d"
+        ):
+            item.metric_result = asyncio.get_running_loop().create_future()
+            received_iso = (
+                datetime.now(timezone.utc) - timedelta(seconds=self.gateway.clock() - item.received_at)
+            ).isoformat()
+            self._queue_metric(item, received_iso)
         self._submit(item)
         return item.result
 
@@ -487,6 +532,7 @@ class CameraFramePlugin:
         robot_id, epoch, counter, received_at = item.robot_id, item.epoch, item.counter, item.received_at
         received_iso = (datetime.now(timezone.utc) - timedelta(seconds=self.gateway.clock() - received_at)).isoformat()
         if self._body_current(item):
+            self._sync_attitude_history(robot_id)
             self._camera_latest[robot_id] = {"available": True, "source": "gateway-camera",
                 "robotId": robot_id, "epoch": epoch, "gatewayInstance": self.gateway.instance_id,
                 "referenceId": f"{self.gateway.instance_id}:{robot_id}:{epoch}",
@@ -647,7 +693,7 @@ class CameraFramePlugin:
         def update():
             self._depth_settings[robot_id] = config
             if self._depth_motion is not None:
-                if any(self._depth_settings.get(robot, {}).get("mode") == "moge-open3d"
+                if any(self._effective_depth_config(robot).get("mode") == "moge-open3d"
                        for robot in self._metric_consumers.values()):
                     self._depth_motion.reset(robot_id)
                 else:
@@ -655,6 +701,7 @@ class CameraFramePlugin:
                     self._depth_motion = None
             self._metric_latest.pop(robot_id, None)
         await asyncio.get_running_loop().run_in_executor(self._metric_executor, update)
+        self._sync_attitude_history(robot_id)
         self._metric_pre_demand_frame.pop(robot_id, None)
         ready = self._metric_ready.pop(robot_id, None)
         if ready is not None and not ready.done():
@@ -663,9 +710,32 @@ class CameraFramePlugin:
 
     async def restore_depth(self, configurations):
         self._depth_settings = {robot: depth_settings(config) for robot, config in configurations.items()}
+        for robot in self._depth_settings:
+            self._sync_attitude_history(robot)
+
+    def _sync_attitude_history(self, robot_id: str | None) -> None:
+        if not robot_id:
+            return
+        keep = (
+            not self._closed
+            and (
+                robot_id in self._metric_consumers.values()
+                or self._effective_depth_config(robot_id).get("mode") == "moge-open3d"
+            )
+        )
+        self.gateway.configure_camera_attitude_history(robot_id, self.max_frame_age_s if keep else 0.0)
+
+    def _effective_depth_config(self, robot_id: str | None) -> dict[str, object]:
+        if robot_id and robot_id in self._depth_settings:
+            return self._depth_settings[robot_id]
+        if robot_id:
+            robot = self.gateway.status().get("robots", {}).get(robot_id)
+            if isinstance(robot, dict) and robot.get("virtual") is True:
+                return virtual_default_depth_settings(str(robot.get("model") or "v2-12servo"))
+        return {}
 
     def _queue_metric(self, frame, timestamp):
-        if frame.attitude is None and self._depth_settings.get(frame.robot_id, {}).get("mode") == "moge-open3d":
+        if frame.attitude is None and self._effective_depth_config(frame.robot_id).get("mode") == "moge-open3d":
             frame.attitude = self.gateway.camera_frame_attitude(frame.robot_id, frame.epoch, frame.camera_metadata)
         waiting = []
         while not self._metric_queue.empty():
@@ -675,6 +745,8 @@ class CameraFramePlugin:
         for pending in waiting:
             if pending[0].robot_id != frame.robot_id:
                 self._metric_queue.put_nowait(pending)
+            elif pending[0].metric_result is not None and not pending[0].metric_result.done():
+                pending[0].metric_result.set_result(None)
         self._metric_queue.put_nowait((frame, timestamp))
         # Admit replacements before retiring the old queue entries so join()
         # cannot observe a false completed interval during coalescing.
@@ -698,8 +770,7 @@ class CameraFramePlugin:
         else:
             self._metric_consumers.pop(consumer_id, None)
         for robot in {previous, robot_id} - {None}:
-            self.gateway.configure_camera_attitude_history(robot,
-                self.max_frame_age_s if robot in self._metric_consumers.values() else 0.)
+            self._sync_attitude_history(robot)
         released_robots = {robot for robot in {previous, robot_id} - {None}
                            if robot not in self._metric_consumers.values()}
         for released in released_robots:
@@ -711,7 +782,7 @@ class CameraFramePlugin:
                 ready.set_result({"available": False, "reason": "Depth demand released", "robotId": released})
         def release_unused_model():
             if self._depth_motion is not None and not any(
-                    self._depth_settings.get(robot, {}).get("mode") == "moge-open3d"
+                    self._effective_depth_config(robot).get("mode") == "moge-open3d"
                     for robot in self._metric_consumers.values()):
                 self._depth_motion.close()
                 self._depth_motion = None
@@ -735,7 +806,7 @@ class CameraFramePlugin:
         ready = self._metric_ready.get(robot_id)
         if ready is None or ready.done():
             ready = self._metric_ready[robot_id] = asyncio.get_running_loop().create_future()
-            if not had_consumer and self._depth_settings.get(robot_id, {}).get("mode") == "moge-open3d":
+            if not had_consumer and self._effective_depth_config(robot_id).get("mode") == "moge-open3d":
                 self._metric_pre_demand_frame[robot_id] = frame[0]
             self._queue_metric(*frame)
         if not wait_for_measurement:
@@ -749,7 +820,7 @@ class CameraFramePlugin:
             logging.getLogger(__name__).error("Camera depth release failed: %s", error)
 
     def _process_metric(self, frame, received_iso):
-        config = self._depth_settings.get(frame.robot_id, {})
+        config = self._effective_depth_config(frame.robot_id)
         if config.get("mode") == "moge-open3d":
             if self._depth_motion is None:
                 self._depth_motion = DepthMotion(self.gateway.instance_id)
@@ -823,7 +894,7 @@ class CameraFramePlugin:
             frame, received_iso = await self._metric_queue.get()
             generation = self._metric_generation.get(frame.robot_id, 0)
             try:
-                if frame.robot_id not in self._metric_consumers.values():
+                if frame.robot_id not in self._metric_consumers.values() and not frame.requested:
                     continue
                 result = await asyncio.get_running_loop().run_in_executor(
                     self._metric_executor, self._process_metric, frame, received_iso)
@@ -880,6 +951,8 @@ class CameraFramePlugin:
                     await self.gateway._publish_event({"t": "locomotion_measurement", "robot_id": frame.robot_id,
                                                        "epoch": frame.epoch, "measurement": failed})
             finally:
+                if frame.metric_result is not None and not frame.metric_result.done():
+                    frame.metric_result.set_result(self._metric_latest.get(frame.robot_id))
                 self._metric_queue.task_done()
 
     async def enroll_person(self, payload: dict[str, object]) -> object:
@@ -949,6 +1022,11 @@ class CameraFramePlugin:
                 else:
                     self.stale_frames += 1
                 self._last_received_at = frame.received_at
+                if frame.metric_result is not None and not frame.metric_result.done():
+                    try:
+                        await asyncio.wait_for(asyncio.shield(frame.metric_result), timeout=5.0)
+                    except (asyncio.TimeoutError, asyncio.CancelledError):
+                        pass
                 self._latest_analysis = self._resolve(frame, result=result)
                 if self.observe is not None:
                     await self._call(self.observe, self._latest_analysis)

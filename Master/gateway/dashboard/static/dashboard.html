@@ -52,6 +52,7 @@
 <details class="navigation-group" data-navigation-group="operate" open><summary>Operate</summary><ul>
 <li><button type="button" data-workspace="cockpit">Ainekio Cockpit</button></li>
 <li><button type="button" data-workspace="overview">Overview</button></li>
+<li><button type="button" data-workspace="simulation">Virtual simulation</button></li>
 <li><button type="button" data-workspace="motion">Movement</button></li>
 <li><button type="button" data-workspace="neural-gait">Neural gait</button></li>
 <li><button type="button" data-workspace="poses">Poses and emotes</button></li>
@@ -174,6 +175,10 @@
       <div id="cockpit-stream-messages" class="cockpit-stream-messages" role="log" aria-live="polite" aria-relevant="additions text">
         <p id="cockpit-stream-empty" class="cockpit-stream-empty">Workflow replies from MetaHuman OS appear here when Environment Bridge is active.</p>
       </div>
+      <form id="cockpit-stream-form" class="cockpit-stream-form">
+        <input id="cockpit-stream-input" type="text" maxlength="500" placeholder="Message MetaHuman OS…" aria-label="Message MetaHuman OS">
+        <button id="cockpit-stream-send" type="submit" class="cockpit-stream-btn">Send</button>
+      </form>
     </aside>
 
     <div id="cockpit-settings-drawer" class="cockpit-modal-card cockpit-settings-drawer" role="dialog" aria-label="Cockpit Quick Settings" hidden>
@@ -1087,6 +1092,40 @@
           <p id="calibration-joint-help" class="muted"></p>
         </div>
         <p id="calibration-feedback" class="calibration-feedback" role="status" aria-live="polite" hidden></p>
+        <section id="auto-calibration-card" class="calibration-card" hidden aria-labelledby="auto-calibration-title">
+          <h3 id="auto-calibration-title">Calibrate servos</h3>
+          <p id="auto-calibration-help" class="muted">Place the robot on a flat, low-friction surface with clear space around all four legs. Sweeps all 12 joints through closed-chain ranges to calibrate 4th-wire feedback, then balances leg heights and shoulders using the IMU and shaft load.</p>
+          <div class="calibration-grid">
+            <label>Calibration mode
+              <select id="auto-calibration-mode">
+                <option value="floor">Low-friction surface (4th-wire range + 4-leg balance)</option>
+                <option value="legs_free">Legs free / off ground (unloaded 4th-wire range only)</option>
+              </select>
+            </label>
+          </div>
+          <div class="command-row">
+            <button id="auto-calibration-start" class="primary-command" type="button">Calibrate servos</button>
+            <button id="auto-calibration-stop" class="danger-command" type="button" disabled>Stop</button>
+            <button id="auto-calibration-apply" type="button" disabled>Apply &amp; save to robot</button>
+            <button id="auto-calibration-restore" type="button" disabled>Discard &amp; restore</button>
+          </div>
+          <p id="auto-calibration-status" role="status">Ready to calibrate.</p>
+          <p id="auto-calibration-summary" class="muted" hidden></p>
+          <div id="auto-calibration-table-wrap" hidden>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Joint</th>
+                  <th>Home µs</th>
+                  <th>4th-wire Low / Mid / High</th>
+                  <th>Error µs (before → after)</th>
+                  <th>Range</th>
+                </tr>
+              </thead>
+              <tbody id="auto-calibration-rows"></tbody>
+            </table>
+          </div>
+        </section>
         <section id="gyro-joint-guide" class="calibration-card" hidden aria-labelledby="gyro-joint-title">
           <h3 id="gyro-joint-title">Gyro-guided leveling calibration</h3>
           <p id="gyro-joint-live" role="status">Waiting for body tilt.</p>
@@ -1297,6 +1336,57 @@
             <tbody id="audit-body"></tbody>
           </table>
         </div>
+      </section>
+
+<section id="simulation-panel" class="control-section" aria-labelledby="simulation-title" data-workspace-panel="simulation">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Virtual environment</p>
+            <h2 id="simulation-title">Virtual simulation</h2>
+          </div>
+        </div>
+        <p class="muted">Run a virtual robot locally on this machine (either in a browser tab or continuously in the background so autonomous features keep wandering while you disconnect), or link to <strong>simulator.ainek.io</strong> and multiplayer rooms remotely. Uses a dedicated virtual robot token without changing physical robot pairing.</p>
+        <p id="sim-status-summary" class="status-note" role="status" aria-live="polite">Checking simulation status…</p>
+        <form id="sim-config-form" class="password-form">
+          <div class="settings-grid">
+            <label>Robot model<select id="sim-model" name="model">
+              <option value="v2">Ainekio V2 (12-Servo)</option>
+              <option value="v3">Ainekio V3 (12-Servo)</option>
+              <option value="v1">Ainekio V1 (8-Servo)</option>
+            </select></label>
+            <label>Virtual Robot ID<input id="sim-robot-id" name="robot_id" maxlength="64" value="ainekio-v2-sim" required></label>
+            <label>World / Arena<select id="sim-level" name="level">
+              <option value="v2_lab">V2 Robotics Lab</option>
+              <option value="observatory">Observatory</option>
+              <option value="yggdrasil">Yggdrasil</option>
+              <option value="miranda">Miranda</option>
+              <option value="solitude">Solitude</option>
+              <option value="sci-fi-room">Sci-Fi Room</option>
+            </select></label>
+            <label>Multiplayer session<select id="sim-mp" name="mp">
+              <option value="solo">Solo (single robot)</option>
+              <option value="host">Create / Host multiplayer room</option>
+              <option value="join">Join multiplayer room</option>
+            </select></label>
+            <label>Multiplayer room name<input id="sim-room" name="room" maxlength="48" placeholder="e.g. ainekio-world"></label>
+            <label>Room callsign (optional)<input id="sim-display-name" name="display_name" maxlength="24" placeholder="e.g. Ainekio"></label>
+            <label>Remote simulator site<input id="sim-remote-url" name="remote_simulator_url" type="url" value="https://simulator.ainek.io" required></label>
+            <label>Remote /robot relay WebSocket<input id="sim-remote-ws" name="remote_ws_url" placeholder="wss://robot-gateway.ainek.io/robot" required></label>
+          </div>
+          <div class="command-row">
+            <button id="sim-open-local-button" type="button">Open local simulator tab</button>
+            <button id="sim-open-remote-button" type="button">Open remote simulator (simulator.ainek.io)</button>
+            <button id="sim-local-server-button" type="button">Start local web server (:8792)</button>
+          </div>
+          <div class="command-row compact">
+            <button id="sim-headless-start-button" type="button">Start background simulation (24/7 host)</button>
+            <button id="sim-headless-stop-button" type="button" class="danger-command" disabled>Stop background simulation</button>
+            <button id="sim-copy-pair-button" type="button">Copy remote pairing code</button>
+            <button id="sim-copy-room-button" type="button">Copy multiplayer room invite link</button>
+            <button id="sim-rotate-token-button" type="button">Rotate virtual token</button>
+          </div>
+          <p id="sim-result" role="status" aria-live="polite"></p>
+        </form>
       </section>
 
 <section id="settings-panel" class="control-section settings-panel" aria-labelledby="settings-title" data-workspace-panel="connections network pairing account">

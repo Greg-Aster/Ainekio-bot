@@ -2,6 +2,11 @@
 #include "board.h"
 #include "controller.h"
 #include "system.h"
+#ifdef CONFIG_AINEKIO_MODEL_V1_8SERVO
+#include "ainekio/v1_model.h"
+#elif defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
+#include "ainekio/v3_model.h"
+#endif
 
 #include <stdio.h>
 #include <math.h>
@@ -152,10 +157,22 @@ esp_err_t ainekio_p4_config_init(void)
     atomic_store(&motion_rate_saved, rate_valid);
     if (rate_result != AINEKIO_STORE_NOT_FOUND && !rate_valid)
         puts("Motion speed unavailable; using 2x until a setting is saved.");
+#ifdef CONFIG_AINEKIO_MODEL_V1_8SERVO
+    float limit = AINEKIO_V1_MAX_SPEED_DEG_S;
+#elif defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
+    float limit = AINEKIO_V3_MAX_SPEED_DEG_S;
+#else
     float limit = ainekio_v2_joint_speed_default();
+#endif
     const ainekio_store_result_t limit_result = blob("joint_speed", &limit, sizeof(limit), false);
     const bool limit_valid = limit_result == AINEKIO_STORE_OK && isfinite(limit) && limit > 0.F;
+#ifdef CONFIG_AINEKIO_MODEL_V1_8SERVO
+    ainekio_v2_joint_speed_set(limit_valid ? limit : AINEKIO_V1_MAX_SPEED_DEG_S);
+#elif defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
+    ainekio_v2_joint_speed_set(limit_valid ? limit : AINEKIO_V3_MAX_SPEED_DEG_S);
+#else
     ainekio_v2_joint_speed_set(limit_valid ? limit : ainekio_v2_joint_speed_default());
+#endif
     atomic_store(&joint_speed_saved, limit_valid);
     uint8_t walking=0;
     const bool walking_valid=blob("walk_feedback",&walking,sizeof(walking),false)==AINEKIO_STORE_OK && walking<=1;
@@ -308,7 +325,7 @@ bool ainekio_p4_frame_pulses(const ainekio_v2_frame_t *frame,
 
 esp_err_t ainekio_p4_calibration_stage(uint8_t id, const ainekio_p4_joint_config_t *joint)
 {
-    if (id >= AINEKIO_BODY_JOINT_COUNT || !joint) return ESP_ERR_INVALID_ARG;
+    if (id >= AINEKIO_P4_ACTIVE_JOINTS || !joint) return ESP_ERR_INVALID_ARG;
     xSemaphoreTake(config_lock, portMAX_DELAY);
     ainekio_p4_calibration_t candidate = calibration;
     candidate.joints[id] = *joint;

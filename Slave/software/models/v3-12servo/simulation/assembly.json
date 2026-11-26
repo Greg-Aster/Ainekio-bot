@@ -1,0 +1,21 @@
+{
+  "model": "v3-12servo",
+  "geometry_id": "v3-p4-ds3225pro-optA1-ankle-20261122",
+  "torso_box_half_extents_m": [
+    0.165,
+    0.068,
+    0.052
+  ],
+  "torso_box_center_in_robot_m": [
+    0.008,
+    0.0,
+    0.14
+  ],
+  "foot_pad_size_m": [
+    0.032,
+    0.02,
+    0.012
+  ],
+  "mass_kg": 2.97,
+  "mass_measured": false
+}

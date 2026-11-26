@@ -2,7 +2,27 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#ifdef ESP_PLATFORM
+#include "sdkconfig.h"
+#endif
 #include "ainekio/v2_motion.h"
+
+#ifdef CONFIG_AINEKIO_MODEL_V1_8SERVO
+#define AINEKIO_P4_ACTIVE_JOINTS 8U
+#define AINEKIO_P4_ACTIVE_MASK 0x00FFU
+#define AINEKIO_P4_JOINT_MAP_VERSION AINEKIO_JOINT_MAP_VERSION
+#define AINEKIO_P4_MODEL_NAME "v1-8servo"
+#elif defined(CONFIG_AINEKIO_MODEL_V3_12SERVO)
+#define AINEKIO_P4_ACTIVE_JOINTS AINEKIO_BODY_JOINT_COUNT
+#define AINEKIO_P4_ACTIVE_MASK 0x0FFFU
+#define AINEKIO_P4_JOINT_MAP_VERSION AINEKIO_V2_JOINT_MAP_VERSION
+#define AINEKIO_P4_MODEL_NAME "v3-12servo"
+#else
+#define AINEKIO_P4_ACTIVE_JOINTS AINEKIO_BODY_JOINT_COUNT
+#define AINEKIO_P4_ACTIVE_MASK 0x0FFFU
+#define AINEKIO_P4_JOINT_MAP_VERSION AINEKIO_V2_JOINT_MAP_VERSION
+#define AINEKIO_P4_MODEL_NAME "v2-12servo"
+#endif
 
 typedef struct {
     int8_t channel; /* -1 disables this joint; other channels must be unique. */

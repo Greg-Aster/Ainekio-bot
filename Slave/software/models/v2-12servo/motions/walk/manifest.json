@@ -1,12 +1,12 @@
 {
   "gait_id": "stride-and-rate-v2-24-38-centered-shaft-heads",
-  "geometry_id": "compact-35-20-28-38-55-visible-20261005",
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124",
   "hardware_qualified": false,
   "sha256": {
     "reference.py": "92cd844fb1dbc5865d786df8003d002130562ce8afdbf1de1becd6ee78e188c4",
-    "../../geometry.json": "714bdf312f3ba2a1f62d2add2b7fb17e6d329bb5396dc5e41fc46d3486fa773b",
-    "../locomotion/config.json": "5d3be1ffec64b5a00102c173bf2a58e02fa25a412ae5afb167a623cda8a62a67",
-    "source.json": "2921c9ec5e68278ad517beb2d0c40da0ce7897344cb5ff83e6f1305095a64f37"
+    "../../geometry.json": "dc2238c985f605991081acb4739596ec3114b09934039d39250270d5ef3e1613",
+    "../locomotion/config.json": "6ca60a6a6d59440b0455139bfb32177a8be3309a7349829de56eba379960e520",
+    "source.json": "75a6dffd238f71a0225daf618212180e2de04be19d63a141fc54431b695e82e1"
   },
   "source_leg_order": [
     "RL",

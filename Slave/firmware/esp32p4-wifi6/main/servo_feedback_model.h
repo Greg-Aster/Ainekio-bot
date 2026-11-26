@@ -2,9 +2,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#ifdef ESP_PLATFORM
+#include "sdkconfig.h"
+#endif
 
 enum { AINEKIO_FEEDBACK_CHANNELS=16, AINEKIO_FEEDBACK_JOINTS=12,
        AINEKIO_FEEDBACK_POINTS=3, AINEKIO_FEEDBACK_VERSION=4 };
+#ifdef CONFIG_AINEKIO_MODEL_V1_8SERVO
+#define AINEKIO_FEEDBACK_ACTIVE_JOINTS 8U
+#define AINEKIO_FEEDBACK_ACTIVE_MASK 0x00FFU
+#else
+#define AINEKIO_FEEDBACK_ACTIVE_JOINTS 12U
+#define AINEKIO_FEEDBACK_ACTIVE_MASK 0x0FFFU
+#endif
 typedef struct {
     uint16_t raw, pulse_us;
 } ainekio_feedback_point_t;

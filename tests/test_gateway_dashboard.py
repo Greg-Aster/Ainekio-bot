@@ -1650,6 +1650,103 @@ class GatewayDashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(".cockpit-stream-panel {", css)
         self.assertIn("background: rgba(10, 16, 22, 0.34);", css)
 
+    async def test_recent_episodes_endpoint_and_cli_projection(self) -> None:
+        from gateway.environment_adapter.action_receipts import ActionReceipts
+        from gateway.episodes import read_recent_episodes
+        from gateway.dashboard.server import freestyle_module
+
+        data_dir = self.server.password_store.path.parent
+        receipts = ActionReceipts(str(data_dir / "environment-actions.sqlite"))
+        recorder = freestyle_module("recordings").Recorder(data_dir / "freestyle-recordings.sqlite")
+        try:
+            lease = {"bodyId": "ainekio-01", "executionId": "exec-1", "generation": 1}
+            face_lease = {"bodyId": "ainekio-01", "channel": "display", "executionId": "exec-1", "generation": 1}
+            # 1) Background faceExpression (excluded by default, included with include_faces=1)
+            receipts.receive(
+                {"id": "face-1", "type": "faceExpression", "expression": "thinking", "bodyLease": face_lease,
+                 "createdAt": "2026-11-25T03:00:00Z"},
+                {"id": "ack-face-1", "actionId": "face-1", "type": "accepted"},
+            )
+            receipts.begin("face-1", {"robotId": "ainekio-test-01", "epoch": 3, "sequence": 1, "kind": "intent", "gatewayInstance": "g1"})
+            receipts.queue_feedback({"type": "environment.feedback", "feedback": {
+                "id": "res-face-1", "actionId": "face-1", "type": "completed", "message": "done", "timestamp": "2026-11-25T03:00:00.200Z"}})
+
+            # 2) Speech action (PCM compacted on begin)
+            receipts.receive(
+                {"id": "speech-1", "type": "speechAudio", "sessionId": "s1", "speechId": "sp-1", "durationMs": 600,
+                 "pcm": base64.b64encode(b"\x00\x01" * 9600).decode("ascii")},
+                {"id": "ack-sp-1", "actionId": "speech-1", "type": "accepted"},
+            )
+            receipts.begin("speech-1", {"kind": "computer-speech", "gatewayInstance": "g1"})
+            receipts.queue_feedback({"type": "environment.feedback", "feedback": {
+                "id": "res-sp-1", "actionId": "speech-1", "type": "completed", "message": "speech_played",
+                "timestamp": "2026-11-25T03:00:02.000Z", "data": {"playbackTarget": "computer"}}})
+
+            # 3) Freestyle requestMotion action with IMU yaw turn + 4th-wire tracking lag
+            job_id = "motion-ep-1"
+            receipts.receive(
+                {"id": job_id, "type": "requestMotion", "description": "turn right ninety degrees",
+                 "bodyLease": {**lease, "generation": 2}, "correlationId": "exec-turn-90",
+                 "createdAt": "2026-11-25T03:01:00.000Z"},
+                {"id": "ack-m-1", "actionId": job_id, "type": "accepted"},
+            )
+            receipts.begin(job_id, {"jobId": job_id, "robotId": "ainekio-test-01", "epoch": 3, "kind": "freestyle", "gatewayInstance": "g1"})
+            receipts.queue_feedback({"type": "environment.feedback", "feedback": {
+                "id": "res-m-1", "actionId": job_id, "type": "completed", "message": "completed",
+                "timestamp": "2026-11-25T03:01:04.500Z"}})
+
+            recorder.record("job_started", {"id": job_id, "robot_id": "ainekio-test-01", "epoch": 3,
+                "request": "turn right ninety degrees", "state": "executing"},
+                robot_id="ainekio-test-01", epoch=3, job_id=job_id)
+            recorder.record("generation_completed", {"generation_index": 0, "result": {"program": [
+                {"name": "gait", "arguments": {"command": "right", "cycles": 9, "speed_pct": 80}},
+            ]}}, robot_id="ainekio-test-01", epoch=3, job_id=job_id)
+            recorder.command({"t": "intent", "name": "walk", "dir": "right", "steps": 9, "robot_id": "ainekio-test-01", "epoch": 3, "seq": 50})
+            recorder.event({"t": "imu", "robot_id": "ainekio-test-01", "epoch": 3, "imu": {
+                "orientation_wxyz": [1.0, 0.0, 0.0, 0.0],
+                "joint_feedback": {"map": 2, "usable_mask": 0xFFF, "stalled_joints": 0,
+                    "filtered_model_deg": [0.0] * 12, "commanded_model_deg": [6.5] + [0.0] * 11}}})
+            recorder.event({"t": "imu", "robot_id": "ainekio-test-01", "epoch": 3, "imu": {
+                "orientation_wxyz": [0.70710678, 0.0, 0.0, -0.70710678],
+                "joint_feedback": {"map": 2, "usable_mask": 0xFFF, "stalled_joints": 0,
+                    "filtered_model_deg": [0.0] * 12, "commanded_model_deg": [0.0] * 12}}})
+            recorder.diagnostic({"event": "command_result", "command_type": "intent", "t": "done", "robot_id": "ainekio-test-01", "epoch": 3, "seq": 50})
+            recorder.record("operation_completed", {"generation_index": 0, "action_index": 0,
+                "before": {"action": {"name": "gait", "arguments": {"command": "right", "cycles": 9, "speed_pct": 80}}, "imu": {"orientation_wxyz": [1.0, 0.0, 0.0, 0.0]}, "joints": {}},
+                "after": {"imu": {"orientation_wxyz": [0.70710678, 0.0, 0.0, -0.70710678]}, "joints": {}, "receipts": [{"t": "done", "seq": 50}]}},
+                robot_id="ainekio-test-01", epoch=3, job_id=job_id)
+            recorder.record("job_finished", {"state": "completed", "error": None, "execute": True},
+                robot_id="ainekio-test-01", epoch=3, job_id=job_id)
+            recorder.flush()
+        finally:
+            recorder.close()
+            receipts.close()
+
+        self.assertEqual((await self._request("GET", "/api/episodes"))[0], 401)
+        cookie, _ = await self._login()
+        self.assertEqual((await self._request("GET", "/api/episodes?limit=0", cookie=cookie))[0], 400)
+
+        code, body, _ = await self._request("GET", "/api/episodes?limit=10", cookie=cookie)
+        self.assertEqual(code, 200)
+        self.assertEqual(body["schema"], "ainekio_recent_episodes_v1")
+        ids = [ep["id"] for ep in body["episodes"]]
+        self.assertEqual(ids, ["motion-ep-1", "speech-1"])
+
+        motion_ep = body["episodes"][0]
+        self.assertEqual(motion_ep["freestyle"]["program_summary"], ["gait(right, cycles=9, speed=80%)"])
+        self.assertAlmostEqual(motion_ep["motion_summary"]["net_turn_deg"], -90.0, places=1)
+        self.assertEqual(motion_ep["motion_summary"]["max_tracking_error_deg"], {"rear_left_shoulder": 6.5})
+        self.assertEqual(body["episodes"][1]["request"]["pcmBytes"], 19200)
+        self.assertNotIn("pcm", body["episodes"][1]["request"])
+
+        # Motion-only filter and single-episode detail view
+        _, motion_only, _ = await self._request("GET", "/api/episodes?types=motion", cookie=cookie)
+        self.assertEqual([ep["id"] for ep in motion_only["episodes"]], ["motion-ep-1"])
+        detail = read_recent_episodes(data_dir, episode_id="motion-ep-1")
+        self.assertEqual(len(detail["episodes"][0]["freestyle"]["operations"]), 1)
+        with_faces = read_recent_episodes(data_dir, include_faces=True)
+        self.assertIn("face-1", [ep["id"] for ep in with_faces["episodes"]])
+
 
 if __name__ == "__main__":
     unittest.main()

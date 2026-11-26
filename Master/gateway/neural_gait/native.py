@@ -159,6 +159,19 @@ def library():
     lib.virtual_body_heartbeat.argtypes = [ctypes.c_uint64, ctypes.c_int, *text_output]
     lib.virtual_body_feedback_health.argtypes = [ctypes.c_uint64, *text_output]
     lib.virtual_body_media_actions.argtypes = text_output
+    lib.virtual_body_mic_gate.argtypes = [
+        ctypes.c_uint64, ctypes.c_int, ctypes.c_int, *text_output,
+    ]
+    lib.virtual_body_mic_frame.argtypes = [
+        ctypes.c_uint64, ctypes.c_char_p, ctypes.c_size_t,
+        ctypes.c_void_p, ctypes.c_size_t,
+    ]
+    lib.virtual_body_camera_frame.argtypes = [
+        ctypes.c_uint64, ctypes.c_int, ctypes.c_uint32, ctypes.c_char_p,
+        ctypes.c_uint64, ctypes.c_uint32, ctypes.c_char_p, ctypes.c_size_t,
+        ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t,
+        ctypes.c_void_p, ctypes.c_size_t,
+    ]
     lib.virtual_body_face_frame.argtypes = [
         ctypes.c_uint64, ctypes.c_int, ctypes.c_int,
         ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t,
@@ -168,6 +181,7 @@ def library():
     for name in (
         "telemetry", "hello", "receive", "events", "feedback",
         "status", "heartbeat", "feedback_health", "media_actions",
+        "mic_gate", "mic_frame", "camera_frame",
     ):
         getattr(lib, "virtual_body_" + name).restype = ctypes.c_size_t
     return lib
@@ -923,6 +937,71 @@ class VirtualBody:
     def media_actions(self):
         self._live()
         return self._packet(self.lib.virtual_body_media_actions)
+
+    def mic_gate(self, now_us, *, open, wake_word=False):
+        self._live()
+        packet = self._packet(
+            self.lib.virtual_body_mic_gate,
+            int(now_us),
+            int(bool(open)),
+            int(bool(wake_word)),
+            optional=True,
+        )
+        if now_us > self.now_us:
+            self.now_us = now_us
+        return packet
+
+    def mic_frame(self, now_us, pcm: bytes) -> bytes:
+        self._live()
+        out = ctypes.create_string_buffer(len(pcm) + 16)
+        encoded = self.lib.virtual_body_mic_frame(
+            int(now_us), pcm, len(pcm), out, len(out)
+        )
+        if now_us > self.now_us:
+            self.now_us = now_us
+        return out.raw[:encoded] if encoded else b""
+
+    def camera_frame(
+        self,
+        now_us,
+        jpeg: bytes,
+        *,
+        origin="none",
+        origin_id=0,
+        res="VGA",
+        frame_completed_us=0,
+        boot_id=1,
+    ):
+        self._live()
+        origin_code = {"none": 0, "request": 1, "action": 2, "audio": 3}[origin]
+        meta_buf = ctypes.create_string_buffer(512)
+        pkt_buf = ctypes.create_string_buffer(len(jpeg) + 16)
+        done_buf = ctypes.create_string_buffer(256)
+        encoded = self.lib.virtual_body_camera_frame(
+            int(now_us),
+            origin_code,
+            int(origin_id),
+            res.encode("utf-8"),
+            int(frame_completed_us),
+            int(boot_id),
+            jpeg,
+            len(jpeg),
+            meta_buf,
+            len(meta_buf),
+            pkt_buf,
+            len(pkt_buf),
+            done_buf,
+            len(done_buf),
+        )
+        if now_us > self.now_us:
+            self.now_us = now_us
+        meta = json.loads(meta_buf.value) if encoded and meta_buf.value else None
+        done = json.loads(done_buf.value) if done_buf.value else None
+        return {
+            "meta": meta,
+            "packet": pkt_buf.raw[:encoded] if encoded else b"",
+            "done": done,
+        }
 
     def face_frame(self, now_ms, *, talking=False, capturing=False, render_rgba=True):
         """Render the exact P4 ST7789 320x170 face via Slave/software/faces/face.c."""

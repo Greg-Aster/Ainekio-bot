@@ -1,0 +1,21 @@
+{
+  "model": "v3-12servo",
+  "schema": "ainekio-v3-neural-gait-v2-proprio",
+  "trained": true,
+  "obs_size": 600,
+  "hidden_dims": [
+    128,
+    64,
+    32
+  ],
+  "actions": 12,
+  "action_scale_mm": [
+    78.0,
+    28.0,
+    36.0
+  ],
+  "source_onnx_sha256": "e348c45b7981b9ad666feacf36b51a401942b821efa64c34ff5a65bd9680b2b7",
+  "policy_bin_sha256": "c338553e3c39bfb3dd57a0d0cdaf4ce46e026a6043ddac4c87be8d2788cc820c",
+  "policy_bin_bytes": 94140,
+  "physical_qualified": false
+}

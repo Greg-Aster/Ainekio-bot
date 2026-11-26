@@ -12,11 +12,11 @@
   "source_files": [
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/bow/source.json",
-      "sha256": "6fbc91a2487c89eb4f8a0ba72407025283741294b6b62c31702658704330c0bf"
+      "sha256": "2d5a84119a885a30fad2918292503a292a4c58485a5ab95ef3c0663978dd84e9"
     },
     {
       "path": "Slave/software/models/v2-12servo/motions/gestures/bow/manifest.json",
-      "sha256": "432986b7f40e76c41b38ef7b6f981fad988c9e3e7dbfd3de341d213d204a4d79"
+      "sha256": "85a1e33c687e156ea503c5c9ec5f5e20d9b337bad4a0c3a0dcb4a71dc878ef20"
     }
   ],
   "source_units": {
@@ -581,5 +581,5 @@
   "body_support_required": false,
   "interruption_note": "Keep all four supporting legs coordinated. Stop along the recorded path and raise the front through the braced stance before standing; never seek directly to the last row.",
   "hardware_ready": false,
-  "geometry_id": "compact-35-20-28-38-55-visible-20261005"
+  "geometry_id": "studya-28-16-37-31-55-boot-20261124"
 }

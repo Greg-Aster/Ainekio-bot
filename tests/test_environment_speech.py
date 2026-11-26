@@ -59,7 +59,7 @@ class FakeGateway:
         self.frames: list[bytes] = []
         self.external_speech = set()
 
-    def set_external_speech(self, robot, owner, active, *, duration_ms=0):
+    def set_external_speech(self, robot, owner, active, *, duration_ms=0, pcm=None):
         if active:
             self.external_speech.add((robot,owner))
         else:
@@ -320,6 +320,67 @@ class EnvironmentSpeechTests(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(feedback['data']['earlierEffectUnknown'])
                 self.assertEqual(feedback['data']['sessionReplacement']['previous']['gatewayInstance'], 'previous-gateway')
             self.assertEqual(adapter.gateway.frames, [])
+
+    async def test_speech_receipt_compacts_pcm_after_dispatch_preserving_conflict_detection(self) -> None:
+        from gateway.environment_adapter.action_receipts import ActionConflictError, ActionReceipts
+
+        with tempfile.TemporaryDirectory() as directory:
+            db_path = str(Path(directory) / "receipts.sqlite")
+            gateway = FakeGateway()
+            adapter = EnvironmentAdapter(
+                gateway,
+                EnvironmentAdapterConfig(receipt_path=db_path, token="adapter-secret"),
+            )
+            adapter._websocket, adapter._bridge_ready = FakeWebSocket(), True
+            pcm = b"\x01\x02" * 16000  # 32 KB raw (~43 KB base64)
+            b64_pcm = base64.b64encode(pcm).decode("ascii")
+            speech = SpeechAudioMessage("ainekio-01", "compact-speech-1", "utt-1", 1000, pcm)
+            action_payload = {
+                "id": speech.action_id,
+                "type": "speechAudio",
+                "sessionId": speech.session_id,
+                "speechId": speech.speech_id,
+                "durationMs": speech.duration_ms,
+                "pcm": b64_pcm,
+            }
+            accepted = adapter._feedback(speech.action_id, "accepted", "accepted", command="speak")
+            adapter.receipts.receive(action_payload, accepted)
+            # Pre-dispatch row retains PCM so unstarted speech survives reconnect before admission ACK.
+            received_payload = json.loads(adapter.receipts.action(speech.action_id)["payload"])
+            self.assertIn("pcm", received_payload)
+
+            await adapter._process_speech_audio(speech)
+            terminal_row = adapter.receipts.action(speech.action_id)
+            stored_raw = terminal_row["payload"]
+            stored_payload = json.loads(stored_raw)
+            self.assertNotIn("pcm", stored_payload)
+            self.assertLess(len(stored_raw), 400)
+            self.assertEqual(stored_payload["type"], "speechAudio")
+            self.assertEqual(stored_payload["pcmBytes"], len(pcm))
+            self.assertTrue(stored_payload["pcmSha256"])
+
+            # Duplicate delivery with identical PCM returns terminal receipt; altered PCM conflicts.
+            dup = adapter.receipts.receive(action_payload, accepted)
+            self.assertEqual(dup["type"], "completed")
+            with self.assertRaises(ActionConflictError):
+                adapter.receipts.receive(
+                    {**action_payload, "pcm": base64.b64encode(b"\x03\x04" * 16000).decode("ascii")},
+                    accepted,
+                )
+
+            # Legacy terminal rows containing raw PCM are compacted automatically on open.
+            adapter.receipts.db.execute(
+                "INSERT INTO actions(id,payload,accepted,state,result,updated) VALUES (?,?,?,'terminal',?,1.0)",
+                ("legacy-speech", json.dumps({**action_payload, "id": "legacy-speech"}), json.dumps(accepted), json.dumps(dup)),
+            )
+            adapter.receipts.close()
+            reopened = ActionReceipts(db_path)
+            try:
+                migrated = json.loads(reopened.action("legacy-speech")["payload"])
+                self.assertNotIn("pcm", migrated)
+                self.assertEqual(migrated["pcmBytes"], len(pcm))
+            finally:
+                reopened.close()
 
 
 if __name__ == "__main__":

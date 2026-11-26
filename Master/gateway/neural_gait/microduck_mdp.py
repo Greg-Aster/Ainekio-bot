@@ -50,8 +50,8 @@ def tracking_twist(env):
     quality,baseline,moving=scores(env)
     delta=quality-baseline
     headroom=(1-baseline).clamp_min(1e-6)
-    component_moving=baseline<.95
-    negative=torch.where(component_moving,delta/(1-baseline).clamp_min(.5),.25*delta)
+    component_moving=baseline<.98
+    negative=torch.where(component_moving,delta/(1-baseline).clamp_min(.5),.85*delta)
     lin_cmd_sq=command[:,:2].square().sum(-1).clamp_min(1e-6)
     lin_dot=(actual[:,:2]*command[:,:2]).sum(-1)
     lin_ratio=lin_dot/lin_cmd_sq
@@ -64,7 +64,7 @@ def tracking_twist(env):
     directed=torch.stack((lin_prog,ang_prog),-1)
     positive=.60*(delta/headroom).clamp_min(0.)+.40*directed
     wrong_way=torch.stack(((lin_ratio<0.)|(lin_ratio>2.),(ang_ratio<0.)|(ang_ratio>2.)),-1)
-    comp=torch.where(wrong_way&(delta<0),negative,positive)
+    comp=torch.where((wrong_way|(~component_moving))&(delta<0),negative,positive)
     rev_turn_bonus=(
         0.55*torch.where(wrong_way[:,0],0.,lin_prog)*(command[:,0]<-0.02).to(lin_prog.dtype)
         +0.45*torch.where(wrong_way[:,1],0.,ang_prog)*(command[:,2].abs()>0.15).to(ang_prog.dtype)
@@ -79,7 +79,7 @@ def tracking_twist(env):
     if hasattr(env,"action_manager"):
         _,rear_z,_,left_z,right_z=_torso_all_heights(env)
         support_z=torch.minimum(rear_z,torch.minimum(left_z,right_z))
-        upright=upright*((support_z-0.046)/0.014).clamp(0.20,1.0)
+        upright=upright*((support_z-0.042)/0.014).clamp(0.20,1.0)
     # Tilt cannot hide a negative tracking score. At nonzero commands, an
     # upright stationary robot earns zero task reward; better tracking pays.
     result=torch.where(improvement>0,improvement*upright,improvement)
@@ -102,7 +102,7 @@ def _true_joint_state(feet):
     return feet.sensors.joint,feet.sensors.joint_velocity
 
 
-def _torso_all_heights(env, target_z=0.0642):
+def _torso_all_heights(env, target_z=0.0601):
     """Estimate torso center, rear (-93 mm), front (+80 mm), left (+58 mm) and right (-58 mm) heights above stance feet."""
     robot=env.scene["robot"].data
     up_b=(-robot.projected_gravity_b).clamp(-1.,1.)
@@ -133,14 +133,14 @@ def _torso_all_heights(env, target_z=0.0642):
     return torso_z,rear_z,front_z,left_z,right_z
 
 
-def torso_heights(env, target_z=0.0642):
+def torso_heights(env, target_z=0.0601):
     """Estimate torso center, rear (-93 mm) and front (+80 mm) heights above stance feet."""
     torso_z,rear_z,front_z,_,_=_torso_all_heights(env,target_z=target_z)
     return torso_z,rear_z,front_z
 
 
-def body_collapsed(env, minimum_z=0.048):
-    """Terminate when the torso center, rear pelvis, front chest or side support collapses below 48 mm."""
+def body_collapsed(env, minimum_z=0.044):
+    """Terminate when the torso center, rear pelvis, front chest or side support collapses below 44 mm."""
     torso_z,rear_z,front_z,left_z,right_z=_torso_all_heights(env)
     side_min=minimum_z-0.003
     return (torso_z<minimum_z)|(rear_z<minimum_z)|(front_z<minimum_z)|(left_z<side_min)|(right_z<side_min)
@@ -151,7 +151,7 @@ def upright_cost(env):
     grav=env.scene["robot"].data.projected_gravity_b
     tilt_cost=(1-(-grav[:,2]).clamp(-1,1))+3.5*grav[:,0].square()+4.5*grav[:,1].square()
     torso_z,rear_z,front_z,left_z,right_z=_torso_all_heights(env)
-    target_z=torch.where(moving,0.061,0.0642)
+    target_z=torch.where(moving,0.0572,0.0588)
     rear_sag=((target_z-rear_z).clamp_min(0.)/0.010).square()
     side_z=torch.minimum(left_z,right_z)
     side_sag=((target_z-side_z).clamp_min(0.)/0.010).square()
@@ -224,15 +224,15 @@ def alternating_stride(env):
         foot_pos_m=(foot_pos_mm*1e-3).to(rew.dtype)
         feet.mean_foot_pos_m.lerp_(foot_pos_m,0.05)
         ac_pos_m=foot_pos_m-feet.mean_foot_pos_m
-        s_xy=torch.stack((ac_pos_m[...,0]/0.022,ac_pos_m[...,1]/0.014),dim=-1)
+        s_xy=torch.stack((ac_pos_m[...,0]/0.026,ac_pos_m[...,1]/0.015),dim=-1)
         rot_xy_sign=s_xy.new_tensor([[1.,-1.],[-1.,-1.],[1.,1.],[-1.,1.]])
         r_xy=s_xy*rot_xy_sign
-        rear_foot_lin=(-(s_xy[:,0]*s_xy[:,1]).sum(-1)).clamp(-0.2,1.5)
-        front_foot_lin=(-(s_xy[:,2]*s_xy[:,3]).sum(-1)).clamp(-0.2,1.5)
-        diag_foot_lin=0.5*((s_xy[:,0]*s_xy[:,3]).sum(-1)+(s_xy[:,1]*s_xy[:,2]).sum(-1)).clamp(-0.2,1.6)
-        rear_foot_rot=(-(r_xy[:,0]*r_xy[:,1]).sum(-1)).clamp(-0.2,1.5)
-        front_foot_rot=(-(r_xy[:,2]*r_xy[:,3]).sum(-1)).clamp(-0.2,1.5)
-        diag_foot_rot=0.5*((r_xy[:,0]*r_xy[:,3]).sum(-1)+(r_xy[:,1]*r_xy[:,2]).sum(-1)).clamp(-0.2,1.6)
+        rear_foot_lin=(-(s_xy[:,0]*s_xy[:,1]).sum(-1)).clamp(-0.2,2.0)
+        front_foot_lin=(-(s_xy[:,2]*s_xy[:,3]).sum(-1)).clamp(-0.2,2.0)
+        diag_foot_lin=0.5*((s_xy[:,0]*s_xy[:,3]).sum(-1)+(s_xy[:,1]*s_xy[:,2]).sum(-1)).clamp(-0.2,2.1)
+        rear_foot_rot=(-(r_xy[:,0]*r_xy[:,1]).sum(-1)).clamp(-0.2,1.6)
+        front_foot_rot=(-(r_xy[:,2]*r_xy[:,3]).sum(-1)).clamp(-0.2,1.6)
+        diag_foot_rot=0.5*((r_xy[:,0]*r_xy[:,3]).sum(-1)+(r_xy[:,1]*r_xy[:,2]).sum(-1)).clamp(-0.2,1.7)
         stride_xy=(lin_frac*(rear_foot_lin+front_foot_lin+diag_foot_lin)
                   +turn_frac*(rear_foot_rot+front_foot_rot+diag_foot_rot))
         rew=rew+0.35*stride_xy*dir_gate
@@ -276,25 +276,37 @@ def alternating_stride(env):
 
 
 def action_change(env):
-    return (env.action_manager.action-env.action_manager.prev_action).square().mean(-1)
+    feet=env.action_manager.get_term("feet")
+    act=env.action_manager.action
+    prev1=getattr(feet,"prev_raw",env.action_manager.prev_action)
+    prev2=getattr(feet,"prev2_raw",prev1)
+    d1=(act-prev1).square().mean(-1)
+    d2=(act-2.*prev1+prev2).square().mean(-1)
+    return 0.15*d1+0.85*d2
 
 
 def action_size(env):
     _,_,moving=scores(env)
-    return env.action_manager.action.square().mean(-1)*(~moving)
+    feet=env.action_manager.get_term("feet")
+    act=env.action_manager.action
+    prev1=getattr(feet,"prev_raw",env.action_manager.prev_action)
+    return (act.square().mean(-1)+1.5*(act-prev1).square().mean(-1))*(~moving)
 
 
 def standing_pose(env):
     _,_,moving=scores(env)
     feet=env.action_manager.get_term("feet")
-    measured,_=_true_joint_state(feet)
+    measured,vel=_true_joint_state(feet)
     pose_error=(measured-feet.body.q0.reshape(1,12).to(measured.dtype)).square().mean(-1)
+    act=env.action_manager.action
+    prev1=getattr(feet,"prev_raw",env.action_manager.prev_action)
+    still_cost=pose_error+0.05*vel.square().mean(-1)+2.50*(act-prev1).square().mean(-1)+1.20*act.square().mean(-1)
     contact=env.scene["feet_ground_contact"].data
     air_hang=(contact.current_air_time-.40).clamp(0.,1.).mean(-1)
     drag_over=(contact.current_contact_time-.70).clamp(0.,1.6)
     peer_stepping=(contact.current_contact_time.amin(-1)<.38).to(drag_over.dtype)
     stance_stall=.5*(contact.current_contact_time-.60).clamp(0.,1.).mean(-1)+1.15*drag_over.amax(-1)*peer_stepping
-    return pose_error*(~moving)+(air_hang+stance_stall)*moving
+    return still_cost*(~moving)+(air_hang+stance_stall)*moving
 
 
 def tracked_air_time(env):

@@ -121,6 +121,60 @@ class SpatialCuriosityUnitTests(unittest.TestCase):
         self.assertIsNone(snap_reset["sectors"][2]["lastSeenSecAgo"])
         self.assertEqual(snap_reset["secondsSinceHumanActivity"], 10.0)
 
+    def test_depth_spatial_floor_clearance_and_vanished_sector_track_pruning(self) -> None:
+        tracker = SpatialCuriosityTracker()
+        robot = {"epoch": 1, "active_walk": None}
+        yaw = {"available": True, "degrees": 0.0}
+        # Single-frame MoGe snapshot: position.available is False (no 2-frame VIO yet),
+        # but depthSpatial 8x8 grid is available with 1.85m corridor/floor depth.
+        locomotion = {
+            "position": {
+                "available": False,
+                "reason": "Camera frame has no capture-aligned IMU attitude",
+                "depthSpatial": {
+                    "schema": "ainekio-depth-grid-v1",
+                    "available": True,
+                    "rows": 8,
+                    "columns": 8,
+                    "values": [1.85] * 64,
+                    "valid": [True] * 64,
+                },
+            }
+        }
+        tracker.snapshot("r1", robot, now=10.0, yaw_measurement=yaw, locomotion_measurement=locomotion)
+        tracker.record_camera_observation(
+            "r1",
+            1,
+            10.0,
+            recognition={
+                "objects": [
+                    {"label": "banana", "trackId": "old-banana", "box": {"x": 0.45, "y": 0.4, "width": 0.1, "height": 0.1}},
+                    {"label": "unknown_floortopology", "trackId": "bogus-1", "box": {"x": 0.1, "y": 0.5, "width": 0.8, "height": 0.3}},
+                ]
+            },
+        )
+        snap1 = tracker.snapshot("r1", robot, now=12.0, yaw_measurement=yaw, locomotion_measurement=locomotion)
+        assert snap1 is not None
+        self.assertEqual(snap1["sectors"][0]["freeFloorMeters"], 1.85)
+        self.assertEqual(snap1["sectors"][0]["objects"], ["banana"])
+        self.assertEqual([o["trackId"] for o in snap1["trackedObjects"]], ["old-banana"])
+
+        # Re-observing sector 0 later when old-banana is gone prunes vanished sector-0 tracks
+        tracker.record_camera_observation(
+            "r1",
+            1,
+            40.0,
+            recognition={
+                "objects": [
+                    {"label": "bench", "trackId": "new-bench", "box": {"x": 0.45, "y": 0.4, "width": 0.2, "height": 0.2}},
+                ]
+            },
+        )
+        snap2 = tracker.snapshot("r1", robot, now=41.0, yaw_measurement=yaw)
+        assert snap2 is not None
+        self.assertEqual(snap2["sectors"][0]["objects"], ["bench"])
+        self.assertEqual([o["trackId"] for o in snap2["trackedObjects"]], ["new-bench"])
+
 
 class AdapterSpatialCuriosityIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_environment_adapter_observation_emits_spatial_curiosity_and_resets_on_tipped(self) -> None:
@@ -247,6 +301,27 @@ class AdapterSpatialCuriosityIntegrationTests(unittest.IsolatedAsyncioTestCase):
         reset_sc = adapter._observation()["state"]["spatialCuriosity"]
         self.assertEqual(reset_sc["trackedObjects"], [])
         self.assertIsNone(reset_sc["sectors"][1]["lastSeenSecAgo"])
+
+    def test_low_confidence_non_person_detections_are_ignored(self) -> None:
+        tracker = SpatialCuriosityTracker()
+        robot = {"epoch": 1, "active_walk": None}
+        tracker.snapshot("r1", robot, now=10.0, yaw_measurement={"available": True, "degrees": 0.0})
+        tracker.record_camera_observation(
+            "r1",
+            1,
+            now=10.5,
+            recognition={
+                "objects": [
+                    {"label": "train", "score": 0.21, "trackId": "t-noise", "box": {"x": 0.4, "y": 0.4, "width": 0.2, "height": 0.2}},
+                    {"label": "tvmonitor", "score": 0.78, "trackId": "t-tv", "box": {"x": 0.4, "y": 0.4, "width": 0.2, "height": 0.2}},
+                ]
+            },
+            close_capture=True,
+        )
+        snap = tracker.snapshot("r1", robot, now=11.0, yaw_measurement={"available": True, "degrees": 0.0})
+        assert snap is not None
+        self.assertEqual([item["label"] for item in snap["trackedObjects"]], ["tvmonitor"])
+        self.assertEqual(snap["sectors"][0]["objects"], ["tvmonitor"])
 
 
 if __name__ == "__main__":

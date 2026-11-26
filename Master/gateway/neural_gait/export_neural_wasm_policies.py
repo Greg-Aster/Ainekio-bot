@@ -42,7 +42,7 @@ from experiments.freestyle.neural_pose.goals import (
     compile_goal_segments,
 )
 
-DEFAULT_GAIT_DIR = AINEKIO_ROOT / "build/neural-gait/microduck-v19-snag-p4"
+DEFAULT_GAIT_DIR = AINEKIO_ROOT / "build/neural-gait/microduck-v20-studya-p4"
 DEFAULT_POSE_DIR = AINEKIO_ROOT / "experiments/freestyle/artifacts/neural-pose-active"
 DEFAULT_MOTION_DB = AINEKIO_ROOT / "build/gateway/physical/motion-library.sqlite"
 DEFAULT_OUT_DIR = Path("/home/greggles/Ainekio/apps/simulator/public/sim/policies")
@@ -339,9 +339,15 @@ def export_neural_pose(pose_dir: Path, out_dir: Path) -> dict:
     return manifest
 
 
-def export_pose_manifold_and_library(pose_dir: Path, motion_db: Path, out_dir: Path) -> None:
+def export_pose_manifold_and_library(
+    pose_dir: Path,
+    motion_db: Path,
+    out_dir: Path,
+    gait_dir: Path = DEFAULT_GAIT_DIR,
+) -> None:
     resolved_dir = pose_dir.resolve()
-    env_json = resolved_dir / "environment.json"
+    gait_env = gait_dir.resolve() / "environment.json"
+    env_json = gait_env if gait_env.exists() else (resolved_dir / "environment.json")
     manifold = PoseManifold(env_json) if env_json.exists() else PoseManifold()
     fb = _fast_numpy_body(manifold.body)
 
@@ -511,7 +517,7 @@ def main() -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     export_neural_gait(args.gait_dir, args.out_dir)
     export_neural_pose(args.pose_dir, args.out_dir)
-    export_pose_manifold_and_library(args.pose_dir, args.motion_db, args.out_dir)
+    export_pose_manifold_and_library(args.pose_dir, args.motion_db, args.out_dir, args.gait_dir)
     return 0
 
 
