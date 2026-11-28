@@ -46,6 +46,33 @@ def _translate_environment_action(action: Mapping[str, object], *, model: str | 
         return BridgeAction("intent", "face", params)
     if action_type == "captureimage":
         return BridgeAction("snapshot", "captureImage")
+    if action_type == "inspect":
+        target = action.get("inspectionTarget")
+        if not isinstance(target, Mapping) or not isinstance(target.get("targetId"), str) or not target["targetId"].strip():
+            return None
+        if not isinstance(target.get("frameId"), str) or not target["frameId"].strip():
+            return None
+        if not isinstance(target.get("query"), str) or not target["query"].strip():
+            return None
+        return BridgeAction("snapshot", "captureImage")
+    if action_type == "visualapproach":
+        target = action.get("visualTarget")
+        if not isinstance(target, Mapping) or not isinstance(target.get("targetId"), str) or not target["targetId"].strip():
+            return None
+        if not isinstance(target.get("frameId"), str) or not target["frameId"].strip():
+            return None
+        box = target.get("box")
+        number = lambda v: type(v) in (int, float) and math.isfinite(v)
+        if not isinstance(box, Mapping) or not all(number(box.get(k)) and 0 <= box[k] <= 1 for k in ("x", "y", "width", "height")):
+            return None
+        if box["width"] <= 0 or box["height"] <= 0 or box["x"] + box["width"] > 1.000001 or box["y"] + box["height"] > 1.000001:
+            return None
+        stop_height = float(target["stopBoxHeight"]) if number(target.get("stopBoxHeight")) and float(target["stopBoxHeight"]) >= 0.05 else 0.45
+        if float(box["height"]) >= stop_height:
+            return BridgeAction("stop")
+        cx = float(box["x"]) + float(box["width"]) * 0.5
+        turn = max(-100, min(100, round((0.5 - cx) * 140.0)))
+        return BridgeAction("intent", "walk", _walk_params({"units": 3, "forward": 80, "turn": turn}, "fwd"))
     if action_type == "sendtext":
         text = action.get("text")
         if not isinstance(text, str) or not text.strip():

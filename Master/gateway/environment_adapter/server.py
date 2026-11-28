@@ -881,7 +881,7 @@ class EnvironmentAdapter:
                 "rejected",
                 f"unsupported_action:{action.get('type')}",
             )
-        if is_locomotion_translation(translated):
+        if is_locomotion_translation(translated) and str(action.get("type") or "").strip().lower() == "move":
             goal = action.get("locomotionGoal")
             if not valid_locomotion_goal(goal):
                 return self._feedback(action_id, "rejected", "locomotion_goal_required")
@@ -1898,17 +1898,28 @@ class EnvironmentAdapter:
         perception = {**self._camera_recognition(analysis),
             "expiresAt": (now + timedelta(seconds=max_frame_age_s - age)).isoformat()}
         now_clock = self.clock()
+        raw_locomotion = self.locomotion_measurement(robot_id) if self.locomotion_measurement is not None else None
+        locomotion_for_curiosity = (
+            {"position": raw_locomotion}
+            if isinstance(raw_locomotion, Mapping)
+            and robot is not None
+            and raw_locomotion.get("robotId") == robot_id
+            and raw_locomotion.get("epoch") == robot.get("epoch")
+            else None
+        )
         self._spatial_curiosity.snapshot(
             robot_id,
             robot,
             now=now_clock,
             yaw_measurement=self._yaw_measurement(robot_id, robot),
+            locomotion_measurement=locomotion_for_curiosity,
         )
         self._spatial_curiosity.record_camera_observation(
             robot_id,
             analysis.epoch,
             max(0.0, now_clock - age),
             recognition=perception,
+            locomotion_measurement=locomotion_for_curiosity,
             close_capture=False,
         )
         await self._send_telemetry("vision.recognition", {"perception": perception,
@@ -2113,6 +2124,7 @@ class EnvironmentAdapter:
                 robot.get("epoch") if robot and type(robot.get("epoch")) is int else None,
                 now_clock,
                 recognition=vis_rec if isinstance(vis_rec, Mapping) else None,
+                locomotion_measurement=state["locomotionMeasurement"],
                 close_capture=True,
             )
         spatial_curiosity = self._spatial_curiosity.snapshot(

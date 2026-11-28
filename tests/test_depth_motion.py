@@ -531,6 +531,18 @@ class DepthGeometryTests(unittest.TestCase):
         self.assertEqual(tracked["referenceFrameId"], first["frameId"])
         self.assertEqual(tracked["referencePoint"], {"x": 0.5, "y": 0.5})
         self.assertLess(tracked["horizontalOffset"], -0.03)
+        # A small 5x5 specular corruption at the exact center pixel does not drop the 9-point patch,
+        # whereas a completely blank frame fails forward-backward consistency cleanly.
+        corrupted = shifted.copy()
+        corrupted[58:63, 86:91] = 255
+        third = estimator.process({**base_req, "counter": 12, "received": 5.4, "jpeg": encode(corrupted)})
+        survived = estimator.range({"frameId": first["frameId"], "point": {"x": 0.5, "y": 0.5}, "instance": "gateway"})
+        self.assertTrue(survived["available"])
+        self.assertEqual(survived["frameId"], third["frameId"])
+        blank = np.zeros_like(shifted)
+        estimator.process({**base_req, "counter": 13, "received": 5.6, "jpeg": encode(blank)})
+        lost_blank = estimator.range({"frameId": first["frameId"], "point": {"x": 0.5, "y": 0.5}, "instance": "gateway"})
+        self.assertFalse(lost_blank["available"])
 
 
 class DepthIntegrationTests(unittest.IsolatedAsyncioTestCase):

@@ -324,5 +324,56 @@ class AdapterSpatialCuriosityIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(snap["sectors"][0]["objects"], ["tvmonitor"])
 
 
+    def test_3d_metric_affordance_fusion_and_blocked_sectors(self) -> None:
+        tracker = SpatialCuriosityTracker()
+        robot = {"epoch": 1, "active_walk": None}
+        yaw = {"available": True, "degrees": 0.0}
+        values = [1.40] * 64
+        # Object in right-center box (x=0.6..0.8, y=0.5..0.8 -> cols 4..6, rows 6..6) at 0.92m
+        for r in range(5, 7):
+            for c in range(4, 7):
+                values[r * 8 + c] = 0.92
+        locomotion = {
+            "position": {
+                "available": False,
+                "reason": "single_frame_depth",
+                "depthSpatial": {
+                    "schema": "ainekio-depth-grid-v1",
+                    "available": True,
+                    "rows": 8,
+                    "columns": 8,
+                    "values": values,
+                    "valid": [True] * 64,
+                },
+            }
+        }
+        tracker.snapshot("r1", robot, now=10.0, yaw_measurement=yaw, locomotion_measurement=locomotion)
+        tracker.record_camera_observation(
+            "r1",
+            1,
+            now=10.0,
+            recognition={
+                "objects": [
+                    {"label": "traffic cone", "score": 0.91, "trackId": "cone-1", "box": {"x": 0.6, "y": 0.5, "width": 0.2, "height": 0.3}}
+                ]
+            },
+            locomotion_measurement=locomotion,
+            close_capture=False,
+        )
+        # Mark sector 4 as blocked (0.20m wall)
+        tracker._robots["r1"].sectors[4].free_floor_meters = 0.20
+        snap = tracker.snapshot("r1", robot, now=12.0, yaw_measurement=yaw, locomotion_measurement=locomotion)
+        assert snap is not None
+        cone = snap["trackedObjects"][0]
+        self.assertEqual(cone["trackId"], "cone-1")
+        self.assertEqual(cone["rangeMeters"], 0.92)
+        self.assertIsNotNone(cone["bearingDeg"])
+        self.assertIsNotNone(cone["relativeBearingDeg"])
+        inspect_aff = [a for a in snap["affordances"] if a["kind"] == "inspect_object"]
+        self.assertEqual(len(inspect_aff), 1)
+        self.assertEqual(inspect_aff[0]["rangeMeters"], 0.92)
+        self.assertEqual([b["sector"] for b in snap["blockedSectors"]], [4])
+
+
 if __name__ == "__main__":
     unittest.main()

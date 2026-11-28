@@ -335,12 +335,42 @@ class Estimator:
                 if contact["currentFrameId"] != old_identity["frameId"] or old_identity["epoch"] != request["epoch"] or old_gray.shape != gray.shape:
                     contact.update(available=False, reason="Ground contact frame continuity lost")
                     continue
-                pixel = np.array(contact["pixel"], np.float32).reshape(1, 1, 2)
-                tracked, valid, _ = cv2.calcOpticalFlowPyrLK(old_gray, gray, pixel, None)
-                if tracked is None or valid is None or not valid[0, 0]:
+                cx, cy = float(contact["pixel"][0]), float(contact["pixel"][1])
+                h_img, w_img = gray.shape[:2]
+                patch = np.array(
+                    [
+                        [np.clip(cx + dx, 0.0, max(0.0, w_img - 1.0)), np.clip(cy + dy, 0.0, max(0.0, h_img - 1.0))]
+                        for dy in (-6.0, 0.0, 6.0)
+                        for dx in (-6.0, 0.0, 6.0)
+                    ],
+                    dtype=np.float32,
+                ).reshape(-1, 1, 2)
+                tracked, valid, _ = cv2.calcOpticalFlowPyrLK(old_gray, gray, patch, None)
+                back, back_valid, _ = (
+                    cv2.calcOpticalFlowPyrLK(gray, old_gray, tracked, None)
+                    if tracked is not None and valid is not None
+                    else (None, None, None)
+                )
+                consistent_shifts = []
+                if tracked is not None and valid is not None and back is not None and back_valid is not None:
+                    for idx in range(patch.shape[0]):
+                        if not (valid[idx, 0] and back_valid[idx, 0]):
+                            continue
+                        tx, ty = float(tracked[idx, 0, 0]), float(tracked[idx, 0, 1])
+                        if not (0.0 <= tx < w_img and 0.0 <= ty < h_img):
+                            continue
+                        fb_err = float(np.hypot(back[idx, 0, 0] - patch[idx, 0, 0], back[idx, 0, 1] - patch[idx, 0, 1]))
+                        if fb_err <= 3.5:
+                            consistent_shifts.append((tx - float(patch[idx, 0, 0]), ty - float(patch[idx, 0, 1])))
+                if not consistent_shifts:
                     contact.update(available=False, reason="Selected ground contact optical tracking lost")
                 else:
-                    contact.update(pixel=tracked.reshape(2).tolist(), currentFrameId=frame_id)
+                    shifts = np.array(consistent_shifts, dtype=np.float32)
+                    next_pixel = [
+                        float(np.clip(cx + float(np.median(shifts[:, 0])), 0.0, max(0.0, w_img - 1.0))),
+                        float(np.clip(cy + float(np.median(shifts[:, 1])), 0.0, max(0.0, h_img - 1.0))),
+                    ]
+                    contact.update(pixel=next_pixel, currentFrameId=frame_id)
         frames[robot] = (gray, depth, state["intrinsics"].copy(), config.get("cameraToBody"), identity)
         good = depth[depth > 0]
         lo, hi = np.quantile(good, [.02, .98])
